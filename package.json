@@ -38,6 +38,10 @@
       {
         "command": "kcode.open",
         "title": "KCode: Open"
+      },
+      {
+        "command": "kcode.newTask",
+        "title": "KCode: New Task"
       }
     ]
   },

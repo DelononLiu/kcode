@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { TaskStore } from '../store/TaskStore';
+import { Task } from '../types';
 
 export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'kcode.viewsMain';
@@ -36,10 +37,10 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.html = this.getHtml();
 
-        webviewView.webview.onDidReceiveMessage((message: any) => {
+        webviewView.webview.onDidReceiveMessage(async (message: any) => {
             switch (message.type) {
                 case 'newTask':
-                    vscode.commands.executeCommand('kcode.newTask');
+                    this.createNewTask();
                     break;
                 case 'selectTask':
                     this._onTaskSelected(message.taskId);
@@ -50,6 +51,18 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             }
         });
 
+        this.refresh();
+    }
+
+    createNewTask(): void {
+        const task: Task = {
+            id: `task_${Date.now()}`,
+            title: 'New Task',
+            status: 'pending',
+            createdAt: Date.now()
+        };
+        this._store.addTask(task);
+        this._onTaskSelected(task.id);
         this.refresh();
     }
 
@@ -170,28 +183,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         <span style="font-size:11px;color:#6b6b6b;padding:2px 0;">KCode v0.1.0</span>
     </div>
 
-    <script>
-        const vscode = acquireVsCodeApi();
-    </script>
     <script src="${scriptUri}"></script>
-    <script>
-        (function() {
-            document.getElementById('btn-new-task').addEventListener('click', function() {
-                vscode.postMessage({ type: 'newTask' });
-            });
-
-            window.addEventListener('message', function(event) {
-                var message = event.data;
-                switch (message.type) {
-                    case 'updateTaskList':
-                        if (window.renderTaskList) {
-                            window.renderTaskList(message.tasks);
-                        }
-                        break;
-                }
-            });
-        })();
-    </script>
 </body>
 </html>`;
     }

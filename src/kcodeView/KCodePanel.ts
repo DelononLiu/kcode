@@ -12,6 +12,7 @@ export class KCodePanel {
     private acpClient: AcpClient | null = null;
     private agentReady: boolean = false;
     private accumulatedAgentText: string = '';
+    private refreshSidebarCallback?: () => void;
 
     constructor(context: vscode.ExtensionContext, store: TaskStore) {
         this.context = context;
@@ -33,6 +34,10 @@ export class KCodePanel {
 
         this.panel.webview.html = this.getWebviewContent();
         this.setupMessageHandler();
+
+        this.panel.onDidDispose(() => {
+            this.onDisposeCallback?.();
+        });
     }
 
     private setupMessageHandler() {
@@ -49,6 +54,8 @@ export class KCodePanel {
         const tid = taskId || this.currentTaskId;
         if (!tid) return;
 
+        const isFirstMessage = this.store.getMessages(tid).length === 0;
+
         // Store user message
         this.store.addMessage({
             id: `msg_${Date.now()}`,
@@ -57,6 +64,15 @@ export class KCodePanel {
             content: text,
             timestamp: Date.now()
         });
+
+        if (isFirstMessage) {
+            const shortTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
+            this.store.updateTaskTitle(tid, shortTitle);
+            this.refreshSidebarCallback?.();
+        }
+
+        // Send user message to webview for immediate rendering
+        this.panel.webview.postMessage({ type: 'addUserMessage', content: text });
 
         if (!this.agentReady) {
             // Auto-initialize ACP agent on first message
@@ -318,6 +334,14 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
     reveal() {
         this.panel.reveal();
+    }
+
+    focusInput() {
+        this.panel.webview.postMessage({ type: 'focusInput' });
+    }
+
+    setRefreshSidebarCallback(callback: () => void) {
+        this.refreshSidebarCallback = callback;
     }
 
     dispose() {

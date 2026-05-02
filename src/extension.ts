@@ -2,21 +2,26 @@ import * as vscode from 'vscode';
 import { KCodePanel } from './kcodeView/KCodePanel';
 import { KCodeSidebarProvider } from './kcodeView/KCodeSidebarProvider';
 import { TaskStore } from './store/TaskStore';
-import { newTask } from './commands/newTask';
+import { Task } from './types';
 
 let panel: KCodePanel | undefined;
 let store: TaskStore | undefined;
 let sidebarProvider: KCodeSidebarProvider | undefined;
 
 function openTaskInPanel(context: vscode.ExtensionContext, taskId: string) {
+    store?.updateTaskStatus(taskId, 'active');
     if (panel) {
         panel.reveal();
         panel.loadTask(taskId);
+        panel.focusInput();
     } else {
         panel = new KCodePanel(context, store!);
         panel.onDidDispose(() => { panel = undefined; });
+        panel.setRefreshSidebarCallback(refreshSidebar);
         panel.loadTask(taskId);
+        panel.focusInput();
     }
+    refreshSidebar();
 }
 
 function refreshSidebar() {
@@ -46,6 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Auto-create the main panel when KCode is activated
     panel = new KCodePanel(context, store!);
     panel.onDidDispose(() => { panel = undefined; });
+    panel.setRefreshSidebarCallback(refreshSidebar);
 
     // Open/focus the sidebar view and reveal the main panel
     const openCmd = vscode.commands.registerCommand('kcode.open', async () => {
@@ -60,10 +66,15 @@ export function activate(context: vscode.ExtensionContext) {
 
     const newTaskCmd = vscode.commands.registerCommand('kcode.newTask', async () => {
         if (!store) return;
-        const task = await newTask(store);
-        if (task) {
-            refreshSidebar();
-        }
+        const task: Task = {
+            id: `task_${Date.now()}`,
+            title: 'New Task',
+            status: 'pending',
+            createdAt: Date.now()
+        };
+        store.addTask(task);
+        refreshSidebar();
+        openTaskInPanel(context, task.id);
     });
 
     context.subscriptions.push(openCmd, newTaskCmd);

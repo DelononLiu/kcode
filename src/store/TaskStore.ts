@@ -29,6 +29,15 @@ export class TaskStore {
         }
     }
 
+    updateTaskTitle(taskId: string, title: string): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            tasks[idx].title = title;
+            this.state.update('tasks', tasks);
+        }
+    }
+
     getTask(taskId: string): Task | undefined {
         return this.getTasks().find(t => t.id === taskId);
     }

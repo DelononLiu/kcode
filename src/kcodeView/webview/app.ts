@@ -55,6 +55,13 @@ function initMessageHandler() {
             case 'agentStatus':
                 handleAgentStatus(message.status, message.message);
                 break;
+            case 'focusInput':
+                const inputEl = document.getElementById('chat-input') as HTMLTextAreaElement;
+                if (inputEl) inputEl.focus();
+                break;
+            case 'addUserMessage':
+                addUserMessage(message.content);
+                break;
 
         }
     });
@@ -227,28 +234,10 @@ function initChat() {
         const text = input.value.trim();
         if (!text) return;
 
-        addUserMessage(text);
         input.value = '';
         input.focus();
 
-        simulateAgentReply(text);
-    }
-
-    const mockAgentResponses = [
-        (input: string) => `好的，我来处理"${input}"这个需求。\n\n让我先分析一下当前代码结构，然后给出具体的修改方案。`,
-        (input: string) => `收到。关于"${input}"，我有以下几点建议：\n\n1. 可以考虑模块化设计\n2. 注意边界情况处理\n3. 建议添加适当的类型定义`,
-        (input: string) => `正在处理：${input}\n\n我已经完成了初步分析，以下是具体的实现方案。`,
-        (input: string) => `针对"${input}"，我的方案如下：\n\n\`\`\`\n// 示例代码\nfunction example() {\n  console.log("hello");\n}\n\`\`\`\n\n这个实现涵盖了主要功能逻辑。`,
-        (input: string) => `好的，关于"${input}"的需求已经完成了。主要改动包括：\n\n- 新增核心逻辑处理\n- 优化了相关接口\n- 补充了必要的类型定义\n\n你可以查看具体的文件变更。`,
-    ];
-
-    function simulateAgentReply(userInput: string) {
-        const delay = 300 + Math.random() * 700;
-        setTimeout(() => {
-            const idx = Math.floor(Math.random() * mockAgentResponses.length);
-            const reply = mockAgentResponses[idx](userInput);
-            addMessage('agent', reply);
-        }, delay);
+        vscode.postMessage({ type: 'sendMessage', text, taskId: activeTaskId });
     }
 
     sendBtn.addEventListener('click', sendMessage);
