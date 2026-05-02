@@ -34,10 +34,8 @@ function addMessageElement(role: string, content: string) {
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
 
-    const rendered = content
-        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        .replace(/\n/g, '<br>');
+    const markdownFn = (window as any).simpleMarkdown || ((s: string) => s.replace(/\n/g, '<br>'));
+    const rendered = markdownFn(content);
 
     bubble.innerHTML = rendered;
     msgDiv.appendChild(bubble);

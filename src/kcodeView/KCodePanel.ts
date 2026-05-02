@@ -169,63 +169,15 @@ export class KCodePanel {
     <div id="container">
         <!-- Chat Area -->
         <div id="chat-area">
-            <!-- Top: Instruction Card -->
-            <div id="instruction-panel">
-                <div class="instruction-card">
-                    <div class="instruction-text">按如下改现: ## UI 设计描述: 侧边栏 (Sidebar)...</div>
-                    <div class="instruction-toggle">
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                            <path d="M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        </svg>
-                        <span class="toggle-detail">### 1. 顶部操作区</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Middle: Timeline / Messages -->
+            <!-- Middle: Chat Messages -->
             <div id="chat-messages">
-                <div class="timeline-header">
-                    <span class="timeline-duration-label">已处理 <span class="duration-value">3m 3s</span></span>
-                </div>
-                <div class="timeline-item">
-                    <span class="timeline-icon thinking">⟳</span>
-                    <span class="timeline-text">思考过程</span>
-                    <span class="timeline-time">9.1s</span>
-                </div>
-                <div class="timeline-item">
-                    <span class="timeline-icon done">✓</span>
-                    <span class="timeline-text">已开启 Plan Mode</span>
-                    <span class="timeline-time">2.3s</span>
-                </div>
-                <div class="timeline-item">
-                    <span class="timeline-icon thinking">⟳</span>
-                    <span class="timeline-text">思考过程</span>
-                    <span class="timeline-time">4.7s</span>
-                </div>
-                <div class="timeline-item">
-                    <span class="timeline-icon agent">◇</span>
-                    <span class="timeline-text">子智能体 1 Explore codebase structure</span>
-                    <span class="timeline-time">1.2s</span>
-                </div>
+                <div class="chat-placeholder">输入需求，开始与 AI 对话</div>
             </div>
 
             <!-- Bottom: Input -->
             <div id="chat-input-area">
                 <div class="input-wrapper">
                     <div class="input-tools">
-                        <button class="input-tool-btn" title="附件">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <path d="M8.5 4v5.5a2 2 0 01-4 0V4a3.5 3.5 0 017 0v6.5a4.5 4.5 0 01-9 0V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-                            </svg>
-                        </button>
-                        <button class="input-tool-btn" title="@提及" style="font-weight:600;font-size:14px;">@</button>
-                        <button class="input-tool-btn" title="截图">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
-                                <circle cx="8" cy="7" r="2" stroke="currentColor" stroke-width="1.3"/>
-                                <path d="M11 13.5v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-                            </svg>
-                        </button>
                     </div>
                     <textarea id="chat-input" placeholder="提出后续修改要求" rows="1"></textarea>
                     <div class="input-actions">
@@ -244,21 +196,7 @@ export class KCodePanel {
                             <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1"/>
                             <path d="M6 3v3l2 1" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
                         </svg>
-                        Claude CLI
-                    </span>
-                    <span class="status-divider"></span>
-                    <span class="status-item model-badge">glm-5v-turbo</span>
-                    <span class="status-divider"></span>
-                    <span class="status-item">跳过权限检查</span>
-                    <span class="status-divider"></span>
-                    <span class="status-item">11.9%</span>
-                    <span class="status-divider"></span>
-                    <span class="status-item">
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                            <path d="M2 4h8M2 4v5a1 1 0 001 1h6a1 1 0 001-1V4M2 4l1-2h6l1 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-                            <path d="M4.5 7h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-                        </svg>
-                        master
+                        <span id="status-model">Agent</span>
                     </span>
                 </div>
             </div>
@@ -299,26 +237,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .splitter{width:4px;cursor:col-resize;background:transparent;flex-shrink:0;z-index:10}
 .splitter:hover,.splitter.active{background:#0e639c}
 #chat-area{flex:1;display:flex;flex-direction:column;min-width:300px;background:#1e1e1e}
-#instruction-panel{flex-shrink:0;padding:12px 16px 8px;border-bottom:1px solid #2d2d2d}
-.instruction-card{background:#2a2a2a;border:1px solid #3c3c3c;border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
-.instruction-text{font-size:13px;line-height:1.5;color:#d4d4d4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.instruction-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;color:#888;font-size:12px;user-select:none;transition:color .15s}
-.instruction-toggle:hover{color:#b0b0b0}
-.instruction-toggle svg{transition:transform .15s ease;flex-shrink:0}
-.instruction-toggle.collapsed svg{transform:rotate(-90deg)}
-.instruction-toggle .toggle-detail{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #chat-messages{flex:1;overflow-y:auto;padding:8px 16px;display:flex;flex-direction:column;gap:2px}
-.timeline-header{padding:4px 8px 8px;font-size:11px;color:#6b6b6b;flex-shrink:0}
-.timeline-duration-label{font-weight:500}
-.duration-value{color:#888}
-.timeline-item{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:4px;font-size:13px;color:#b0b0b0;cursor:default}
-.timeline-item:hover{background:#2a2a2a}
-.timeline-icon{width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
-.timeline-icon.thinking{color:#888;font-size:14px}
-.timeline-icon.done{background:#1a3a2a;color:#4ec9b0;font-size:11px}
-.timeline-icon.agent{background:#2a2d3a;color:#8888cc;font-size:12px}
-.timeline-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.timeline-time{font-size:11px;color:#6b6b6b;flex-shrink:0;font-variant-numeric:tabular-nums}
+.chat-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#6b6b6b;font-size:14px}
 .chat-msg{margin-bottom:4px;max-width:90%}
 .chat-msg.user{align-self:flex-end;margin-left:auto;margin-top:8px}
 .chat-msg.agent{align-self:flex-start;margin-top:8px}

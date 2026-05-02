@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initLayout();
     initTabs();
     initChat();
-    initInstructionToggle();
     initMessageHandler();
 });
 
@@ -56,44 +55,30 @@ function initMessageHandler() {
             case 'agentStatus':
                 handleAgentStatus(message.status, message.message);
                 break;
-            // Timeline step updates from the extension
-            case 'addTimelineStep':
-                addTimelineItem(message.icon, message.text, message.time);
-                break;
+
         }
     });
 }
 
-// ==================== Timeline ====================
+// ==================== Markdown ====================
 
-function addTimelineItem(icon: string, text: string, time?: string) {
-    const container = document.getElementById('chat-messages')!;
-    // Remove placeholder if it exists
-    const placeholder = container.querySelector('.chat-placeholder');
-    if (placeholder) placeholder.remove();
-
-    const item = document.createElement('div');
-    item.className = 'timeline-item';
-
-    const iconSpan = document.createElement('span');
-    iconSpan.className = `timeline-icon ${icon === '⟳' ? 'thinking' : icon === '✓' ? 'done' : icon === '◇' ? 'agent' : ''}`;
-    iconSpan.textContent = icon;
-    item.appendChild(iconSpan);
-
-    const textSpan = document.createElement('span');
-    textSpan.className = 'timeline-text';
-    textSpan.textContent = text;
-    item.appendChild(textSpan);
-
-    if (time) {
-        const timeSpan = document.createElement('span');
-        timeSpan.className = 'timeline-time';
-        timeSpan.textContent = time;
-        item.appendChild(timeSpan);
-    }
-
-    container.appendChild(item);
-    container.scrollTop = container.scrollHeight;
+function simpleMarkdown(text: string): string {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        // fenced code blocks (before inline code so ticks inside are safe)
+        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+        // inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // bold
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        // italic
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        // links
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+        // newlines to <br>
+        .replace(/\n/g, '<br>');
 }
 
 // ==================== Streaming ====================
@@ -102,8 +87,8 @@ let streamMessageEl: HTMLElement | null = null;
 
 function handleAgentStreamUpdate(text: string) {
     const container = document.getElementById('chat-messages')!;
-    // Remove the timeline header if present (keep it for first message ref)
-    // Don't remove timeline-header — it stays at the top
+    const placeholder = container.querySelector('.chat-placeholder');
+    if (placeholder) placeholder.remove();
 
     if (!streamMessageEl) {
         // Create agent streaming bubble
@@ -123,10 +108,7 @@ function handleAgentStreamUpdate(text: string) {
         streamMessageEl = bubble;
     }
 
-    const rendered = text
-        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        .replace(/\n/g, '<br>');
+    const rendered = simpleMarkdown(text);
 
     streamMessageEl.innerHTML = rendered;
     container.scrollTop = container.scrollHeight;
@@ -268,7 +250,7 @@ function initChat() {
     sendBtn.addEventListener('click', sendMessage);
 
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             sendMessage();
         }
@@ -283,9 +265,16 @@ function initChat() {
 
 function addUserMessage(content: string) {
     const container = document.getElementById('chat-messages')!;
+    const placeholder = container.querySelector('.chat-placeholder');
+    if (placeholder) placeholder.remove();
 
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg user';
+
+    const sender = document.createElement('div');
+    sender.className = 'msg-sender';
+    sender.textContent = 'You';
+    msgDiv.appendChild(sender);
 
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
@@ -316,10 +305,7 @@ function addMessage(role: 'user' | 'agent', content: string) {
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
 
-    const rendered = content
-        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        .replace(/\n/g, '<br>');
+    const rendered = simpleMarkdown(content);
 
     bubble.innerHTML = rendered;
     msgDiv.appendChild(bubble);
@@ -330,4 +316,4 @@ function addMessage(role: 'user' | 'agent', content: string) {
 
 // Export for use by other modules
 (window as any).addMessage = addMessage;
-(window as any).addTimelineItem = addTimelineItem;
+(window as any).simpleMarkdown = simpleMarkdown;
