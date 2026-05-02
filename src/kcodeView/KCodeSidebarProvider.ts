@@ -7,12 +7,12 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
     private _store: TaskStore;
     private _context: vscode.ExtensionContext;
-    private _onTaskSelected: (taskId: string, workspaceId: string) => void;
+    private _onTaskSelected: (taskId: string) => void;
 
     constructor(
         context: vscode.ExtensionContext,
         store: TaskStore,
-        onTaskSelected: (taskId: string, workspaceId: string) => void
+        onTaskSelected: (taskId: string) => void
     ) {
         this._context = context;
         this._store = store;
@@ -41,11 +41,8 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                 case 'newTask':
                     vscode.commands.executeCommand('kcode.newTask');
                     break;
-                case 'openWorkspace':
-                    vscode.commands.executeCommand('kcode.openWorkspace');
-                    break;
                 case 'selectTask':
-                    this._onTaskSelected(message.taskId, message.workspaceId);
+                    this._onTaskSelected(message.taskId);
                     break;
                 case 'openSettings':
                     vscode.commands.executeCommand('workbench.action.openSettings', 'kcode');
@@ -53,21 +50,15 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             }
         });
 
-        // Send initial data
         this.refresh();
     }
 
     refresh(): void {
         if (!this._view) return;
-        const workspaces = this._store.getWorkspaces();
-        const data = workspaces.map(ws => ({
-            id: ws.id,
-            name: ws.name,
-            tasks: this._store.getTasks(ws.id)
-        }));
+        const tasks = this._store.getTasks();
         this._view.webview.postMessage({
             type: 'updateTaskList',
-            workspaces: data
+            tasks
         });
     }
 
@@ -128,24 +119,8 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             color: #6b6b6b;
             text-align: center;
         }
-        .workspace-group { margin-bottom: 8px; }
-        .workspace-header {
-            display: flex;
-            align-items: center;
-            padding: 4px 6px;
-            cursor: pointer;
-            border-radius: 3px;
-            font-weight: 600;
-            color: #cccccc;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .workspace-header:hover { background: #2d2d2d; }
-        .workspace-header .arrow { margin-right: 4px; font-size: 10px; transition: transform 0.15s ease; }
-        .workspace-header .arrow.collapsed { transform: rotate(-90deg); }
         .task-item {
-            padding: 4px 6px 4px 20px;
+            padding: 6px 8px;
             cursor: pointer;
             border-radius: 3px;
             color: #a0a0a0;
@@ -175,16 +150,6 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             display: flex;
             justify-content: center;
         }
-        .icon-btn {
-            background: none;
-            border: none;
-            color: #a0a0a0;
-            cursor: pointer;
-            font-size: 16px;
-            padding: 4px 6px;
-            border-radius: 3px;
-        }
-        .icon-btn:hover { background: #2d2d2d; color: #ffffff; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
@@ -196,7 +161,6 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     <div id="sidebar-content">
         <div class="sidebar-section">
             <button id="btn-new-task" class="sidebar-btn">+ New Task</button>
-            <button id="btn-open-workspace" class="sidebar-btn">Open Workspace</button>
         </div>
         <div id="task-list">
             <div class="placeholder-text">暂无任务</div>
@@ -215,16 +179,13 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             document.getElementById('btn-new-task').addEventListener('click', function() {
                 vscode.postMessage({ type: 'newTask' });
             });
-            document.getElementById('btn-open-workspace').addEventListener('click', function() {
-                vscode.postMessage({ type: 'openWorkspace' });
-            });
 
             window.addEventListener('message', function(event) {
                 var message = event.data;
                 switch (message.type) {
                     case 'updateTaskList':
                         if (window.renderTaskList) {
-                            window.renderTaskList(message.workspaces);
+                            window.renderTaskList(message.tasks);
                         }
                         break;
                 }

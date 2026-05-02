@@ -3,20 +3,19 @@ import { KCodePanel } from './kcodeView/KCodePanel';
 import { KCodeSidebarProvider } from './kcodeView/KCodeSidebarProvider';
 import { TaskStore } from './store/TaskStore';
 import { newTask } from './commands/newTask';
-import { openWorkspace } from './commands/openWorkspace';
 
 let panel: KCodePanel | undefined;
 let store: TaskStore | undefined;
 let sidebarProvider: KCodeSidebarProvider | undefined;
 
-function openTaskInPanel(context: vscode.ExtensionContext, taskId: string, workspaceId: string) {
+function openTaskInPanel(context: vscode.ExtensionContext, taskId: string) {
     if (panel) {
         panel.reveal();
-        panel.loadTask(taskId, workspaceId);
+        panel.loadTask(taskId);
     } else {
         panel = new KCodePanel(context, store!);
         panel.onDidDispose(() => { panel = undefined; });
-        panel.loadTask(taskId, workspaceId);
+        panel.loadTask(taskId);
     }
 }
 
@@ -34,7 +33,7 @@ export function activate(context: vscode.ExtensionContext) {
     sidebarProvider = new KCodeSidebarProvider(
         context,
         store,
-        (taskId, workspaceId) => openTaskInPanel(context, taskId, workspaceId)
+        (taskId) => openTaskInPanel(context, taskId)
     );
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
@@ -67,15 +66,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    const openWsCmd = vscode.commands.registerCommand('kcode.openWorkspace', async () => {
-        if (!store) return;
-        const ws = await openWorkspace(store);
-        if (ws) {
-            refreshSidebar();
-        }
-    });
-
-    context.subscriptions.push(openCmd, newTaskCmd, openWsCmd);
+    context.subscriptions.push(openCmd, newTaskCmd);
 }
 
 export function deactivate() {

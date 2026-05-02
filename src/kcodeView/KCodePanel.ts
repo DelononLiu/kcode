@@ -10,7 +10,6 @@ export class KCodePanel {
     private onDisposeCallback?: () => void;
     private currentTaskId: string | null = null;
     private acpClient: AcpClient | null = null;
-    private currentWorkspacePath: string = '';
     private agentReady: boolean = false;
     private accumulatedAgentText: string = '';
 
@@ -107,9 +106,9 @@ export class KCodePanel {
 
     private async ensureAgent() {
         try {
-            this.acpClient = new AcpClient(this.currentWorkspacePath || vscode.workspace.rootPath || '');
+            const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
+            this.acpClient = new AcpClient(workspacePath);
 
-            // Try to find the ACP agent
             const config = vscode.workspace.getConfiguration('kcode');
             const agentPath = config.get<string>('agentPath') || '';
             const agentArgs = config.get<string[]>('agentArgs') || [];
@@ -117,9 +116,7 @@ export class KCodePanel {
             if (agentPath) {
                 const connected = await this.acpClient.connect(agentPath, agentArgs);
                 if (connected) {
-                    const sessionId = await this.acpClient.createSession(
-                        this.currentWorkspacePath || vscode.workspace.rootPath || process.cwd()
-                    );
+                    const sessionId = await this.acpClient.createSession(workspacePath);
                     if (sessionId) {
                         this.agentReady = true;
                         this.panel.webview.postMessage({
@@ -132,7 +129,6 @@ export class KCodePanel {
             }
         } catch (err) {
             console.error('Failed to initialize ACP agent:', err);
-            // agentReady stays false, fallback echo will be used
         }
     }
 
@@ -169,35 +165,37 @@ export class KCodePanel {
     <div id="container">
         <!-- Chat Area -->
         <div id="chat-area">
-            <!-- Middle: Chat Messages -->
-            <div id="chat-messages">
-                <div class="chat-placeholder">输入需求，开始与 AI 对话</div>
-            </div>
-
-            <!-- Bottom: Input -->
-            <div id="chat-input-area">
-                <div class="input-wrapper">
-                    <div class="input-tools">
-                    </div>
-                    <textarea id="chat-input" placeholder="提出后续修改要求" rows="1"></textarea>
-                    <div class="input-actions">
-                        <button class="input-tool-btn settings-btn" title="设置">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.2"/>
-                                <path d="M13.5 8c0-.3 0-.7-.1-1l1.5-1.2-.6-1.9-1.9-.4c-.4-.4-.9-.7-1.4-1L10.5.5H8.5L7.5 2c-.5.1-1 .4-1.4.7l-1.9-.4-1.5 1L2.5 5c-.3.4-.5.9-.6 1.4L.5 7.5v2l1.5 1.1c.1.5.3 1 .6 1.4l-.6 1.9 1.5 1.5 1.9-.4c.4.4.9.7 1.4 1l1 1.5h2l1-1.5c.5-.3 1-.6 1.4-1l1.9.4 1.5-1.5-.6-1.9c.3-.4.5-.9.6-1.4l1.5-1.1V8z" stroke="currentColor" stroke-width="1.2"/>
-                            </svg>
-                        </button>
-                        <button id="btn-send" class="send-btn">发送</button>
-                    </div>
+            <div id="chat-inner">
+                <!-- Middle: Chat Messages -->
+                <div id="chat-messages">
+                    <div class="chat-placeholder">输入需求，开始与 AI 对话</div>
                 </div>
-                <div id="chat-statusbar">
-                    <span class="status-item">
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                            <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1"/>
-                            <path d="M6 3v3l2 1" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-                        </svg>
-                        <span id="status-model">Agent</span>
-                    </span>
+
+                <!-- Bottom: Input -->
+                <div id="chat-input-area">
+                    <div class="input-wrapper">
+                        <div class="input-tools">
+                        </div>
+                        <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
+                        <div class="input-actions">
+                            <button class="input-tool-btn settings-btn" title="设置">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.2"/>
+                                    <path d="M13.5 8c0-.3 0-.7-.1-1l1.5-1.2-.6-1.9-1.9-.4c-.4-.4-.9-.7-1.4-1L10.5.5H8.5L7.5 2c-.5.1-1 .4-1.4.7l-1.9-.4-1.5 1L2.5 5c-.3.4-.5.9-.6 1.4L.5 7.5v2l1.5 1.1c.1.5.3 1 .6 1.4l-.6 1.9 1.5 1.5 1.9-.4c.4.4.9.7 1.4 1l1 1.5h2l1-1.5c.5-.3 1-.6 1.4-1l1.9.4 1.5-1.5-.6-1.9c.3-.4.5-.9.6-1.4l1.5-1.1V8z" stroke="currentColor" stroke-width="1.2"/>
+                                </svg>
+                            </button>
+                            <button id="btn-send" class="send-btn">发送</button>
+                        </div>
+                    </div>
+                    <div id="chat-statusbar">
+                        <span class="status-item">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1"/>
+                                <path d="M6 3v3l2 1" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+                            </svg>
+                            <span id="status-model">Agent</span>
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -236,10 +234,11 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #container{display:flex;height:100vh;width:100vw;overflow:hidden}
 .splitter{width:4px;cursor:col-resize;background:transparent;flex-shrink:0;z-index:10}
 .splitter:hover,.splitter.active{background:#0e639c}
-#chat-area{flex:1;display:flex;flex-direction:column;min-width:300px;background:#1e1e1e}
+#chat-area{flex:1;display:flex;flex-direction:column;min-width:300px;background:#1e1e1e;align-items:center}
+#chat-inner{width:100%;max-width:720px;display:flex;flex-direction:column;flex:1;min-height:0}
 #chat-messages{flex:1;overflow-y:auto;padding:8px 16px;display:flex;flex-direction:column;gap:2px}
 .chat-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#6b6b6b;font-size:14px}
-.chat-msg{margin-bottom:4px;max-width:90%}
+.chat-msg{margin-bottom:4px}
 .chat-msg.user{align-self:flex-end;margin-left:auto;margin-top:8px}
 .chat-msg.agent{align-self:flex-start;margin-top:8px}
 .chat-msg .msg-sender{font-size:11px;color:#888;margin-bottom:4px}
@@ -255,7 +254,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .input-tools{display:flex;align-items:center;gap:2px;flex-shrink:0;padding-bottom:2px}
 .input-tool-btn{background:none;border:none;color:#888;cursor:pointer;padding:4px 5px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;transition:color .15s,background .15s}
 .input-tool-btn:hover{background:#3c3c3c;color:#ccc}
-#chat-input{flex:1;background:transparent;color:#d4d4d4;border:none;padding:6px 4px;font-family:inherit;font-size:13px;resize:none;outline:none;min-height:20px;max-height:200px;line-height:1.4}
+#chat-input{flex:1;background:transparent;color:#d4d4d4;border:none;padding:6px 4px;font-family:inherit;font-size:13px;resize:none;outline:none;height:48px;max-height:200px;line-height:1.4}
 #chat-input::placeholder{color:#6b6b6b}
 .input-actions{display:flex;align-items:center;gap:4px;flex-shrink:0;padding-bottom:2px}
 .send-btn{padding:5px 16px;background:#0e639c;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500;transition:background .15s;white-space:nowrap}
@@ -284,12 +283,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 ::-webkit-scrollbar-thumb:hover{background:#777}`;
     }
 
-    loadTask(taskId: string, workspaceId: string) {
+    loadTask(taskId: string) {
         this.currentTaskId = taskId;
-        const ws = this.store.getWorkspaces().find(w => w.id === workspaceId);
-        if (ws) {
-            this.currentWorkspacePath = ws.path;
-        }
         this.sendTaskMessages(taskId);
     }
 

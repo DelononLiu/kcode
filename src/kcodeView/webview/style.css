@@ -45,6 +45,16 @@ html, body {
     flex-direction: column;
     min-width: 300px;
     background: #1e1e1e;
+    align-items: center;
+}
+
+#chat-inner {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
 }
 
 /* === Messages === */
@@ -69,7 +79,6 @@ html, body {
 /* Chat messages (user bubbles, agent streaming) */
 .chat-msg {
     margin-bottom: 4px;
-    max-width: 90%;
 }
 
 .chat-msg.user {
@@ -194,7 +203,7 @@ html, body {
     font-size: 13px;
     resize: none;
     outline: none;
-    min-height: 20px;
+    height: 48px;
     max-height: 200px;
     line-height: 1.4;
 }

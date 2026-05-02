@@ -36,17 +36,16 @@ kcode/
     │       ├── preview.ts           # 右侧面板: Preview/Diff/WebView
     │       └── device.ts            # 右侧面板: Device tab
     ├── commands/
-    │   ├── newTask.ts               # 新建任务 (选择工作区 → 输入标题)
-    │   ├── openWorkspace.ts         # 选择本地目录 → 创建工作区
+    │   ├── newTask.ts               # 新建任务 (输入标题)
     │   └── selectTask.ts
     ├── acp/
     │   ├── AcpClient.ts             # ACP ClientSideConnection 封装
     │   ├── AgentManager.ts          # Agent 子进程 spawn/管理
     │   └── callbacks.ts             # Client 回调(文件读写/权限/sessionUpdate)
     ├── store/
-    │   └── TaskStore.ts             # CRUD: 工作区 / 任务 / 消息
+    │   └── TaskStore.ts             # CRUD: 任务 / 消息
     └── types/
-        └── index.ts                 # Workspace, Task, ChatMessage 等类型
+        └── index.ts                 # Task, ChatMessage 等类型
 ```
 
 ---
@@ -58,8 +57,8 @@ kcode/
 采用 Hybrid 模式：**VS Code 侧边栏视图 + 编辑器面板**。
 
 **侧边栏视图** (`KCodeSidebarProvider`)：显示在左侧 activity bar 中，包含：
-- New Task / Open Workspace 按钮
-- 按工作区分组的任务列表
+- New Task 按钮
+- 扁平任务列表
 - 底部版本号
 
 **编辑器面板** (`KCodePanel`)：点击侧边栏中任务后，在编辑器区域打开，包含：
@@ -75,11 +74,10 @@ kcode/
 │  ● KCode  (selected)         │  │  User: xxx             │Diff   │ │
 │    ────────────              │  │  Agent: yyy            │WebView│ │
 │    [+ New Task]              │  │  ```code```            │Device │ │
-│    [Open Workspace]          │  │                        │       │ │
-│    ────────────              │  │  [input...]   [发送]   │       │ │
-│    WORKSPACE-1               │  └────────────────────────┴──────┘ │
-│     ├─ Task1                 │                                    │
-│     └─ Task2                 │                                    │
+│    ────────────              │  │                        │       │ │
+│    ○ Task1                   │  │  [input...]   [发送]   │       │ │
+│    ○ Task2                   │  └────────────────────────┴──────┘ │
+│    ○ Task3                   │                                    │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -106,13 +104,12 @@ kcode/
 
 **WebView → Extension** (postMessage):
 - `{ type: 'newTask' }` — 创建任务
-- `{ type: 'openWorkspace' }` — 打开工作区
-- `{ type: 'selectTask', taskId, workspaceId }` — 选中任务
+- `{ type: 'selectTask', taskId }` — 选中任务
 - `{ type: 'sendMessage', text, taskId }` — 发送消息给 Agent
 - `{ type: 'openSettings' }` — 打开设置
 
 **Extension → WebView** (webview.postMessage):
-- `{ type: 'updateTaskList', workspaces: [...] }` — 刷新任务树
+- `{ type: 'updateTaskList', tasks: [...] }` — 刷新任务列表
 - `{ type: 'loadMessages', messages: [...] }` — 加载对话历史
 - `{ type: 'agentStreamUpdate', text: string }` — Agent 流式回复
 - `{ type: 'agentStatus', status, message }` — Agent 连接状态
@@ -147,8 +144,7 @@ KCode (ACP Client)                    Agent (ACP Agent)
 ### TaskStore 存储结构
 
 ```typescript
-workspaces → Workspace[]           // key: 'workspaces'
-tasks      → Task[]                // key: `tasks_${workspaceId}`
+tasks      → Task[]                // key: 'tasks'
 messages   → ChatMessage[]         // key: `messages_${taskId}`
 ```
 
@@ -159,8 +155,7 @@ messages   → ChatMessage[]         // key: `messages_${taskId}`
 ### KCodePanel 生命周期
 
 - `constructor` → 创建 `WebviewPanel` → 设置 HTML → 注册消息监听
-- `refreshTaskList()` → 读取 TaskStore → postMessage 给 WebView
-- `loadTask(taskId, workspaceId)` → 从侧边栏加载指定任务的消息
+- `loadTask(taskId)` → 从侧边栏加载指定任务的消息
 - `dispose()` → 关闭 ACP 连接 → 清理监听器
 
 ### KCodeSidebarProvider 生命周期
