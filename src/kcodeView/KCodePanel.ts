@@ -34,34 +34,13 @@ export class KCodePanel {
 
         this.panel.webview.html = this.getWebviewContent();
         this.setupMessageHandler();
-
-        // Send initial task list once webview is ready
-        setTimeout(() => this.refreshTaskList(), 500);
     }
 
     private setupMessageHandler() {
         this.panel.webview.onDidReceiveMessage(async (message: any) => {
             switch (message.type) {
-                case 'newTask':
-                    await vscode.commands.executeCommand('kcode.newTask');
-                    break;
-                case 'openWorkspace':
-                    await vscode.commands.executeCommand('kcode.openWorkspace');
-                    break;
-                case 'selectTask':
-                    this.currentTaskId = message.taskId;
-                    this.sendTaskMessages(message.taskId);
-                    // Track workspace path for ACP
-                    const ws = this.store.getWorkspaces().find(w => w.id === message.workspaceId);
-                    if (ws) {
-                        this.currentWorkspacePath = ws.path;
-                    }
-                    break;
                 case 'sendMessage':
                     await this.handleSendMessage(message.text, message.taskId);
-                    break;
-                case 'openSettings':
-                    vscode.commands.executeCommand('workbench.action.openSettings', 'kcode');
                     break;
             }
         }, null, this.context.subscriptions);
@@ -174,9 +153,6 @@ export class KCodePanel {
         const scriptUri = webview.asWebviewUri(
             vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', 'app.js')
         );
-        const sidebarScriptUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', 'sidebar.js')
-        );
         // NOTE: all CSS is inlined to avoid webview external resource loading issues
         const inlineStyles = this.getInlineStyles();
 
@@ -191,74 +167,7 @@ export class KCodePanel {
 </head>
 <body>
     <div id="container">
-        <!-- Sidebar -->
-        <div id="sidebar">
-            <div id="sidebar-header">
-                <button class="sidebar-btn primary" id="btn-new-task">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                    </svg>
-                    新建任务
-                    <span class="shortcut">Ctrl+N</span>
-                </button>
-                <button class="sidebar-btn" id="btn-open-workspace">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <path d="M1 3.5a1 1 0 011-1h3.5l1.5 1.5h4a1 1 0 011 1V11a1 1 0 01-1 1H2a1 1 0 01-1-1V3.5z" stroke="currentColor" stroke-width="1.3"/>
-                    </svg>
-                    打开工作区
-                    <span class="shortcut">Ctrl+O</span>
-                </button>
-            </div>
-
-            <div id="sidebar-content">
-                <!-- Pinned Section -->
-                <div class="sidebar-section">
-                    <div class="section-label">已置顶</div>
-                    <div id="pinned-list"></div>
-                </div>
-
-                <!-- Tasks Section -->
-                <div class="sidebar-section">
-                    <div class="section-header">
-                        <span class="section-title">任务</span>
-                        <div class="section-actions">
-                            <button class="section-action-btn" id="btn-task-close" title="关闭">✕</button>
-                            <button class="section-action-btn" id="btn-task-filter" title="筛选">
-                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                    <path d="M1 2h10L7 6.5V10L5 11V6.5L1 2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
-                                </svg>
-                            </button>
-                            <button class="section-action-btn" id="btn-task-clean" title="清理">
-                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                    <path d="M1 3h10M4 3V2a1 1 0 011-1h2a1 1 0 011 1v1M2.5 3l.7 7.5a1 1 0 001 .8h3.6a1 1 0 001-.8L9.5 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div id="task-list"></div>
-                </div>
-            </div>
-
-            <div id="sidebar-footer">
-                <button id="btn-login" class="footer-btn">
-                    <span class="user-avatar">
-                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                            <circle cx="9" cy="6" r="3" stroke="currentColor" stroke-width="1.3"/>
-                            <path d="M3 16c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-                        </svg>
-                    </span>
-                    <span class="login-text">登录</span>
-                </button>
-                <button id="btn-settings" class="footer-icon-btn" title="设置">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.2"/>
-                        <path d="M13.5 8c0-.3 0-.7-.1-1l1.5-1.2-.6-1.9-1.9-.4c-.4-.4-.9-.7-1.4-1L10.5.5H8.5L7.5 2c-.5.1-1 .4-1.4.7l-1.9-.4-1.5 1L2.5 5c-.3.4-.5.9-.6 1.4L.5 7.5v2l1.5 1.1c.1.5.3 1 .6 1.4l-.6 1.9 1.5 1.5 1.9-.4c.4.4.9.7 1.4 1l1 1.5h2l1-1.5c.5-.3 1-.6 1.4-1l1.9.4 1.5-1.5-.6-1.9c.3-.4.5-.9.6-1.4l1.5-1.1V8z" stroke="currentColor" stroke-width="1.2"/>
-                    </svg>
-                </button>
-            </div>
-        </div>
-
-        <!-- Main Chat Area -->
+        <!-- Chat Area -->
         <div id="chat-area">
             <!-- Top: Instruction Card -->
             <div id="instruction-panel">
@@ -377,7 +286,6 @@ export class KCodePanel {
     </div>
 
     <script>const vscode = acquireVsCodeApi();</script>
-    <script src="${sidebarScriptUri}"></script>
     <script src="${scriptUri}"></script>
 </body>
 </html>`;
@@ -388,56 +296,6 @@ export class KCodePanel {
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:#d4d4d4;background:#1e1e1e}
 #container{display:flex;height:100vh;width:100vw;overflow:hidden}
-#sidebar{width:260px;min-width:200px;max-width:400px;background:#252526;display:flex;flex-direction:column;border-right:1px solid #3c3c3c;position:relative;flex-shrink:0}
-#sidebar.collapsed{width:0!important;min-width:0;overflow:hidden;border-right:none}
-#sidebar-header{padding:12px 12px 8px;border-bottom:1px solid #3c3c3c;flex-shrink:0;display:flex;flex-direction:column;gap:6px}
-.sidebar-btn{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;background:#2d2d2d;color:#ccc;border:1px solid #3c3c3c;border-radius:4px;font-size:13px;cursor:pointer;text-align:left;transition:background .15s}
-.sidebar-btn:hover{background:#383838;color:#e0e0e0}
-.sidebar-btn.primary{background:#0e639c;border-color:#0e639c;color:#fff}
-.sidebar-btn.primary:hover{background:#1177bb}
-.sidebar-btn .shortcut{margin-left:auto;font-size:11px;color:#6b6b6b;flex-shrink:0}
-.sidebar-btn.primary .shortcut{color:rgba(255,255,255,.5)}
-#sidebar-content{flex:1;overflow-y:auto;padding:8px 0}
-.sidebar-section{margin-bottom:4px}
-.section-label{padding:8px 16px 6px;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.8px}
-.section-header{display:flex;align-items:center;padding:6px 12px 6px 16px}
-.section-title{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.8px}
-.section-actions{margin-left:auto;display:flex;align-items:center;gap:2px}
-.section-action-btn{background:none;border:none;color:#777;cursor:pointer;padding:2px 4px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1}
-.section-action-btn:hover{background:#3c3c3c;color:#ccc}
-#pinned-list{padding:0 8px}
-.pinned-item{display:flex;align-items:center;gap:8px;padding:6px 8px;margin:0 4px;border-radius:4px;cursor:pointer;color:#b0b0b0;font-size:13px}
-.pinned-item:hover{background:#2d2d2d;color:#e0e0e0}
-.pinned-icon{flex-shrink:0;opacity:.6;color:#888}
-.pinned-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#task-list{margin-top:2px}
-.empty-state{padding:12px 16px;color:#6b6b6b;font-size:12px;text-align:center}
-.workspace-group{margin-bottom:2px}
-.workspace-header{display:flex;align-items:center;padding:5px 12px 5px 16px;cursor:pointer;border-radius:0;font-size:13px;color:#ccc;gap:6px}
-.workspace-header:hover{background:#2d2d2d}
-.cloud-icon{font-size:12px;opacity:.7;color:#888}
-.ws-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.workspace-actions{margin-left:auto;display:flex;align-items:center;gap:1px;opacity:0;transition:opacity .15s}
-.workspace-header:hover .workspace-actions{opacity:1}
-.ws-action-btn{background:none;border:none;color:#888;cursor:pointer;padding:2px 4px;border-radius:3px;font-size:12px;line-height:1}
-.ws-action-btn:hover{background:#3c3c3c;color:#ccc}
-.task-item{padding:5px 12px 5px 32px;cursor:pointer;color:#b0b0b0;font-size:13px;display:flex;align-items:center;gap:8px;border-left:2px solid transparent;margin:0 4px;border-radius:3px}
-.task-item:hover{background:#2a2d2e;color:#e0e0e0}
-.task-item.active{background:#37373d;color:#fff;border-left-color:#0e639c}
-.task-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.task-dot.pending{background:#6b6b6b}
-.task-dot.active{background:#0e639c}
-.task-dot.completed{background:#4ec9b0}
-.task-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#sidebar-footer{padding:8px 12px;border-top:1px solid #3c3c3c;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.footer-btn{display:flex;align-items:center;gap:8px;background:none;border:none;color:#a0a0a0;cursor:pointer;padding:4px 8px;border-radius:4px;font-size:13px}
-.footer-btn:hover{background:#2d2d2d;color:#e0e0e0}
-.user-avatar{display:flex;align-items:center;justify-content:center;width:22px;height:22px;opacity:.7}
-.login-text{font-size:13px}
-.footer-icon-btn{background:none;border:none;color:#a0a0a0;cursor:pointer;padding:4px 6px;border-radius:4px;display:flex;align-items:center;justify-content:center}
-.footer-icon-btn:hover{background:#2d2d2d;color:#fff}
-.collapse-btn{position:absolute;top:50%;right:-12px;transform:translateY(-50%);width:12px;height:48px;background:#333;border:1px solid #3c3c3c;border-radius:0 4px 4px 0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:8px;color:#888;z-index:10}
-.collapse-btn:hover{background:#454545;color:#ccc}
 .splitter{width:4px;cursor:col-resize;background:transparent;flex-shrink:0;z-index:10}
 .splitter:hover,.splitter.active{background:#0e639c}
 #chat-area{flex:1;display:flex;flex-direction:column;min-width:300px;background:#1e1e1e}
@@ -504,19 +362,6 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#555;border-radius:4px}
 ::-webkit-scrollbar-thumb:hover{background:#777}`;
-    }
-
-    refreshTaskList() {
-        const workspaces = this.store.getWorkspaces();
-        const data = workspaces.map(ws => ({
-            id: ws.id,
-            name: ws.name,
-            tasks: this.store.getTasks(ws.id)
-        }));
-        this.panel.webview.postMessage({
-            type: 'updateTaskList',
-            workspaces: data
-        });
     }
 
     loadTask(taskId: string, workspaceId: string) {

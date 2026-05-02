@@ -24,9 +24,6 @@ function refreshSidebar() {
     if (sidebarProvider) {
         sidebarProvider.refresh();
     }
-    if (panel) {
-        panel.refreshTaskList();
-    }
 }
 
 export function activate(context: vscode.ExtensionContext) {

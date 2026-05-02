@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initLayout();
     initTabs();
     initChat();
-    initSidebarActions();
     initInstructionToggle();
     initMessageHandler();
 });
@@ -18,11 +17,6 @@ function initMessageHandler() {
     window.addEventListener('message', (event) => {
         const message = event.data;
         switch (message.type) {
-            case 'updateTaskList':
-                if ((window as any).renderSidebar) {
-                    (window as any).renderSidebar(message.workspaces);
-                }
-                break;
             case 'loadMessages':
                 streamMessageEl = null;
                 if ((window as any).renderMessages) {
@@ -209,33 +203,6 @@ function initLayout() {
     const closeBtn = document.getElementById('right-panel-close')!;
     closeBtn.addEventListener('click', () => {
         rightPanel.classList.toggle('hidden');
-    });
-}
-
-// ==================== Sidebar Actions ====================
-
-function initSidebarActions() {
-    document.getElementById('btn-new-task')?.addEventListener('click', () => {
-        vscode.postMessage({ type: 'newTask' });
-    });
-
-    document.getElementById('btn-open-workspace')?.addEventListener('click', () => {
-        vscode.postMessage({ type: 'openWorkspace' });
-    });
-
-    document.getElementById('btn-settings')?.addEventListener('click', () => {
-        vscode.postMessage({ type: 'openSettings' });
-    });
-
-    document.getElementById('btn-login')?.addEventListener('click', () => {
-        vscode.postMessage({ type: 'openSettings' });
-    });
-
-    document.getElementById('btn-task-close')?.addEventListener('click', () => {
-        const taskSection = document.getElementById('task-list');
-        if (taskSection) {
-            taskSection.style.display = taskSection.style.display === 'none' ? 'block' : 'none';
-        }
     });
 }
 
