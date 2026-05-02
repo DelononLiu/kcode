@@ -174,6 +174,11 @@ export class KCodePanel {
         const scriptUri = webview.asWebviewUri(
             vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', 'app.js')
         );
+        const sidebarScriptUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', 'sidebar.js')
+        );
+        // NOTE: all CSS is inlined to avoid webview external resource loading issues
+        const inlineStyles = this.getInlineStyles();
 
         return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -181,85 +186,171 @@ export class KCodePanel {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource}; img-src ${webview.cspSource} data:;">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; color: #d4d4d4; background: #1e1e1e; }
-
-        #container { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
-
-        #chat-area { flex: 1; display: flex; flex-direction: column; min-width: 300px; background: #1e1e1e; }
-
-        #chat-messages { flex: 1; overflow-y: auto; padding: 16px 20px; }
-
-        .chat-placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: #6b6b6b; font-size: 14px; }
-
-        .chat-msg { margin-bottom: 16px; max-width: 85%; }
-        .chat-msg.user { align-self: flex-end; margin-left: auto; }
-        .chat-msg.agent { align-self: flex-start; }
-
-        .chat-msg .msg-sender { font-size: 11px; color: #888; margin-bottom: 4px; }
-        .chat-msg .msg-bubble { padding: 10px 14px; border-radius: 8px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
-
-        .chat-msg.user .msg-bubble { background: #0e639c; color: #fff; border-bottom-right-radius: 2px; }
-        .chat-msg.agent .msg-bubble { background: #2d2d2d; color: #d4d4d4; border-bottom-left-radius: 2px; }
-
-        .chat-msg.agent .msg-bubble code { background: #1e1e1e; padding: 2px 6px; border-radius: 3px; font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace; font-size: 12px; }
-        .chat-msg.agent .msg-bubble pre { background: #1e1e1e; padding: 12px; border-radius: 6px; overflow-x: auto; margin: 8px 0; }
-        .chat-msg.agent .msg-bubble pre code { background: transparent; padding: 0; }
-
-        #chat-input-area { border-top: 1px solid #3c3c3c; padding: 12px 16px; background: #252526; }
-
-        #chat-input { width: 100%; background: #3c3c3c; color: #d4d4d4; border: 1px solid #555; border-radius: 6px; padding: 10px 12px; font-family: inherit; font-size: 13px; resize: none; outline: none; }
-        #chat-input:focus { border-color: #0e639c; }
-
-        #chat-input-tools { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
-
-        .think-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #a0a0a0; }
-        .think-toggle input { accent-color: #0e639c; }
-
-        .send-btn { padding: 6px 20px; background: #0e639c; color: #fff; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; }
-        .send-btn:hover { background: #1177bb; }
-        .send-btn:disabled { background: #555; cursor: not-allowed; }
-
-        .splitter { width: 4px; cursor: col-resize; background: transparent; flex-shrink: 0; z-index: 10; }
-        .splitter:hover, .splitter.active { background: #0e639c; }
-
-        #right-panel { width: 320px; min-width: 200px; max-width: 600px; background: #252526; border-left: 1px solid #3c3c3c; display: flex; flex-direction: column; transition: width 0.2s ease; }
-        #right-panel.hidden { width: 0 !important; min-width: 0; overflow: hidden; border-left: none; }
-
-        #right-panel-header { display: flex; align-items: center; border-bottom: 1px solid #3c3c3c; flex-shrink: 0; }
-        .tabs { display: flex; flex: 1; overflow-x: auto; }
-        .tab { padding: 8px 12px; background: none; border: none; color: #888; font-size: 12px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
-        .tab:hover { color: #ccc; }
-        .tab.active { color: #fff; border-bottom-color: #0e639c; }
-        .close-btn { background: none; border: none; color: #888; font-size: 14px; cursor: pointer; padding: 8px 12px; }
-        .close-btn:hover { color: #fff; }
-
-        #right-panel-content { flex: 1; overflow: hidden; position: relative; }
-        .tab-content { display: none; height: 100%; overflow-y: auto; padding: 12px; }
-        .tab-content.active { display: block; }
-
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #777; }
-    </style>
+    <style>${inlineStyles}</style>
     <title>KCode</title>
 </head>
 <body>
     <div id="container">
-        <div id="chat-area">
-            <div id="chat-messages">
-                <div class="chat-placeholder">输入需求，开始与 AI 对话</div>
+        <!-- Sidebar -->
+        <div id="sidebar">
+            <div id="sidebar-header">
+                <button class="sidebar-btn primary" id="btn-new-task">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                    新建任务
+                    <span class="shortcut">Ctrl+N</span>
+                </button>
+                <button class="sidebar-btn" id="btn-open-workspace">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M1 3.5a1 1 0 011-1h3.5l1.5 1.5h4a1 1 0 011 1V11a1 1 0 01-1 1H2a1 1 0 01-1-1V3.5z" stroke="currentColor" stroke-width="1.3"/>
+                    </svg>
+                    打开工作区
+                    <span class="shortcut">Ctrl+O</span>
+                </button>
             </div>
+
+            <div id="sidebar-content">
+                <!-- Pinned Section -->
+                <div class="sidebar-section">
+                    <div class="section-label">已置顶</div>
+                    <div id="pinned-list"></div>
+                </div>
+
+                <!-- Tasks Section -->
+                <div class="sidebar-section">
+                    <div class="section-header">
+                        <span class="section-title">任务</span>
+                        <div class="section-actions">
+                            <button class="section-action-btn" id="btn-task-close" title="关闭">✕</button>
+                            <button class="section-action-btn" id="btn-task-filter" title="筛选">
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                    <path d="M1 2h10L7 6.5V10L5 11V6.5L1 2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <button class="section-action-btn" id="btn-task-clean" title="清理">
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                    <path d="M1 3h10M4 3V2a1 1 0 011-1h2a1 1 0 011 1v1M2.5 3l.7 7.5a1 1 0 001 .8h3.6a1 1 0 001-.8L9.5 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="task-list"></div>
+                </div>
+            </div>
+
+            <div id="sidebar-footer">
+                <button id="btn-login" class="footer-btn">
+                    <span class="user-avatar">
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <circle cx="9" cy="6" r="3" stroke="currentColor" stroke-width="1.3"/>
+                            <path d="M3 16c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                    <span class="login-text">登录</span>
+                </button>
+                <button id="btn-settings" class="footer-icon-btn" title="设置">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.2"/>
+                        <path d="M13.5 8c0-.3 0-.7-.1-1l1.5-1.2-.6-1.9-1.9-.4c-.4-.4-.9-.7-1.4-1L10.5.5H8.5L7.5 2c-.5.1-1 .4-1.4.7l-1.9-.4-1.5 1L2.5 5c-.3.4-.5.9-.6 1.4L.5 7.5v2l1.5 1.1c.1.5.3 1 .6 1.4l-.6 1.9 1.5 1.5 1.9-.4c.4.4.9.7 1.4 1l1 1.5h2l1-1.5c.5-.3 1-.6 1.4-1l1.9.4 1.5-1.5-.6-1.9c.3-.4.5-.9.6-1.4l1.5-1.1V8z" stroke="currentColor" stroke-width="1.2"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div id="chat-area">
+            <!-- Top: Instruction Card -->
+            <div id="instruction-panel">
+                <div class="instruction-card">
+                    <div class="instruction-text">按如下改现: ## UI 设计描述: 侧边栏 (Sidebar)...</div>
+                    <div class="instruction-toggle">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        <span class="toggle-detail">### 1. 顶部操作区</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle: Timeline / Messages -->
+            <div id="chat-messages">
+                <div class="timeline-header">
+                    <span class="timeline-duration-label">已处理 <span class="duration-value">3m 3s</span></span>
+                </div>
+                <div class="timeline-item">
+                    <span class="timeline-icon thinking">⟳</span>
+                    <span class="timeline-text">思考过程</span>
+                    <span class="timeline-time">9.1s</span>
+                </div>
+                <div class="timeline-item">
+                    <span class="timeline-icon done">✓</span>
+                    <span class="timeline-text">已开启 Plan Mode</span>
+                    <span class="timeline-time">2.3s</span>
+                </div>
+                <div class="timeline-item">
+                    <span class="timeline-icon thinking">⟳</span>
+                    <span class="timeline-text">思考过程</span>
+                    <span class="timeline-time">4.7s</span>
+                </div>
+                <div class="timeline-item">
+                    <span class="timeline-icon agent">◇</span>
+                    <span class="timeline-text">子智能体 1 Explore codebase structure</span>
+                    <span class="timeline-time">1.2s</span>
+                </div>
+            </div>
+
+            <!-- Bottom: Input -->
             <div id="chat-input-area">
-                <textarea id="chat-input" placeholder="描述你的开发需求..." rows="3"></textarea>
-                <div id="chat-input-tools">
-                    <label class="think-toggle">
-                        <input type="checkbox" id="think-mode">
-                        <span class="toggle-label">思考模式</span>
-                    </label>
-                    <button id="btn-send" class="send-btn">发送</button>
+                <div class="input-wrapper">
+                    <div class="input-tools">
+                        <button class="input-tool-btn" title="附件">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M8.5 4v5.5a2 2 0 01-4 0V4a3.5 3.5 0 017 0v6.5a4.5 4.5 0 01-9 0V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                        <button class="input-tool-btn" title="@提及" style="font-weight:600;font-size:14px;">@</button>
+                        <button class="input-tool-btn" title="截图">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+                                <circle cx="8" cy="7" r="2" stroke="currentColor" stroke-width="1.3"/>
+                                <path d="M11 13.5v-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <textarea id="chat-input" placeholder="提出后续修改要求" rows="1"></textarea>
+                    <div class="input-actions">
+                        <button class="input-tool-btn settings-btn" title="设置">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.2"/>
+                                <path d="M13.5 8c0-.3 0-.7-.1-1l1.5-1.2-.6-1.9-1.9-.4c-.4-.4-.9-.7-1.4-1L10.5.5H8.5L7.5 2c-.5.1-1 .4-1.4.7l-1.9-.4-1.5 1L2.5 5c-.3.4-.5.9-.6 1.4L.5 7.5v2l1.5 1.1c.1.5.3 1 .6 1.4l-.6 1.9 1.5 1.5 1.9-.4c.4.4.9.7 1.4 1l1 1.5h2l1-1.5c.5-.3 1-.6 1.4-1l1.9.4 1.5-1.5-.6-1.9c.3-.4.5-.9.6-1.4l1.5-1.1V8z" stroke="currentColor" stroke-width="1.2"/>
+                            </svg>
+                        </button>
+                        <button id="btn-send" class="send-btn">发送</button>
+                    </div>
+                </div>
+                <div id="chat-statusbar">
+                    <span class="status-item">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1"/>
+                            <path d="M6 3v3l2 1" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+                        </svg>
+                        Claude CLI
+                    </span>
+                    <span class="status-divider"></span>
+                    <span class="status-item model-badge">glm-5v-turbo</span>
+                    <span class="status-divider"></span>
+                    <span class="status-item">跳过权限检查</span>
+                    <span class="status-divider"></span>
+                    <span class="status-item">11.9%</span>
+                    <span class="status-divider"></span>
+                    <span class="status-item">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 4h8M2 4v5a1 1 0 001 1h6a1 1 0 001-1V4M2 4l1-2h6l1 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                            <path d="M4.5 7h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                        </svg>
+                        master
+                    </span>
                 </div>
             </div>
         </div>
@@ -286,9 +377,133 @@ export class KCodePanel {
     </div>
 
     <script>const vscode = acquireVsCodeApi();</script>
+    <script src="${sidebarScriptUri}"></script>
     <script src="${scriptUri}"></script>
 </body>
 </html>`;
+    }
+
+    private getInlineStyles(): string {
+        return `/* === Reset & Base === */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:#d4d4d4;background:#1e1e1e}
+#container{display:flex;height:100vh;width:100vw;overflow:hidden}
+#sidebar{width:260px;min-width:200px;max-width:400px;background:#252526;display:flex;flex-direction:column;border-right:1px solid #3c3c3c;position:relative;flex-shrink:0}
+#sidebar.collapsed{width:0!important;min-width:0;overflow:hidden;border-right:none}
+#sidebar-header{padding:12px 12px 8px;border-bottom:1px solid #3c3c3c;flex-shrink:0;display:flex;flex-direction:column;gap:6px}
+.sidebar-btn{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;background:#2d2d2d;color:#ccc;border:1px solid #3c3c3c;border-radius:4px;font-size:13px;cursor:pointer;text-align:left;transition:background .15s}
+.sidebar-btn:hover{background:#383838;color:#e0e0e0}
+.sidebar-btn.primary{background:#0e639c;border-color:#0e639c;color:#fff}
+.sidebar-btn.primary:hover{background:#1177bb}
+.sidebar-btn .shortcut{margin-left:auto;font-size:11px;color:#6b6b6b;flex-shrink:0}
+.sidebar-btn.primary .shortcut{color:rgba(255,255,255,.5)}
+#sidebar-content{flex:1;overflow-y:auto;padding:8px 0}
+.sidebar-section{margin-bottom:4px}
+.section-label{padding:8px 16px 6px;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.8px}
+.section-header{display:flex;align-items:center;padding:6px 12px 6px 16px}
+.section-title{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.8px}
+.section-actions{margin-left:auto;display:flex;align-items:center;gap:2px}
+.section-action-btn{background:none;border:none;color:#777;cursor:pointer;padding:2px 4px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1}
+.section-action-btn:hover{background:#3c3c3c;color:#ccc}
+#pinned-list{padding:0 8px}
+.pinned-item{display:flex;align-items:center;gap:8px;padding:6px 8px;margin:0 4px;border-radius:4px;cursor:pointer;color:#b0b0b0;font-size:13px}
+.pinned-item:hover{background:#2d2d2d;color:#e0e0e0}
+.pinned-icon{flex-shrink:0;opacity:.6;color:#888}
+.pinned-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#task-list{margin-top:2px}
+.empty-state{padding:12px 16px;color:#6b6b6b;font-size:12px;text-align:center}
+.workspace-group{margin-bottom:2px}
+.workspace-header{display:flex;align-items:center;padding:5px 12px 5px 16px;cursor:pointer;border-radius:0;font-size:13px;color:#ccc;gap:6px}
+.workspace-header:hover{background:#2d2d2d}
+.cloud-icon{font-size:12px;opacity:.7;color:#888}
+.ws-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.workspace-actions{margin-left:auto;display:flex;align-items:center;gap:1px;opacity:0;transition:opacity .15s}
+.workspace-header:hover .workspace-actions{opacity:1}
+.ws-action-btn{background:none;border:none;color:#888;cursor:pointer;padding:2px 4px;border-radius:3px;font-size:12px;line-height:1}
+.ws-action-btn:hover{background:#3c3c3c;color:#ccc}
+.task-item{padding:5px 12px 5px 32px;cursor:pointer;color:#b0b0b0;font-size:13px;display:flex;align-items:center;gap:8px;border-left:2px solid transparent;margin:0 4px;border-radius:3px}
+.task-item:hover{background:#2a2d2e;color:#e0e0e0}
+.task-item.active{background:#37373d;color:#fff;border-left-color:#0e639c}
+.task-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.task-dot.pending{background:#6b6b6b}
+.task-dot.active{background:#0e639c}
+.task-dot.completed{background:#4ec9b0}
+.task-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#sidebar-footer{padding:8px 12px;border-top:1px solid #3c3c3c;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.footer-btn{display:flex;align-items:center;gap:8px;background:none;border:none;color:#a0a0a0;cursor:pointer;padding:4px 8px;border-radius:4px;font-size:13px}
+.footer-btn:hover{background:#2d2d2d;color:#e0e0e0}
+.user-avatar{display:flex;align-items:center;justify-content:center;width:22px;height:22px;opacity:.7}
+.login-text{font-size:13px}
+.footer-icon-btn{background:none;border:none;color:#a0a0a0;cursor:pointer;padding:4px 6px;border-radius:4px;display:flex;align-items:center;justify-content:center}
+.footer-icon-btn:hover{background:#2d2d2d;color:#fff}
+.collapse-btn{position:absolute;top:50%;right:-12px;transform:translateY(-50%);width:12px;height:48px;background:#333;border:1px solid #3c3c3c;border-radius:0 4px 4px 0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:8px;color:#888;z-index:10}
+.collapse-btn:hover{background:#454545;color:#ccc}
+.splitter{width:4px;cursor:col-resize;background:transparent;flex-shrink:0;z-index:10}
+.splitter:hover,.splitter.active{background:#0e639c}
+#chat-area{flex:1;display:flex;flex-direction:column;min-width:300px;background:#1e1e1e}
+#instruction-panel{flex-shrink:0;padding:12px 16px 8px;border-bottom:1px solid #2d2d2d}
+.instruction-card{background:#2a2a2a;border:1px solid #3c3c3c;border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.instruction-text{font-size:13px;line-height:1.5;color:#d4d4d4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.instruction-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;color:#888;font-size:12px;user-select:none;transition:color .15s}
+.instruction-toggle:hover{color:#b0b0b0}
+.instruction-toggle svg{transition:transform .15s ease;flex-shrink:0}
+.instruction-toggle.collapsed svg{transform:rotate(-90deg)}
+.instruction-toggle .toggle-detail{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#chat-messages{flex:1;overflow-y:auto;padding:8px 16px;display:flex;flex-direction:column;gap:2px}
+.timeline-header{padding:4px 8px 8px;font-size:11px;color:#6b6b6b;flex-shrink:0}
+.timeline-duration-label{font-weight:500}
+.duration-value{color:#888}
+.timeline-item{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:4px;font-size:13px;color:#b0b0b0;cursor:default}
+.timeline-item:hover{background:#2a2a2a}
+.timeline-icon{width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.timeline-icon.thinking{color:#888;font-size:14px}
+.timeline-icon.done{background:#1a3a2a;color:#4ec9b0;font-size:11px}
+.timeline-icon.agent{background:#2a2d3a;color:#8888cc;font-size:12px}
+.timeline-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.timeline-time{font-size:11px;color:#6b6b6b;flex-shrink:0;font-variant-numeric:tabular-nums}
+.chat-msg{margin-bottom:4px;max-width:90%}
+.chat-msg.user{align-self:flex-end;margin-left:auto;margin-top:8px}
+.chat-msg.agent{align-self:flex-start;margin-top:8px}
+.chat-msg .msg-sender{font-size:11px;color:#888;margin-bottom:4px}
+.chat-msg .msg-bubble{padding:10px 14px;border-radius:8px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word;font-size:13px}
+.chat-msg.user .msg-bubble{background:#0e639c;color:#fff;border-bottom-right-radius:2px}
+.chat-msg.agent .msg-bubble{background:#2d2d2d;color:#d4d4d4;border-bottom-left-radius:2px;border:1px solid #3c3c3c}
+.chat-msg.agent .msg-bubble code{background:#1e1e1e;padding:2px 6px;border-radius:3px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px}
+.chat-msg.agent .msg-bubble pre{background:#1e1e1e;padding:12px;border-radius:6px;overflow-x:auto;margin:8px 0;border:1px solid #333}
+.chat-msg.agent .msg-bubble pre code{background:transparent;padding:0}
+#chat-input-area{border-top:1px solid #2d2d2d;padding:8px 16px 0;background:#1e1e1e;flex-shrink:0}
+.input-wrapper{display:flex;align-items:flex-end;gap:8px;background:#2d2d2d;border:1px solid #3c3c3c;border-radius:10px;padding:6px 8px;transition:border-color .15s}
+.input-wrapper:focus-within{border-color:#555}
+.input-tools{display:flex;align-items:center;gap:2px;flex-shrink:0;padding-bottom:2px}
+.input-tool-btn{background:none;border:none;color:#888;cursor:pointer;padding:4px 5px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;transition:color .15s,background .15s}
+.input-tool-btn:hover{background:#3c3c3c;color:#ccc}
+#chat-input{flex:1;background:transparent;color:#d4d4d4;border:none;padding:6px 4px;font-family:inherit;font-size:13px;resize:none;outline:none;min-height:20px;max-height:200px;line-height:1.4}
+#chat-input::placeholder{color:#6b6b6b}
+.input-actions{display:flex;align-items:center;gap:4px;flex-shrink:0;padding-bottom:2px}
+.send-btn{padding:5px 16px;background:#0e639c;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500;transition:background .15s;white-space:nowrap}
+.send-btn:hover{background:#1177bb}
+.send-btn:disabled{background:#555;cursor:not-allowed}
+#chat-statusbar{display:flex;align-items:center;gap:0;padding:5px 4px 6px;font-size:11px;color:#6b6b6b;flex-wrap:wrap;flex-shrink:0}
+.status-item{display:flex;align-items:center;gap:4px;padding:1px 8px;white-space:nowrap}
+.status-item svg{opacity:.5}
+.status-divider{width:1px;height:12px;background:#3c3c3c;flex-shrink:0}
+.status-item.model-badge{color:#888;font-weight:500}
+#right-panel{width:320px;min-width:200px;max-width:600px;background:#252526;border-left:1px solid #3c3c3c;display:flex;flex-direction:column;transition:width .2s ease}
+#right-panel.hidden{width:0!important;min-width:0;overflow:hidden;border-left:none}
+#right-panel-header{display:flex;align-items:center;border-bottom:1px solid #3c3c3c;flex-shrink:0}
+.tabs{display:flex;flex:1;overflow-x:auto}
+.tab{padding:8px 12px;background:none;border:none;color:#888;font-size:12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tab:hover{color:#ccc}
+.tab.active{color:#fff;border-bottom-color:#0e639c}
+.close-btn{background:none;border:none;color:#888;font-size:14px;cursor:pointer;padding:8px 12px}
+.close-btn:hover{color:#fff}
+#right-panel-content{flex:1;overflow:hidden;position:relative}
+.tab-content{display:none;height:100%;overflow-y:auto;padding:12px}
+.tab-content.active{display:block}
+::-webkit-scrollbar{width:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#555;border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:#777}`;
     }
 
     refreshTaskList() {

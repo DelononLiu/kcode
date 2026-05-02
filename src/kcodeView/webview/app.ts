@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initLayout();
     initTabs();
     initChat();
+    initSidebarActions();
+    initInstructionToggle();
     initMessageHandler();
 });
 
@@ -17,12 +19,11 @@ function initMessageHandler() {
         const message = event.data;
         switch (message.type) {
             case 'updateTaskList':
-                if ((window as any).renderTaskList) {
-                    (window as any).renderTaskList(message.workspaces);
+                if ((window as any).renderSidebar) {
+                    (window as any).renderSidebar(message.workspaces);
                 }
                 break;
             case 'loadMessages':
-                // Reset streaming state when loading a new task's messages
                 streamMessageEl = null;
                 if ((window as any).renderMessages) {
                     if (message.messages && message.messages.length > 0) {
@@ -34,7 +35,6 @@ function initMessageHandler() {
             case 'showFilePreview':
                 if ((window as any).showPreview) {
                     (window as any).showPreview(message.filePath, message.content);
-                    // Switch to preview tab
                     activateTab('preview');
                 }
                 break;
@@ -62,19 +62,57 @@ function initMessageHandler() {
             case 'agentStatus':
                 handleAgentStatus(message.status, message.message);
                 break;
+            // Timeline step updates from the extension
+            case 'addTimelineStep':
+                addTimelineItem(message.icon, message.text, message.time);
+                break;
         }
     });
 }
+
+// ==================== Timeline ====================
+
+function addTimelineItem(icon: string, text: string, time?: string) {
+    const container = document.getElementById('chat-messages')!;
+    // Remove placeholder if it exists
+    const placeholder = container.querySelector('.chat-placeholder');
+    if (placeholder) placeholder.remove();
+
+    const item = document.createElement('div');
+    item.className = 'timeline-item';
+
+    const iconSpan = document.createElement('span');
+    iconSpan.className = `timeline-icon ${icon === '⟳' ? 'thinking' : icon === '✓' ? 'done' : icon === '◇' ? 'agent' : ''}`;
+    iconSpan.textContent = icon;
+    item.appendChild(iconSpan);
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'timeline-text';
+    textSpan.textContent = text;
+    item.appendChild(textSpan);
+
+    if (time) {
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'timeline-time';
+        timeSpan.textContent = time;
+        item.appendChild(timeSpan);
+    }
+
+    container.appendChild(item);
+    container.scrollTop = container.scrollHeight;
+}
+
+// ==================== Streaming ====================
 
 let streamMessageEl: HTMLElement | null = null;
 
 function handleAgentStreamUpdate(text: string) {
     const container = document.getElementById('chat-messages')!;
-    const placeholder = container.querySelector('.chat-placeholder');
-    if (placeholder) placeholder.remove();
+    // Remove the timeline header if present (keep it for first message ref)
+    // Don't remove timeline-header — it stays at the top
 
     if (!streamMessageEl) {
-        // Create new agent message element for streaming
+        // Create agent streaming bubble
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg agent';
 
@@ -89,10 +127,8 @@ function handleAgentStreamUpdate(text: string) {
 
         container.appendChild(msgDiv);
         streamMessageEl = bubble;
-        streamMessageEl.dataset.fullText = text;
     }
 
-    // Update the bubble content
     const rendered = text
         .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
         .replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -103,19 +139,15 @@ function handleAgentStreamUpdate(text: string) {
 }
 
 function handleAgentStatus(status: string, message: string) {
-    // Show agent connection status in the chat
     const container = document.getElementById('chat-messages')!;
     const statusDiv = document.createElement('div');
     statusDiv.style.cssText = 'text-align:center;padding:8px;margin:8px 0;font-size:12px;color:#888;';
-    statusDiv.textContent = `🔌 ${message}`;
+    statusDiv.textContent = `\u{1F50C} ${message}`;
     container.appendChild(statusDiv);
     container.scrollTop = container.scrollHeight;
 }
 
-/**
- * Reset streaming state when loading messages (new task selected)
- */
-const originalLoadMessages = handleAgentStreamUpdate;
+/** Reset streaming state when loading messages */
 (window as any).__resetStream = () => {
     streamMessageEl = null;
 };
@@ -140,6 +172,7 @@ function initLayout() {
     const container = document.getElementById('container')!;
     const splitter2 = document.getElementById('splitter-2')!;
     const rightPanel = document.getElementById('right-panel')!;
+    const sidebar = document.getElementById('sidebar')!;
 
     let activeSplitter: HTMLElement | null = null;
 
@@ -179,6 +212,42 @@ function initLayout() {
     });
 }
 
+// ==================== Sidebar Actions ====================
+
+function initSidebarActions() {
+    document.getElementById('btn-new-task')?.addEventListener('click', () => {
+        vscode.postMessage({ type: 'newTask' });
+    });
+
+    document.getElementById('btn-open-workspace')?.addEventListener('click', () => {
+        vscode.postMessage({ type: 'openWorkspace' });
+    });
+
+    document.getElementById('btn-settings')?.addEventListener('click', () => {
+        vscode.postMessage({ type: 'openSettings' });
+    });
+
+    document.getElementById('btn-login')?.addEventListener('click', () => {
+        vscode.postMessage({ type: 'openSettings' });
+    });
+
+    document.getElementById('btn-task-close')?.addEventListener('click', () => {
+        const taskSection = document.getElementById('task-list');
+        if (taskSection) {
+            taskSection.style.display = taskSection.style.display === 'none' ? 'block' : 'none';
+        }
+    });
+}
+
+// ==================== Instruction Toggle ====================
+
+function initInstructionToggle() {
+    const toggle = document.querySelector('.instruction-toggle');
+    toggle?.addEventListener('click', () => {
+        toggle.classList.toggle('collapsed');
+    });
+}
+
 // ==================== Tabs ====================
 
 function initTabs() {
@@ -197,18 +266,30 @@ function initTabs() {
     });
 }
 
-// ==================== Chat ====================
+// ==================== Chat / Input ====================
 
 function initChat() {
     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
     const sendBtn = document.getElementById('btn-send')!;
 
+    if (!input) return;
+
+    // Auto-resize textarea
+    function autoResize() {
+        input.style.height = 'auto';
+        const newHeight = Math.min(input.scrollHeight, 200);
+        input.style.height = newHeight + 'px';
+    }
+    input.addEventListener('input', autoResize);
+
     function sendMessage() {
         const text = input.value.trim();
         if (!text) return;
 
-        addMessage('user', text);
+        addUserMessage(text);
         input.value = '';
+        autoResize();
+        input.focus();
 
         vscode.postMessage({
             type: 'sendMessage',
@@ -225,20 +306,44 @@ function initChat() {
             sendMessage();
         }
     });
+
+    // Input tool buttons
+    const settingsBtn = document.querySelector('.settings-btn');
+    settingsBtn?.addEventListener('click', () => {
+        vscode.postMessage({ type: 'openSettings' });
+    });
 }
 
-function addMessage(role: 'user' | 'agent', content: string) {
+function addUserMessage(content: string) {
     const container = document.getElementById('chat-messages')!;
 
-    const placeholder = container.querySelector('.chat-placeholder');
-    if (placeholder) placeholder.remove();
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chat-msg user';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.textContent = content;
+    msgDiv.appendChild(bubble);
+
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
+}
+
+// Legacy addMessage for compatibility
+function addMessage(role: 'user' | 'agent', content: string) {
+    if (role === 'user') {
+        addUserMessage(content);
+        return;
+    }
+
+    const container = document.getElementById('chat-messages')!;
 
     const msgDiv = document.createElement('div');
     msgDiv.className = `chat-msg ${role}`;
 
     const sender = document.createElement('div');
     sender.className = 'msg-sender';
-    sender.textContent = role === 'user' ? 'You' : 'Agent';
+    sender.textContent = 'Agent';
     msgDiv.appendChild(sender);
 
     const bubble = document.createElement('div');
@@ -258,3 +363,4 @@ function addMessage(role: 'user' | 'agent', content: string) {
 
 // Export for use by other modules
 (window as any).addMessage = addMessage;
+(window as any).addTimelineItem = addTimelineItem;
