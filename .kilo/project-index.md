@@ -107,12 +107,14 @@ interface ACPConfig {
 
 聊天面板，生命周期：
 1. `constructor` → 创建 WebviewPanel → 设置 HTML → 注册消息监听
-2. `loadTask(taskId)` → 加载对话历史
+2. `loadTask(taskId)` → 加载对话历史 + 为该 task 创建独立 ACP session
 3. `dispose()` → 关闭 ACP 连接 → 清理
+
+每个 Task 有独立的 ACP session，任务间对话上下文互不干扰。
 
 | 公共方法 | 说明 |
 |---|---|
-| `loadTask(taskId)` | 加载任务消息到 WebView |
+| `loadTask(taskId)` | 加载任务消息到 WebView + 为该 task 创建独立 ACP session |
 | `reveal()` | 面板聚焦 |
 | `focusInput()` | 聚焦输入框 |
 | `showFilePreview(path, content)` | 发送预览到 WebView |
@@ -237,18 +239,22 @@ function appendDeviceOutput(data: string): void
 
 ---
 
-### `src/acp/AcpClient.ts` — ACP Client
+### `src/acp/AcpClient.ts` — ACP Client (多会话)
+
+每个 Task 对应独立的 ACP session，`sessions: Map<taskId, sessionId>`。
 
 | 方法 | 说明 |
 |---|---|
-| `connect(agentPath, args)` | 连接 Agent |
-| `createSession(cwd)` | 创建会话 |
-| `prompt(text, handler)` | 发送 prompt + 流式回调 |
-| `cancel()` | 取消 |
-| `closeSession()` | 关闭会话 |
+| `connect(agentPath, args)` | 连接 Agent（共享一个连接） |
+| `createSession(taskId, cwd)` | 为指定 task 创建会话 |
+| `getSessionId(taskId)` | 获取 task 的 sessionId |
+| `hasSession(taskId)` | 检查 task 是否有会话 |
+| `prompt(taskId, text, handler)` | 为指定 task 发送 prompt + 流式回调 |
+| `cancel(taskId)` | 取消指定 task 的 prompt |
+| `closeTaskSession(taskId)` | 关闭指定 task 的会话 |
 | `dispose()` | 释放资源 |
 
-Handler: `{ onText, onError, onDone }`
+Handler: `{ onText, onError, onDone }` (定义在 `types/index.ts`)
 
 ### `src/acp/AgentManager.ts` — Agent Process Manager
 
@@ -261,11 +267,16 @@ Handler: `{ onText, onError, onDone }`
 
 ### `src/acp/callbacks.ts` — ACP Client Callbacks
 
-`KCodeClient` implements `acp.Client`:
-- `requestPermission()` — MVP auto-accept
-- `sessionUpdate()` — ACP session 通知
-- `writeTextFile()` — 写文件（路径解析到 workspaceRoot）
-- `readTextFile()` — 读文件
+`KCodeClient` implements `acp.Client`（维护 `sessionHandlers: Map<sessionId, AcpMessageHandler>`）：
+
+| 方法 | 说明 |
+|---|---|
+| `setSessionHandler(sessionId, handler)` | 注册 session 流式处理器 |
+| `removeSessionHandler(sessionId)` | 移除处理器 |
+| `requestPermission()` | MVP auto-accept |
+| `sessionUpdate()` | 按 `params.sessionId` 路由到对应 handler |
+| `writeTextFile()` | 写文件（路径解析到 workspaceRoot） |
+| `readTextFile()` | 读文件 |
 
 ---
 

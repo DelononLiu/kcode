@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { TaskStore } from '../store/TaskStore';
-import { AcpClient, AcpMessageHandler } from '../acp/AcpClient';
+import { AcpClient } from '../acp/AcpClient';
 
 export class KCodePanel {
     private panel: vscode.WebviewPanel;
@@ -75,18 +75,21 @@ export class KCodePanel {
         this.panel.webview.postMessage({ type: 'addUserMessage', content: text });
 
         if (!this.agentReady) {
-            // Auto-initialize ACP agent on first message
-            await this.ensureAgent();
+            await this.ensureConnection();
         }
 
         if (this.agentReady && this.acpClient) {
-            // Send via ACP
+            // Ensure a session exists for this task
+            if (!this.acpClient.hasSession(tid)) {
+                const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
+                await this.acpClient.createSession(tid, workspacePath);
+            }
+
             this.accumulatedAgentText = '';
 
-            await this.acpClient.prompt(text, {
+            await this.acpClient.prompt(tid, text, {
                 onText: (chunk: string) => {
                     this.accumulatedAgentText += chunk;
-                    // Send streaming update to webview
                     this.panel.webview.postMessage({
                         type: 'agentStreamUpdate',
                         text: this.accumulatedAgentText
@@ -97,18 +100,15 @@ export class KCodePanel {
                         type: 'agentStreamUpdate',
                         text: `\n\n[错误: ${error}]`
                     });
-                    // Also store the error message
                     this.storeMessage(tid, 'agent', `错误: ${error}`);
                 },
                 onDone: () => {
-                    // Store complete message
                     if (this.accumulatedAgentText) {
                         this.storeMessage(tid, 'agent', this.accumulatedAgentText);
                     }
                 }
             });
         } else {
-            // Fallback echo when agent not available
             setTimeout(() => {
                 const echoText = `收到: "${text}"\n\n（ACP Agent 未连接，请在设置中配置 Agent 路径）`;
                 this.storeMessage(tid, 'agent', echoText);
@@ -120,7 +120,7 @@ export class KCodePanel {
         }
     }
 
-    private async ensureAgent() {
+    private async ensureConnection() {
         try {
             const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
             this.acpClient = new AcpClient(workspacePath);
@@ -132,20 +132,25 @@ export class KCodePanel {
             if (agentPath) {
                 const connected = await this.acpClient.connect(agentPath, agentArgs);
                 if (connected) {
-                    const sessionId = await this.acpClient.createSession(workspacePath);
-                    if (sessionId) {
-                        this.agentReady = true;
-                        this.panel.webview.postMessage({
-                            type: 'agentStatus',
-                            status: 'connected',
-                            message: 'Agent 已连接'
-                        });
-                    }
+                    this.agentReady = true;
+                    this.panel.webview.postMessage({
+                        type: 'agentStatus',
+                        status: 'connected',
+                        message: 'Agent 已连接'
+                    });
                 }
             }
         } catch (err) {
             console.error('Failed to initialize ACP agent:', err);
         }
+    }
+
+    private async ensureSession(taskId: string) {
+        if (!this.acpClient || !this.agentReady) return;
+        if (this.acpClient.hasSession(taskId)) return;
+
+        const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
+        await this.acpClient.createSession(taskId, workspacePath);
     }
 
     private storeMessage(taskId: string, role: 'user' | 'agent', content: string) {
@@ -237,7 +242,6 @@ export class KCodePanel {
         </div>
     </div>
 
-    <script>const vscode = acquireVsCodeApi();</script>
     <script src="${scriptUri}"></script>
 </body>
 </html>`;
@@ -302,6 +306,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     loadTask(taskId: string) {
         this.currentTaskId = taskId;
         this.sendTaskMessages(taskId);
+        // Ensure a session exists for this task (non-blocking)
+        this.ensureSession(taskId);
     }
 
     private sendTaskMessages(taskId: string) {

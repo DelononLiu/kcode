@@ -17,3 +17,9 @@ export interface ACPConfig {
     agentPath: string;
     apiKey?: string;
 }
+
+export interface AcpMessageHandler {
+    onText: (text: string) => void;
+    onError: (error: string) => void;
+    onDone: () => void;
+}

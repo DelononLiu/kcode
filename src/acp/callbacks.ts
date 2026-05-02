@@ -1,18 +1,26 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import type * as acp from '@agentclientprotocol/sdk';
+import type { AcpMessageHandler } from '../types';
 
 /**
  * Client implementation for ACP protocol.
  * KCode acts as the Client side - handles agent requests.
  */
 export class KCodeClient implements acp.Client {
-    private onUpdate: ((text: string) => void) | null = null;
+    private sessionHandlers: Map<string, AcpMessageHandler> = new Map();
     private workspaceRoot: string;
 
-    constructor(workspaceRoot: string, onUpdate?: (text: string) => void) {
+    constructor(workspaceRoot: string) {
         this.workspaceRoot = workspaceRoot;
-        this.onUpdate = onUpdate || null;
+    }
+
+    setSessionHandler(sessionId: string, handler: AcpMessageHandler) {
+        this.sessionHandlers.set(sessionId, handler);
+    }
+
+    removeSessionHandler(sessionId: string) {
+        this.sessionHandlers.delete(sessionId);
     }
 
     async requestPermission(params: acp.RequestPermissionRequest): Promise<acp.RequestPermissionResponse> {
@@ -27,10 +35,13 @@ export class KCodeClient implements acp.Client {
 
     async sessionUpdate(params: acp.SessionNotification): Promise<void> {
         const update = params.update;
+        const handler = this.sessionHandlers.get(params.sessionId);
+        if (!handler) return;
+
         switch (update.sessionUpdate) {
             case 'agent_message_chunk':
                 if (update.content.type === 'text') {
-                    this.onUpdate?.(update.content.text);
+                    handler.onText(update.content.text);
                 }
                 break;
             case 'tool_call':

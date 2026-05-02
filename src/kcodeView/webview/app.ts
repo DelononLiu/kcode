@@ -1,7 +1,8 @@
 // KCode WebView Main App
 // Handles layout interactions, message passing, and coordinates sub-modules
 
-declare const vscode: any;
+declare function acquireVsCodeApi(): any;
+const vscode = acquireVsCodeApi();
 
 document.addEventListener('DOMContentLoaded', () => {
     initLayout();
@@ -18,12 +19,10 @@ function initMessageHandler() {
         switch (message.type) {
             case 'loadMessages':
                 streamMessageEl = null;
-                if ((window as any).renderMessages) {
-                    if (message.messages && message.messages.length > 0) {
-                        activeTaskId = message.messages[0].taskId;
-                    }
-                    (window as any).renderMessages(message.messages);
+                if (message.messages && message.messages.length > 0) {
+                    activeTaskId = message.messages[0].taskId;
                 }
+                renderMessages(message.messages);
                 break;
             case 'showFilePreview':
                 if ((window as any).showPreview) {
@@ -307,6 +306,48 @@ function addMessage(role: 'user' | 'agent', content: string) {
     container.scrollTop = container.scrollHeight;
 }
 
+// ==================== renderMessages (from chat.ts) ====================
+
+function renderMessages(messages: any[]) {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (!messages || messages.length === 0) {
+        container.innerHTML = '<div class="chat-placeholder">输入需求，开始与 AI 对话</div>';
+        return;
+    }
+
+    for (const msg of messages) {
+        addMessageElement(msg.role, msg.content);
+    }
+    container.scrollTop = container.scrollHeight;
+}
+
+function addMessageElement(role: string, content: string) {
+    const container = document.getElementById('chat-messages')!;
+    const placeholder = container.querySelector('.chat-placeholder');
+    if (placeholder) placeholder.remove();
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `chat-msg ${role}`;
+
+    const sender = document.createElement('div');
+    sender.className = 'msg-sender';
+    sender.textContent = role === 'user' ? 'You' : 'Agent';
+    msgDiv.appendChild(sender);
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.innerHTML = simpleMarkdown(content);
+    msgDiv.appendChild(bubble);
+
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
+}
+
 // Export for use by other modules
 (window as any).addMessage = addMessage;
 (window as any).simpleMarkdown = simpleMarkdown;
+(window as any).renderMessages = renderMessages;

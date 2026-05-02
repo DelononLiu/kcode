@@ -1,17 +1,13 @@
 import type * as acp from '@agentclientprotocol/sdk';
 import { AgentManager } from './AgentManager';
 import { KCodeClient } from './callbacks';
-
-export type AcpMessageHandler = {
-    onText: (text: string) => void;
-    onError: (error: string) => void;
-    onDone: () => void;
-};
+import type { AcpMessageHandler } from '../types';
 
 export class AcpClient {
     private connection: acp.ClientSideConnection | null = null;
     private agentManager: AgentManager;
-    private sessionId: string | null = null;
+    private sessions: Map<string, string> = new Map(); // taskId → sessionId
+    private kcodeClient: KCodeClient | null = null;
     private workspaceRoot: string;
 
     constructor(workspaceRoot: string) {
@@ -29,8 +25,9 @@ export class AcpClient {
             const sdk = await this.loadSDK();
             const stream = sdk.ndJsonStream(input, output);
 
+            this.kcodeClient = new KCodeClient(this.workspaceRoot);
             this.connection = new sdk.ClientSideConnection(
-                (agent) => new KCodeClient(this.workspaceRoot),
+                () => this.kcodeClient!,
                 stream
             );
 
@@ -53,9 +50,9 @@ export class AcpClient {
     }
 
     /**
-     * Create a new ACP session.
+     * Create a new ACP session for a specific task.
      */
-    async createSession(cwd: string): Promise<string | null> {
+    async createSession(taskId: string, cwd: string): Promise<string | null> {
         if (!this.connection) {
             throw new Error('Not connected to agent');
         }
@@ -66,8 +63,8 @@ export class AcpClient {
                 mcpServers: [],
             });
 
-            this.sessionId = result.sessionId;
-            return this.sessionId;
+            this.sessions.set(taskId, result.sessionId);
+            return result.sessionId;
         } catch (err) {
             console.error('Failed to create ACP session:', err);
             return null;
@@ -75,21 +72,34 @@ export class AcpClient {
     }
 
     /**
-     * Send a user prompt and receive streaming response via handler.
+     * Get sessionId for a task.
      */
-    async prompt(text: string, handler: AcpMessageHandler): Promise<void> {
-        if (!this.connection || !this.sessionId) {
+    getSessionId(taskId: string): string | undefined {
+        return this.sessions.get(taskId);
+    }
+
+    /**
+     * Check if a task has a session.
+     */
+    hasSession(taskId: string): boolean {
+        return this.sessions.has(taskId);
+    }
+
+    /**
+     * Send a user prompt for a specific task and receive streaming response via handler.
+     */
+    async prompt(taskId: string, text: string, handler: AcpMessageHandler): Promise<void> {
+        const sessionId = this.sessions.get(taskId);
+        if (!this.connection || !sessionId) {
             handler.onError('ACP 会话未就绪');
             return;
         }
 
         try {
-            // Set up streaming update handler
-            // The KCodeClient's sessionUpdate will be called by ClientSideConnection
-            // We need to wire the handler into the client
+            this.kcodeClient?.setSessionHandler(sessionId, handler);
 
             const result = await this.connection.prompt({
-                sessionId: this.sessionId,
+                sessionId,
                 prompt: [
                     {
                         type: 'text',
@@ -97,6 +107,8 @@ export class AcpClient {
                     },
                 ],
             });
+
+            this.kcodeClient?.removeSessionHandler(sessionId);
 
             if (result.stopReason === 'cancelled') {
                 handler.onError('已取消');
@@ -109,34 +121,32 @@ export class AcpClient {
     }
 
     /**
-     * Cancel the current prompt turn.
+     * Cancel the current prompt turn for a task.
      */
-    async cancel(): Promise<void> {
-        if (!this.connection || !this.sessionId) return;
+    async cancel(taskId: string): Promise<void> {
+        const sessionId = this.sessions.get(taskId);
+        if (!this.connection || !sessionId) return;
 
         try {
-            await this.connection.cancel({
-                sessionId: this.sessionId,
-            });
+            await this.connection.cancel({ sessionId });
         } catch {
             // Ignore errors on cancel
         }
     }
 
     /**
-     * Close the current session.
+     * Close the session for a specific task.
      */
-    async closeSession(): Promise<void> {
-        if (this.sessionId) {
-            this.sessionId = null;
-        }
+    closeTaskSession(taskId: string): void {
+        this.sessions.delete(taskId);
     }
 
     /**
      * Disconnect and clean up.
      */
     async dispose(): Promise<void> {
-        await this.closeSession();
+        this.sessions.clear();
+        this.kcodeClient = null;
         this.agentManager.stopAgent();
         this.connection = null;
     }
