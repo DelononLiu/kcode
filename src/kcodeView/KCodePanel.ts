@@ -112,10 +112,11 @@ export class KCodePanel {
             setTimeout(() => {
                 const echoText = `收到: "${text}"\n\n（ACP Agent 未连接，请在设置中配置 Agent 路径）`;
                 this.storeMessage(tid, 'agent', echoText);
-                this.panel.webview.postMessage({
-                    type: 'loadMessages',
-                    messages: this.store.getMessages(tid)
-                });
+        this.panel.webview.postMessage({
+            type: 'loadMessages',
+            messages: this.store.getMessages(tid),
+            taskId: tid
+        });
             }, 300);
         }
     }
@@ -314,7 +315,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         const messages = this.store.getMessages(taskId);
         this.panel.webview.postMessage({
             type: 'loadMessages',
-            messages
+            messages,
+            taskId
         });
     }
 

@@ -19,9 +19,7 @@ function initMessageHandler() {
         switch (message.type) {
             case 'loadMessages':
                 streamMessageEl = null;
-                if (message.messages && message.messages.length > 0) {
-                    activeTaskId = message.messages[0].taskId;
-                }
+                activeTaskId = message.taskId;
                 renderMessages(message.messages);
                 break;
             case 'showFilePreview':
