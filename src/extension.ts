@@ -66,6 +66,12 @@ export function activate(context: vscode.ExtensionContext) {
 
     const newTaskCmd = vscode.commands.registerCommand('kcode.newTask', async () => {
         if (!store) return;
+        const existingEmpty = store.findEmptyTask();
+        if (existingEmpty) {
+            refreshSidebar();
+            openTaskInPanel(context, existingEmpty.id);
+            return;
+        }
         const task: Task = {
             id: `task_${Date.now()}`,
             title: 'New Task',

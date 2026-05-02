@@ -55,7 +55,23 @@ export class TaskStore {
         this.state.update(`messages_${msg.taskId}`, messages);
     }
 
+    deleteTask(taskId: string): void {
+        const tasks = this.getTasks().filter(t => t.id !== taskId);
+        this.state.update('tasks', tasks);
+        this.state.update(`messages_${taskId}`, []);
+    }
+
     clearMessages(taskId: string): void {
         this.state.update(`messages_${taskId}`, []);
+    }
+
+    findEmptyTask(): Task | undefined {
+        const tasks = this.getTasks();
+        for (const task of tasks) {
+            if (this.getMessages(task.id).length === 0) {
+                return task;
+            }
+        }
+        return undefined;
     }
 }

@@ -2,6 +2,7 @@ declare function acquireVsCodeApi(): any;
 
 {
     const vscode = acquireVsCodeApi();
+    let contextMenuEl: HTMLDivElement | null = null;
 
     (function () {
         const btn = document.getElementById('btn-new-task');
@@ -10,6 +11,8 @@ declare function acquireVsCodeApi(): any;
                 vscode.postMessage({ type: 'newTask' });
             });
         }
+
+        document.addEventListener('click', () => hideContextMenu());
 
         window.addEventListener('message', (event) => {
             const message = event.data;
@@ -20,6 +23,35 @@ declare function acquireVsCodeApi(): any;
             }
         });
     })();
+
+    function showContextMenu(x: number, y: number, taskId: string) {
+        hideContextMenu();
+
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+
+        const deleteItem = document.createElement('div');
+        deleteItem.className = 'context-menu-item';
+        deleteItem.textContent = 'Delete';
+        deleteItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            hideContextMenu();
+            vscode.postMessage({ type: 'deleteTask', taskId });
+        });
+
+        menu.appendChild(deleteItem);
+        document.body.appendChild(menu);
+        contextMenuEl = menu;
+    }
+
+    function hideContextMenu() {
+        if (contextMenuEl) {
+            contextMenuEl.remove();
+            contextMenuEl = null;
+        }
+    }
 
     function renderTaskList(tasks: any[]) {
         const container = document.getElementById('task-list');
@@ -53,6 +85,12 @@ declare function acquireVsCodeApi(): any;
                     type: 'selectTask',
                     taskId: task.id
                 });
+            });
+
+            item.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                showContextMenu(e.clientX, e.clientY, task.id);
             });
 
             container.appendChild(item);

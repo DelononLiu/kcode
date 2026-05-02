@@ -45,6 +45,10 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                 case 'selectTask':
                     this._onTaskSelected(message.taskId);
                     break;
+                case 'deleteTask':
+                    this._store.deleteTask(message.taskId);
+                    this.refresh();
+                    break;
                 case 'openSettings':
                     vscode.commands.executeCommand('workbench.action.openSettings', 'kcode');
                     break;
@@ -55,6 +59,12 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     }
 
     createNewTask(): void {
+        const existingEmpty = this._store.findEmptyTask();
+        if (existingEmpty) {
+            this._onTaskSelected(existingEmpty.id);
+            this.refresh();
+            return;
+        }
         const task: Task = {
             id: `task_${Date.now()}`,
             title: 'New Task',
@@ -162,6 +172,26 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             border-top: 1px solid #3c3c3c;
             display: flex;
             justify-content: center;
+        }
+        .context-menu {
+            position: fixed;
+            background: #252526;
+            border: 1px solid #3c3c3c;
+            border-radius: 4px;
+            padding: 4px 0;
+            min-width: 120px;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.36);
+        }
+        .context-menu-item {
+            padding: 4px 12px;
+            cursor: pointer;
+            color: #d4d4d4;
+            font-size: 13px;
+        }
+        .context-menu-item:hover {
+            background: #094771;
+            color: #fff;
         }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
