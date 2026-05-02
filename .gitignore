@@ -2,4 +2,4 @@ node_modules/
 out/
 .vscode/
 *.vsix
-.kilo
+# .kilo — tracked for project configuration and project-index.md
