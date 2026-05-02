@@ -6,7 +6,6 @@ declare const vscode: any;
 document.addEventListener('DOMContentLoaded', () => {
     initLayout();
     initTabs();
-    initSidebar();
     initChat();
     initMessageHandler();
 });
@@ -139,9 +138,7 @@ let activeTaskId: string | null = null;
 
 function initLayout() {
     const container = document.getElementById('container')!;
-    const splitter1 = document.getElementById('splitter-1')!;
     const splitter2 = document.getElementById('splitter-2')!;
-    const sidebar = document.getElementById('sidebar')!;
     const rightPanel = document.getElementById('right-panel')!;
 
     let activeSplitter: HTMLElement | null = null;
@@ -156,13 +153,8 @@ function initLayout() {
         if (!activeSplitter) return;
 
         const containerRect = container.getBoundingClientRect();
-        const x = e.clientX - containerRect.left;
 
-        if (activeSplitter === splitter1) {
-            let newWidth = x;
-            newWidth = Math.max(160, Math.min(400, newWidth));
-            sidebar.style.width = `${newWidth}px`;
-        } else if (activeSplitter === splitter2) {
+        if (activeSplitter === splitter2) {
             let newWidth = containerRect.right - e.clientX;
             newWidth = Math.max(200, Math.min(600, newWidth));
             rightPanel.style.width = `${newWidth}px`;
@@ -176,17 +168,9 @@ function initLayout() {
         }
     }
 
-    splitter1.addEventListener('mousedown', (e) => onMouseDown(e, splitter1));
     splitter2.addEventListener('mousedown', (e) => onMouseDown(e, splitter2));
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
-
-    // Sidebar collapse toggle
-    const collapseBtn = document.getElementById('sidebar-collapse-btn')!;
-    collapseBtn.addEventListener('click', () => {
-        sidebar.classList.toggle('collapsed');
-        collapseBtn.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
-    });
 
     // Right panel close button
     const closeBtn = document.getElementById('right-panel-close')!;
@@ -210,22 +194,6 @@ function initTabs() {
             const content = document.getElementById(`tab-${tabName}`);
             if (content) content.classList.add('active');
         });
-    });
-}
-
-// ==================== Sidebar ====================
-
-function initSidebar() {
-    document.getElementById('btn-new-task')?.addEventListener('click', () => {
-        vscode.postMessage({ type: 'newTask' });
-    });
-
-    document.getElementById('btn-open-workspace')?.addEventListener('click', () => {
-        vscode.postMessage({ type: 'openWorkspace' });
-    });
-
-    document.getElementById('btn-settings')?.addEventListener('click', () => {
-        vscode.postMessage({ type: 'openSettings' });
     });
 }
 

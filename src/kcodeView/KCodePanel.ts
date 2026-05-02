@@ -174,9 +174,6 @@ export class KCodePanel {
         const scriptUri = webview.asWebviewUri(
             vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', 'app.js')
         );
-        const styleCssUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(extensionUri, 'src', 'kcodeView', 'webview', 'style.css')
-        );
 
         return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -184,30 +181,73 @@ export class KCodePanel {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource}; img-src ${webview.cspSource} data:;">
-    <link rel="stylesheet" href="${styleCssUri}">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; color: #d4d4d4; background: #1e1e1e; }
+
+        #container { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+
+        #chat-area { flex: 1; display: flex; flex-direction: column; min-width: 300px; background: #1e1e1e; }
+
+        #chat-messages { flex: 1; overflow-y: auto; padding: 16px 20px; }
+
+        .chat-placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: #6b6b6b; font-size: 14px; }
+
+        .chat-msg { margin-bottom: 16px; max-width: 85%; }
+        .chat-msg.user { align-self: flex-end; margin-left: auto; }
+        .chat-msg.agent { align-self: flex-start; }
+
+        .chat-msg .msg-sender { font-size: 11px; color: #888; margin-bottom: 4px; }
+        .chat-msg .msg-bubble { padding: 10px 14px; border-radius: 8px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+
+        .chat-msg.user .msg-bubble { background: #0e639c; color: #fff; border-bottom-right-radius: 2px; }
+        .chat-msg.agent .msg-bubble { background: #2d2d2d; color: #d4d4d4; border-bottom-left-radius: 2px; }
+
+        .chat-msg.agent .msg-bubble code { background: #1e1e1e; padding: 2px 6px; border-radius: 3px; font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace; font-size: 12px; }
+        .chat-msg.agent .msg-bubble pre { background: #1e1e1e; padding: 12px; border-radius: 6px; overflow-x: auto; margin: 8px 0; }
+        .chat-msg.agent .msg-bubble pre code { background: transparent; padding: 0; }
+
+        #chat-input-area { border-top: 1px solid #3c3c3c; padding: 12px 16px; background: #252526; }
+
+        #chat-input { width: 100%; background: #3c3c3c; color: #d4d4d4; border: 1px solid #555; border-radius: 6px; padding: 10px 12px; font-family: inherit; font-size: 13px; resize: none; outline: none; }
+        #chat-input:focus { border-color: #0e639c; }
+
+        #chat-input-tools { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+
+        .think-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #a0a0a0; }
+        .think-toggle input { accent-color: #0e639c; }
+
+        .send-btn { padding: 6px 20px; background: #0e639c; color: #fff; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; }
+        .send-btn:hover { background: #1177bb; }
+        .send-btn:disabled { background: #555; cursor: not-allowed; }
+
+        .splitter { width: 4px; cursor: col-resize; background: transparent; flex-shrink: 0; z-index: 10; }
+        .splitter:hover, .splitter.active { background: #0e639c; }
+
+        #right-panel { width: 320px; min-width: 200px; max-width: 600px; background: #252526; border-left: 1px solid #3c3c3c; display: flex; flex-direction: column; transition: width 0.2s ease; }
+        #right-panel.hidden { width: 0 !important; min-width: 0; overflow: hidden; border-left: none; }
+
+        #right-panel-header { display: flex; align-items: center; border-bottom: 1px solid #3c3c3c; flex-shrink: 0; }
+        .tabs { display: flex; flex: 1; overflow-x: auto; }
+        .tab { padding: 8px 12px; background: none; border: none; color: #888; font-size: 12px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+        .tab:hover { color: #ccc; }
+        .tab.active { color: #fff; border-bottom-color: #0e639c; }
+        .close-btn { background: none; border: none; color: #888; font-size: 14px; cursor: pointer; padding: 8px 12px; }
+        .close-btn:hover { color: #fff; }
+
+        #right-panel-content { flex: 1; overflow: hidden; position: relative; }
+        .tab-content { display: none; height: 100%; overflow-y: auto; padding: 12px; }
+        .tab-content.active { display: block; }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #777; }
+    </style>
     <title>KCode</title>
 </head>
 <body>
     <div id="container">
-        <!-- 左侧栏 -->
-        <div id="sidebar">
-            <div id="sidebar-content">
-                <div class="sidebar-section">
-                    <button id="btn-new-task" class="sidebar-btn">+ New Task</button>
-                    <button id="btn-open-workspace" class="sidebar-btn">📂 Open Workspace</button>
-                </div>
-                <div id="task-list">
-                </div>
-            </div>
-            <div id="sidebar-footer">
-                <button id="btn-user" class="sidebar-icon-btn" title="User">👤</button>
-                <button id="btn-settings" class="sidebar-icon-btn" title="Settings">⚙️</button>
-            </div>
-            <div id="sidebar-collapse-btn" class="collapse-btn" title="折叠侧栏">◀</div>
-        </div>
-
-        <div id="splitter-1" class="splitter"></div>
-
         <div id="chat-area">
             <div id="chat-messages">
                 <div class="chat-placeholder">输入需求，开始与 AI 对话</div>
@@ -226,7 +266,7 @@ export class KCodePanel {
 
         <div id="splitter-2" class="splitter"></div>
 
-        <div id="right-panel">
+        <div id="right-panel" class="hidden">
             <div id="right-panel-header">
                 <div class="tabs">
                     <button class="tab active" data-tab="preview">Preview</button>
@@ -262,6 +302,15 @@ export class KCodePanel {
             type: 'updateTaskList',
             workspaces: data
         });
+    }
+
+    loadTask(taskId: string, workspaceId: string) {
+        this.currentTaskId = taskId;
+        const ws = this.store.getWorkspaces().find(w => w.id === workspaceId);
+        if (ws) {
+            this.currentWorkspacePath = ws.path;
+        }
+        this.sendTaskMessages(taskId);
     }
 
     private sendTaskMessages(taskId: string) {

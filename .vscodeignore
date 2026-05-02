@@ -1,0 +1,10 @@
+.vscode/**
+.vscode-test/**
+.gitignore
+AGENTS.md
+KCODE_MVP.md
+PLAN.md
+docs/**
+out/**/*.map
+src/**
+tsconfig.json

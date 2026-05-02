@@ -11,9 +11,29 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:kcode.viewsMain"
+  ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "kcode",
+          "title": "KCode",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "kcode": [
+        {
+          "type": "webview",
+          "id": "kcode.viewsMain",
+          "name": "KCode"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "kcode.open",
