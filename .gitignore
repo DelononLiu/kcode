@@ -3,3 +3,4 @@ out/
 .vscode/
 *.vsix
 # .kilo — tracked for project configuration and project-index.md
+agent-manager.json
