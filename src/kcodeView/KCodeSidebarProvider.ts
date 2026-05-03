@@ -45,6 +45,10 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                 case 'selectTask':
                     this._onTaskSelected(message.taskId);
                     break;
+                case 'pinTask':
+                    this._store.updateTaskPin(message.taskId, message.pinned);
+                    this.refresh();
+                    break;
                 case 'deleteTask':
                     this._store.deleteTask(message.taskId);
                     this.refresh();

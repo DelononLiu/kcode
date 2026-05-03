@@ -37,6 +37,15 @@ export class TaskStore {
         }
     }
 
+    updateTaskPin(taskId: string, pinned: boolean): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            tasks[idx].pinned = pinned;
+            this.state.update('tasks', tasks);
+        }
+    }
+
     getTask(taskId: string): Task | undefined {
         return this.getTasks().find(t => t.id === taskId);
     }

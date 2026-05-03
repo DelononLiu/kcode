@@ -31,7 +31,7 @@ declare function acquireVsCodeApi(): any;
         });
     })();
 
-    function showContextMenu(x: number, y: number, taskId: string) {
+    function showContextMenu(x: number, y: number, task: any) {
         hideContextMenu();
 
         const menu = document.createElement('div');
@@ -39,13 +39,24 @@ declare function acquireVsCodeApi(): any;
         menu.style.left = x + 'px';
         menu.style.top = y + 'px';
 
+        const pinText = task.pinned ? '取消置顶' : '置顶';
+        const pinItem = document.createElement('div');
+        pinItem.className = 'context-menu-item';
+        pinItem.textContent = pinText;
+        pinItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            hideContextMenu();
+            vscode.postMessage({ type: 'pinTask', taskId: task.id, pinned: !task.pinned });
+        });
+        menu.appendChild(pinItem);
+
         const deleteItem = document.createElement('div');
         deleteItem.className = 'context-menu-item';
         deleteItem.textContent = 'Delete';
         deleteItem.addEventListener('click', (e) => {
             e.stopPropagation();
             hideContextMenu();
-            vscode.postMessage({ type: 'deleteTask', taskId });
+            vscode.postMessage({ type: 'deleteTask', taskId: task.id });
         });
 
         menu.appendChild(deleteItem);
@@ -134,7 +145,7 @@ declare function acquireVsCodeApi(): any;
         item.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            showContextMenu(e.clientX, e.clientY, task.id);
+            showContextMenu(e.clientX, e.clientY, task);
         });
 
         return item;
