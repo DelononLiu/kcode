@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { TaskStore } from '../store/TaskStore';
 import { AcpClient } from '../acp/AcpClient';
+import { FakeAgent } from '../acp/FakeAgent';
 
 export class KCodePanel {
     private panel: vscode.WebviewPanel;
@@ -10,6 +11,7 @@ export class KCodePanel {
     private onDisposeCallback?: () => void;
     private currentTaskId: string | null = null;
     private acpClient: AcpClient | null = null;
+    private fakeAgent: FakeAgent | null = null;
     private agentReady: boolean = false;
     private accumulatedAgentText: string = '';
     private refreshSidebarCallback?: () => void;
@@ -52,6 +54,7 @@ export class KCodePanel {
 
     private async handleSendMessage(text: string, taskId?: string) {
         const tid = taskId || this.currentTaskId;
+        console.log('[KCode] handleSendMessage called, text:', text, 'tid:', tid, 'agentReady:', this.agentReady, 'acpClient:', !!this.acpClient, 'fakeAgent:', !!this.fakeAgent);
         if (!tid) return;
 
         const isFirstMessage = this.store.getMessages(tid).length === 0;
@@ -79,10 +82,16 @@ export class KCodePanel {
         }
 
         if (this.agentReady && this.acpClient) {
-            // Ensure a session exists for this task
-            if (!this.acpClient.hasSession(tid)) {
-                const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
-                await this.acpClient.createSession(tid, workspacePath);
+            // Real ACP Agent
+            try {
+                if (!this.acpClient.hasSession(tid)) {
+                    const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
+                    await this.acpClient.createSession(tid, workspacePath);
+                }
+            } catch (err: any) {
+                const errorMsg = err?.message || 'Agent 连接失败';
+                this.showAgentError(tid, errorMsg);
+                return;
             }
 
             this.accumulatedAgentText = '';
@@ -105,33 +114,91 @@ export class KCodePanel {
                 onDone: () => {
                     if (this.accumulatedAgentText) {
                         this.storeMessage(tid, 'agent', this.accumulatedAgentText);
+                        this.panel.webview.postMessage({
+                            type: 'loadMessages',
+                            messages: this.store.getMessages(tid),
+                            taskId: tid
+                        });
                     }
                 }
             });
+        } else if (this.fakeAgent) {
+            // Fake Agent for debugging (only when explicitly enabled)
+            const sessionId = this.fakeAgent.createSession(tid);
+            this.fakeAgent.setHandler(sessionId, {
+                onText: (chunk: string) => {
+                    this.accumulatedAgentText += chunk;
+                    this.panel.webview.postMessage({
+                        type: 'agentStreamUpdate',
+                        text: this.accumulatedAgentText
+                    });
+                },
+                onError: (error: string) => {
+                    this.panel.webview.postMessage({
+                        type: 'agentStreamUpdate',
+                        text: `\n\n[错误: ${error}]`
+                    });
+                    this.storeMessage(tid, 'agent', `错误: ${error}`);
+                },
+                onDone: () => {
+                    if (this.accumulatedAgentText) {
+                        this.storeMessage(tid, 'agent', this.accumulatedAgentText);
+                        this.panel.webview.postMessage({
+                            type: 'loadMessages',
+                            messages: this.store.getMessages(tid),
+                            taskId: tid
+                        });
+                    }
+                }
+            });
+
+            this.accumulatedAgentText = '';
+            await this.fakeAgent.prompt(sessionId, text);
         } else {
-            setTimeout(() => {
-                const echoText = `收到: "${text}"\n\n（ACP Agent 未连接，请在设置中配置 Agent 路径）`;
-                this.storeMessage(tid, 'agent', echoText);
-                this.panel.webview.postMessage({
-                    type: 'loadMessages',
-                    messages: this.store.getMessages(tid),
-                    taskId: tid
-                });
-            }, 300);
+            // No agent available - show error to user
+            const config = vscode.workspace.getConfiguration('kcode');
+            const agentPath = config.get<string>('agentPath') || '';
+            const errorMsg = !agentPath || agentPath === 'npx'
+                ? '请配置 Agent：在 VS Code 设置中设置 `kcode.agentPath`，指向 Agent 可执行文件路径'
+                : `Agent 连接失败：无法连接到 "${agentPath}"，请检查路径是否正确并确保 Agent 已启动`;
+            this.showAgentError(tid, errorMsg);
         }
     }
 
-    private async ensureConnection() {
-        try {
-            const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
-            this.acpClient = new AcpClient(workspacePath);
+    private showAgentError(tid: string, errorMsg: string) {
+        this.storeMessage(tid, 'agent', `错误: ${errorMsg}`);
+        this.panel.webview.postMessage({
+            type: 'agentStreamUpdate',
+            text: `\n\n[错误: ${errorMsg}]`
+        });
+        this.panel.webview.postMessage({
+            type: 'loadMessages',
+            messages: this.store.getMessages(tid),
+            taskId: tid
+        });
+    }
 
+    private async ensureConnection() {
+        console.log('[KCode] ensureConnection called');
+        try {
             const config = vscode.workspace.getConfiguration('kcode');
             const agentPath = config.get<string>('agentPath') || '';
             const agentArgs = config.get<string[]>('agentArgs') || [];
 
-            if (agentPath) {
-                const connected = await this.acpClient.connect(agentPath, agentArgs);
+            console.log('[KCode] agentPath:', agentPath);
+
+            // Only attempt connection if agentPath is a real agent command (not default 'npx')
+            if (agentPath && agentPath !== 'npx') {
+                console.log('[KCode] Trying to connect to agent:', agentPath);
+                const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
+                this.acpClient = new AcpClient(workspacePath);
+
+                // Timeout for connection attempt (5 seconds)
+                const connectPromise = this.acpClient.connect(agentPath, agentArgs);
+                const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000));
+                const connected = await Promise.race([connectPromise, timeoutPromise]);
+                console.log('[KCode] connect result:', connected);
+
                 if (connected) {
                     this.agentReady = true;
                     this.panel.webview.postMessage({
@@ -139,16 +206,22 @@ export class KCodePanel {
                         status: 'connected',
                         message: 'Agent 已连接'
                     });
-                } else {
-                    this.panel.webview.postMessage({
-                        type: 'agentStatus',
-                        status: 'disconnected',
-                        message: 'Agent 连接失败'
-                    });
+                    return;
                 }
+
+                console.log('[KCode] Connection failed');
+                this.acpClient = null;
             }
+
+            // Agent not available - agentReady stays false
+            this.panel.webview.postMessage({
+                type: 'agentStatus',
+                status: 'disconnected',
+                message: 'Agent 未连接'
+            });
         } catch (err) {
-            console.error('Failed to initialize ACP agent:', err);
+            console.error('[KCode] ensureConnection error:', err);
+            this.acpClient = null;
             this.panel.webview.postMessage({
                 type: 'agentStatus',
                 status: 'disconnected',
