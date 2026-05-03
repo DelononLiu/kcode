@@ -49,7 +49,7 @@
       "properties": {
         "kcode.agentName": {
           "type": "string",
-          "default": "npx",
+          "default": "fake",
           "description": "Agent name or executable path. Set to \"fake\" to use built-in FakeAgent for debugging (no real agent required)."
         },
         "kcode.agentArgs": {
