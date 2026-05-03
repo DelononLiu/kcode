@@ -139,10 +139,21 @@ export class KCodePanel {
                         status: 'connected',
                         message: 'Agent 已连接'
                     });
+                } else {
+                    this.panel.webview.postMessage({
+                        type: 'agentStatus',
+                        status: 'disconnected',
+                        message: 'Agent 连接失败'
+                    });
                 }
             }
         } catch (err) {
             console.error('Failed to initialize ACP agent:', err);
+            this.panel.webview.postMessage({
+                type: 'agentStatus',
+                status: 'disconnected',
+                message: 'Agent 连接失败'
+            });
         }
     }
 
@@ -211,10 +222,7 @@ export class KCodePanel {
                     </div>
                     <div id="chat-statusbar">
                         <span class="status-item">
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1"/>
-                                <path d="M6 3v3l2 1" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-                            </svg>
+                            <span id="agent-status-dot" class="status-dot offline"></span>
                             <span id="status-model">Agent</span>
                         </span>
                     </div>
@@ -286,6 +294,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .status-item svg{opacity:.5}
 .status-divider{width:1px;height:12px;background:#3c3c3c;flex-shrink:0}
 .status-item.model-badge{color:#888;font-weight:500}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.status-dot.online{background:#4ec9b0}
+.status-dot.offline{background:#6b6b6b}
 #right-panel{width:320px;min-width:200px;max-width:600px;background:#252526;border-left:1px solid #3c3c3c;display:flex;flex-direction:column;transition:width .2s ease}
 #right-panel.hidden{width:0!important;min-width:0;overflow:hidden;border-left:none}
 #right-panel-header{display:flex;align-items:center;border-bottom:1px solid #3c3c3c;flex-shrink:0}

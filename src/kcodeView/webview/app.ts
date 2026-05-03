@@ -119,12 +119,11 @@ function handleAgentStreamUpdate(text: string) {
 }
 
 function handleAgentStatus(status: string, message: string) {
-    const container = document.getElementById('chat-messages')!;
-    const statusDiv = document.createElement('div');
-    statusDiv.style.cssText = 'text-align:center;padding:8px;margin:8px 0;font-size:12px;color:#888;';
-    statusDiv.textContent = `\u{1F50C} ${message}`;
-    container.appendChild(statusDiv);
-    container.scrollTop = container.scrollHeight;
+    const statusDot = document.getElementById('agent-status-dot');
+    if (statusDot) {
+        statusDot.className = 'status-dot ' + (status === 'connected' ? 'online' : 'offline');
+        statusDot.title = message;
+    }
 }
 
 /** Reset streaming state when loading messages */

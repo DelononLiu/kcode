@@ -43,7 +43,22 @@
         "command": "kcode.newTask",
         "title": "KCode: New Task"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "KCode",
+      "properties": {
+        "kcode.agentPath": {
+          "type": "string",
+          "default": "npx",
+          "description": "Agent executable path (e.g., npx, node, or absolute path)"
+        },
+        "kcode.agentArgs": {
+          "type": "array",
+          "default": [],
+          "description": "Additional arguments passed to the agent"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

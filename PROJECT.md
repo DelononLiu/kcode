@@ -23,13 +23,10 @@ src/
 │       ├── preview.ts            # 右侧面板 Preview/Diff/WebView
 │       ├── device.ts             # Device tab
 │       └── style.css             # 样式
-├── acp/
-│   ├── AcpClient.ts              # ACP 客户端封装
-│   ├── AgentManager.ts           # Agent 子进程管理
-│   └── callbacks.ts              # ACP Client 回调实现
-└── commands/
-    ├── newTask.ts                # 新建任务（未使用）
-    └── selectTask.ts             # 任务选择回调
+└── acp/
+    ├── AcpClient.ts              # ACP 客户端封装
+    ├── AgentManager.ts           # Agent 子进程管理
+    └── callbacks.ts              # ACP Client 回调实现
 ```
 
 ---
@@ -132,7 +129,7 @@ src/
 
 | 优先级 | 任务 | 说明 |
 |--------|------|------|
-| P0 | 清理 `src/commands/newTask.ts` 和 `selectTask.ts` | 消除与 `extension.ts` / `KCodeSidebarProvider` 的重复逻辑，统一入口 |
+| P0 | ~~清理 `src/commands/newTask.ts` 和 `selectTask.ts`~~ ✅ 已删除 | 消除与 `extension.ts` / `KCodeSidebarProvider` 的重复逻辑，统一入口 |
 | P1 | ✅ `findEmptyTask` 已在 TaskStore 中实现 | 无需重复 |
 | P2 | **侧边栏重构为三区块 + 底部** | 见下方新侧边栏 UI 规格 |
 | P2 | **验收流程** | Agent 回复完毕后，对话区底部出现"验收"按钮 → 展示 diff + 变更文件列表 → 用户确认/驳回 |

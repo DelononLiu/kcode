@@ -21,8 +21,18 @@ _待填充_
 
 ## Phase 2: AI 对话完整化
 
-_待填充_
+| 优先级 | 任务 | 状态 |
+|--------|------|------|
+| P0 | `package.json` 添加 `contributes.configuration`（kcode.agentPath） | ✅ 已完成 |
 
 ## Phase 3: 体验打磨
 
-_待填充_
+| 优先级 | 任务 | 状态 |
+|--------|------|------|
+| P0 | Agent 在线/离线状态灯 | ✅ 已完成 |
+
+## 已完成
+
+| 任务 | 说明 |
+|------|------|
+| 清理 `src/commands/` 目录 | 删除未使用的 newTask.ts 和 selectTask.ts |
