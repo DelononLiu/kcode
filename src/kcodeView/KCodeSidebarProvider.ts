@@ -156,8 +156,8 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         .section-header {
             display: flex;
             align-items: center;
-            padding: 4px 8px;
-            font-size: 11px;
+            padding: 4px 8px 4px 24px;
+            font-size: 13px;
             font-weight: 600;
             color: var(--vscode-sideBarSectionHeader-foreground, #888);
             text-transform: uppercase;
