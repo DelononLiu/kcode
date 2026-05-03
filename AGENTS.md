@@ -36,6 +36,8 @@ kcode/
     ├── acp/
     │   ├── AcpClient.ts             # ACP ClientSideConnection 封装
     │   ├── AgentManager.ts          # Agent 子进程 spawn/管理
+    │   ├── FakeAgent.ts             # FakeAgent 调试模式
+    │   ├── OpenAIAgent.ts           # OpenAI Agent (通过 HTTP 调用 OpenAI API)
     │   └── callbacks.ts             # Client 回调(文件读写/权限/sessionUpdate)
     ├── store/
     │   └── TaskStore.ts             # CRUD: 任务 / 消息

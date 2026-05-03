@@ -1,9 +1,13 @@
 .vscode/**
 .vscode-test/**
 .gitignore
+.kilo/**
+.claude/**
 AGENTS.md
 KCODE_MVP.md
 PLAN.md
+PROJECT.md
+TASKS.md
 docs/**
 out/**/*.map
 src/**

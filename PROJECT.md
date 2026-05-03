@@ -27,6 +27,8 @@ src/
 └── acp/
     ├── AcpClient.ts              # ACP 客户端封装
     ├── AgentManager.ts           # Agent 子进程管理
+    ├── FakeAgent.ts              # FakeAgent 调试模式
+    ├── OpenAIAgent.ts            # OpenAI Agent (HTTP 直连 OpenAI API)
     └── callbacks.ts              # ACP Client 回调实现
 ```
 

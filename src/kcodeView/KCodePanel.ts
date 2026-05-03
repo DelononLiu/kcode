@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { TaskStore } from '../store/TaskStore';
 import { AcpClient } from '../acp/AcpClient';
 import { FakeAgent } from '../acp/FakeAgent';
+import { OpenAIAgent } from '../acp/OpenAIAgent';
 
 export class KCodePanel {
     private panel: vscode.WebviewPanel;
@@ -12,6 +13,7 @@ export class KCodePanel {
     private currentTaskId: string | null = null;
     private acpClient: AcpClient | null = null;
     private fakeAgent: FakeAgent | null = null;
+    private openaiAgent: OpenAIAgent | null = null;
     private agentReady: boolean = false;
     private accumulatedAgentText: string = '';
     private refreshSidebarCallback?: () => void;
@@ -154,6 +156,37 @@ export class KCodePanel {
 
             this.accumulatedAgentText = '';
             await this.fakeAgent.prompt(sessionId, text);
+        } else if (this.openaiAgent) {
+            const sessionId = this.openaiAgent.createSession(tid);
+            this.openaiAgent.setHandler(sessionId, {
+                onText: (chunk: string) => {
+                    this.accumulatedAgentText += chunk;
+                    this.panel.webview.postMessage({
+                        type: 'agentStreamUpdate',
+                        text: this.accumulatedAgentText
+                    });
+                },
+                onError: (error: string) => {
+                    this.panel.webview.postMessage({
+                        type: 'agentStreamUpdate',
+                        text: `\n\n[错误: ${error}]`
+                    });
+                    this.storeMessage(tid, 'agent', `错误: ${error}`);
+                },
+                onDone: () => {
+                    if (this.accumulatedAgentText) {
+                        this.storeMessage(tid, 'agent', this.accumulatedAgentText);
+                        this.panel.webview.postMessage({
+                            type: 'loadMessages',
+                            messages: this.store.getMessages(tid),
+                            taskId: tid
+                        });
+                    }
+                }
+            });
+
+            this.accumulatedAgentText = '';
+            await this.openaiAgent.prompt(sessionId, text);
         } else {
             // No agent available - show error to user
             const config = vscode.workspace.getConfiguration('kcode');
@@ -180,17 +213,17 @@ export class KCodePanel {
 
     private async ensureConnection() {
         console.log('[KCode] ensureConnection called');
-        if (this.agentReady || this.fakeAgent) return;
+        if (this.agentReady || this.fakeAgent || this.openaiAgent) return;
 
         try {
             const config = vscode.workspace.getConfiguration('kcode');
             const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
 
+            const agentUrl = config.get<string>('agentUrl') || '';
             const agentName = config.get<string>('agentName') || '';
             const agentArgs = config.get<string[]>('agentArgs') || [];
-            console.log('[KCode] agentName:', agentName);
 
-            // Built-in FakeAgent for debugging (no real agent needed)
+            // FakeAgent for debugging
             if (agentName === 'fake') {
                 console.log('[KCode] Using FakeAgent for debugging');
                 this.fakeAgent = new FakeAgent();
@@ -202,9 +235,44 @@ export class KCodePanel {
                 return;
             }
 
+            // OpenAI Agent
+            if (agentName === 'openai') {
+                console.log('[KCode] Using OpenAIAgent');
+                this.openaiAgent = new OpenAIAgent();
+                this.panel.webview.postMessage({
+                    type: 'agentStatus',
+                    status: 'connected',
+                    message: `OpenAI Agent (${this.openaiAgent['config'].model})`
+                });
+                return;
+            }
+
             this.acpClient = new AcpClient(workspacePath);
 
-            // Priority 1: stdio agent path
+            // Priority 1: HTTP mode (when URL is configured)
+            if (agentUrl) {
+                console.log('[KCode] Trying to connect via HTTP:', agentUrl);
+                const connected = await this.acpClient.connectHttp(agentUrl);
+                if (connected) {
+                    this.agentReady = true;
+                    this.panel.webview.postMessage({
+                        type: 'agentStatus',
+                        status: 'connected',
+                        message: 'Agent 已连接 (HTTP)'
+                    });
+                    return;
+                }
+                console.log('[KCode] HTTP connection failed');
+                this.acpClient = null;
+                this.panel.webview.postMessage({
+                    type: 'agentStatus',
+                    status: 'disconnected',
+                    message: `HTTP Agent 连接失败: ${agentUrl}`
+                });
+                return;
+            }
+
+            // Priority 2: stdio subprocess
             if (agentName && agentName !== 'npx') {
                 console.log('[KCode] Trying to connect to agent:', agentName);
 
@@ -229,31 +297,6 @@ export class KCodePanel {
                     type: 'agentStatus',
                     status: 'disconnected',
                     message: `Agent 连接失败: ${agentName}`
-                });
-                return;
-            }
-
-            // Priority 2: HTTP mode (fallback when agentName is not set)
-            const agentUrl = config.get<string>('agentUrl') || '';
-            if (agentUrl) {
-                console.log('[KCode] Trying to connect via HTTP:', agentUrl);
-                this.acpClient = new AcpClient(workspacePath);
-                const connected = await this.acpClient.connectHttp(agentUrl);
-                if (connected) {
-                    this.agentReady = true;
-                    this.panel.webview.postMessage({
-                        type: 'agentStatus',
-                        status: 'connected',
-                        message: 'Agent 已连接 (HTTP)'
-                    });
-                    return;
-                }
-                console.log('[KCode] HTTP connection failed');
-                this.acpClient = null;
-                this.panel.webview.postMessage({
-                    type: 'agentStatus',
-                    status: 'disconnected',
-                    message: `HTTP Agent 连接失败: ${agentUrl}`
                 });
                 return;
             }
