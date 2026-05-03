@@ -19,7 +19,7 @@ src/
 │   └── webview/
 │       ├── app.ts                # 主 WebView 逻辑
 │       ├── sidebar.ts            # 侧边栏任务列表渲染
-│       ├── chat.ts               # 对话消息渲染
+│       ├── chat.ts               # 空壳(渲染逻辑在 app.ts)
 │       ├── preview.ts            # 右侧面板 Preview/Diff/WebView
 │       ├── device.ts             # Device tab
 │       └── style.css             # 样式
