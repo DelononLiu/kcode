@@ -136,18 +136,20 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             gap: 4px;
         }
         .sidebar-btn {
-            flex: 1;
-            padding: 5px 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 8px 6px 16px;
+            margin: 1px 4px;
             background: transparent;
-            color: #cccccc;
-            border: 1px solid #555;
-            border-radius: 4px;
+            color: #a0a0a0;
             font-size: 13px;
             cursor: pointer;
-            text-align: left;
+            border: none;
+            border-radius: 3px;
             font-family: inherit;
         }
-        .sidebar-btn:hover { background: #4a4d51; color: #ffffff; }
+        .sidebar-btn:hover { background: #252526; }
         /* --- Section --- */
         .section { margin-bottom: 8px; }
         .section-header {
@@ -183,7 +185,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             align-items: center;
             gap: 6px;
             margin: 1px 4px;
-            background: #1e1e1e;
+            background: transparent;
         }
         .task-item:not(.active):hover { background: #252526; }
         .task-item.active {
