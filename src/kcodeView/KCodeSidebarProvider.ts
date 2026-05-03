@@ -148,14 +148,6 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             font-family: inherit;
         }
         .sidebar-btn:hover { background: #4a4d51; color: #ffffff; }
-        .shortcut-hint {
-            font-size: 11px;
-            color: var(--vscode-descriptionForeground, #6b6b6b);
-            white-space: nowrap;
-            padding: 0 2px;
-            opacity: 0.8;
-        }
-
         /* --- Section --- */
         .section { margin-bottom: 8px; }
         .section-header {
@@ -297,7 +289,6 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     <div id="sidebar-content">
         <div class="action-bar">
             <button id="btn-new-task" class="sidebar-btn">+ 新建任务</button>
-            <span class="shortcut-hint">Ctrl+N</span>
         </div>
 
         <div id="section-pinned" class="section" style="display:none">
