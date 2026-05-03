@@ -105,7 +105,7 @@ src/
 | 优先级 | 任务 |
 |--------|------|
 | P0 | 清理 `src/commands/newTask.ts` 和 `selectTask.ts` |
-| P1 | `findEmptyTask` 逻辑统一定到 TaskStore |
+| P1 | ✅ `findEmptyTask` 已在 TaskStore 中实现 |
 | P2 | **自定义分组 + 侧边栏重构**（三区块 + 底部） |
 | P2 | **验收流程**（验收按钮 → diff/文件列表 → 确认/驳回） |
 | P3 | 右键菜单增加"归档"入口 |
@@ -133,7 +133,7 @@ src/
 | 优先级 | 任务 | 说明 |
 |--------|------|------|
 | P0 | 清理 `src/commands/newTask.ts` 和 `selectTask.ts` | 消除与 `extension.ts` / `KCodeSidebarProvider` 的重复逻辑，统一入口 |
-| P1 | `findEmptyTask` 复用逻辑统一到 TaskStore | 目前 sidebar 和 extension.ts 各有一份 |
+| P1 | ✅ `findEmptyTask` 已在 TaskStore 中实现 | 无需重复 |
 | P2 | **侧边栏重构为三区块 + 底部** | 见下方新侧边栏 UI 规格 |
 | P2 | **验收流程** | Agent 回复完毕后，对话区底部出现"验收"按钮 → 展示 diff + 变更文件列表 → 用户确认/驳回 |
 | P3 | 右键菜单增加"归档"入口 | 从列表隐藏但数据保留，待后续版本支持历史回溯 |
@@ -204,12 +204,12 @@ KCode (ACP Client)                 Agent (ACP Agent)
       ├── session_new() ────────────────►│
       │◄─ session_id ────────────────────┤
       │                                   │
-      ├── user_message(text) ───────────►│
+      ├── prompt({ sessionId, prompt }) ───────────►│
       │◄─ agent_message_chunk (stream) ──┤
       │◄─ tool_call (读/写文件) ─────────┤
       │  ├─ Client 执行并返回结果 ────────►│
       │◄─ agent_message_chunk (继续) ────┤
-      │◄─ session_complete ──────────────┤
+      │◄─ stop_reason ───────────────────┤
       │                                   │
       ├── session_close() ──────────────►│
 ```
@@ -244,13 +244,6 @@ interface Task {
     title: string;
     status: 'pending' | 'active' | 'completed';
     createdAt: number;
-    isPinned: boolean;        // MVP Phase 1 新增
-    groupId: string | null;   // MVP Phase 1 新增
-}
-
-interface TaskGroup {
-    id: string;
-    name: string;             // MVP Phase 1 新增
 }
 
 interface ChatMessage {
@@ -334,6 +327,7 @@ KCodePanel WebView 主入口（初始化布局、Tab 切换、聊天输入、消
 | `(window as any).addMessage` | 兼容旧接口 |
 | `(window as any).simpleMarkdown` | Markdown 渲染器 |
 | `(window as any).__resetStream` | 重置流状态 |
+| `(window as any).renderMessages` | 渲染消息列表 |
 
 ### `src/kcodeView/webview/sidebar.ts`
 
@@ -347,6 +341,7 @@ KCodePanel WebView 主入口（初始化布局、Tab 切换、聊天输入、消
 function showPreview(filePath: string, content: string): void
 function showDiff(original: string, modified: string): void
 function showWebView(url: string): void
+function showDeviceFallback(): void
 ```
 
 ### `src/kcodeView/webview/device.ts`
@@ -369,7 +364,7 @@ function appendDeviceOutput(data: string): void
 | `hasSession(taskId)` | 检查 task 是否有会话 |
 | `prompt(taskId, text, handler)` | 发送 prompt + 流式回调 |
 | `cancel(taskId)` | 取消指定 task 的 prompt |
-| `closeTaskSession(taskId)` | 关闭指定 task 的会话 |
+| `closeTaskSession(taskId)` | 关闭指定 task 的会话（本地删除，暂未发送 ACP 关闭请求） |
 | `dispose()` | 释放资源 |
 
 ### `src/acp/AgentManager.ts`

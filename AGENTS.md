@@ -35,10 +35,10 @@ kcode/
     │   ├── KCodePanel.ts            # WebviewPanel (编辑器区域: 聊天 + 右侧面板)
     │   ├── KCodeSidebarProvider.ts   # WebviewViewProvider (左侧 activity bar 侧边栏视图)
     │   └── webview/
-    │       ├── style.css            # 全部样式
+    │       ├── style.css            # 未引用(样式内联在 KCodePanel.ts)
     │       ├── app.ts               # 主逻辑: 布局交互, 消息分派
     │       ├── sidebar.ts           # 左侧栏: 任务列表渲染
-    │       ├── chat.ts              # 中间对话区: 消息渲染
+    │       ├── chat.ts              # 空壳(渲染逻辑在 app.ts)
     │       ├── preview.ts           # 右侧面板: Preview/Diff/WebView
     │       └── device.ts            # 右侧面板: Device tab
     ├── commands/
