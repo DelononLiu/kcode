@@ -185,12 +185,59 @@ export class KCodePanel {
         try {
             const config = vscode.workspace.getConfiguration('kcode');
             const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
+
+            const agentPath = config.get<string>('agentPath') || '';
+            const agentArgs = config.get<string[]>('agentArgs') || [];
+            console.log('[KCode] agentPath:', agentPath);
+
+            // Built-in FakeAgent for debugging (no real agent needed)
+            if (agentPath === 'fake') {
+                console.log('[KCode] Using FakeAgent for debugging');
+                this.fakeAgent = new FakeAgent();
+                this.panel.webview.postMessage({
+                    type: 'agentStatus',
+                    status: 'connected',
+                    message: 'Fake Agent (调试模式)'
+                });
+                return;
+            }
+
             this.acpClient = new AcpClient(workspacePath);
 
-            // HTTP mode: connect to a remote ACP agent via URL
+            // Priority 1: stdio agent path
+            if (agentPath && agentPath !== 'npx') {
+                console.log('[KCode] Trying to connect to agent:', agentPath);
+
+                const connectPromise = this.acpClient.connect(agentPath, agentArgs);
+                const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000));
+                const connected = await Promise.race([connectPromise, timeoutPromise]);
+                console.log('[KCode] connect result:', connected);
+
+                if (connected) {
+                    this.agentReady = true;
+                    this.panel.webview.postMessage({
+                        type: 'agentStatus',
+                        status: 'connected',
+                        message: 'Agent 已连接'
+                    });
+                    return;
+                }
+
+                console.log('[KCode] Connection failed');
+                this.acpClient = null;
+                this.panel.webview.postMessage({
+                    type: 'agentStatus',
+                    status: 'disconnected',
+                    message: `Agent 连接失败: ${agentPath}`
+                });
+                return;
+            }
+
+            // Priority 2: HTTP mode (fallback when agentPath is not set)
             const agentUrl = config.get<string>('agentUrl') || '';
             if (agentUrl) {
                 console.log('[KCode] Trying to connect via HTTP:', agentUrl);
+                this.acpClient = new AcpClient(workspacePath);
                 const connected = await this.acpClient.connectHttp(agentUrl);
                 if (connected) {
                     this.agentReady = true;
@@ -211,47 +258,7 @@ export class KCodePanel {
                 return;
             }
 
-            const agentPath = config.get<string>('agentPath') || '';
-            const agentArgs = config.get<string[]>('agentArgs') || [];
-            console.log('[KCode] agentPath:', agentPath);
-
-            // Built-in FakeAgent for debugging (no real agent needed)
-            if (agentPath === 'fake') {
-                console.log('[KCode] Using FakeAgent for debugging');
-                this.fakeAgent = new FakeAgent();
-                this.panel.webview.postMessage({
-                    type: 'agentStatus',
-                    status: 'connected',
-                    message: 'Fake Agent (调试模式)'
-                });
-                return;
-            }
-
-            // Only attempt connection if agentPath is a real agent command (not default 'npx')
-            if (agentPath && agentPath !== 'npx') {
-                console.log('[KCode] Trying to connect to agent:', agentPath);
-
-                // Timeout for connection attempt (5 seconds)
-                const connectPromise = this.acpClient.connect(agentPath, agentArgs);
-                const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000));
-                const connected = await Promise.race([connectPromise, timeoutPromise]);
-                console.log('[KCode] connect result:', connected);
-
-                if (connected) {
-                    this.agentReady = true;
-                    this.panel.webview.postMessage({
-                        type: 'agentStatus',
-                        status: 'connected',
-                        message: 'Agent 已连接'
-                    });
-                    return;
-                }
-
-                console.log('[KCode] Connection failed');
-                this.acpClient = null;
-            }
-
-            // Agent not available - agentReady stays false
+            // No agent configured
             this.panel.webview.postMessage({
                 type: 'agentStatus',
                 status: 'disconnected',
