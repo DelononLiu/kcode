@@ -51,7 +51,7 @@ KCode 是一个 VS Code 扩展，参考 ZCode 的 ADE 设计理念，聚焦 **Ta
 | **三栏布局** | ✅ 统一 WebView | ✅ 统一 WebView | ⚠️ 2栏(侧边栏为独立WebviewView) | 左侧栏分离为 VS Code 原生 Sidebar View |
 | **左侧任务列表** | ✅ 文件树+任务 | ✅ 仅任务(扁平) | ✅ | 工作区分组延后 |
 | **中间AI对话** | ✅ 标签页: Chat | ✅ 对话区 | ✅ | Terminal KCode暂无 |
-| **右侧预览面板** | ✅ 版本管理/配置 | ✅ Preview/Diff/WebView/Device | ⚠️ 部分(Frontend UI完整, Device无真实连接) | FilePreview/Diff/WebView 已实现 |
+| **右侧预览面板** | ✅ 版本管理/配置 | ✅ Preview/Diff/WebView/Device | ⚠️ 部分(UI完整, Device非MVP) | 验收流程通过 Diff/FilePreview 承载 |
 | **Terminal** | ✅ 中心区标签页 | ❌ MVP 不实现 | ❌ 不做 | 用户通过 VS Code 原生终端代替 |
 | **权限模式** | ✅ 4种模式 | ❌ 暂不实现 | ❌ 不做 | 后续迭代 |
 | **多Agent切换** | ✅ 多种AI | ❌ 先接一种 | ❌ 不做 | 后续迭代 |
@@ -163,7 +163,7 @@ kcode/
     └── icon.svg
 ```
 
-## 当前实现状态 (2026-05-02)
+## 当前实现状态 (2026-05-03)
 
 ### ✅ 已实现功能
 
@@ -172,7 +172,7 @@ kcode/
 | 扩展骨架 | VS Code Extension 激活/停用 | ✅ |
 | 扩展骨架 | `kcode.open` / `kcode.newTask` 命令 | ✅ |
 | 编辑器面板 | WebviewPanel 创建与管理 | ✅ |
-| 编辑器面板 | 三栏布局 HTML+CSS (中间+右侧) | ✅ |
+| 编辑器面板 | 两栏布局 HTML+CSS (中间+右侧) | ✅ |
 | 编辑器面板 | 右侧面板 Tab 切换 (Preview/Diff/WebView/Device) | ✅ |
 | 编辑器面板 | 右侧面板隐藏/显示 | ✅ |
 | 编辑器面板 | 中间/右侧拖拽分割条 | ✅ |
@@ -184,13 +184,13 @@ kcode/
 | 侧边栏 | 右键 Delete 任务 | ✅ |
 | 侧边栏 | 点击任务打开面板 | ✅ |
 | AI 对话 | 输入框 + 发送按钮 (Enter/点击) | ✅ |
-| AI 对话 | Markdown 渲染 (代码块/加粗/链接) | ✅ |
+| AI 对话 | Markdown 渲染 (粗体/斜体/链接/换行) | ✅ |
 | AI 对话 | 用户消息即时渲染 | ✅ |
 | AI 对话 | 对话历史与 Task 绑定加载 | ✅ |
 | 右侧面板 | FilePreview 只读展示 | ✅ |
 | 右侧面板 | DiffView 行对比 | ✅ |
 | 右侧面板 | WebView iframe 嵌入 (含刷新) | ✅ |
-| 右侧面板 | Device Tab UI 壳 (connect/disconnect/输入) | ✅ |
+| 右侧面板 | Device Tab UI 壳 | ✅ |
 | ACP | AcpClient 多会话管理 | ✅ |
 | ACP | AgentManager 进程管理 | ✅ |
 | ACP | callbacks: requestPermission (auto-accept) | ✅ |
@@ -205,64 +205,37 @@ kcode/
 
 | 模块 | 缺失详情 | 状态 |
 |------|----------|------|
-| 三栏布局 | 左栏在独立 WebviewView，非三栏内联；无左栏折叠按钮 | ⚠️ 架构取舍 |
-| 右侧面板 | Device Tab 无真实 SSH/Telnet 连接 (仅 UI placeholder) | ⬜ 待实现 |
+| 三栏布局 | 左栏在独立 WebviewView，非两栏内联；无折叠按钮 | ⚠️ 架构取舍 |
+| Device Tab | 无真实 SSH/Telnet 连接，仅 UI 壳 | ⬜ 非 MVP 必须 |
 
-### ❌ 未实现 (MVP 范围内待实现)
+### ❌ 未实现 (按 Phase 顺序)
 
-| 模块 | 缺失详情 | 优先级 |
-|------|----------|--------|
-| **设备连接** | Device Tab SSH/Telnet 真实连接逻辑 | 中 |
-| **设置页面** | 自有设置 UI (API Key/Agent Path) | 低 (待任务+AI打通后处理) |
-| **状态栏** | 底部用户信息/设置入口状态栏 | 低 |
-| **侧边栏折叠** | 左侧栏 (侧边栏) 无折叠/展开按钮 | 低 |
+#### Phase 1: Task 骨架
 
-### ❌ 不做 (MVP 明确排除)
+| 优先级 | 任务 | 状态 |
+|--------|------|------|
+| P0 | 清理 `src/commands/newTask.ts` 和 `selectTask.ts` | ⬜ |
+| P1 | `findEmptyTask` 逻辑统一定到 TaskStore | ⬜ |
+| P2 | **验收流程**（验收按钮 → diff/文件列表 → 确认/驳回） | ⬜ |
+| P3 | 右键菜单增加"归档"入口 | ⬜ |
 
-- 多 Agent 切换
-- 权限模式选择器
-- 会话版本管理 / Git 集成
-- 内置 Terminal
-- MCP 协议
-- 远程开发
-- 工作区管理（延后，待与 VS Code 多工作区协作需求明确）
-- Agent 写文件 → Editor 实时刷新（VS Code 原生能力，非需求点）
+#### Phase 2: AI 对话完整化
+
+| 优先级 | 任务 | 状态 |
+|--------|------|------|
+| P0 | `package.json` 添加 `contributes.configuration`（kcode.agentPath） | ⬜ |
+| P1 | Agent 连接失败的用户可见错误反馈 | ⬜ |
+| P2 | 取消 prompt / 输入框 loading 态 | ⬜ |
+
+#### Phase 3: 体验打磨
+
+| 优先级 | 任务 | 状态 |
+|--------|------|------|
+| P0 | Agent 在线/离线状态灯 | ⬜ |
+| P1 | 右侧面板 Tab 默认引导内容 | ⬜ |
+| P2 | sidebar 折叠按钮 | ⬜ |
 
 ---
-
-## 实现顺序
-
-### Phase 1: 项目初始化 + 三栏布局骨架
-1. VS Code 扩展项目初始化 ✅
-2. `KCodePanel.ts` — WebviewPanel ✅
-3. `style.css` — 两栏布局（中间/右侧） ✅
-4. 拖拽分割条调整宽度 ✅
-5. 右侧面板隐藏 ✅
-
-### Phase 2: 数据层 + 左侧任务列表
-1. `TaskStore` 持久化（任务 CRUD） ✅
-2. `sidebar.ts` — 扁平任务列表 ✅
-3. `New Task` 命令 ✅
-4. 任务选中高亮 ✅
-
-### Phase 3: 中间 AI 对话区
-1. `app.ts` — 消息列表 + 输入框 + 发送按钮 ✅
-2. Markdown 渲染 + 代码块高亮 ✅
-3. `postMessage` 通信协议 ✅
-4. 点击任务加载对应对话历史 ✅
-
-### Phase 4: 右侧面板 (UI 先于后端)
-1. `preview.ts` — Tab 切换 UI ✅
-2. FilePreview Tab ✅
-3. DiffView Tab ✅
-4. WebView Tab (iframe) ✅
-5. Device Tab (telnet/ssh 远程设备 demo 展示视图) ⬜ 待实现真实连接
-
-### Phase 5: ACP Agent 通信
-1. `AcpClient.ts` — 封装 `ClientSideConnection` ✅
-2. `AgentManager.ts` — Agent 进程管理 ✅
-3. `callbacks.ts` — Client 回调实现 ✅
-4. 集成到 ChatPanel：流式渲染 ✅
 
 ## 验证方式
 
@@ -270,5 +243,51 @@ kcode/
 2. 执行 `KCode: Open` 命令 → 打开侧边栏 + 编辑器面板
 3. 左侧新建任务 → 中间对话区可交互
 4. 输入消息 → Agent 流式回复
-5. 右侧面板 Preview/Diff/WebView/Device Tab 可切换
-6. 重启后数据不丢失
+5. Agent 回复完毕 → 出现"验收"按钮 → 点击展示 diff / 变更文件 → 确认/驳回
+6. 右侧面板 Preview/Diff/WebView/Device Tab 可切换
+7. 重启后数据不丢失
+
+---
+
+## 实现顺序
+
+### Phase 1: Task 骨架
+
+| 优先级 | 任务 | 说明 |
+|--------|------|------|
+| P0 | 清理 `src/commands/newTask.ts` 和 `selectTask.ts` | 消除与 `extension.ts` / `KCodeSidebarProvider` 的重复逻辑，统一入口 |
+| P1 | `findEmptyTask` 复用逻辑统一到 TaskStore | 目前 sidebar 和 extension.ts 各有一份 |
+| P2 | **验收流程** | Agent 回复完毕后，对话区底部出现"验收"按钮 → 展示 diff + 变更文件列表 → 用户确认/驳回 |
+| P3 | 右键菜单增加"归档"入口 | 从列表隐藏但数据保留，待后续版本支持历史回溯 |
+
+### Phase 2: AI 对话完整化
+
+| 优先级 | 任务 | 说明 |
+|--------|------|------|
+| P0 | `package.json` 添加 `contributes.configuration` | 定义 `kcode.agentPath` / `kcode.agentArgs`，用户可配置 Agent 路径 |
+| P1 | Agent 连接失败的用户可见错误反馈 | 当前 `ensureConnection` 失败仅 `console.error`，需 postMessage 给 WebView |
+| P2 | 取消 prompt / 输入框 loading 态 | 发送后禁用输入框和按钮，prompt 完成后恢复 |
+
+### Phase 3: 体验打磨
+
+| 优先级 | 任务 | 说明 |
+|--------|------|------|
+| P0 | Agent 在线/离线状态灯 | 状态栏显示 Agent 实时连接状态 |
+| P1 | 右侧面板 Tab 默认引导内容 | Tab 初始为空时显示友好说明 |
+| P2 | sidebar 折叠按钮 | VS Code WebviewView 侧边栏折叠/展开 |
+
+---
+
+## MVP 不包含 (后续迭代)
+
+- 多 Agent 切换
+- 权限模式选择器
+- 会话版本管理 / Git 集成
+- 内置 Terminal
+- MCP 协议
+- 远程开发
+- 工作区管理（延后，待与 VS Code 多工作区协作需求明确后再设计）
+- Agent 写文件 → Editor 实时刷新（VS Code 原生能力，非需求点）
+- 任务重命名（AI 时代，首条消息自动设标题，无需手动修改）
+- Device Tab 真实连接
+- 代码块语法高亮
