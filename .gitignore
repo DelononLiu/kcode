@@ -2,5 +2,5 @@ node_modules/
 out/
 .vscode/
 *.vsix
-# .kilo — tracked for project configuration and project-index.md
+# .kilo — tracked for project configuration and tasks.md
 agent-manager.json
