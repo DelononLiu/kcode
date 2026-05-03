@@ -20,9 +20,9 @@ export class AcpClient {
     /**
      * Start the agent and initialize ACP connection (stdio subprocess).
      */
-    async connect(agentPath: string, args: string[] = []): Promise<boolean> {
+    async connect(agentName: string, args: string[] = []): Promise<boolean> {
         try {
-            const { input, output } = await this.agentManager.startAgent(agentPath, args);
+            const { input, output } = await this.agentManager.startAgent(agentName, args);
 
             const sdk = await this.loadSDK();
             const stream = sdk.ndJsonStream(input, output);

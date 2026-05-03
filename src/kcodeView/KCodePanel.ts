@@ -157,10 +157,10 @@ export class KCodePanel {
         } else {
             // No agent available - show error to user
             const config = vscode.workspace.getConfiguration('kcode');
-            const agentPath = config.get<string>('agentPath') || '';
-            const errorMsg = !agentPath || agentPath === 'npx'
-                ? '请配置 Agent：在 VS Code 设置中设置 `kcode.agentPath`，指向 Agent 可执行文件路径'
-                : `Agent 连接失败：无法连接到 "${agentPath}"，请检查路径是否正确并确保 Agent 已启动`;
+            const agentName = config.get<string>('agentName') || '';
+            const errorMsg = !agentName || agentName === 'npx'
+                ? '请配置 Agent：在 VS Code 设置中设置 `kcode.agentName`，指向 Agent 可执行文件路径'
+                : `Agent 连接失败：无法连接到 "${agentName}"，请检查路径是否正确并确保 Agent 已启动`;
             this.showAgentError(tid, errorMsg);
         }
     }
@@ -186,12 +186,12 @@ export class KCodePanel {
             const config = vscode.workspace.getConfiguration('kcode');
             const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
 
-            const agentPath = config.get<string>('agentPath') || '';
+            const agentName = config.get<string>('agentName') || '';
             const agentArgs = config.get<string[]>('agentArgs') || [];
-            console.log('[KCode] agentPath:', agentPath);
+            console.log('[KCode] agentName:', agentName);
 
             // Built-in FakeAgent for debugging (no real agent needed)
-            if (agentPath === 'fake') {
+            if (agentName === 'fake') {
                 console.log('[KCode] Using FakeAgent for debugging');
                 this.fakeAgent = new FakeAgent();
                 this.panel.webview.postMessage({
@@ -205,10 +205,10 @@ export class KCodePanel {
             this.acpClient = new AcpClient(workspacePath);
 
             // Priority 1: stdio agent path
-            if (agentPath && agentPath !== 'npx') {
-                console.log('[KCode] Trying to connect to agent:', agentPath);
+            if (agentName && agentName !== 'npx') {
+                console.log('[KCode] Trying to connect to agent:', agentName);
 
-                const connectPromise = this.acpClient.connect(agentPath, agentArgs);
+                const connectPromise = this.acpClient.connect(agentName, agentArgs);
                 const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000));
                 const connected = await Promise.race([connectPromise, timeoutPromise]);
                 console.log('[KCode] connect result:', connected);
@@ -228,12 +228,12 @@ export class KCodePanel {
                 this.panel.webview.postMessage({
                     type: 'agentStatus',
                     status: 'disconnected',
-                    message: `Agent 连接失败: ${agentPath}`
+                    message: `Agent 连接失败: ${agentName}`
                 });
                 return;
             }
 
-            // Priority 2: HTTP mode (fallback when agentPath is not set)
+            // Priority 2: HTTP mode (fallback when agentName is not set)
             const agentUrl = config.get<string>('agentUrl') || '';
             if (agentUrl) {
                 console.log('[KCode] Trying to connect via HTTP:', agentUrl);

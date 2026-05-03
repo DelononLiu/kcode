@@ -16,7 +16,7 @@ export interface ChatMessage {
 }
 
 export interface ACPConfig {
-    agentPath: string;
+    agentName: string;
     apiKey?: string;
 }
 

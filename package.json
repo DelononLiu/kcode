@@ -47,10 +47,10 @@
     "configuration": {
       "title": "KCode",
       "properties": {
-        "kcode.agentPath": {
+        "kcode.agentName": {
           "type": "string",
           "default": "npx",
-          "description": "Agent executable path. Set to \"fake\" to use built-in FakeAgent for debugging (no real agent required)."
+          "description": "Agent name or executable path. Set to \"fake\" to use built-in FakeAgent for debugging (no real agent required)."
         },
         "kcode.agentArgs": {
           "type": "array",

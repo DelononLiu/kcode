@@ -35,7 +35,7 @@ export class FakeAgent {
             '',
             'This is a simulated response for debugging purposes.',
             '',
-            'To use a real AI Agent, configure `kcode.agentPath` in VS Code settings.'
+            'To use a real AI Agent, configure `kcode.agentName` in VS Code settings.'
         ];
 
         for (let i = 0; i < fakeResponses.length; i++) {
