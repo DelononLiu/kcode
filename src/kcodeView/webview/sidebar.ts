@@ -12,6 +12,13 @@ declare function acquireVsCodeApi(): any;
             });
         }
 
+        const settingsBtn = document.getElementById('btn-settings');
+        if (settingsBtn) {
+            settingsBtn.addEventListener('click', () => {
+                vscode.postMessage({ type: 'openSettings' });
+            });
+        }
+
         document.addEventListener('click', () => hideContextMenu());
 
         window.addEventListener('message', (event) => {

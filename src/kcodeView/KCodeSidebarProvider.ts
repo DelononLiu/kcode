@@ -107,8 +107,8 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             font-size: 13px;
-            color: #d4d4d4;
-            background: #1e1e1e;
+            color: var(--vscode-sideBar-foreground, #d4d4d4);
+            background: var(--vscode-sideBar-background, #1e1e1e);
         }
         body {
             display: flex;
@@ -117,33 +117,67 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         #sidebar-content {
             flex: 1;
             overflow-y: auto;
-            padding: 8px;
+            padding: 4px 0;
         }
-        .sidebar-section {
-            margin-bottom: 8px;
+        #sidebar-content::-webkit-scrollbar { width: 4px; }
+        #sidebar-content::-webkit-scrollbar-track { background: transparent; }
+        #sidebar-content::-webkit-scrollbar-thumb { background: var(--vscode-scrollbarSlider-background, #555); border-radius: 2px; }
+
+        /* --- Action Bar --- */
+        .action-bar {
+            padding: 8px 8px 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
         .sidebar-btn {
-            display: block;
-            width: 100%;
-            padding: 6px 10px;
-            margin-bottom: 4px;
-            background: #0e639c;
-            color: #fff;
+            flex: 1;
+            padding: 5px 10px;
+            background: var(--vscode-button-background, #0e639c);
+            color: var(--vscode-button-foreground, #fff);
             border: none;
             border-radius: 4px;
             font-size: 13px;
             cursor: pointer;
             text-align: left;
+            font-family: inherit;
         }
-        .sidebar-btn:hover { background: #1177bb; }
-        .placeholder-text {
-            padding: 20px 0;
-            font-size: 12px;
-            color: #6b6b6b;
+        .sidebar-btn:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
+        .shortcut-hint {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground, #6b6b6b);
+            white-space: nowrap;
+            padding: 0 2px;
+            opacity: 0.8;
+        }
+
+        /* --- Section --- */
+        .section { margin-bottom: 2px; }
+        .section-header {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--vscode-sideBarSectionHeader-foreground, #888);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .section-header .arrow {
+            font-size: 10px;
+            margin-right: 4px;
+            width: 12px;
             text-align: center;
+            flex-shrink: 0;
         }
+        .section-header .arrow.collapsed { transform: rotate(-90deg); }
+        .section-body { padding: 0 4px; }
+
+        /* --- Task Item --- */
         .task-item {
-            padding: 6px 8px;
+            padding: 6px 8px 6px 16px;
             cursor: pointer;
             border-radius: 3px;
             color: #a0a0a0;
@@ -151,12 +185,14 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             display: flex;
             align-items: center;
             gap: 6px;
+            margin: 1px 4px;
+            background: #1e1e1e;
         }
-        .task-item:hover { background: #2a2d2e; color: #e0e0e0; }
+        .task-item:not(.active):hover { background: #252526; }
         .task-item.active {
-            background: #37373d;
+            background: #0E364B;
             color: #ffffff;
-            border-left: 3px solid #0e639c;
+            font-weight: 600;
         }
         .task-item .status-dot {
             width: 8px;
@@ -164,19 +200,75 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             border-radius: 50%;
             flex-shrink: 0;
         }
-        .task-item .status-dot.pending { background: #6b6b6b; }
-        .task-item .status-dot.active { background: #0e639c; }
+        .task-item .status-dot.pending { background: var(--vscode-descriptionForeground, #6b6b6b); }
+        .task-item .status-dot.active { background: var(--vscode-button-background, #0e639c); }
         .task-item .status-dot.completed { background: #4ec9b0; }
+        .task-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* --- Placeholder --- */
+        .placeholder-text {
+            padding: 24px 16px;
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground, #6b6b6b);
+            text-align: center;
+        }
+
+        /* --- Footer --- */
         #sidebar-footer {
             padding: 6px 8px;
-            border-top: 1px solid #3c3c3c;
+            border-top: 1px solid var(--vscode-sideBar-border, #3c3c3c);
             display: flex;
-            justify-content: center;
+            align-items: center;
+            justify-content: space-between;
         }
+        .footer-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .footer-icon {
+            width: 16px;
+            height: 16px;
+            background: var(--vscode-button-background, #0e639c);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            color: var(--vscode-button-foreground, #fff);
+            flex-shrink: 0;
+        }
+        .footer-label {
+            font-size: 12px;
+            color: var(--vscode-sideBar-foreground, #a0a0a0);
+        }
+        .footer-btn {
+            background: none;
+            border: none;
+            color: var(--vscode-sideBar-foreground, #888);
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 3px;
+            font-size: 14px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+        .footer-btn:hover {
+            background: var(--vscode-list-hoverBackground, #2a2d2e);
+            color: var(--vscode-sideBar-foreground, #ccc);
+        }
+
+        /* --- Context Menu --- */
         .context-menu {
             position: fixed;
-            background: #252526;
-            border: 1px solid #3c3c3c;
+            background: var(--vscode-menu-background, #252526);
+            border: 1px solid var(--vscode-menu-border, #3c3c3c);
             border-radius: 4px;
             padding: 4px 0;
             min-width: 120px;
@@ -186,31 +278,48 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         .context-menu-item {
             padding: 4px 12px;
             cursor: pointer;
-            color: #d4d4d4;
+            color: var(--vscode-menu-foreground, #d4d4d4);
             font-size: 13px;
         }
         .context-menu-item:hover {
-            background: #094771;
-            color: #fff;
+            background: var(--vscode-menu-selectionBackground, #094771);
+            color: var(--vscode-menu-selectionForeground, #fff);
         }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #777; }
     </style>
     <title>KCode</title>
 </head>
 <body>
     <div id="sidebar-content">
-        <div class="sidebar-section">
+        <div class="action-bar">
             <button id="btn-new-task" class="sidebar-btn">+ New Task</button>
+            <span class="shortcut-hint">Ctrl+N</span>
         </div>
-        <div id="task-list">
-            <div class="placeholder-text">暂无任务</div>
+
+        <div id="section-pinned" class="section" style="display:none">
+            <div class="section-header" id="pinned-header">
+                <span class="arrow">&#x25BE;</span>
+                <span>Pinned</span>
+            </div>
+            <div class="section-body" id="pinned-list"></div>
+        </div>
+
+        <div class="section">
+            <div class="section-header" id="tasks-header">
+                <span class="arrow">&#x25BE;</span>
+                <span>Tasks</span>
+            </div>
+            <div class="section-body" id="task-list">
+                <div class="placeholder-text">No tasks yet</div>
+            </div>
         </div>
     </div>
+
     <div id="sidebar-footer">
-        <span style="font-size:11px;color:#6b6b6b;padding:2px 0;">KCode v0.1.0</span>
+        <div class="footer-left">
+            <div class="footer-icon">K</div>
+            <span class="footer-label">KCode</span>
+        </div>
+        <button id="btn-settings" class="footer-btn" title="Settings">&#x2699;</button>
     </div>
 
     <script src="${scriptUri}"></script>

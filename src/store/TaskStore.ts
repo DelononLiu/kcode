@@ -22,11 +22,10 @@ export class TaskStore {
 
     updateTaskStatus(taskId: string, status: Task['status']): void {
         const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].status = status;
-            this.state.update('tasks', tasks);
+        for (const t of tasks) {
+            t.status = (t.id === taskId) ? status : 'pending';
         }
+        this.state.update('tasks', tasks);
     }
 
     updateTaskTitle(taskId: string, title: string): void {
