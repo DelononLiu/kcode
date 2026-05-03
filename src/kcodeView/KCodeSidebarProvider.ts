@@ -133,16 +133,16 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         .sidebar-btn {
             flex: 1;
             padding: 5px 10px;
-            background: var(--vscode-button-background, #0e639c);
-            color: var(--vscode-button-foreground, #fff);
-            border: none;
+            background: #3a3d41;
+            color: #cccccc;
+            border: 1px solid #555;
             border-radius: 4px;
             font-size: 13px;
             cursor: pointer;
             text-align: left;
             font-family: inherit;
         }
-        .sidebar-btn:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
+        .sidebar-btn:hover { background: #4a4d51; color: #ffffff; }
         .shortcut-hint {
             font-size: 11px;
             color: var(--vscode-descriptionForeground, #6b6b6b);
