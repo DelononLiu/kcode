@@ -1,6 +1,8 @@
 # KCode 任务注册中心
 
 > 每个 session 从这里开始。AI 读取此文件定位到具体任务，获取涉及文件列表后直接开工，无需重扫工程。
+>
+> **Phase 概述**详见 `PROJECT.md > 计划章节`。
 
 ## 任务格式
 
@@ -13,26 +15,14 @@
 **状态**: ⬜ 未开始 | 🔍 调研中 | 📋 已调研 | 🛠️ 实现中 | ✅ 已完成
 ```
 
----
-
 ## Phase 1: Task 骨架
 
-_待填充_
+_详见 PROJECT.md 计划章节_
 
 ## Phase 2: AI 对话完整化
 
-| 优先级 | 任务 | 状态 |
-|--------|------|------|
-| P0 | `package.json` 添加 `contributes.configuration`（kcode.agentPath） | ✅ 已完成 |
+_详见 PROJECT.md 计划章节_
 
 ## Phase 3: 体验打磨
 
-| 优先级 | 任务 | 状态 |
-|--------|------|------|
-| P0 | Agent 在线/离线状态灯 | ✅ 已完成 |
-
-## 已完成
-
-| 任务 | 说明 |
-|------|------|
-| 清理 `src/commands/` 目录 | 删除未使用的 newTask.ts 和 selectTask.ts |
+_详见 PROJECT.md 计划章节_
