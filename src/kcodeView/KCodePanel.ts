@@ -184,9 +184,35 @@ export class KCodePanel {
 
         try {
             const config = vscode.workspace.getConfiguration('kcode');
+            const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
+            this.acpClient = new AcpClient(workspacePath);
+
+            // HTTP mode: connect to a remote ACP agent via URL
+            const agentUrl = config.get<string>('agentUrl') || '';
+            if (agentUrl) {
+                console.log('[KCode] Trying to connect via HTTP:', agentUrl);
+                const connected = await this.acpClient.connectHttp(agentUrl);
+                if (connected) {
+                    this.agentReady = true;
+                    this.panel.webview.postMessage({
+                        type: 'agentStatus',
+                        status: 'connected',
+                        message: 'Agent 已连接 (HTTP)'
+                    });
+                    return;
+                }
+                console.log('[KCode] HTTP connection failed');
+                this.acpClient = null;
+                this.panel.webview.postMessage({
+                    type: 'agentStatus',
+                    status: 'disconnected',
+                    message: `HTTP Agent 连接失败: ${agentUrl}`
+                });
+                return;
+            }
+
             const agentPath = config.get<string>('agentPath') || '';
             const agentArgs = config.get<string[]>('agentArgs') || [];
-
             console.log('[KCode] agentPath:', agentPath);
 
             // Built-in FakeAgent for debugging (no real agent needed)
@@ -204,8 +230,6 @@ export class KCodePanel {
             // Only attempt connection if agentPath is a real agent command (not default 'npx')
             if (agentPath && agentPath !== 'npx') {
                 console.log('[KCode] Trying to connect to agent:', agentPath);
-                const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
-                this.acpClient = new AcpClient(workspacePath);
 
                 // Timeout for connection attempt (5 seconds)
                 const connectPromise = this.acpClient.connect(agentPath, agentArgs);

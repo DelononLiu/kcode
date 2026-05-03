@@ -61,6 +61,27 @@ _延后：P3-02 验收流程（方案待定）_
 
 **验收标准**：侧边栏支持分组和折叠。
 
+## Phase 4: 后端接入
+
+_目标：支持通过 HTTP 协议接入后端 Agent（如 opencode），替代当前仅支持 stdio 子进程的模式，便于调试和常驻后端。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P4-01 | ACP HTTP 传输层实现（HttpStream） | ✅ 已完成 |
+| P4-02 | 配置及连接逻辑改造 | ✅ 已完成 |
+
+**涉及文件**: `src/acp/AcpClient.ts`, `src/acp/AgentManager.ts`, `src/kcodeView/KCodePanel.ts`, `package.json`
+
+**调研步骤**:
+1. 确认 ACP SDK 的 Stream 接口（readable/writable JSON-RPC）
+2. 确认 fetch 流式读取 NDJSON 的可行性
+3. 确定配置字段（kcode.agentUrl）
+
+**调研结果**:
+- ACP SDK 的 `ClientSideConnection` 接收 `Stream { writable, readable }`，`ndJsonStream()` 将 stdio 转为 Stream
+- 实现 HTTP 模式只需创建自定义 `Stream`，writable 通过 `fetch` POST 发送 JSON-RPC 消息，readable 从响应体流式读取 NDJSON
+- 新增配置 `kcode.agentUrl`，当设置此值时走 HTTP 模式，否则保持 stdio 模式
+
 ---
 
 ## 已完成任务详情

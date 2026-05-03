@@ -1,6 +1,7 @@
 import type * as acp from '@agentclientprotocol/sdk';
 import { AgentManager } from './AgentManager';
 import { KCodeClient } from './callbacks';
+import { createHttpStream } from './HttpStream';
 import type { AcpMessageHandler } from '../types';
 
 export class AcpClient {
@@ -9,6 +10,7 @@ export class AcpClient {
     private sessions: Map<string, string> = new Map(); // taskId → sessionId
     private kcodeClient: KCodeClient | null = null;
     private workspaceRoot: string;
+    private httpMode: boolean = false;
 
     constructor(workspaceRoot: string) {
         this.workspaceRoot = workspaceRoot;
@@ -16,7 +18,7 @@ export class AcpClient {
     }
 
     /**
-     * Start the agent and initialize ACP connection.
+     * Start the agent and initialize ACP connection (stdio subprocess).
      */
     async connect(agentPath: string, args: string[] = []): Promise<boolean> {
         try {
@@ -25,28 +27,47 @@ export class AcpClient {
             const sdk = await this.loadSDK();
             const stream = sdk.ndJsonStream(input, output);
 
-            this.kcodeClient = new KCodeClient(this.workspaceRoot);
-            this.connection = new sdk.ClientSideConnection(
-                () => this.kcodeClient!,
-                stream
-            );
-
-            const initResult = await this.connection.initialize({
-                protocolVersion: sdk.PROTOCOL_VERSION,
-                clientCapabilities: {
-                    fs: {
-                        readTextFile: true,
-                        writeTextFile: true,
-                    },
-                },
-            });
-
-            console.log(`ACP connected (protocol v${initResult.protocolVersion})`);
-            return true;
+            return this.initConnection(sdk, stream);
         } catch (err) {
             console.error('ACP connection failed:', err);
             return false;
         }
+    }
+
+    /**
+     * Connect to a remote ACP agent via HTTP.
+     */
+    async connectHttp(agentUrl: string): Promise<boolean> {
+        try {
+            const sdk = await this.loadSDK();
+            const stream = createHttpStream(agentUrl);
+            this.httpMode = true;
+            return this.initConnection(sdk, stream);
+        } catch (err) {
+            console.error('ACP HTTP connection failed:', err);
+            return false;
+        }
+    }
+
+    private async initConnection(sdk: typeof acp, stream: acp.Stream): Promise<boolean> {
+        this.kcodeClient = new KCodeClient(this.workspaceRoot);
+        this.connection = new sdk.ClientSideConnection(
+            () => this.kcodeClient!,
+            stream
+        );
+
+        const initResult = await this.connection.initialize({
+            protocolVersion: sdk.PROTOCOL_VERSION,
+            clientCapabilities: {
+                fs: {
+                    readTextFile: true,
+                    writeTextFile: true,
+                },
+            },
+        });
+
+        console.log(`ACP connected (protocol v${initResult.protocolVersion})`);
+        return true;
     }
 
     /**
@@ -147,7 +168,9 @@ export class AcpClient {
     async dispose(): Promise<void> {
         this.sessions.clear();
         this.kcodeClient = null;
-        this.agentManager.stopAgent();
+        if (!this.httpMode) {
+            this.agentManager.stopAgent();
+        }
         this.connection = null;
     }
 

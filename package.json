@@ -56,6 +56,11 @@
           "type": "array",
           "default": [],
           "description": "Additional arguments passed to the agent"
+        },
+        "kcode.agentUrl": {
+          "type": "string",
+          "default": "",
+          "description": "HTTP URL of a remote ACP agent (e.g. http://localhost:8080). When set, connects via HTTP instead of spawning a subprocess."
         }
       }
     }
