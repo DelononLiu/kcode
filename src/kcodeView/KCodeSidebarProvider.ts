@@ -136,11 +136,12 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             gap: 4px;
         }
         .sidebar-btn {
+            flex: 1;
             display: flex;
             align-items: center;
             gap: 6px;
             padding: 6px 8px 6px 16px;
-            margin: 1px 4px;
+            margin: 1px 0;
             background: transparent;
             color: #a0a0a0;
             font-size: 13px;
