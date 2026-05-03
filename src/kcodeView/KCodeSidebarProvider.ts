@@ -130,7 +130,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
 
         /* --- Action Bar --- */
         .action-bar {
-            padding: 8px 8px 4px;
+            padding: 8px 8px 8px;
             display: flex;
             align-items: center;
             gap: 4px;
@@ -157,7 +157,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         }
 
         /* --- Section --- */
-        .section { margin-bottom: 2px; }
+        .section { margin-bottom: 8px; }
         .section-header {
             display: flex;
             align-items: center;
@@ -302,8 +302,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
 
         <div id="section-pinned" class="section" style="display:none">
             <div class="section-header">
-                <span class="arrow">&#x25BE;</span>
-                <span>Pinned</span>
+                <span>置顶</span>
             </div>
             <div class="section-body" id="pinned-list"></div>
         </div>
@@ -312,8 +311,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
 
         <div id="section-ungrouped" class="section">
             <div class="section-header" id="tasks-header">
-                <span class="arrow">&#x25BE;</span>
-                <span>Tasks</span>
+                <span>任务</span>
             </div>
             <div class="section-body" id="task-list">
                 <div class="placeholder-text">No tasks yet</div>
