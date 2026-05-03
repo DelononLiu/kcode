@@ -7,17 +7,6 @@
 
 KCode 是一个 VS Code 扩展，参考 ZCode ADE 设计理念，聚焦 **Task 管理 + AI 对话** 驱动的开发模式。文件编辑复用 VS Code 原生能力。
 
----
-
-## 技术栈
-
-| 层 | 技术 |
-|---|---|
-| 框架 | VS Code Extension API (v1.96+) |
-| WebView | TypeScript + HTML/CSS (Vanilla, 无框架) |
-| 数据持久化 | `ExtensionContext.workspaceState` (Memento) |
-| AI 通信 | ACP 协议 (`@agentclientprotocol/sdk`) |
-
 ## 项目结构
 
 ```
@@ -53,100 +42,6 @@ kcode/
     └── types/
         └── index.ts                 # Task, ChatMessage 等类型
 ```
-
----
-
-## 核心架构
-
-### UI 架构
-
-采用 Hybrid 模式：**VS Code 侧边栏视图 + 编辑器面板**。
-
-**侧边栏视图** (`KCodeSidebarProvider`)：显示在左侧 activity bar 中，包含：
-- New Task 按钮
-- 扁平任务列表
-- 底部版本号
-
-**编辑器面板** (`KCodePanel`)：点击侧边栏中任务后，在编辑器区域打开，包含：
-- 中间 AI 对话区（消息流 + 输入框）
-- 右侧面板（Preview | Diff | WebView | Device）
-
-```
-┌───────────────────────────────────────────────────────────────────┐
-│ VS Code Activity Bar         │  Editor Area: KCodePanel           │
-│                              │                                    │
-│  ● Explorer                  │  ┌────────────────────────┬──────┐ │
-│  ● Search                    │  │  Chat Messages         │Preview│ │
-│  ● KCode  (selected)         │  │  User: xxx             │Diff   │ │
-│    ────────────              │  │  Agent: yyy            │WebView│ │
-│    [+ New Task]              │  │  ```code```            │Device │ │
-│    ────────────              │  │                        │       │ │
-│    ○ Task1                   │  │  [input...]   [发送]   │       │ │
-│    ○ Task2                   │  └────────────────────────┴──────┘ │
-│    ○ Task3                   │                                    │
-└───────────────────────────────────────────────────────────────────┘
-```
-
-### 数据流
-
-```
-侧边栏 WebView → postMessage → KCodeSidebarProvider → Extension Host
-                                                            │
-                    ┌───────────────────────────────────────┤
-                    │                                       │
-            TaskStore/Memento                         KCodePanel
-                    │                                   ↕ ACP
-                    │                              Agent 子进程 (stdio)
-                    │                                       │
-                    └─── refreshSidebar() ←── 命令完成 ────┘
-                                │
-                    sidebarProvider.refresh()
-                                │
-                    侧边栏 WebView ← postMessage ──
-                              (updateTaskList)
-```
-
-### WebView ↔ Extension 通信协议
-
-**WebView → Extension** (postMessage):
-- `{ type: 'newTask' }` — 创建任务
-- `{ type: 'selectTask', taskId }` — 选中任务
-- `{ type: 'deleteTask', taskId }` — 删除任务
-- `{ type: 'sendMessage', text, taskId }` — 发送消息给 Agent
-- `{ type: 'openSettings' }` — 打开设置
-
-**Extension → WebView** (webview.postMessage):
-- `{ type: 'updateTaskList', tasks: [...] }` — 刷新任务列表
-- `{ type: 'loadMessages', messages: [...], taskId }` — 加载对话历史
-- `{ type: 'addUserMessage', content }` — 用户消息即时渲染
-- `{ type: 'agentStreamUpdate', text: string }` — Agent 流式回复
-- `{ type: 'agentStatus', status, message }` — Agent 连接状态
-- `{ type: 'showFilePreview', filePath, content }` — 文件预览
-- `{ type: 'showDiff', original, modified }` — 差异对比
-- `{ type: 'showWebView', url }` — 嵌入网页
-- `{ type: 'deviceConnect', host, port, connectionType }` — 远程设备
-- `{ type: 'focusInput' }` — 聚焦输入框
-
-### ACP 通信架构
-
-```
-KCode (ACP Client)                    Agent (ACP Agent)
-      │                                      │
-      ├── initialize() ─────────────────────►│
-      │◄─ {capabilities} ───────────────────┤
-      │                                      │
-      ├── session_new() ───────────────────►│
-      │◄─ session_id ───────────────────────┤
-      │                                      │
-      ├── prompt({ sessionId, prompt }) ───►│
-      │◄─ agent_message_chunk (流式) ───────┤
-      │◄─ tool_call (读/写文件等) ──────────┤
-      │  ├─ Client 执行并返回结果 ──────────►│
-      │◄─ agent_message_chunk (继续) ───────┤
-      │◄─ stop_reason ──────────────────────┤
-```
-
----
 
 ## 构建与调试
 
