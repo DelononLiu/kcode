@@ -257,8 +257,67 @@ kcode/
 |--------|------|------|
 | P0 | 清理 `src/commands/newTask.ts` 和 `selectTask.ts` | 消除与 `extension.ts` / `KCodeSidebarProvider` 的重复逻辑，统一入口 |
 | P1 | `findEmptyTask` 复用逻辑统一到 TaskStore | 目前 sidebar 和 extension.ts 各有一份 |
+| P2 | **侧边栏重构为三区块 + 底部** | 见下方新侧边栏 UI 规格 |
 | P2 | **验收流程** | Agent 回复完毕后，对话区底部出现"验收"按钮 → 展示 diff + 变更文件列表 → 用户确认/驳回 |
 | P3 | 右键菜单增加"归档"入口 | 从列表隐藏但数据保留，待后续版本支持历史回溯 |
+
+### 新侧边栏 UI 规格
+
+```
+┌─────────────────────────────────┐
+│ [+ 新建任务]           Ctrl+N   │  ← 顶部操作区
+├─────────────────────────────────┤
+│ ▾ 已置顶                     ▼  │  ← 已置顶任务（可折叠）
+│   · 任务A                   10:30│
+│   · 任务B                   昨天 │
+├─────────────────────────────────┤
+│ ▾ 任务                        ▼  │  ← 总框（未分组任务 + 分组）
+│   · 任务1（未分组）         10:30 │
+│   ▾ 分组1                  ▼    │  ← 用户自建分组（可折叠）
+│     · 任务a                10:30 │
+│     · 任务b                昨天  │
+│   ▾ 分组2                  ▼    │
+│     · 任务2.1              昨天 │
+├─────────────────────────────────┤
+│ 👤 用户 / ⚙️ 设置               │  ← 底部用户区
+└─────────────────────────────────┘
+```
+
+**交互**：
+- 点击分组头 → 折叠/展开
+- 点击任务项 → 加载 AI 对话
+- 右键任务项 → 置顶 / 移出分组 / 删除
+- 右键分组头 → 重命名 / 删除分组
+
+**数据模型变更**：
+```typescript
+interface Task {
+    id: string;           // "task_1746000000000"
+    title: string;        // 首条消息截取
+    status: 'pending' | 'active' | 'completed';
+    createdAt: number;    // Date.now()
+    isPinned: boolean;     // 是否置顶
+    groupId: string | null; // 所属分组，null 为未分组
+}
+
+interface TaskGroup {
+    id: string;
+    name: string;         // 分组名（用户自定义）
+}
+
+interface ChatMessage {
+    id: string;
+    taskId: string;
+    role: 'user' | 'agent';
+    content: string;
+    timestamp: number;
+}
+
+interface ACPConfig {
+    agentPath: string;
+    apiKey?: string;
+}
+```
 
 ### Phase 2: AI 对话完整化
 
