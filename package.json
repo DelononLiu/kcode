@@ -50,7 +50,7 @@
         "kcode.agentPath": {
           "type": "string",
           "default": "npx",
-          "description": "Agent executable path (e.g., npx, node, or absolute path)"
+          "description": "Agent executable path. Set to \"fake\" to use built-in FakeAgent for debugging (no real agent required)."
         },
         "kcode.agentArgs": {
           "type": "array",

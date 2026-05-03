@@ -3,6 +3,8 @@ export interface Task {
     title: string;
     status: 'pending' | 'active' | 'completed';
     createdAt: number;
+    pinned?: boolean;
+    group?: string;
 }
 
 export interface ChatMessage {

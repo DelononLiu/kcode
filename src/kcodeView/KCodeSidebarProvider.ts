@@ -69,7 +69,8 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             id: `task_${Date.now()}`,
             title: 'New Task',
             status: 'pending',
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            pinned: false
         };
         this._store.addTask(task);
         this._onTaskSelected(task.id);
@@ -296,14 +297,16 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         </div>
 
         <div id="section-pinned" class="section" style="display:none">
-            <div class="section-header" id="pinned-header">
+            <div class="section-header">
                 <span class="arrow">&#x25BE;</span>
                 <span>Pinned</span>
             </div>
             <div class="section-body" id="pinned-list"></div>
         </div>
 
-        <div class="section">
+        <div id="groups-container"></div>
+
+        <div id="section-ungrouped" class="section">
             <div class="section-header" id="tasks-header">
                 <span class="arrow">&#x25BE;</span>
                 <span>Tasks</span>

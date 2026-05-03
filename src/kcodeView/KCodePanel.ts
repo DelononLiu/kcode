@@ -180,12 +180,26 @@ export class KCodePanel {
 
     private async ensureConnection() {
         console.log('[KCode] ensureConnection called');
+        if (this.agentReady || this.fakeAgent) return;
+
         try {
             const config = vscode.workspace.getConfiguration('kcode');
             const agentPath = config.get<string>('agentPath') || '';
             const agentArgs = config.get<string[]>('agentArgs') || [];
 
             console.log('[KCode] agentPath:', agentPath);
+
+            // Built-in FakeAgent for debugging (no real agent needed)
+            if (agentPath === 'fake') {
+                console.log('[KCode] Using FakeAgent for debugging');
+                this.fakeAgent = new FakeAgent();
+                this.panel.webview.postMessage({
+                    type: 'agentStatus',
+                    status: 'connected',
+                    message: 'Fake Agent (调试模式)'
+                });
+                return;
+            }
 
             // Only attempt connection if agentPath is a real agent command (not default 'npx')
             if (agentPath && agentPath !== 'npx') {
