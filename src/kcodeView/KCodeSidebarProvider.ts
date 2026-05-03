@@ -140,7 +140,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             display: flex;
             align-items: center;
             gap: 6px;
-            padding: 6px 8px 6px 16px;
+            padding: 6px 8px;
             margin: 1px 0;
             background: transparent;
             color: #a0a0a0;
@@ -156,7 +156,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         .section-header {
             display: flex;
             align-items: center;
-            padding: 4px 8px 4px 24px;
+            padding: 4px 8px 4px 16px;
             font-size: 13px;
             font-weight: 600;
             color: var(--vscode-sideBarSectionHeader-foreground, #888);
@@ -244,7 +244,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             flex-shrink: 0;
         }
         .footer-label {
-            font-size: 12px;
+            font-size: 13px;
             color: var(--vscode-sideBar-foreground, #a0a0a0);
         }
         .footer-btn {
@@ -254,7 +254,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             cursor: pointer;
             padding: 4px 6px;
             border-radius: 3px;
-            font-size: 14px;
+            font-size: 16px;
             line-height: 1;
             display: flex;
             align-items: center;
