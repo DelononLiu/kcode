@@ -109,6 +109,72 @@ src/
 
 ---
 
+### Phase 5: 任务状态重构（当前阶段）
+
+**目标**：重新定义 Task 生命周期，引入 AI 格式化目标→用户确认→执行→AI 自验→用户验收的完整流转。
+
+详见下方 [任务状态机](#任务状态机) 章节。
+
+**验收标准**：任务有明确的 goal 字段，状态可按状态机完整流转，用户确认/验收流程闭环。
+
+---
+
+## 任务状态机
+
+### 状态定义
+
+| 状态 | 含义 | 条件 |
+|------|------|------|
+| `unknown` | 占位空壳，用户刚"新建"，无目标描述 | 刚点"新建任务"，甚至没有发过消息 |
+| `pending` | AI 已格式化输出目标，**等待用户确认** | AI 回复了确认卡片，用户还没点"确认目标" |
+| `active` | 用户已确认目标，AI 正在执行或可开始执行 | 用户点了"确认目标" |
+| `in_review` | AI 自我验证完成，**等待用户验收** | AI 完成并通知"我做好了" |
+| `completed` | 验收通过，终态 | 用户点了"验收通过" |
+| `cancelled` | 用户主动放弃 | 用户取消或驳回但不重试 |
+
+### 状态转换图
+
+```
+                     ┌── 用户修改需求 ──┐
+                     │                  │
+unknown ──→ pending ──→ active ──→ in_review ──→ completed
+               ↑         ↑  ↑           │
+               │         │  └── 验收驳回 ─┘
+               │         │
+               ├─ AI     └─ 用户
+               │  格式化     确认
+               │  目标
+               │
+               └──→ cancelled（用户随时可放弃）
+```
+
+### 状态转换表
+
+| 从 | 到 | 触发者 | 条件/动作 |
+|----|----|--------|----------|
+| `unknown` | `pending` | **AI** | 用户发需求 → AI 格式化输出目标描述（确认卡片） |
+| `pending` | `active` | **用户** | 用户点击"确认目标" |
+| `pending` | `cancelled` | **用户** | 用户点击"取消" |
+| `pending` | `unknown` | **用户/AI** | 用户修改需求 → AI 重新输出 |
+| `active` | `in_review` | **AI** | AI 自我验证完成，通知"已完成，等待验收" |
+| `in_review` | `completed` | **用户** | 用户验收通过 |
+| `in_review` | `active` | **用户** | 用户驳回，AI 继续修改 |
+| `active` / `in_review` | `cancelled` | **用户** | 用户主动放弃 |
+
+### 涉及文件
+
+| 文件 | 改动 |
+|------|------|
+| `types/index.ts` | Task 新增 `goal: string`；`status` 改为完整五态 |
+| `store/TaskStore.ts` | `updateTaskStatus` 不再强行重置其他任务为 pending；`addTask` 需 goal；移除 `findEmptyTask` |
+| `KCodePanel.ts` | `handleSendMessage` 分支：pending 态触发目标确认，active 态才执行；新增目标确认卡片发送；新建任务流程 |
+| `KCodeSidebarProvider.ts` | 处理目标确认/修改/取消/验收消息 |
+| `app.ts` | 渲染 goal 确认卡片（含确认/修改/取消按钮）；渲染 agent 完成通知卡片（含验收/驳回按钮） |
+| `sidebar.ts` | pending 态任务显示"待确认"标记；状态图标更新 |
+| `ACP/callbacks.ts` | 文件写入变更记录；AI 完成时触发 `active → in_review` |
+
+---
+
 ## 技术路线
 
 | 层 | 技术 |
@@ -166,21 +232,25 @@ KCode (ACP Client)                 Agent (ACP Agent)
 ```typescript
 interface Task {
     id: string;
-    title: string;
-    status: 'pending' | 'active' | 'completed';
+    title: string;               // 从 goal 自动截取或 AI 生成，用于列表显示
+    goal: string;                // AI 格式化输出的任务目标描述
+    status: 'unknown' | 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
     createdAt: number;
+    pinned?: boolean;
+    group?: string;
 }
 
 interface ChatMessage {
     id: string;
     taskId: string;
     role: 'user' | 'agent';
+    type?: 'text' | 'goal_confirmation' | 'review_request';  // 消息子类型
     content: string;
     timestamp: number;
 }
 
 interface ACPConfig {
-    agentPath: string;
+    agentName: string;
     apiKey?: string;
 }
 
@@ -326,15 +396,21 @@ function appendDeviceOutput(data: string): void
 ### WebView → Extension
 
 | type | Source | Target |
-|---|---|---|---|
+|---|---|---|
 | `'newTask'` | sidebar.ts | KCodeSidebarProvider |
 | `'selectTask'` | sidebar.ts | KCodeSidebarProvider |
 | `'deleteTask'` | sidebar.ts | KCodeSidebarProvider |
 | `'pinTask'` | sidebar.ts | KCodeSidebarProvider |
 | `'newGroup'` | sidebar.ts | KCodeSidebarProvider |
 | `'moveTaskToGroup'` | sidebar.ts | KCodeSidebarProvider |
+| `'reorderTask'` | sidebar.ts | KCodeSidebarProvider |
 | `'openSettings'` | sidebar.ts / app.ts | KCodeSidebarProvider |
 | `'sendMessage'` | app.ts | KCodePanel |
+| `'confirmGoal'` | app.ts | KCodePanel |
+| `'reviseGoal'` | app.ts | KCodePanel |
+| `'cancelTask'` | app.ts | KCodePanel |
+| `'approveReview'` | app.ts | KCodePanel |
+| `'rejectReview'` | app.ts | KCodePanel |
 
 ### Extension → WebView
 
@@ -350,6 +426,10 @@ function appendDeviceOutput(data: string): void
 | `'showWebView'` | KCodePanel | app.ts / preview.ts |
 | `'deviceConnect'` | KCodePanel | app.ts / device.ts |
 | `'focusInput'` | KCodePanel | app.ts |
+| `'flashInput'` | KCodePanel | app.ts |
+| `'updateTaskInfo'` | KCodePanel | app.ts |
+| `'showGoalConfirmation'` | KCodePanel | app.ts |
+| `'showReviewRequest'` | KCodePanel | app.ts |
 
 ---
 

@@ -58,9 +58,95 @@ _目标：提升交互体验。_
 | P3-04 | 右键菜单扩展（置顶/取消置顶、删除） | ✅ 已完成 |
 | P3-05 | 聊天面板任务信息栏 | ✅ 已完成 |
 
-_延后：P3-02 验收流程（方案待定）_
+_注：P3-02 验收流程已被 Phase 5 的新状态模型覆盖，不再独立实现。_
 
 **验收标准**：侧边栏支持分组和折叠。
+
+---
+
+## Phase 5: 任务状态重构
+
+_目标：重新设计 Task 生命周期，引入 AI 格式化目标→用户确认→执行→AI 自验→用户验收的完整状态机。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P5-01 | Task 数据模型重构（goal 字段 + 状态集 + store 适配） | ⬜ 未开始 |
+| P5-02 | AI 格式化目标输出 + 用户确认交互（unknown→pending→active） | ⬜ 未开始 |
+| P5-03 | AI 自验完成通知（active→in_review） | ⬜ 未开始 |
+| P5-04 | 用户验收交互（in_review→completed/active） | ⬜ 未开始 |
+| P5-05 | 侧边栏状态显示 + 手动状态操作（取消/完成） | ⬜ 未开始 |
+
+**验收标准**：任务有明确的 goal 字段，状态可按状态机完整流转，用户确认/验收流程闭环。
+
+---
+
+### P5-01: Task 数据模型重构
+
+**涉及文件**: `src/types/index.ts`, `src/store/TaskStore.ts`
+
+**调研步骤**:
+1. 确认当前 Task 接口定义和 TaskStore CRUD 方法
+2. 按讨论结论设计新类型
+
+**调研结果**:
+- `types/index.ts` — Task 需加 `goal: string`，`status` 更新为 `'unknown' | 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled'`
+- `TaskStore.ts` — `updateTaskStatus` 需改为只更新指定任务，不再强制重置其他任务为 pending；`addTask` 需支持带 goal 创建；`findEmptyTask` 需移除或改为 `goal` 为空判断
+- `ChatMessage` 需加可选的 `type` 字段用于标记确认卡片/验收请求等特殊消息
+
+**涉及文件**: `src/types/index.ts`, `src/store/TaskStore.ts`, `src/kcodeView/KCodeSidebarProvider.ts`, `src/kcodeView/KCodePanel.ts`
+**状态**: ⬜ 未开始
+
+---
+
+### P5-02: AI 格式化目标输出 + 用户确认交互
+
+**流程**:
+1. 用户新建任务 → status = `unknown`，侧边栏显示（灰色/待确认标记）
+2. 用户输入需求 → AI 收到 prompt（上下文标记为"任务定义阶段"）
+3. AI 回复特殊格式 → 系统渲染 goal 确认卡片（含确认/修改/取消按钮）
+4. 用户确认 → status → `active`，AI 收到执行指令
+5. 用户修改 → 重新输入，AI 重新格式化
+6. 用户取消 → status → `cancelled`
+
+**涉及文件**: `src/kcodeView/KCodePanel.ts`, `src/kcodeView/webview/app.ts`, `src/acp/FakeAgent.ts`, `src/acp/OpenAIAgent.ts`
+**状态**: ⬜ 未开始
+
+---
+
+### P5-03: AI 自验完成通知（active→in_review）
+
+**流程**:
+1. AI 执行过程中正常流式输出 + 文件读写
+2. AI 完成自我验证，通过 prompt/sessionUpdate 通知"已做完"
+3. 系统收到完成信号 → status → `in_review`
+4. WebView 渲染 review 请求卡片（含验收/驳回按钮）
+
+**涉及文件**: `src/acp/callbacks.ts`, `src/acp/AcpClient.ts`, `src/kcodeView/KCodePanel.ts`
+**状态**: ⬜ 未开始
+
+---
+
+### P5-04: 用户验收交互（in_review→completed/active）
+
+**流程**:
+1. 用户看到 review 请求卡片，点击"验收"或切换到右侧 Diff 面板查看变更
+2. 用户验收通过 → status → `completed`
+3. 用户驳回 → status → `active`，AI 继续修改
+
+**涉及文件**: `src/kcodeView/KCodePanel.ts`, `src/kcodeView/webview/app.ts`, `src/kcodeView/webview/preview.ts`
+**状态**: ⬜ 未开始
+
+---
+
+### P5-05: 侧边栏状态显示 + 手动状态操作
+
+**说明**:
+- 侧边栏任务项显示 status 徽标/颜色（unknown/pending 特殊标记）
+- 右键菜单扩展：增加"标记完成"、"取消任务"选项
+- pending 态任务显示"待确认"提示
+
+**涉及文件**: `src/kcodeView/KCodeSidebarProvider.ts`, `src/kcodeView/webview/sidebar.ts`
+**状态**: ⬜ 未开始
 
 ## Phase 4: 后端接入
 
