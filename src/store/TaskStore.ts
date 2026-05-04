@@ -16,7 +16,7 @@ export class TaskStore {
 
     addTask(task: Task): void {
         const tasks = this.getTasks();
-        tasks.push(task);
+        tasks.unshift(task);
         this.state.update('tasks', tasks);
     }
 
@@ -109,7 +109,7 @@ export class TaskStore {
             if (toIdx !== -1) {
                 tasks.splice(toIdx + (position === 'after' ? 1 : 0), 0, task);
             } else {
-                tasks.push(task);
+                tasks.unshift(task);
             }
         } else {
             let insertIdx = tasks.length;
