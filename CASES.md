@@ -160,3 +160,105 @@ const agentUrl = config.get<string>('agentUrl') || '';
 - **复合故障**：同一表象（无回复）可能由多层独立 bug 叠加，逐一排查后才知道需全部修复
 - **时序敏感**：异步建连 + 首次发送消息的竞态条件，构造阶段就应建连而非延迟到首条消息
 - **空状态边界**：空消息数组 ≠ 无 Task，应始终更新 `activeTaskId`
+
+---
+
+## case003 — 输入框随对话滚动 + 用户消息首次渲染居中
+
+**分类**: `case:flex-layout` `case:layout-structure` `case:first-frame`
+
+**严重程度**: 高
+
+### 问题描述
+
+两个关联 BUG：
+
+1. **输入框滚动**：对话消息增多后，输入框（`#chat-input-area`）跟随消息一起滚动出视口
+2. **用户消息首次居中**：新任务发送第一条消息后，用户消息先显示在水平居中位置，待 Agent 消息追加后才"弹"到右侧
+
+### 根因分析
+
+**问题 1 — 输入框滚动**
+
+`#chat-input-area` 嵌套在 `#chat-scroll`（`overflow-y: auto`）内部，作为可滚动容器的子元素。消息增多后滚动容器滚动，输入框随之移出视口。
+
+```html
+<!-- 修复前 -->
+<div id="chat-scroll">           ← 可滚动容器
+    <div id="chat-messages">...</div>
+    <div id="chat-input-area">   ← 随滚动条滚动
+        <textarea>...</textarea>
+    </div>
+</div>
+```
+
+**问题 2 — 用户消息首次居中**
+
+连续嵌套 flex：`#chat-scroll`（`display:flex`）→ `#chat-messages`（`flex:1; flex-basis:0%`）→ `.chat-msg.user`（`align-items:flex-end; width:fit-content`）。
+
+当从空态（`flex:0; overflow:hidden`）切换到非空态时：
+
+- `#chat-messages` 的宽度从 `flex-basis: 0%` 开始弹性增长，而非首帧确定
+- 内层 `.msg-bubble` 的 `width: fit-content` 在嵌套 flex 中交叉轴尺寸计算首帧不确定
+- `align-self: flex-end` / `align-items: flex-end` 基于未收敛的中间宽度定位，导致气泡先居中，等后续内容追加触发布局收敛后才恢复到右侧
+
+```
+时间线：
+  T0: chat-empty 移除，flex-basis:0% 开始增长
+  T1: 用户消息追加，align-items 基于中间宽度 → 视觉居中
+  T2: Agent 消息追加，布局收敛 → 用户消息弹到右侧
+```
+
+### 涉及文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/kcodeView/KCodePanel.ts` | HTML 结构 + 内联 CSS |
+
+### 解决方案
+
+**修复 1 — 输入框固定底部**：将 `#chat-input-area` 从 `#chat-scroll` 内部移出，作为 `#chat-area` 的直属子级，三者形成垂直 flex 布局：
+
+```html
+<div id="chat-area">              ← display:flex; flex-direction:column
+    <div id="task-info">...</div>      ← flex-shrink:0
+    <div id="chat-scroll">             ← flex:1; overflow-y:auto
+        <div id="chat-messages">...</div>
+    </div>
+    <div id="chat-input-area">         ← flex-shrink:0（不再可滚动）
+        <textarea>...</textarea>
+    </div>
+</div>
+```
+
+**修复 2 — 消除 flex 宽度不确定性**：
+
+1. 移除 `#chat-scroll` 内部冗余的 `display: flex; flex-direction: column`（只剩一个子元素，无需 flex）
+2. `#chat-messages` 用 `min-height: 100%; width: 100%` 替代 `flex: 1`，宽度首帧即确定
+3. 改用 `text-align: right` + `.msg-bubble { display: inline-block }` 替代嵌套 flex 控制气泡对齐，`text-align` 不依赖 flex 交叉轴计算
+
+### 关键改动
+
+```diff
+- #chat-scroll{...;display:flex;flex-direction:column}
+- #chat-messages{...;flex:1;min-height:0}
+- #chat-scroll.chat-empty #chat-messages{flex:0;overflow:hidden;padding:0}
+- .chat-msg{...;display:flex;flex-direction:column}
+- .chat-msg.user{align-items:flex-end;margin-top:8px}
+- .chat-msg.agent{align-items:flex-start;margin-top:8px}
+- .chat-msg .msg-bubble{...;max-width:90%;width:fit-content}
+
++ #chat-scroll{...}           /* 移除 display:flex */
++ #chat-messages{...;min-height:100%;width:100%}
++ #chat-scroll.chat-empty #chat-messages{overflow:hidden;padding:0}
++ .chat-msg{margin-top:8px;margin-bottom:4px}
++ .chat-msg.user{text-align:right}
++ .chat-msg.agent{text-align:left}
++ .chat-msg .msg-bubble{...;max-width:90%;display:inline-block;text-align:left}
+```
+
+### 教训
+
+- **嵌套 flex 的交叉轴尺寸在首帧不稳定**：`flex-basis: 0%` → 元素从 0 开始增长 → 交叉轴对齐基于当前（未收敛）宽度计算。若需确定宽度，应使用 `width: 100%` + `min-height: 100%` 而非 `flex: 1`
+- **滚动容器子元素分类**：内容区（允许滚动）和输入区（固定底部）必须分属不同父级子节点，不能共用一个可滚动容器
+- **`text-align` vs `flex` 对齐**：简单水平对齐用 `text-align` 即可，无需引入 flex 布局，减少首帧不确定性
