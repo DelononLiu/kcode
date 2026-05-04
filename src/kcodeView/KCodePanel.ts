@@ -479,6 +479,12 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
 .status-dot.online{background:#4ec9b0}
 .status-dot.offline{background:#6b6b6b}
+.thinking-dots{display:inline-flex;gap:5px;align-items:center;padding:4px 0}
+.thinking-dots .dot{width:6px;height:6px;border-radius:50%;background:#888;animation:dot-bounce 1.4s infinite ease-in-out both}
+.thinking-dots .dot:nth-child(1){animation-delay:-0.32s}
+.thinking-dots .dot:nth-child(2){animation-delay:-0.16s}
+.thinking-dots .dot:nth-child(3){animation-delay:0s}
+@keyframes dot-bounce{0%,80%,100%{transform:scale(0.6);opacity:.4}40%{transform:scale(1);opacity:1}}
 #right-panel{width:320px;min-width:200px;max-width:600px;background:#252526;border-left:1px solid #3c3c3c;display:flex;flex-direction:column;transition:width .2s ease}
 #right-panel.hidden{width:0!important;min-width:0;overflow:hidden;border-left:none}
 #right-panel-header{display:flex;align-items:center;border-bottom:1px solid #3c3c3c;flex-shrink:0}

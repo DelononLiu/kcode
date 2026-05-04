@@ -58,6 +58,7 @@ function initMessageHandler() {
                 break;
             case 'addUserMessage':
                 addUserMessage(message.content);
+                showAgentThinking();
                 break;
             case 'updateTaskInfo':
                 updateTaskInfo(message);
@@ -281,6 +282,39 @@ function addUserMessage(content: string) {
     msgDiv.appendChild(bubble);
 
     container.appendChild(msgDiv);
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+}
+
+function showAgentThinking() {
+    if (streamMessageEl) return;
+    const container = document.getElementById('chat-messages')!;
+    const scrollContainer = document.getElementById('chat-scroll')!;
+    scrollContainer.classList.remove('chat-empty');
+    const placeholder = container.querySelector('.chat-placeholder');
+    if (placeholder) placeholder.remove();
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chat-msg agent';
+
+    const sender = document.createElement('div');
+    sender.className = 'msg-sender';
+    sender.textContent = 'Agent';
+    msgDiv.appendChild(sender);
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    const dots = document.createElement('div');
+    dots.className = 'thinking-dots';
+    for (let i = 0; i < 3; i++) {
+        const dot = document.createElement('span');
+        dot.className = 'dot';
+        dots.appendChild(dot);
+    }
+    bubble.appendChild(dots);
+    msgDiv.appendChild(bubble);
+
+    container.appendChild(msgDiv);
+    streamMessageEl = bubble;
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
