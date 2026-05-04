@@ -3,6 +3,7 @@ import { TaskStore } from '../store/TaskStore';
 import { AcpClient } from '../acp/AcpClient';
 import { FakeAgent } from '../acp/FakeAgent';
 import { OpenAIAgent } from '../acp/OpenAIAgent';
+import type { Task } from '../types';
 
 export class KCodePanel {
     private panel: vscode.WebviewPanel;
@@ -52,6 +53,15 @@ export class KCodePanel {
                 case 'sendMessage':
                     await this.handleSendMessage(message.text, message.taskId);
                     break;
+                case 'confirmGoal':
+                    await this.handleConfirmGoal(message.taskId, message.originalRequest);
+                    break;
+                case 'reviseGoal':
+                    this.handleReviseGoal(message.taskId);
+                    break;
+                case 'cancelTask':
+                    this.handleCancelTask(message.taskId);
+                    break;
             }
         }, null, this.context.subscriptions);
     }
@@ -61,7 +71,12 @@ export class KCodePanel {
         console.log('[KCode] handleSendMessage called, text:', text, 'tid:', tid, 'agentReady:', this.agentReady, 'acpClient:', !!this.acpClient, 'fakeAgent:', !!this.fakeAgent);
         if (!tid) return;
 
+        const task = this.store.getTask(tid);
+        if (!task) return;
+
         const isFirstMessage = this.store.getMessages(tid).length === 0;
+        const isGoalFormatting = task.status === 'unknown' && isFirstMessage;
+        const promptText = isGoalFormatting ? `请将以下需求格式化为清晰的任务目标描述：\n\n${text}` : text;
 
         // Store user message
         this.store.addMessage({
@@ -86,8 +101,9 @@ export class KCodePanel {
             await this.ensureConnection();
         }
 
+        const handler = this.createAgentResponseHandler(tid, isGoalFormatting, text);
+
         if (this.agentReady && this.acpClient) {
-            // Real ACP Agent
             try {
                 if (!this.acpClient.hasSession(tid)) {
                     const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
@@ -100,98 +116,18 @@ export class KCodePanel {
             }
 
             this.accumulatedAgentText = '';
-
-            await this.acpClient.prompt(tid, text, {
-                onText: (chunk: string) => {
-                    this.accumulatedAgentText += chunk;
-                    this.panel.webview.postMessage({
-                        type: 'agentStreamUpdate',
-                        text: this.accumulatedAgentText
-                    });
-                },
-                onError: (error: string) => {
-                    this.panel.webview.postMessage({
-                        type: 'agentStreamUpdate',
-                        text: `\n\n[错误: ${error}]`
-                    });
-                    this.storeMessage(tid, 'agent', `错误: ${error}`);
-                },
-                onDone: () => {
-                    if (this.accumulatedAgentText) {
-                        this.storeMessage(tid, 'agent', this.accumulatedAgentText);
-                        this.panel.webview.postMessage({
-                            type: 'loadMessages',
-                            messages: this.store.getMessages(tid),
-                            taskId: tid
-                        });
-                    }
-                }
-            });
+            await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
-            // Fake Agent for debugging (only when explicitly enabled)
             const sessionId = this.fakeAgent.createSession(tid);
-            this.fakeAgent.setHandler(sessionId, {
-                onText: (chunk: string) => {
-                    this.accumulatedAgentText += chunk;
-                    this.panel.webview.postMessage({
-                        type: 'agentStreamUpdate',
-                        text: this.accumulatedAgentText
-                    });
-                },
-                onError: (error: string) => {
-                    this.panel.webview.postMessage({
-                        type: 'agentStreamUpdate',
-                        text: `\n\n[错误: ${error}]`
-                    });
-                    this.storeMessage(tid, 'agent', `错误: ${error}`);
-                },
-                onDone: () => {
-                    if (this.accumulatedAgentText) {
-                        this.storeMessage(tid, 'agent', this.accumulatedAgentText);
-                        this.panel.webview.postMessage({
-                            type: 'loadMessages',
-                            messages: this.store.getMessages(tid),
-                            taskId: tid
-                        });
-                    }
-                }
-            });
-
+            this.fakeAgent.setHandler(sessionId, handler);
             this.accumulatedAgentText = '';
-            await this.fakeAgent.prompt(sessionId, text);
+            await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
-            this.openaiAgent.setHandler(sessionId, {
-                onText: (chunk: string) => {
-                    this.accumulatedAgentText += chunk;
-                    this.panel.webview.postMessage({
-                        type: 'agentStreamUpdate',
-                        text: this.accumulatedAgentText
-                    });
-                },
-                onError: (error: string) => {
-                    this.panel.webview.postMessage({
-                        type: 'agentStreamUpdate',
-                        text: `\n\n[错误: ${error}]`
-                    });
-                    this.storeMessage(tid, 'agent', `错误: ${error}`);
-                },
-                onDone: () => {
-                    if (this.accumulatedAgentText) {
-                        this.storeMessage(tid, 'agent', this.accumulatedAgentText);
-                        this.panel.webview.postMessage({
-                            type: 'loadMessages',
-                            messages: this.store.getMessages(tid),
-                            taskId: tid
-                        });
-                    }
-                }
-            });
-
+            this.openaiAgent.setHandler(sessionId, handler);
             this.accumulatedAgentText = '';
-            await this.openaiAgent.prompt(sessionId, text);
+            await this.openaiAgent.prompt(sessionId, promptText);
         } else {
-            // No agent available - show error to user
             const config = vscode.workspace.getConfiguration('kcode');
             const agentName = config.get<string>('agentName') || '';
             const errorMsg = !agentName || agentName === 'npx'
@@ -199,6 +135,85 @@ export class KCodePanel {
                 : `Agent 连接失败：无法连接到 "${agentName}"，请检查路径是否正确并确保 Agent 已启动`;
             this.showAgentError(tid, errorMsg);
         }
+    }
+
+    private createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string) {
+        const onError = (error: string) => {
+            this.panel.webview.postMessage({
+                type: 'agentStreamUpdate',
+                text: `\n\n[错误: ${error}]`
+            });
+            this.storeMessage(tid, 'agent', `错误: ${error}`);
+        };
+
+        return {
+            onText: (chunk: string) => {
+                this.accumulatedAgentText += chunk;
+                this.panel.webview.postMessage({
+                    type: 'agentStreamUpdate',
+                    text: this.accumulatedAgentText
+                });
+            },
+            onError,
+            onDone: () => {
+                if (this.accumulatedAgentText) {
+                    if (isGoalFormatting) {
+                        this.processGoalProposal(tid, this.accumulatedAgentText, originalText);
+                    } else {
+                        this.storeMessage(tid, 'agent', this.accumulatedAgentText);
+                        this.panel.webview.postMessage({
+                            type: 'loadMessages',
+                            messages: this.store.getMessages(tid),
+                            taskId: tid
+                        });
+                    }
+                }
+            }
+        };
+    }
+
+    private processGoalProposal(tid: string, goalText: string, originalRequest: string) {
+        this.store.updateTaskGoal(tid, goalText);
+        this.store.updateTaskStatus(tid, 'pending');
+        this.refreshSidebarCallback?.();
+        this.panel.webview.postMessage({
+            type: 'showGoalConfirmation',
+            goal: goalText,
+            originalRequest,
+            taskId: tid
+        });
+    }
+
+    private async handleConfirmGoal(tid: string, originalRequest: string) {
+        this.store.updateTaskStatus(tid, 'active');
+        this.refreshSidebarCallback?.();
+
+        // Re-send the original request as the execution prompt
+        this.accumulatedAgentText = '';
+        const handler = this.createAgentResponseHandler(tid, false, originalRequest);
+
+        if (this.agentReady && this.acpClient) {
+            await this.acpClient.prompt(tid, originalRequest, handler);
+        } else if (this.fakeAgent) {
+            const sessionId = this.fakeAgent.createSession(tid);
+            this.fakeAgent.setHandler(sessionId, handler);
+            await this.fakeAgent.prompt(sessionId, originalRequest);
+        } else if (this.openaiAgent) {
+            const sessionId = this.openaiAgent.createSession(tid);
+            this.openaiAgent.setHandler(sessionId, handler);
+            await this.openaiAgent.prompt(sessionId, originalRequest);
+        }
+    }
+
+    private handleReviseGoal(tid: string) {
+        this.store.updateTaskStatus(tid, 'unknown');
+        this.store.updateTaskGoal(tid, '');
+        this.refreshSidebarCallback?.();
+    }
+
+    private handleCancelTask(tid: string) {
+        this.store.updateTaskStatus(tid, 'cancelled');
+        this.refreshSidebarCallback?.();
     }
 
     private showAgentError(tid: string, errorMsg: string) {
@@ -490,7 +505,18 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .close-btn:hover{color:#fff}
 #right-panel-content{flex:1;overflow:hidden;position:relative}
 .tab-content{display:none;height:100%;overflow-y:auto;padding:12px}
-.tab-content.active{display:block}`;
+.tab-content.active{display:block}
+.goal-confirmation-card{margin:16px auto;max-width:90%;background:#252526;border:1px solid #3c3c3c;border-radius:8px;overflow:hidden}
+.goal-card-header{padding:8px 14px;background:#2d2d2d;font-size:12px;font-weight:600;color:#e0e0e0;border-bottom:1px solid #3c3c3c}
+.goal-card-body{padding:12px 14px;font-size:13px;line-height:1.5;color:#d4d4d4;white-space:pre-wrap;word-wrap:break-word}
+.goal-card-actions{display:flex;gap:8px;padding:8px 14px 12px;border-top:1px solid #3c3c3c}
+.goal-btn{flex:1;padding:6px 12px;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;transition:background .15s}
+.goal-btn.confirm{background:#0e639c;color:#fff}
+.goal-btn.confirm:hover{background:#1177bb}
+.goal-btn.revise{background:#3c3c3c;color:#d4d4d4}
+.goal-btn.revise:hover{background:#4a4a4a}
+.goal-btn.cancel{background:transparent;color:#888;border:1px solid #4a4a4a}
+.goal-btn.cancel:hover{background:#3c3c3c;color:#ccc}`;
     }
 
     loadTask(taskId: string) {

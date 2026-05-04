@@ -183,6 +183,7 @@ declare function acquireVsCodeApi(): any;
         item.dataset.taskId = task.id;
 
         const iconMap: Record<string, string> = {
+            unknown: '○',
             pending: '◯',
             active: '⏳',
             in_review: '⏸',

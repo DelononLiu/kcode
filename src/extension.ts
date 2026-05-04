@@ -9,7 +9,6 @@ let store: TaskStore | undefined;
 let sidebarProvider: KCodeSidebarProvider | undefined;
 
 function openTaskInPanel(context: vscode.ExtensionContext, taskId: string) {
-    store?.updateTaskStatus(taskId, 'active');
     if (panel) {
         panel.reveal();
         panel.loadTask(taskId);
@@ -81,7 +80,8 @@ export function activate(context: vscode.ExtensionContext) {
         const task: Task = {
             id: `task_${Date.now()}`,
             title: 'New Task',
-            status: 'pending',
+            goal: '',
+            status: 'unknown',
             createdAt: Date.now()
         };
         store.addTask(task);

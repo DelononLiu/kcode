@@ -70,8 +70,8 @@ _目标：重新设计 Task 生命周期，引入 AI 格式化目标→用户确
 
 | 任务 | 说明 | 状态 |
 |------|------|------|
-| P5-01 | Task 数据模型重构（goal 字段 + 状态集 + store 适配） | ⬜ 未开始 |
-| P5-02 | AI 格式化目标输出 + 用户确认交互（unknown→pending→active） | ⬜ 未开始 |
+| P5-01 | Task 数据模型重构（goal 字段 + 状态集 + store 适配） | ✅ 已完成 |
+| P5-02 | AI 格式化目标输出 + 用户确认交互（unknown→pending→active） | ✅ 已完成 |
 | P5-03 | AI 自验完成通知（active→in_review） | ⬜ 未开始 |
 | P5-04 | 用户验收交互（in_review→completed/active） | ⬜ 未开始 |
 | P5-05 | 侧边栏状态显示 + 手动状态操作（取消/完成） | ⬜ 未开始 |
@@ -93,8 +93,8 @@ _目标：重新设计 Task 生命周期，引入 AI 格式化目标→用户确
 - `TaskStore.ts` — `updateTaskStatus` 需改为只更新指定任务，不再强制重置其他任务为 pending；`addTask` 需支持带 goal 创建；`findEmptyTask` 需移除或改为 `goal` 为空判断
 - `ChatMessage` 需加可选的 `type` 字段用于标记确认卡片/验收请求等特殊消息
 
-**涉及文件**: `src/types/index.ts`, `src/store/TaskStore.ts`, `src/kcodeView/KCodeSidebarProvider.ts`, `src/kcodeView/KCodePanel.ts`
-**状态**: ⬜ 未开始
+**涉及文件**: `src/types/index.ts`, `src/store/TaskStore.ts`, `src/kcodeView/KCodeSidebarProvider.ts`, `src/kcodeView/KCodePanel.ts`, `src/extension.ts`
+**状态**: ✅ 已完成
 
 ---
 
@@ -108,8 +108,8 @@ _目标：重新设计 Task 生命周期，引入 AI 格式化目标→用户确
 5. 用户修改 → 重新输入，AI 重新格式化
 6. 用户取消 → status → `cancelled`
 
-**涉及文件**: `src/kcodeView/KCodePanel.ts`, `src/kcodeView/webview/app.ts`, `src/acp/FakeAgent.ts`, `src/acp/OpenAIAgent.ts`
-**状态**: ⬜ 未开始
+**涉及文件**: `src/kcodeView/KCodePanel.ts`, `src/kcodeView/webview/app.ts`, `src/kcodeView/webview/sidebar.ts`, `src/kcodeView/KCodeSidebarProvider.ts`
+**状态**: ✅ 已完成
 
 ---
 

@@ -22,10 +22,11 @@ export class TaskStore {
 
     updateTaskStatus(taskId: string, status: Task['status']): void {
         const tasks = this.getTasks();
-        for (const t of tasks) {
-            t.status = (t.id === taskId) ? status : 'pending';
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            tasks[idx].status = status;
+            this.state.update('tasks', tasks);
         }
-        this.state.update('tasks', tasks);
     }
 
     updateTaskTitle(taskId: string, title: string): void {
@@ -33,6 +34,15 @@ export class TaskStore {
         const idx = tasks.findIndex(t => t.id === taskId);
         if (idx !== -1) {
             tasks[idx].title = title;
+            this.state.update('tasks', tasks);
+        }
+    }
+
+    updateTaskGoal(taskId: string, goal: string): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            tasks[idx].goal = goal;
             this.state.update('tasks', tasks);
         }
     }
@@ -128,7 +138,7 @@ export class TaskStore {
     findEmptyTask(): Task | undefined {
         const tasks = this.getTasks();
         for (const task of tasks) {
-            if (this.getMessages(task.id).length === 0) {
+            if (!task.goal && task.status === 'unknown') {
                 return task;
             }
         }

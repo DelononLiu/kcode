@@ -66,6 +66,9 @@ function initMessageHandler() {
             case 'flashInput':
                 flashInput();
                 break;
+            case 'showGoalConfirmation':
+                showGoalConfirmationCard(message);
+                break;
 
         }
     });
@@ -102,6 +105,7 @@ function handleAgentStreamUpdate(text: string) {
     scrollContainer.classList.remove('chat-empty');
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
+    removeGoalConfirmationCard();
 
     if (!streamMessageEl) {
         // Create agent streaming bubble
@@ -264,6 +268,7 @@ function addUserMessage(content: string) {
     scrollContainer.classList.remove('chat-empty');
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
+    removeGoalConfirmationCard();
 
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg user';
@@ -424,6 +429,79 @@ function flashInput() {
     wrapper.classList.remove('input-flash');
     void (wrapper as HTMLElement).offsetWidth;
     wrapper.classList.add('input-flash');
+}
+
+// ==================== Goal Confirmation Card ====================
+
+function showGoalConfirmationCard(info: any) {
+    const container = document.getElementById('chat-messages')!;
+    const scrollContainer = document.getElementById('chat-scroll')!;
+
+    // Remove existing goal card if any
+    removeGoalConfirmationCard();
+
+    const card = document.createElement('div');
+    card.className = 'goal-confirmation-card';
+    card.dataset.taskId = info.taskId;
+
+    const header = document.createElement('div');
+    header.className = 'goal-card-header';
+    header.textContent = '📋 任务目标确认';
+    card.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'goal-card-body';
+    body.innerHTML = simpleMarkdown(info.goal);
+    card.appendChild(body);
+
+    const actions = document.createElement('div');
+    actions.className = 'goal-card-actions';
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'goal-btn confirm';
+    confirmBtn.textContent = '确认目标 ✓';
+    confirmBtn.addEventListener('click', () => {
+        removeGoalConfirmationCard();
+        vscode.postMessage({
+            type: 'confirmGoal',
+            taskId: info.taskId,
+            originalRequest: info.originalRequest
+        });
+    });
+    actions.appendChild(confirmBtn);
+
+    const reviseBtn = document.createElement('button');
+    reviseBtn.className = 'goal-btn revise';
+    reviseBtn.textContent = '修改需求 ↩';
+    reviseBtn.addEventListener('click', () => {
+        removeGoalConfirmationCard();
+        vscode.postMessage({
+            type: 'reviseGoal',
+            taskId: info.taskId
+        });
+    });
+    actions.appendChild(reviseBtn);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'goal-btn cancel';
+    cancelBtn.textContent = '取消 ✕';
+    cancelBtn.addEventListener('click', () => {
+        removeGoalConfirmationCard();
+        vscode.postMessage({
+            type: 'cancelTask',
+            taskId: info.taskId
+        });
+    });
+    actions.appendChild(cancelBtn);
+
+    card.appendChild(actions);
+    container.appendChild(card);
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+}
+
+function removeGoalConfirmationCard() {
+    const existing = document.querySelector('.goal-confirmation-card');
+    if (existing) existing.remove();
 }
 
 // Export for use by other modules

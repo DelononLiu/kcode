@@ -101,7 +101,8 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         const task: Task = {
             id: `task_${Date.now()}`,
             title: 'New Task',
-            status: 'pending',
+            goal: '',
+            status: 'unknown',
             createdAt: Date.now(),
             pinned: false
         };
@@ -289,7 +290,8 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             width: 18px;
             text-align: center;
         }
-        .task-item .status-icon.pending { display: none; }
+        .task-item .status-icon.unknown { display: none; }
+        .task-item .status-icon.pending { color: #888; }
         .task-item .status-icon.active { color: #cc7832; }
         .task-item .status-icon.in_review { color: #cca700; }
         .task-item .status-icon.completed { color: #4ec9b0; }
