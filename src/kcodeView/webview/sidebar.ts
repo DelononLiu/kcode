@@ -12,6 +12,14 @@ declare function acquireVsCodeApi(): any;
             });
         }
 
+        const groupBtn = document.getElementById('btn-new-group');
+        if (groupBtn) {
+            groupBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                vscode.postMessage({ type: 'newGroup' });
+            });
+        }
+
         const settingsBtn = document.getElementById('btn-settings');
         if (settingsBtn) {
             settingsBtn.addEventListener('click', () => {
@@ -25,7 +33,7 @@ declare function acquireVsCodeApi(): any;
             const message = event.data;
             switch (message.type) {
                 case 'updateTaskList':
-                    renderTaskList(message.tasks);
+                    renderTaskList(message.tasks, message.groups || []);
                     break;
             }
         });
@@ -71,26 +79,25 @@ declare function acquireVsCodeApi(): any;
         }
     }
 
-    function renderTaskList(tasks: any[]) {
+    function renderTaskList(tasks: any[], groups: string[]) {
         const pinnedList = document.getElementById('pinned-list');
-        const groupsContainer = document.getElementById('groups-container');
         const taskList = document.getElementById('task-list');
         if (!taskList) return;
 
         const pinned = tasks.filter((t: any) => t.pinned);
         const groupMap = new Map<string, any[]>();
+        for (const g of groups) {
+            groupMap.set(g, []);
+        }
         const ungrouped = tasks.filter((t: any) => {
             if (t.pinned) return false;
-            if (t.group) {
-                const list = groupMap.get(t.group) || [];
-                list.push(t);
-                groupMap.set(t.group, list);
+            if (t.group && groupMap.has(t.group)) {
+                groupMap.get(t.group)!.push(t);
                 return false;
             }
             return true;
         });
 
-        // Pinned section
         const pinnedSection = document.getElementById('section-pinned');
         if (pinnedSection && pinnedList) {
             pinnedSection.style.display = pinned.length > 0 ? '' : 'none';
@@ -100,29 +107,60 @@ declare function acquireVsCodeApi(): any;
             }
         }
 
-        // Group sections
-        if (groupsContainer) {
-            groupsContainer.innerHTML = '';
-            for (const [groupName, groupTasks] of groupMap) {
-                groupsContainer.appendChild(createGroupSection(groupName, groupTasks));
-            }
+        taskList.innerHTML = '';
+        const hasContent = ungrouped.length > 0 || groups.length > 0 || pinned.length > 0;
+        if (!hasContent) {
+            taskList.innerHTML = '<div class="placeholder-text">暂无任务</div>';
+            return;
         }
 
-        // Ungrouped tasks
-        taskList.innerHTML = '';
-        if (ungrouped.length === 0 && groupMap.size === 0 && pinned.length === 0) {
-            taskList.innerHTML = '<div class="placeholder-text">暂无任务</div>';
-        } else {
-            for (const task of ungrouped) {
-                taskList.appendChild(createTaskItem(task));
-            }
+        for (const task of ungrouped) {
+            taskList.appendChild(createTaskItem(task));
         }
+
+        for (const [groupName, groupTasks] of groupMap) {
+            const section = createGroupSection(groupName, groupTasks);
+            const body = section.querySelector('.section-body') as HTMLElement;
+            if (body) makeDropTarget(body, groupName);
+            taskList.appendChild(section);
+        }
+
+        makeDropTarget(taskList, null);
+    }
+
+    function makeDropTarget(el: HTMLElement, group: string | null) {
+        let dragCounter = 0;
+        el.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dragCounter++;
+            el.classList.add('drag-over');
+        });
+        el.addEventListener('dragleave', () => {
+            dragCounter--;
+            if (dragCounter === 0) {
+                el.classList.remove('drag-over');
+            }
+        });
+        el.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+        el.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragCounter = 0;
+            el.classList.remove('drag-over');
+            const taskId = e.dataTransfer?.getData('text/plain');
+            if (taskId) {
+                vscode.postMessage({ type: 'moveTaskToGroup', taskId, group });
+            }
+        });
     }
 
     function createTaskItem(task: any): HTMLElement {
         const item = document.createElement('div');
         item.className = 'task-item';
         if (task.status === 'active') item.classList.add('active');
+        item.draggable = true;
 
         const dot = document.createElement('span');
         dot.className = `status-dot ${task.status}`;
@@ -140,6 +178,14 @@ declare function acquireVsCodeApi(): any;
                 type: 'selectTask',
                 taskId: task.id
             });
+        });
+
+        item.addEventListener('dragstart', (e) => {
+            e.dataTransfer?.setData('text/plain', task.id);
+            item.classList.add('dragging');
+        });
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
         });
 
         item.addEventListener('contextmenu', (e) => {

@@ -73,6 +73,29 @@ export class TaskStore {
         this.state.update(`messages_${taskId}`, []);
     }
 
+    // ===== Group CRUD =====
+
+    getGroups(): string[] {
+        return this.state.get<string[]>('groups', []);
+    }
+
+    addGroup(name: string): void {
+        const groups = this.getGroups();
+        if (!groups.includes(name)) {
+            groups.push(name);
+            this.state.update('groups', groups);
+        }
+    }
+
+    updateTaskGroup(taskId: string, group: string | null): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            tasks[idx].group = group ?? undefined;
+            this.state.update('tasks', tasks);
+        }
+    }
+
     findEmptyTask(): Task | undefined {
         const tasks = this.getTasks();
         for (const task of tasks) {

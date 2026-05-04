@@ -56,10 +56,33 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                 case 'openSettings':
                     vscode.commands.executeCommand('workbench.action.openSettings', 'kcode');
                     break;
+                case 'newGroup':
+                    this.createNewGroup();
+                    break;
+                case 'moveTaskToGroup':
+                    this._store.updateTaskGroup(message.taskId, message.group);
+                    this.refresh();
+                    break;
             }
         });
 
         this.refresh();
+    }
+
+    private async createNewGroup(): Promise<void> {
+        const name = await vscode.window.showInputBox({
+            prompt: '输入分组名称',
+            placeHolder: '分组名称',
+            validateInput: (value: string) => {
+                if (!value.trim()) return '名称不能为空';
+                if (this._store.getGroups().includes(value.trim())) return '分组已存在';
+                return null;
+            }
+        });
+        if (name && name.trim()) {
+            this._store.addGroup(name.trim());
+            this.refresh();
+        }
     }
 
     createNewTask(): void {
@@ -84,9 +107,11 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     refresh(): void {
         if (!this._view) return;
         const tasks = this._store.getTasks();
+        const groups = this._store.getGroups();
         this._view.webview.postMessage({
             type: 'updateTaskList',
-            tasks
+            tasks,
+            groups
         });
     }
 
@@ -173,6 +198,22 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             flex-shrink: 0;
         }
         .section-header .arrow.collapsed { transform: rotate(-90deg); }
+        .section-header-btn {
+            background: none;
+            border: none;
+            color: var(--vscode-sideBarSectionHeader-foreground, #888);
+            cursor: pointer;
+            padding: 0 4px;
+            margin-left: auto;
+            font-size: 14px;
+            line-height: 1;
+            font-family: inherit;
+            border-radius: 3px;
+        }
+        .section-header-btn:hover {
+            background: var(--vscode-list-hoverBackground, #2a2d2e);
+            color: var(--vscode-sideBar-foreground, #ccc);
+        }
         .section-body { padding: 0 4px; }
 
         /* --- Task Item --- */
@@ -189,6 +230,8 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             background: transparent;
         }
         .task-item:not(.active):hover { background: #252526; }
+        .task-item.dragging { opacity: 0.5; }
+        .section-body.drag-over { background: rgba(14, 99, 156, 0.15); border-radius: 3px; }
         .task-item.active {
             background: #0E364B;
             color: #ffffff;
@@ -301,11 +344,10 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             <div class="section-body" id="pinned-list"></div>
         </div>
 
-        <div id="groups-container"></div>
-
-        <div id="section-ungrouped" class="section">
+        <div id="section-tasks" class="section">
             <div class="section-header" id="tasks-header">
                 <span>任务</span>
+                <button id="btn-new-group" class="section-header-btn" title="新建分组">+</button>
             </div>
             <div class="section-body" id="task-list">
                 <div class="placeholder-text">No tasks yet</div>

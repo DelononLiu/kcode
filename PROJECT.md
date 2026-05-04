@@ -198,6 +198,7 @@ interface AcpMessageHandler {
 存储结构：
 - `tasks` → `Task[]`
 - `messages_{taskId}` → `ChatMessage[]`
+- `groups` → `string[]`
 
 | 方法 | 说明 |
 |---|---|
@@ -206,6 +207,10 @@ interface AcpMessageHandler {
 | `deleteTask(taskId)` | 删除任务及其消息 |
 | `updateTaskStatus(id, status)` | 改状态 |
 | `updateTaskTitle(id, title)` | 改标题 |
+| `updateTaskPin(id, pinned)` | 置顶/取消置顶 |
+| `updateTaskGroup(id, group)` | 移入/移出分组 |
+| `getGroups()` | 获取全部分组名 |
+| `addGroup(name)` | 新增分组 |
 | `getTask(id)` | 单个任务 |
 | `findEmptyTask()` | 找第一条消息数为 0 的任务 |
 | `getMessages(taskId)` | 获取对话消息 |
@@ -321,10 +326,13 @@ function appendDeviceOutput(data: string): void
 ### WebView → Extension
 
 | type | Source | Target |
-|---|---|---|
+|---|---|---|---|
 | `'newTask'` | sidebar.ts | KCodeSidebarProvider |
 | `'selectTask'` | sidebar.ts | KCodeSidebarProvider |
 | `'deleteTask'` | sidebar.ts | KCodeSidebarProvider |
+| `'pinTask'` | sidebar.ts | KCodeSidebarProvider |
+| `'newGroup'` | sidebar.ts | KCodeSidebarProvider |
+| `'moveTaskToGroup'` | sidebar.ts | KCodeSidebarProvider |
 | `'openSettings'` | sidebar.ts / app.ts | KCodeSidebarProvider |
 | `'sendMessage'` | app.ts | KCodePanel |
 

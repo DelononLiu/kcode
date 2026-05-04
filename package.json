@@ -1,7 +1,7 @@
 {
   "name": "kcode",
-  "displayName": "KCode",
-  "description": "KCode - AI Agent Powered Development Environment (VS Code Extension)",
+  "displayName": "Kcode",
+  "description": "Kcode - AI Agent Powered Development Environment (VS Code Extension)",
   "version": "0.1.0",
   "publisher": "kcode",
   "license": "MIT",
@@ -14,13 +14,14 @@
   "activationEvents": [
     "onView:kcode.viewsMain"
   ],
+  "icon": "resources/kcode.png",
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "kcode",
-          "title": "KCode",
+          "title": "Kcode",
           "icon": "resources/kcode.png"
         }
       ]
@@ -30,22 +31,22 @@
         {
           "type": "webview",
           "id": "kcode.viewsMain",
-          "name": "KCode"
+          "name": "Kcode"
         }
       ]
     },
     "commands": [
       {
         "command": "kcode.open",
-        "title": "KCode: Open"
+        "title": "Kcode: Open"
       },
       {
         "command": "kcode.newTask",
-        "title": "KCode: New Task"
+        "title": "Kcode: New Task"
       }
     ],
     "configuration": {
-      "title": "KCode",
+      "title": "Kcode",
       "properties": {
         "kcode.agentName": {
           "type": "string",
