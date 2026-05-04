@@ -9,12 +9,20 @@ agent: general
 并行执行：
 1. `!git status` - 查看工作区状态
 2. `!git diff` - 查看具体改动
-3. `!git log --oneline -5` - 查看最近提交消息风格
 
 ## 分析
-- 判断改动的类型（feat/fix/refactor/docs/chore）
 - 检查是否有敏感文件（如 .env、credentials.json），如果有则警告不要提交
-- 生成符合规范的提交消息：`<type>: <简短中文描述>`
+
+## 消息格式
+```
+<type>: <简短描述>
+
+[可选正文说明为什么改]
+```
+
+**类型**：`feat` — 新功能 | `fix` — 修复 bug | `refactor` — 重构 | `docs` — 文档 | `chore` — 构建/工具
+
+**规则**：简短描述不超过 50 字，使用中文
 
 ## 执行
 - `git add` 将所有修改和未跟踪的文件加入暂存区（排除敏感文件后）
