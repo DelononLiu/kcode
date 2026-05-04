@@ -1,7 +1,7 @@
 export interface Task {
     id: string;
     title: string;
-    status: 'pending' | 'active' | 'completed';
+    status: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
     createdAt: number;
     pinned?: boolean;
     group?: string;

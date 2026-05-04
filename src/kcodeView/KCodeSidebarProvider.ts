@@ -276,15 +276,18 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             color: #ffffff;
             font-weight: 600;
         }
-        .task-item .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
+        .task-item .status-icon {
+            font-size: 13px;
+            line-height: 1;
             flex-shrink: 0;
+            width: 18px;
+            text-align: center;
         }
-        .task-item .status-dot.pending { background: var(--vscode-descriptionForeground, #6b6b6b); }
-        .task-item .status-dot.active { background: var(--vscode-button-background, #0e639c); }
-        .task-item .status-dot.completed { background: #4ec9b0; }
+        .task-item .status-icon.pending { color: #e74c3c; }
+        .task-item .status-icon.active { color: #cc7832; }
+        .task-item .status-icon.in_review { color: #cca700; }
+        .task-item .status-icon.completed { color: #4ec9b0; }
+        .task-item .status-icon.cancelled { color: #6b6b6b; }
         .task-title {
             flex: 1;
             overflow: hidden;
