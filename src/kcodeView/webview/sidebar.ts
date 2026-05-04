@@ -3,6 +3,7 @@ declare function acquireVsCodeApi(): any;
 {
     const vscode = acquireVsCodeApi();
     let contextMenuEl: HTMLDivElement | null = null;
+    let draggedTaskId: string | null = null;
 
     (function () {
         const btn = document.getElementById('btn-new-task');
@@ -114,45 +115,56 @@ declare function acquireVsCodeApi(): any;
             return;
         }
 
+        const ungroupedZone = document.createElement('div');
+        ungroupedZone.className = 'section-body drop-zone';
+        ungroupedZone.dataset.group = '';
         for (const task of ungrouped) {
-            taskList.appendChild(createTaskItem(task));
+            ungroupedZone.appendChild(createTaskItem(task));
         }
+        makeContainerDropTarget(ungroupedZone, null);
+        taskList.appendChild(ungroupedZone);
 
         for (const [groupName, groupTasks] of groupMap) {
             const section = createGroupSection(groupName, groupTasks);
-            const body = section.querySelector('.section-body') as HTMLElement;
-            if (body) makeDropTarget(body, groupName);
             taskList.appendChild(section);
         }
-
-        makeDropTarget(taskList, null);
     }
 
-    function makeDropTarget(el: HTMLElement, group: string | null) {
-        let dragCounter = 0;
+    function makeContainerDropTarget(el: HTMLElement, group: string | null) {
         el.addEventListener('dragenter', (e) => {
             e.preventDefault();
-            dragCounter++;
+            e.stopPropagation();
             el.classList.add('drag-over');
         });
-        el.addEventListener('dragleave', () => {
-            dragCounter--;
-            if (dragCounter === 0) {
+        el.addEventListener('dragleave', (e) => {
+            if (!el.contains(e.relatedTarget as Node)) {
                 el.classList.remove('drag-over');
             }
         });
         el.addEventListener('dragover', (e) => {
             e.preventDefault();
+            e.stopPropagation();
         });
         el.addEventListener('drop', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            dragCounter = 0;
             el.classList.remove('drag-over');
             const taskId = e.dataTransfer?.getData('text/plain');
             if (taskId) {
-                vscode.postMessage({ type: 'moveTaskToGroup', taskId, group });
+                vscode.postMessage({
+                    type: 'reorderTask',
+                    taskId,
+                    targetTaskId: null,
+                    position: null,
+                    group
+                });
             }
+        });
+    }
+
+    function clearDropIndicators() {
+        document.querySelectorAll('.task-item').forEach(el => {
+            el.classList.remove('drop-before', 'drop-after');
         });
     }
 
@@ -161,6 +173,7 @@ declare function acquireVsCodeApi(): any;
         item.className = 'task-item';
         if (task.status === 'active') item.classList.add('active');
         item.draggable = true;
+        item.dataset.taskId = task.id;
 
         const dot = document.createElement('span');
         dot.className = `status-dot ${task.status}`;
@@ -181,17 +194,61 @@ declare function acquireVsCodeApi(): any;
         });
 
         item.addEventListener('dragstart', (e) => {
+            draggedTaskId = task.id;
             e.dataTransfer?.setData('text/plain', task.id);
             item.classList.add('dragging');
         });
         item.addEventListener('dragend', () => {
+            draggedTaskId = null;
             item.classList.remove('dragging');
+            clearDropIndicators();
         });
 
         item.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
             showContextMenu(e.clientX, e.clientY, task);
+        });
+
+        item.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const rect = item.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            const position = y < rect.height / 2 ? 'before' : 'after';
+            clearDropIndicators();
+            item.classList.add(position === 'before' ? 'drop-before' : 'drop-after');
+        });
+
+        item.addEventListener('dragleave', (e) => {
+            if (!item.contains(e.relatedTarget as Node)) {
+                item.classList.remove('drop-before', 'drop-after');
+            }
+        });
+
+        item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            clearDropIndicators();
+            const taskId = e.dataTransfer?.getData('text/plain');
+            if (!taskId) return;
+            const rect = item.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            const position = y < rect.height / 2 ? 'before' : 'after';
+            const container = item.closest('.drop-zone') as HTMLElement;
+            const group = container?.dataset?.group !== undefined ? (container.dataset.group || null) : null;
+            vscode.postMessage({
+                type: 'reorderTask',
+                taskId,
+                targetTaskId: task.id,
+                position,
+                group
+            });
         });
 
         return item;
@@ -223,10 +280,19 @@ declare function acquireVsCodeApi(): any;
         section.appendChild(header);
 
         const body = document.createElement('div');
-        body.className = 'section-body';
+        body.className = 'section-body drop-zone';
+        body.dataset.group = groupName;
+        if (tasks.length === 0) {
+            body.classList.add('empty');
+            const hint = document.createElement('div');
+            hint.className = 'group-placeholder';
+            hint.textContent = '拖入任务到此分组';
+            body.appendChild(hint);
+        }
         for (const task of tasks) {
             body.appendChild(createTaskItem(task));
         }
+        makeContainerDropTarget(body, groupName);
         section.appendChild(body);
 
         return section;

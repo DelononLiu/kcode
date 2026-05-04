@@ -96,6 +96,35 @@ export class TaskStore {
         }
     }
 
+    moveTask(taskId: string, targetTaskId: string | null, position: 'before' | 'after' | null, group: string | null): void {
+        const tasks = this.getTasks();
+        const fromIdx = tasks.findIndex(t => t.id === taskId);
+        if (fromIdx === -1) return;
+
+        const [task] = tasks.splice(fromIdx, 1);
+        task.group = group ?? undefined;
+
+        if (targetTaskId) {
+            const toIdx = tasks.findIndex(t => t.id === targetTaskId);
+            if (toIdx !== -1) {
+                tasks.splice(toIdx + (position === 'after' ? 1 : 0), 0, task);
+            } else {
+                tasks.push(task);
+            }
+        } else {
+            let insertIdx = tasks.length;
+            for (let i = tasks.length - 1; i >= 0; i--) {
+                if (tasks[i].group === task.group) {
+                    insertIdx = i + 1;
+                    break;
+                }
+            }
+            tasks.splice(insertIdx, 0, task);
+        }
+
+        this.state.update('tasks', tasks);
+    }
+
     findEmptyTask(): Task | undefined {
         const tasks = this.getTasks();
         for (const task of tasks) {

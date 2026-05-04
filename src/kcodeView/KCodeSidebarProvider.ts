@@ -59,8 +59,8 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                 case 'newGroup':
                     this.createNewGroup();
                     break;
-                case 'moveTaskToGroup':
-                    this._store.updateTaskGroup(message.taskId, message.group);
+                case 'reorderTask':
+                    this._store.moveTask(message.taskId, message.targetTaskId, message.position, message.group);
                     this.refresh();
                     break;
             }
@@ -215,6 +215,42 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             color: var(--vscode-sideBar-foreground, #ccc);
         }
         .section-body { padding: 0 4px; }
+        .drop-zone { padding: 0 4px; min-height: 4px; }
+        .drop-zone.empty { min-height: 32px; }
+        .drop-zone.drag-over { background: rgba(14, 99, 156, 0.15); border-radius: 3px; }
+        .group-placeholder {
+            padding: 6px 16px;
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground, #666);
+            font-style: italic;
+            text-align: center;
+            user-select: none;
+        }
+        .drop-zone.drag-over .group-placeholder {
+            color: var(--vscode-button-foreground, #fff);
+        }
+
+        /* --- Drop Indicator (reorder line) --- */
+        .task-item {
+            position: relative;
+        }
+        .task-item.drop-before::before,
+        .task-item.drop-after::after {
+            content: '';
+            position: absolute;
+            left: 16px;
+            right: 16px;
+            height: 2px;
+            background: var(--vscode-button-background, #0e639c);
+            pointer-events: none;
+            z-index: 1;
+        }
+        .task-item.drop-before::before {
+            top: -1px;
+        }
+        .task-item.drop-after::after {
+            bottom: -1px;
+        }
 
         /* --- Task Item --- */
         .task-item {
@@ -231,7 +267,6 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         }
         .task-item:not(.active):hover { background: #252526; }
         .task-item.dragging { opacity: 0.5; }
-        .section-body.drag-over { background: rgba(14, 99, 156, 0.15); border-radius: 3px; }
         .task-item.active {
             background: #0E364B;
             color: #ffffff;
