@@ -231,7 +231,6 @@ function initTabs() {
 
 function initChat() {
     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
-    const sendBtn = document.getElementById('btn-send')!;
 
     if (!input) return;
 
@@ -244,8 +243,6 @@ function initChat() {
 
         vscode.postMessage({ type: 'sendMessage', text, taskId: activeTaskId });
     }
-
-    sendBtn.addEventListener('click', sendMessage);
 
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {

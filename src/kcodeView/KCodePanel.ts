@@ -387,7 +387,6 @@ export class KCodePanel {
                                 <path d="M13.5 8c0-.3 0-.7-.1-1l1.5-1.2-.6-1.9-1.9-.4c-.4-.4-.9-.7-1.4-1L10.5.5H8.5L7.5 2c-.5.1-1 .4-1.4.7l-1.9-.4-1.5 1L2.5 5c-.3.4-.5.9-.6 1.4L.5 7.5v2l1.5 1.1c.1.5.3 1 .6 1.4l-.6 1.9 1.5 1.5 1.9-.4c.4.4.9.7 1.4 1l1 1.5h2l1-1.5c.5-.3 1-.6 1.4-1l1.9.4 1.5-1.5-.6-1.9c.3-.4.5-.9.6-1.4l1.5-1.1V8z" stroke="currentColor" stroke-width="1.2"/>
                             </svg>
                         </button>
-                        <button id="btn-send" class="send-btn">发送</button>
                     </div>
                 </div>
                 <div id="chat-statusbar">
@@ -453,7 +452,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .chat-msg.agent .msg-bubble pre code{background:transparent;padding:0}
 #chat-input-area{border-top:1px solid #2d2d2d;padding:8px 16px 0;background:#1e1e1e;flex-shrink:0;width:100%;max-width:900px;margin:0 auto}
 .input-wrapper{display:flex;align-items:flex-end;gap:8px;background:#2d2d2d;border:1px solid #3c3c3c;border-radius:10px;padding:6px 8px;transition:border-color .15s}
-.input-wrapper:focus-within{border-color:#555}
+.input-wrapper:focus-within{border-color:#0e639c}
 
 .input-wrapper.input-flash{animation:input-flash 1s ease-out}
 @keyframes input-flash{0%{background:#2d2d2d;box-shadow:0 0 0 0 rgba(14,99,156,0)}20%{background:rgba(14,99,156,.15);box-shadow:0 0 0 6px rgba(14,99,156,.15)}100%{background:#2d2d2d;box-shadow:0 0 0 0 rgba(14,99,156,0)}}
@@ -463,9 +462,6 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-input{flex:1;background:transparent;color:#d4d4d4;border:none;padding:6px 4px;font-family:inherit;font-size:13px;resize:none;outline:none;height:48px;max-height:200px;line-height:1.4}
 #chat-input::placeholder{color:#6b6b6b}
 .input-actions{display:flex;align-items:center;gap:4px;flex-shrink:0;padding-bottom:2px}
-.send-btn{padding:5px 16px;background:#0e639c;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500;transition:background .15s;white-space:nowrap}
-.send-btn:hover{background:#1177bb}
-.send-btn:disabled{background:#555;cursor:not-allowed}
 #chat-statusbar{display:flex;align-items:center;gap:0;padding:5px 4px 6px;font-size:11px;color:#6b6b6b;flex-wrap:wrap;flex-shrink:0}
 .status-item{display:flex;align-items:center;gap:4px;padding:1px 8px;white-space:nowrap}
 .status-item svg{opacity:.5}
