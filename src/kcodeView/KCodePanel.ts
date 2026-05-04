@@ -39,6 +39,8 @@ export class KCodePanel {
         this.panel.webview.html = this.getWebviewContent();
         this.setupMessageHandler();
 
+        this.ensureConnection();
+
         this.panel.onDidDispose(() => {
             this.onDisposeCallback?.();
         });

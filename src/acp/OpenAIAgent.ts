@@ -11,7 +11,7 @@ export class OpenAIAgent {
     private config: OpenAIConfig;
 
     constructor() {
-        const apiKey = process.env['OPENAI_API_KEY'] || 'sk-74e2c393451e4e828c8a8677f0f21641';
+        const apiKey = process.env['OPENAI_API_KEY'] || '';
         const model = process.env['OPENAI_MODEL'] || 'deepseek-v4-flash';
         let baseURL = process.env['OPENAI_BASE_URL'] || 'https://api.deepseek.com';
         baseURL = baseURL.replace(/\/+$/, '');
