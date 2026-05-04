@@ -277,6 +277,14 @@ declare function acquireVsCodeApi(): any;
             arrow.classList.toggle('collapsed', collapsed);
         });
 
+        header.addEventListener('dragenter', () => {
+            if (collapsed) {
+                collapsed = false;
+                body.style.display = '';
+                arrow.classList.remove('collapsed');
+            }
+        });
+
         section.appendChild(header);
 
         const body = document.createElement('div');
