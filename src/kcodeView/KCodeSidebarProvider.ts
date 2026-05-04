@@ -191,13 +191,17 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             user-select: none;
         }
         .section-header .arrow {
-            font-size: 10px;
-            margin-right: 4px;
-            width: 12px;
-            text-align: center;
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-right: 1.5px solid var(--vscode-sideBar-foreground, #888);
+            border-bottom: 1.5px solid var(--vscode-sideBar-foreground, #888);
+            margin-right: 6px;
             flex-shrink: 0;
+            transition: transform 0.1s ease;
         }
-        .section-header .arrow.collapsed { transform: rotate(-90deg); }
+        .section-header .arrow.collapsed { transform: rotate(-45deg); }
+        .section-header .arrow:not(.collapsed) { transform: rotate(45deg); }
         .section-header-btn {
             background: none;
             border: none;

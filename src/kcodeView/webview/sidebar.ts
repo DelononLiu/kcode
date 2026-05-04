@@ -270,7 +270,6 @@ declare function acquireVsCodeApi(): any;
 
         const arrow = document.createElement('span');
         arrow.className = 'arrow';
-        arrow.innerHTML = '&#x25BE;';
         header.appendChild(arrow);
 
         const label = document.createElement('span');
