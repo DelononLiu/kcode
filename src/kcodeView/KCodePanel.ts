@@ -375,27 +375,27 @@ export class KCodePanel {
                 <div id="chat-messages">
                     <div class="chat-placeholder">输入需求，开始与 AI 对话</div>
                 </div>
-                <div id="chat-input-area">
-                    <div class="input-wrapper">
-                        <div class="input-tools">
-                        </div>
-                        <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
-                        <div class="input-actions">
-                            <button class="input-tool-btn settings-btn" title="设置">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.2"/>
-                                    <path d="M13.5 8c0-.3 0-.7-.1-1l1.5-1.2-.6-1.9-1.9-.4c-.4-.4-.9-.7-1.4-1L10.5.5H8.5L7.5 2c-.5.1-1 .4-1.4.7l-1.9-.4-1.5 1L2.5 5c-.3.4-.5.9-.6 1.4L.5 7.5v2l1.5 1.1c.1.5.3 1 .6 1.4l-.6 1.9 1.5 1.5 1.9-.4c.4.4.9.7 1.4 1l1 1.5h2l1-1.5c.5-.3 1-.6 1.4-1l1.9.4 1.5-1.5-.6-1.9c.3-.4.5-.9.6-1.4l1.5-1.1V8z" stroke="currentColor" stroke-width="1.2"/>
-                                </svg>
-                            </button>
-                            <button id="btn-send" class="send-btn">发送</button>
-                        </div>
+            </div>
+            <div id="chat-input-area">
+                <div class="input-wrapper">
+                    <div class="input-tools">
                     </div>
-                    <div id="chat-statusbar">
-                        <span class="status-item">
-                            <span id="agent-status-dot" class="status-dot offline"></span>
-                            <span id="status-model">Agent</span>
-                        </span>
+                    <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
+                    <div class="input-actions">
+                        <button class="input-tool-btn settings-btn" title="设置">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.2"/>
+                                <path d="M13.5 8c0-.3 0-.7-.1-1l1.5-1.2-.6-1.9-1.9-.4c-.4-.4-.9-.7-1.4-1L10.5.5H8.5L7.5 2c-.5.1-1 .4-1.4.7l-1.9-.4-1.5 1L2.5 5c-.3.4-.5.9-.6 1.4L.5 7.5v2l1.5 1.1c.1.5.3 1 .6 1.4l-.6 1.9 1.5 1.5 1.9-.4c.4.4.9.7 1.4 1l1 1.5h2l1-1.5c.5-.3 1-.6 1.4-1l1.9.4 1.5-1.5-.6-1.9c.3-.4.5-.9.6-1.4l1.5-1.1V8z" stroke="currentColor" stroke-width="1.2"/>
+                            </svg>
+                        </button>
+                        <button id="btn-send" class="send-btn">发送</button>
                     </div>
+                </div>
+                <div id="chat-statusbar">
+                    <span class="status-item">
+                        <span id="agent-status-dot" class="status-dot offline"></span>
+                        <span id="status-model">Agent</span>
+                    </span>
                 </div>
             </div>
         </div>
@@ -434,7 +434,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .splitter{width:4px;cursor:col-resize;background:transparent;flex-shrink:0;z-index:10}
 .splitter:hover,.splitter.active{background:#0e639c}
 #chat-area{flex:1;display:flex;flex-direction:column;min-width:300px;background:#1e1e1e}
-#task-info{padding:10px 16px;border-bottom:1px solid #2d2d2d;flex-shrink:0;background:#1e1e1e}
+#task-info{padding:10px 16px;border-bottom:1px solid #2d2d2d;flex-shrink:0;background:#1e1e1e;width:100%;max-width:720px;margin:0 auto}
 #task-info-primary{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .task-info-title{font-size:14px;font-weight:600;color:#e0e0e0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .status-badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500}
