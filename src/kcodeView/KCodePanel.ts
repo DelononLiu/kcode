@@ -371,7 +371,7 @@ export class KCodePanel {
                     <span id="task-info-review"></span>
                 </div>
             </div>
-            <div id="chat-scroll">
+            <div id="chat-scroll" class="chat-empty">
                 <div id="chat-messages">
                     <div class="chat-placeholder">输入需求，开始与 AI 对话</div>
                 </div>
@@ -442,8 +442,11 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .status-badge.status-active{background:#1a3a2a;color:#4ec9b0}
 .status-badge.status-completed{background:#1a2a3a;color:#569cd6}
 #task-info-secondary{display:flex;align-items:center;gap:16px;font-size:11px;color:#888}
-#chat-scroll{flex:1;overflow-y:auto;min-height:0;background:#1e1e1e;scrollbar-color:#28292b #1e1e1e;--vscode-scrollbarSlider-background:#28292b80;--vscode-scrollbarSlider-hoverBackground:#3a3a3b;--vscode-scrollbarSlider-activeButton-background:#1e1e1e}
-#chat-messages{max-width:720px;margin:0 auto;padding:8px 16px;display:flex;flex-direction:column;gap:2px;min-height:100%}
+#chat-scroll{flex:1;overflow-y:auto;min-height:0;background:#1e1e1e;display:flex;flex-direction:column;scrollbar-color:#28292b #1e1e1e;--vscode-scrollbarSlider-background:#28292b80;--vscode-scrollbarSlider-hoverBackground:#3a3a3b;--vscode-scrollbarSlider-activeButton-background:#1e1e1e}
+#chat-messages{max-width:720px;margin:0 auto;padding:8px 16px;display:flex;flex-direction:column;gap:2px;flex:1;min-height:0}
+#chat-scroll.chat-empty #chat-messages{flex:0;overflow:hidden;padding:0}
+#chat-scroll.chat-empty #chat-input-area{margin:auto;border-top:none}
+#chat-area:has(#chat-scroll.chat-empty) #task-info{display:none}
 .chat-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#6b6b6b;font-size:14px}
 .chat-msg{margin-bottom:4px}
 .chat-msg.user{align-self:flex-end;margin-left:auto;margin-top:8px}

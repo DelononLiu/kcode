@@ -95,6 +95,7 @@ let streamMessageEl: HTMLElement | null = null;
 function handleAgentStreamUpdate(text: string) {
     const container = document.getElementById('chat-messages')!;
     const scrollContainer = document.getElementById('chat-scroll')!;
+    scrollContainer.classList.remove('chat-empty');
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
 
@@ -259,6 +260,7 @@ function initChat() {
 function addUserMessage(content: string) {
     const container = document.getElementById('chat-messages')!;
     const scrollContainer = document.getElementById('chat-scroll')!;
+    scrollContainer.classList.remove('chat-empty');
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
 
@@ -314,15 +316,17 @@ function addMessage(role: 'user' | 'agent', content: string) {
 function renderMessages(messages: any[]) {
     const container = document.getElementById('chat-messages');
     const scrollContainer = document.getElementById('chat-scroll');
-    if (!container) return;
+    if (!container || !scrollContainer) return;
 
     container.innerHTML = '';
 
     if (!messages || messages.length === 0) {
+        scrollContainer.classList.add('chat-empty');
         container.innerHTML = '<div class="chat-placeholder">输入需求，开始与 AI 对话</div>';
         return;
     }
 
+    scrollContainer.classList.remove('chat-empty');
     for (const msg of messages) {
         addMessageElement(msg.role, msg.content);
     }
