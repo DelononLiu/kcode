@@ -76,6 +76,7 @@ export class KCodePanel {
             const shortTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
             this.store.updateTaskTitle(tid, shortTitle);
             this.refreshSidebarCallback?.();
+            this.sendTaskInfo(tid);
         }
 
         // Send user message to webview for immediate rendering
@@ -438,8 +439,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #task-info-secondary{display:flex;align-items:center;justify-content:center;gap:16px;font-size:11px;color:#888}
 #chat-scroll{flex:1;overflow-y:auto;min-height:0;background:#1e1e1e;scrollbar-color:#28292b #1e1e1e;--vscode-scrollbarSlider-background:#28292b80;--vscode-scrollbarSlider-hoverBackground:#3a3a3b;--vscode-scrollbarSlider-activeButton-background:#1e1e1e}
 #chat-messages{max-width:900px;margin:0 auto;padding:8px 16px;min-height:100%;width:100%}
-#chat-scroll.chat-empty #chat-messages{overflow:hidden;padding:0}
+#chat-scroll.chat-empty{display:none}
+#chat-area:has(#chat-scroll.chat-empty){justify-content:center}
 #chat-area:has(#chat-scroll.chat-empty) #task-info{display:none}
+#chat-area:has(#chat-scroll.chat-empty) #chat-input-area{border-top:none}
 .chat-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#6b6b6b;font-size:14px}
 .chat-msg{margin-bottom:4px;margin-top:8px}
 .chat-msg.user{text-align:right}

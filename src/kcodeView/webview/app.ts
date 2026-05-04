@@ -354,17 +354,27 @@ function renderMessages(messages: any[]) {
 
     container.innerHTML = '';
 
+    const inputEl = document.getElementById('chat-input') as HTMLTextAreaElement;
     if (!messages || messages.length === 0) {
         scrollContainer.classList.add('chat-empty');
         container.innerHTML = '<div class="chat-placeholder">输入需求，开始与 AI 对话</div>';
+        if (inputEl) inputEl.placeholder = '输入需求，开始与 AI 对话';
+        focusChatInput();
         return;
     }
 
     scrollContainer.classList.remove('chat-empty');
+    if (inputEl) inputEl.placeholder = '提出后续修改要求';
     for (const msg of messages) {
         addMessageElement(msg.role, msg.content);
     }
     if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    focusChatInput();
+}
+
+function focusChatInput() {
+    const el = document.getElementById('chat-input') as HTMLTextAreaElement;
+    if (el) el.focus();
 }
 
 function addMessageElement(role: string, content: string) {
