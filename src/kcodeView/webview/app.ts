@@ -62,6 +62,9 @@ function initMessageHandler() {
             case 'updateTaskInfo':
                 updateTaskInfo(message);
                 break;
+            case 'flashInput':
+                flashInput();
+                break;
 
         }
     });
@@ -380,6 +383,14 @@ function updateTaskInfo(info: any) {
     if (reviewEl) {
         reviewEl.textContent = `待验收 ${info.pendingReviewFiles || 0} 个文件`;
     }
+}
+
+function flashInput() {
+    const wrapper = document.querySelector('.input-wrapper');
+    if (!wrapper) return;
+    wrapper.classList.remove('input-flash');
+    void (wrapper as HTMLElement).offsetWidth;
+    wrapper.classList.add('input-flash');
 }
 
 // Export for use by other modules

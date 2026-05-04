@@ -9,6 +9,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     private _store: TaskStore;
     private _context: vscode.ExtensionContext;
     private _onTaskSelected: (taskId: string) => void;
+    private _onFlashInput?: () => void;
 
     constructor(
         context: vscode.ExtensionContext,
@@ -85,10 +86,15 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    setFlashInputCallback(cb: () => void) {
+        this._onFlashInput = cb;
+    }
+
     createNewTask(): void {
         const existingEmpty = this._store.findEmptyTask();
         if (existingEmpty) {
             this._onTaskSelected(existingEmpty.id);
+            this._onFlashInput?.();
             this.refresh();
             return;
         }

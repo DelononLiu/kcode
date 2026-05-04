@@ -461,6 +461,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-input-area{border-top:1px solid #2d2d2d;padding:8px 16px 0;background:#1e1e1e;flex-shrink:0;width:100%;max-width:720px;margin:0 auto}
 .input-wrapper{display:flex;align-items:flex-end;gap:8px;background:#2d2d2d;border:1px solid #3c3c3c;border-radius:10px;padding:6px 8px;transition:border-color .15s}
 .input-wrapper:focus-within{border-color:#555}
+#chat-scroll.chat-empty .input-wrapper{border-color:#0e639c66}
+.input-wrapper.input-flash{animation:input-flash 1s ease-out}
+@keyframes input-flash{0%{background:#2d2d2d;box-shadow:0 0 0 0 rgba(14,99,156,0)}20%{background:rgba(14,99,156,.15);box-shadow:0 0 0 6px rgba(14,99,156,.15)}100%{background:#2d2d2d;box-shadow:0 0 0 0 rgba(14,99,156,0)}}
 .input-tools{display:flex;align-items:center;gap:2px;flex-shrink:0;padding-bottom:2px}
 .input-tool-btn{background:none;border:none;color:#888;cursor:pointer;padding:4px 5px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;transition:color .15s,background .15s}
 .input-tool-btn:hover{background:#3c3c3c;color:#ccc}
@@ -543,6 +546,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
     reveal() {
         this.panel.reveal();
+    }
+
+    flashInput() {
+        this.panel.webview.postMessage({ type: 'flashInput' });
     }
 
     focusInput() {
