@@ -59,6 +59,9 @@ function initMessageHandler() {
             case 'addUserMessage':
                 addUserMessage(message.content);
                 break;
+            case 'updateTaskInfo':
+                updateTaskInfo(message);
+                break;
 
         }
     });
@@ -347,6 +350,32 @@ function addMessageElement(role: string, content: string) {
 
     container.appendChild(msgDiv);
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
+}
+
+function updateTaskInfo(info: any) {
+    const titleEl = document.querySelector('.task-info-title');
+    if (titleEl) titleEl.textContent = info.title || '选择任务开始对话';
+
+    const badgeEl = document.getElementById('task-status-badge');
+    if (badgeEl) {
+        const status = info.status || 'pending';
+        badgeEl.className = `status-badge status-${status}`;
+        badgeEl.textContent = status === 'active' ? 'Active' :
+            status === 'completed' ? 'Completed' : 'Pending';
+    }
+
+    const createdEl = document.getElementById('task-info-created');
+    if (createdEl && info.createdAt) {
+        const d = new Date(info.createdAt);
+        const hh = d.getHours().toString().padStart(2, '0');
+        const mm = d.getMinutes().toString().padStart(2, '0');
+        createdEl.textContent = `创建 ${hh}:${mm}`;
+    }
+
+    const reviewEl = document.getElementById('task-info-review');
+    if (reviewEl) {
+        reviewEl.textContent = `待验收 ${info.pendingReviewFiles || 0} 个文件`;
+    }
 }
 
 // Export for use by other modules

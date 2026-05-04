@@ -361,6 +361,16 @@ export class KCodePanel {
     <div id="container">
         <!-- Chat Area -->
         <div id="chat-area">
+            <div id="task-info">
+                <div id="task-info-primary">
+                    <span class="task-info-title">选择任务开始对话</span>
+                    <span id="task-status-badge" class="status-badge status-pending">Pending</span>
+                </div>
+                <div id="task-info-secondary">
+                    <span id="task-info-created"></span>
+                    <span id="task-info-review"></span>
+                </div>
+            </div>
             <div id="chat-scroll">
                 <div id="chat-messages">
                     <div class="chat-placeholder">输入需求，开始与 AI 对话</div>
@@ -424,6 +434,14 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .splitter{width:4px;cursor:col-resize;background:transparent;flex-shrink:0;z-index:10}
 .splitter:hover,.splitter.active{background:#0e639c}
 #chat-area{flex:1;display:flex;flex-direction:column;min-width:300px;background:#1e1e1e}
+#task-info{padding:10px 16px;border-bottom:1px solid #2d2d2d;flex-shrink:0;background:#1e1e1e}
+#task-info-primary{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.task-info-title{font-size:14px;font-weight:600;color:#e0e0e0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status-badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500}
+.status-badge.status-pending{background:#3a3a1a;color:#d4d44a}
+.status-badge.status-active{background:#1a3a2a;color:#4ec9b0}
+.status-badge.status-completed{background:#1a2a3a;color:#569cd6}
+#task-info-secondary{display:flex;align-items:center;gap:16px;font-size:11px;color:#888}
 #chat-scroll{flex:1;overflow-y:auto;min-height:0;background:#1e1e1e;scrollbar-color:#28292b #1e1e1e;--vscode-scrollbarSlider-background:#28292b80;--vscode-scrollbarSlider-hoverBackground:#3a3a3b;--vscode-scrollbarSlider-activeButton-background:#1e1e1e}
 #chat-messages{max-width:720px;margin:0 auto;padding:8px 16px;display:flex;flex-direction:column;gap:2px;min-height:100%}
 .chat-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#6b6b6b;font-size:14px}
@@ -474,8 +492,21 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     loadTask(taskId: string) {
         this.currentTaskId = taskId;
         this.sendTaskMessages(taskId);
+        this.sendTaskInfo(taskId);
         // Ensure a session exists for this task (non-blocking)
         this.ensureSession(taskId);
+    }
+
+    private sendTaskInfo(taskId: string) {
+        const task = this.store.getTask(taskId);
+        if (!task) return;
+        this.panel.webview.postMessage({
+            type: 'updateTaskInfo',
+            title: task.title,
+            status: task.status,
+            createdAt: task.createdAt,
+            pendingReviewFiles: 0
+        });
     }
 
     private sendTaskMessages(taskId: string) {
