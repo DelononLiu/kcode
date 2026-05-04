@@ -4,6 +4,7 @@ declare function acquireVsCodeApi(): any;
     const vscode = acquireVsCodeApi();
     let contextMenuEl: HTMLDivElement | null = null;
     let draggedTaskId: string | null = null;
+    const _groupCollapsed = new Map<string, boolean>();
 
     (function () {
         const btn = document.getElementById('btn-new-task');
@@ -123,6 +124,12 @@ declare function acquireVsCodeApi(): any;
         }
         makeContainerDropTarget(ungroupedZone, null);
         taskList.appendChild(ungroupedZone);
+
+        for (const key of _groupCollapsed.keys()) {
+            if (!groups.includes(key)) {
+                _groupCollapsed.delete(key);
+            }
+        }
 
         for (const [groupName, groupTasks] of groupMap) {
             const section = createGroupSection(groupName, groupTasks);
@@ -270,9 +277,10 @@ declare function acquireVsCodeApi(): any;
         label.textContent = escapeHtml(groupName);
         header.appendChild(label);
 
-        let collapsed = false;
+        let collapsed = _groupCollapsed.get(groupName) ?? false;
         header.addEventListener('click', () => {
             collapsed = !collapsed;
+            _groupCollapsed.set(groupName, collapsed);
             body.style.display = collapsed ? 'none' : '';
             arrow.classList.toggle('collapsed', collapsed);
         });
@@ -280,6 +288,7 @@ declare function acquireVsCodeApi(): any;
         header.addEventListener('dragenter', () => {
             if (collapsed) {
                 collapsed = false;
+                _groupCollapsed.set(groupName, false);
                 body.style.display = '';
                 arrow.classList.remove('collapsed');
             }
@@ -302,6 +311,11 @@ declare function acquireVsCodeApi(): any;
         }
         makeContainerDropTarget(body, groupName);
         section.appendChild(body);
+
+        if (collapsed) {
+            body.style.display = 'none';
+            arrow.classList.add('collapsed');
+        }
 
         return section;
     }
