@@ -361,13 +361,10 @@ export class KCodePanel {
     <div id="container">
         <!-- Chat Area -->
         <div id="chat-area">
-            <div id="chat-inner">
-                <!-- Middle: Chat Messages -->
+            <div id="chat-scroll">
                 <div id="chat-messages">
                     <div class="chat-placeholder">输入需求，开始与 AI 对话</div>
                 </div>
-
-                <!-- Bottom: Input -->
                 <div id="chat-input-area">
                     <div class="input-wrapper">
                         <div class="input-tools">
@@ -426,9 +423,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #container{display:flex;height:100vh;width:100vw;overflow:hidden}
 .splitter{width:4px;cursor:col-resize;background:transparent;flex-shrink:0;z-index:10}
 .splitter:hover,.splitter.active{background:#0e639c}
-#chat-area{flex:1;display:flex;flex-direction:column;min-width:300px;background:#1e1e1e;align-items:center}
-#chat-inner{width:100%;max-width:720px;display:flex;flex-direction:column;flex:1;min-height:0}
-#chat-messages{flex:1;overflow-y:auto;padding:8px 16px;display:flex;flex-direction:column;gap:2px}
+#chat-area{flex:1;display:flex;flex-direction:column;min-width:300px;background:#1e1e1e}
+#chat-scroll{flex:1;overflow-y:auto;min-height:0;background:#1e1e1e;scrollbar-color:#28292b #1e1e1e;--vscode-scrollbarSlider-background:#28292b80;--vscode-scrollbarSlider-hoverBackground:#3a3a3b;--vscode-scrollbarSlider-activeButton-background:#1e1e1e}
+#chat-messages{max-width:720px;margin:0 auto;padding:8px 16px;display:flex;flex-direction:column;gap:2px;min-height:100%}
 .chat-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#6b6b6b;font-size:14px}
 .chat-msg{margin-bottom:4px}
 .chat-msg.user{align-self:flex-end;margin-left:auto;margin-top:8px}
@@ -440,7 +437,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .chat-msg.agent .msg-bubble code{background:#1e1e1e;padding:2px 6px;border-radius:3px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px}
 .chat-msg.agent .msg-bubble pre{background:#1e1e1e;padding:12px;border-radius:6px;overflow-x:auto;margin:8px 0;border:1px solid #333}
 .chat-msg.agent .msg-bubble pre code{background:transparent;padding:0}
-#chat-input-area{border-top:1px solid #2d2d2d;padding:8px 16px 0;background:#1e1e1e;flex-shrink:0}
+#chat-input-area{border-top:1px solid #2d2d2d;padding:8px 16px 0;background:#1e1e1e;flex-shrink:0;width:100%;max-width:720px;margin:0 auto}
 .input-wrapper{display:flex;align-items:flex-end;gap:8px;background:#2d2d2d;border:1px solid #3c3c3c;border-radius:10px;padding:6px 8px;transition:border-color .15s}
 .input-wrapper:focus-within{border-color:#555}
 .input-tools{display:flex;align-items:center;gap:2px;flex-shrink:0;padding-bottom:2px}
@@ -471,11 +468,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .close-btn:hover{color:#fff}
 #right-panel-content{flex:1;overflow:hidden;position:relative}
 .tab-content{display:none;height:100%;overflow-y:auto;padding:12px}
-.tab-content.active{display:block}
-::-webkit-scrollbar{width:8px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:#555;border-radius:4px}
-::-webkit-scrollbar-thumb:hover{background:#777}`;
+.tab-content.active{display:block}`;
     }
 
     loadTask(taskId: string) {

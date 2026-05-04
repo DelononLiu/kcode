@@ -91,6 +91,7 @@ let streamMessageEl: HTMLElement | null = null;
 
 function handleAgentStreamUpdate(text: string) {
     const container = document.getElementById('chat-messages')!;
+    const scrollContainer = document.getElementById('chat-scroll')!;
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
 
@@ -115,7 +116,7 @@ function handleAgentStreamUpdate(text: string) {
     const rendered = simpleMarkdown(text);
 
     streamMessageEl.innerHTML = rendered;
-    container.scrollTop = container.scrollHeight;
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
 function handleAgentStatus(status: string, message: string) {
@@ -254,6 +255,7 @@ function initChat() {
 
 function addUserMessage(content: string) {
     const container = document.getElementById('chat-messages')!;
+    const scrollContainer = document.getElementById('chat-scroll')!;
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
 
@@ -271,7 +273,7 @@ function addUserMessage(content: string) {
     msgDiv.appendChild(bubble);
 
     container.appendChild(msgDiv);
-    container.scrollTop = container.scrollHeight;
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
 // Legacy addMessage for compatibility
@@ -282,6 +284,7 @@ function addMessage(role: 'user' | 'agent', content: string) {
     }
 
     const container = document.getElementById('chat-messages')!;
+    const scrollContainer = document.getElementById('chat-scroll')!;
 
     const msgDiv = document.createElement('div');
     msgDiv.className = `chat-msg ${role}`;
@@ -300,13 +303,14 @@ function addMessage(role: 'user' | 'agent', content: string) {
     msgDiv.appendChild(bubble);
 
     container.appendChild(msgDiv);
-    container.scrollTop = container.scrollHeight;
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
 // ==================== renderMessages (from chat.ts) ====================
 
 function renderMessages(messages: any[]) {
     const container = document.getElementById('chat-messages');
+    const scrollContainer = document.getElementById('chat-scroll');
     if (!container) return;
 
     container.innerHTML = '';
@@ -319,11 +323,12 @@ function renderMessages(messages: any[]) {
     for (const msg of messages) {
         addMessageElement(msg.role, msg.content);
     }
-    container.scrollTop = container.scrollHeight;
+    if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
 function addMessageElement(role: string, content: string) {
     const container = document.getElementById('chat-messages')!;
+    const scrollContainer = document.getElementById('chat-scroll')!;
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
 
@@ -341,7 +346,7 @@ function addMessageElement(role: string, content: string) {
     msgDiv.appendChild(bubble);
 
     container.appendChild(msgDiv);
-    container.scrollTop = container.scrollHeight;
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
 // Export for use by other modules
