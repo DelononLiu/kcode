@@ -105,7 +105,6 @@ function handleAgentStreamUpdate(text: string) {
     scrollContainer.classList.remove('chat-empty');
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
-    removeGoalConfirmationCard();
 
     if (!streamMessageEl) {
         // Create agent streaming bubble
@@ -268,7 +267,6 @@ function addUserMessage(content: string) {
     scrollContainer.classList.remove('chat-empty');
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
-    removeGoalConfirmationCard();
 
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg user';
@@ -437,8 +435,26 @@ function showGoalConfirmationCard(info: any) {
     const container = document.getElementById('chat-messages')!;
     const scrollContainer = document.getElementById('chat-scroll')!;
 
+    // Remove thinking/streaming bubble
+    if (streamMessageEl) {
+        const bubbleParent = streamMessageEl.closest('.chat-msg');
+        if (bubbleParent) bubbleParent.remove();
+        streamMessageEl = null;
+    }
+
     // Remove existing goal card if any
     removeGoalConfirmationCard();
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chat-msg agent';
+
+    const sender = document.createElement('div');
+    sender.className = 'msg-sender';
+    sender.textContent = 'Agent';
+    msgDiv.appendChild(sender);
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble goal-card-bubble';
 
     const card = document.createElement('div');
     card.className = 'goal-confirmation-card';
@@ -461,7 +477,6 @@ function showGoalConfirmationCard(info: any) {
     confirmBtn.className = 'goal-btn confirm';
     confirmBtn.textContent = '确认目标 ✓';
     confirmBtn.addEventListener('click', () => {
-        removeGoalConfirmationCard();
         vscode.postMessage({
             type: 'confirmGoal',
             taskId: info.taskId,
@@ -474,7 +489,6 @@ function showGoalConfirmationCard(info: any) {
     reviseBtn.className = 'goal-btn revise';
     reviseBtn.textContent = '修改需求 ↩';
     reviseBtn.addEventListener('click', () => {
-        removeGoalConfirmationCard();
         vscode.postMessage({
             type: 'reviseGoal',
             taskId: info.taskId
@@ -486,7 +500,6 @@ function showGoalConfirmationCard(info: any) {
     cancelBtn.className = 'goal-btn cancel';
     cancelBtn.textContent = '取消 ✕';
     cancelBtn.addEventListener('click', () => {
-        removeGoalConfirmationCard();
         vscode.postMessage({
             type: 'cancelTask',
             taskId: info.taskId
@@ -495,7 +508,9 @@ function showGoalConfirmationCard(info: any) {
     actions.appendChild(cancelBtn);
 
     card.appendChild(actions);
-    container.appendChild(card);
+    bubble.appendChild(card);
+    msgDiv.appendChild(bubble);
+    container.appendChild(msgDiv);
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 

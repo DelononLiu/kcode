@@ -139,20 +139,24 @@ export class KCodePanel {
 
     private createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string) {
         const onError = (error: string) => {
-            this.panel.webview.postMessage({
-                type: 'agentStreamUpdate',
-                text: `\n\n[错误: ${error}]`
-            });
+            if (!isGoalFormatting) {
+                this.panel.webview.postMessage({
+                    type: 'agentStreamUpdate',
+                    text: `\n\n[错误: ${error}]`
+                });
+            }
             this.storeMessage(tid, 'agent', `错误: ${error}`);
         };
 
         return {
             onText: (chunk: string) => {
                 this.accumulatedAgentText += chunk;
-                this.panel.webview.postMessage({
-                    type: 'agentStreamUpdate',
-                    text: this.accumulatedAgentText
-                });
+                if (!isGoalFormatting) {
+                    this.panel.webview.postMessage({
+                        type: 'agentStreamUpdate',
+                        text: this.accumulatedAgentText
+                    });
+                }
             },
             onError,
             onDone: () => {
@@ -175,6 +179,14 @@ export class KCodePanel {
     private processGoalProposal(tid: string, goalText: string, originalRequest: string) {
         this.store.updateTaskGoal(tid, goalText);
         this.store.updateTaskStatus(tid, 'pending');
+        this.store.addMessage({
+            id: `msg_${Date.now()}`,
+            taskId: tid,
+            role: 'agent',
+            type: 'goal_confirmation',
+            content: `📋 任务目标确认\n\n${goalText}`,
+            timestamp: Date.now()
+        });
         this.refreshSidebarCallback?.();
         this.panel.webview.postMessage({
             type: 'showGoalConfirmation',
@@ -185,10 +197,19 @@ export class KCodePanel {
     }
 
     private async handleConfirmGoal(tid: string, originalRequest: string) {
+        const confirmMsg = '✅ 确认目标，开始执行';
+        this.store.addMessage({
+            id: `msg_${Date.now()}`,
+            taskId: tid,
+            role: 'user',
+            content: confirmMsg,
+            timestamp: Date.now()
+        });
+        this.panel.webview.postMessage({ type: 'addUserMessage', content: confirmMsg });
+
         this.store.updateTaskStatus(tid, 'active');
         this.refreshSidebarCallback?.();
 
-        // Re-send the original request as the execution prompt
         this.accumulatedAgentText = '';
         const handler = this.createAgentResponseHandler(tid, false, originalRequest);
 
@@ -206,12 +227,30 @@ export class KCodePanel {
     }
 
     private handleReviseGoal(tid: string) {
+        const reviseMsg = '↩️ 修改需求';
+        this.store.addMessage({
+            id: `msg_${Date.now()}`,
+            taskId: tid,
+            role: 'user',
+            content: reviseMsg,
+            timestamp: Date.now()
+        });
+        this.panel.webview.postMessage({ type: 'addUserMessage', content: reviseMsg });
         this.store.updateTaskStatus(tid, 'unknown');
         this.store.updateTaskGoal(tid, '');
         this.refreshSidebarCallback?.();
     }
 
     private handleCancelTask(tid: string) {
+        const cancelMsg = '✕ 已取消任务';
+        this.store.addMessage({
+            id: `msg_${Date.now()}`,
+            taskId: tid,
+            role: 'user',
+            content: cancelMsg,
+            timestamp: Date.now()
+        });
+        this.panel.webview.postMessage({ type: 'addUserMessage', content: cancelMsg });
         this.store.updateTaskStatus(tid, 'cancelled');
         this.refreshSidebarCallback?.();
     }
@@ -506,7 +545,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #right-panel-content{flex:1;overflow:hidden;position:relative}
 .tab-content{display:none;height:100%;overflow-y:auto;padding:12px}
 .tab-content.active{display:block}
-.goal-confirmation-card{margin:16px auto;max-width:90%;background:#252526;border:1px solid #3c3c3c;border-radius:8px;overflow:hidden}
+.msg-bubble.goal-card-bubble{background:transparent;border:none;padding:0}
+.goal-confirmation-card{background:#252526;border:1px solid #3c3c3c;border-radius:8px;overflow:hidden}
 .goal-card-header{padding:8px 14px;background:#2d2d2d;font-size:12px;font-weight:600;color:#e0e0e0;border-bottom:1px solid #3c3c3c}
 .goal-card-body{padding:12px 14px;font-size:13px;line-height:1.5;color:#d4d4d4;white-space:pre-wrap;word-wrap:break-word}
 .goal-card-actions{display:flex;gap:8px;padding:8px 14px 12px;border-top:1px solid #3c3c3c}
