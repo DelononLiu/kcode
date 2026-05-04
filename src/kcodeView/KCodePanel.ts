@@ -434,7 +434,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .splitter{width:4px;cursor:col-resize;background:transparent;flex-shrink:0;z-index:10}
 .splitter:hover,.splitter.active{background:#0e639c}
 #chat-area{flex:1;display:flex;flex-direction:column;min-width:300px;background:#1e1e1e}
-#task-info{padding:10px 16px;border-bottom:1px solid #2d2d2d;flex-shrink:0;background:#1e1e1e;width:100%;max-width:1000px;margin:0 auto}
+#task-info{padding:10px 16px;border-bottom:1px solid #2d2d2d;flex-shrink:0;background:#1e1e1e;width:100%;max-width:900px;margin:0 auto}
 #task-info-primary{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .task-info-title{font-size:14px;font-weight:600;color:#e0e0e0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .status-badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500}
@@ -443,7 +443,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .status-badge.status-completed{background:#1a2a3a;color:#569cd6}
 #task-info-secondary{display:flex;align-items:center;gap:16px;font-size:11px;color:#888}
 #chat-scroll{flex:1;overflow-y:auto;min-height:0;background:#1e1e1e;scrollbar-color:#28292b #1e1e1e;--vscode-scrollbarSlider-background:#28292b80;--vscode-scrollbarSlider-hoverBackground:#3a3a3b;--vscode-scrollbarSlider-activeButton-background:#1e1e1e}
-#chat-messages{max-width:1000px;margin:0 auto;padding:8px 16px;min-height:100%;width:100%}
+#chat-messages{max-width:900px;margin:0 auto;padding:8px 16px;min-height:100%;width:100%}
 #chat-scroll.chat-empty #chat-messages{overflow:hidden;padding:0}
 #chat-area:has(#chat-scroll.chat-empty) #task-info{display:none}
 .chat-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#6b6b6b;font-size:14px}
@@ -456,7 +456,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .chat-msg.agent .msg-bubble code{background:#1e1e1e;padding:2px 6px;border-radius:3px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px}
 .chat-msg.agent .msg-bubble pre{background:#1e1e1e;padding:12px;border-radius:6px;overflow-x:auto;margin:8px 0;border:1px solid #333}
 .chat-msg.agent .msg-bubble pre code{background:transparent;padding:0}
-#chat-input-area{border-top:1px solid #2d2d2d;padding:8px 16px 0;background:#1e1e1e;flex-shrink:0;width:100%;max-width:1000px;margin:0 auto}
+#chat-input-area{border-top:1px solid #2d2d2d;padding:8px 16px 0;background:#1e1e1e;flex-shrink:0;width:100%;max-width:900px;margin:0 auto}
 .input-wrapper{display:flex;align-items:flex-end;gap:8px;background:#2d2d2d;border:1px solid #3c3c3c;border-radius:10px;padding:6px 8px;transition:border-color .15s}
 .input-wrapper:focus-within{border-color:#555}
 
