@@ -53,6 +53,11 @@ export function activate(context: vscode.ExtensionContext) {
     panel.onDidDispose(() => { panel = undefined; });
     panel.setRefreshSidebarCallback(refreshSidebar);
 
+    const activeTask = store!.getTasks().find(t => t.status === 'active');
+    if (activeTask) {
+        openTaskInPanel(context, activeTask.id);
+    }
+
     // Open/focus the sidebar view and reveal the main panel
     const openCmd = vscode.commands.registerCommand('kcode.open', async () => {
         await vscode.commands.executeCommand('workbench.view.extension.kcode');
