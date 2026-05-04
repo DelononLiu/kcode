@@ -397,14 +397,6 @@ function updateTaskInfo(info: any) {
     const titleEl = document.querySelector('.task-info-title');
     if (titleEl) titleEl.textContent = info.title || '选择任务开始对话';
 
-    const badgeEl = document.getElementById('task-status-badge');
-    if (badgeEl) {
-        const status = info.status || 'pending';
-        badgeEl.className = `status-badge status-${status}`;
-        badgeEl.textContent = status === 'active' ? 'Active' :
-            status === 'completed' ? 'Completed' : 'Pending';
-    }
-
     const createdEl = document.getElementById('task-info-created');
     if (createdEl && info.createdAt) {
         const d = new Date(info.createdAt);

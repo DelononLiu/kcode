@@ -289,7 +289,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             width: 18px;
             text-align: center;
         }
-        .task-item .status-icon.pending { color: #e74c3c; }
+        .task-item .status-icon.pending { display: none; }
         .task-item .status-icon.active { color: #cc7832; }
         .task-item .status-icon.in_review { color: #cca700; }
         .task-item .status-icon.completed { color: #4ec9b0; }
