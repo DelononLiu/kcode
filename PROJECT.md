@@ -485,7 +485,6 @@ function appendDeviceOutput(data: string): void
 | `'flashInput'` | KCodePanel | app.ts |
 | `'updateTaskInfo'` | KCodePanel | app.ts |
 | `'showGoalConfirmation'` | KCodePanel | app.ts |
-| `'showReviewRequest'` | KCodePanel | app.ts |
 
 ---
 

@@ -69,9 +69,7 @@ function initMessageHandler() {
             case 'showGoalConfirmation':
                 showGoalConfirmationCard(message);
                 break;
-            case 'showReviewRequest':
-                showReviewRequestCard(message);
-                break;
+
         }
     });
 }
@@ -371,7 +369,7 @@ function renderMessages(messages: any[]) {
     scrollContainer.classList.remove('chat-empty');
     if (inputEl) inputEl.placeholder = '提出后续修改要求';
     for (const msg of messages) {
-        addMessageElement(msg.role, msg.content);
+        addMessageElement(msg);
     }
     if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
     focusChatInput();
@@ -382,11 +380,65 @@ function focusChatInput() {
     if (el) el.focus();
 }
 
-function addMessageElement(role: string, content: string) {
+function addMessageElement(msg: any) {
     const container = document.getElementById('chat-messages')!;
     const scrollContainer = document.getElementById('chat-scroll')!;
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
+
+    const role = msg.role;
+    const content = msg.content;
+
+    if (msg.type === 'goal_confirmation') {
+        const msgDiv = createCardMessageElement();
+        const bubble = msgDiv.querySelector('.msg-bubble')!;
+        const bodyText = content.replace(/^📋 任务目标确认\n\n/, '');
+        const card = createCardElement({
+            title: '📋 任务目标确认',
+            body: bodyText,
+            borderColor: '#3c3c3c',
+            headerBg: '#2d2d2d',
+            headerColor: '#e0e0e0',
+            buttons: []
+        });
+        bubble.appendChild(card);
+        container.appendChild(msgDiv);
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        return;
+    }
+
+    if (msg.type === 'review_request') {
+        const msgDiv = createCardMessageElement();
+        const bubble = msgDiv.querySelector('.msg-bubble')!;
+        const taskId = msg.taskId;
+        const card = createCardElement({
+            title: '✅ AI 已完成任务',
+            body: content,
+            borderColor: '#4ec9b0',
+            headerBg: '#1e3a2f',
+            headerColor: '#4ec9b0',
+            buttons: [
+                {
+                    text: '验收通过 ✓',
+                    className: 'primary',
+                    onClick: () => {
+                        vscode.postMessage({ type: 'approveReview', taskId });
+                    }
+                },
+                {
+                    text: '驳回 ↩',
+                    className: 'secondary',
+                    onClick: () => {
+                        vscode.postMessage({ type: 'rejectReview', taskId });
+                    }
+                }
+            ]
+        });
+        bubble.appendChild(card);
+        container.appendChild(msgDiv);
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        return;
+    }
 
     const msgDiv = document.createElement('div');
     msgDiv.className = `chat-msg ${role}`;
@@ -431,22 +483,56 @@ function flashInput() {
     wrapper.classList.add('input-flash');
 }
 
-// ==================== Goal Confirmation Card ====================
+// ==================== Unified Confirm Card ====================
 
-function showGoalConfirmationCard(info: any) {
-    const container = document.getElementById('chat-messages')!;
-    const scrollContainer = document.getElementById('chat-scroll')!;
+interface CardButtonConfig {
+    text: string;
+    className: string;
+    onClick: () => void;
+}
 
-    // Remove thinking/streaming bubble
-    if (streamMessageEl) {
-        const bubbleParent = streamMessageEl.closest('.chat-msg');
-        if (bubbleParent) bubbleParent.remove();
-        streamMessageEl = null;
+interface CardConfig {
+    title: string;
+    body: string;
+    buttons: CardButtonConfig[];
+    borderColor: string;
+    headerBg: string;
+    headerColor: string;
+}
+
+function createCardElement(config: CardConfig): HTMLElement {
+    const card = document.createElement('div');
+    card.className = 'confirm-card';
+    card.style.borderColor = config.borderColor;
+
+    const header = document.createElement('div');
+    header.className = 'confirm-card-header';
+    header.style.background = config.headerBg;
+    header.style.color = config.headerColor;
+    header.textContent = config.title;
+    card.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'confirm-card-body';
+    body.innerHTML = simpleMarkdown(config.body);
+    card.appendChild(body);
+
+    const actions = document.createElement('div');
+    actions.className = 'confirm-card-actions';
+
+    for (const btnCfg of config.buttons) {
+        const btn = document.createElement('button');
+        btn.className = `confirm-btn ${btnCfg.className}`;
+        btn.textContent = btnCfg.text;
+        btn.addEventListener('click', btnCfg.onClick);
+        actions.appendChild(btn);
     }
 
-    // Remove existing goal card if any
-    removeGoalConfirmationCard();
+    card.appendChild(actions);
+    return card;
+}
 
+function createCardMessageElement(taskId?: string): HTMLElement {
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg agent';
 
@@ -456,122 +542,71 @@ function showGoalConfirmationCard(info: any) {
     msgDiv.appendChild(sender);
 
     const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble goal-card-bubble';
-
-    const card = document.createElement('div');
-    card.className = 'goal-confirmation-card';
-    card.dataset.taskId = info.taskId;
-
-    const header = document.createElement('div');
-    header.className = 'goal-card-header';
-    header.textContent = '📋 任务目标确认';
-    card.appendChild(header);
-
-    const body = document.createElement('div');
-    body.className = 'goal-card-body';
-    body.innerHTML = simpleMarkdown(info.goal);
-    card.appendChild(body);
-
-    const actions = document.createElement('div');
-    actions.className = 'goal-card-actions';
-
-    const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'goal-btn confirm';
-    confirmBtn.textContent = '确认目标 ✓';
-    confirmBtn.addEventListener('click', () => {
-        vscode.postMessage({
-            type: 'confirmGoal',
-            taskId: info.taskId,
-            originalRequest: info.originalRequest
-        });
-    });
-    actions.appendChild(confirmBtn);
-
-    const reviseBtn = document.createElement('button');
-    reviseBtn.className = 'goal-btn revise';
-    reviseBtn.textContent = '修改需求 ↩';
-    reviseBtn.addEventListener('click', () => {
-        vscode.postMessage({
-            type: 'reviseGoal',
-            taskId: info.taskId
-        });
-    });
-    actions.appendChild(reviseBtn);
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'goal-btn cancel';
-    cancelBtn.textContent = '取消 ✕';
-    cancelBtn.addEventListener('click', () => {
-        vscode.postMessage({
-            type: 'cancelTask',
-            taskId: info.taskId
-        });
-    });
-    actions.appendChild(cancelBtn);
-
-    card.appendChild(actions);
-    bubble.appendChild(card);
+    bubble.className = 'msg-bubble card-bubble';
+    if (taskId) bubble.dataset.taskId = taskId;
     msgDiv.appendChild(bubble);
+
+    return msgDiv;
+}
+
+// ==================== Goal Confirmation Card ====================
+
+function showGoalConfirmationCard(info: any) {
+    const container = document.getElementById('chat-messages')!;
+    const scrollContainer = document.getElementById('chat-scroll')!;
+
+    if (streamMessageEl) {
+        const bubbleParent = streamMessageEl.closest('.chat-msg');
+        if (bubbleParent) bubbleParent.remove();
+        streamMessageEl = null;
+    }
+
+    removeGoalConfirmationCard();
+
+    const msgDiv = createCardMessageElement(info.taskId);
+    const bubble = msgDiv.querySelector('.msg-bubble')!;
+
+    const card = createCardElement({
+        title: '📋 任务目标确认',
+        body: info.goal,
+        borderColor: '#3c3c3c',
+        headerBg: '#2d2d2d',
+        headerColor: '#e0e0e0',
+        buttons: [
+            {
+                text: '确认目标 ✓',
+                className: 'primary',
+                onClick: () => {
+                    vscode.postMessage({ type: 'confirmGoal', taskId: info.taskId, originalRequest: info.originalRequest });
+                }
+            },
+            {
+                text: '修改需求 ↩',
+                className: 'secondary',
+                onClick: () => {
+                    vscode.postMessage({ type: 'reviseGoal', taskId: info.taskId });
+                }
+            },
+            {
+                text: '取消 ✕',
+                className: 'cancel',
+                onClick: () => {
+                    vscode.postMessage({ type: 'cancelTask', taskId: info.taskId });
+                }
+            }
+        ]
+    });
+
+    bubble.appendChild(card);
     container.appendChild(msgDiv);
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
 function removeGoalConfirmationCard() {
-    const existing = document.querySelector('.goal-confirmation-card');
-    if (existing) existing.remove();
+    document.querySelectorAll('.confirm-card').forEach(el => el.remove());
 }
 
-// ==================== Review Request Card ====================
 
-function showReviewRequestCard(info: any) {
-    const scrollContainer = document.getElementById('chat-scroll')!;
-
-    // Remove existing review card if it exists
-    const existing = document.querySelector('.review-request-card');
-    if (existing) existing.remove();
-
-    // Find the last agent message bubble and append the card inside it
-    const lastAgentMsg = document.querySelector('.chat-msg.agent:last-child .msg-bubble');
-    if (!lastAgentMsg) return;
-
-    const card = document.createElement('div');
-    card.className = 'review-request-card';
-    card.dataset.taskId = info.taskId;
-
-    const header = document.createElement('div');
-    header.className = 'review-card-header';
-    header.textContent = '✅ AI 已完成任务';
-    card.appendChild(header);
-
-    const actions = document.createElement('div');
-    actions.className = 'review-card-actions';
-
-    const approveBtn = document.createElement('button');
-    approveBtn.className = 'review-btn approve';
-    approveBtn.textContent = '验收通过 ✓';
-    approveBtn.addEventListener('click', () => {
-        vscode.postMessage({
-            type: 'approveReview',
-            taskId: info.taskId
-        });
-    });
-    actions.appendChild(approveBtn);
-
-    const rejectBtn = document.createElement('button');
-    rejectBtn.className = 'review-btn reject';
-    rejectBtn.textContent = '驳回 ↩';
-    rejectBtn.addEventListener('click', () => {
-        vscode.postMessage({
-            type: 'rejectReview',
-            taskId: info.taskId
-        });
-    });
-    actions.appendChild(rejectBtn);
-
-    card.appendChild(actions);
-    lastAgentMsg.appendChild(card);
-    scrollContainer.scrollTop = scrollContainer.scrollHeight;
-}
 
 // Export for use by other modules
 (window as any).addMessage = addMessage;

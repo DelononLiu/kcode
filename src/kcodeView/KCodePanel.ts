@@ -186,15 +186,16 @@ export class KCodePanel {
                         this.processGoalProposal(tid, this.accumulatedAgentText, originalText);
                     } else {
                         const cleanedText = this.stripTaskMarker();
-                        this.storeMessage(tid, 'agent', cleanedText);
-                        this.panel.webview.postMessage({
-                            type: 'loadMessages',
-                            messages: this.store.getMessages(tid),
-                            taskId: tid
-                        });
                         const task = this.store.getTask(tid);
                         if (task?.type === 'task' && this.taskStatusMarker === 'completed') {
-                            this.triggerReviewRequest(tid);
+                            this.triggerReviewRequest(tid, cleanedText);
+                        } else {
+                            this.storeMessage(tid, 'agent', cleanedText);
+                            this.panel.webview.postMessage({
+                                type: 'loadMessages',
+                                messages: this.store.getMessages(tid),
+                                taskId: tid
+                            });
                         }
                     }
                 }
@@ -301,9 +302,19 @@ export class KCodePanel {
         this.refreshSidebarCallback?.();
     }
 
-    private triggerReviewRequest(tid: string) {
+    private triggerReviewRequest(tid: string, content: string) {
+        this.store.addMessage({
+            id: `msg_${Date.now()}`,
+            taskId: tid,
+            role: 'agent',
+            type: 'review_request',
+            content,
+            timestamp: Date.now()
+        });
+        this.store.updateTaskStatus(tid, 'in_review');
         this.panel.webview.postMessage({
-            type: 'showReviewRequest',
+            type: 'loadMessages',
+            messages: this.store.getMessages(tid),
             taskId: tid
         });
         this.refreshSidebarCallback?.();
@@ -638,27 +649,18 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #right-panel-content{flex:1;overflow:hidden;position:relative}
 .tab-content{display:none;height:100%;overflow-y:auto;padding:12px}
 .tab-content.active{display:block}
-.msg-bubble.goal-card-bubble{background:transparent;border:none;padding:0}
-.goal-confirmation-card{background:#252526;border:1px solid #3c3c3c;border-radius:8px;overflow:hidden}
-.goal-card-header{padding:8px 14px;background:#2d2d2d;font-size:12px;font-weight:600;color:#e0e0e0;border-bottom:1px solid #3c3c3c}
-.goal-card-body{padding:12px 14px;font-size:13px;line-height:1.5;color:#d4d4d4;white-space:pre-wrap;word-wrap:break-word}
-.goal-card-actions{display:flex;gap:8px;padding:8px 14px 12px;border-top:1px solid #3c3c3c}
-.goal-btn{flex:1;padding:6px 12px;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;transition:background .15s}
-.goal-btn.confirm{background:#0e639c;color:#fff}
-.goal-btn.confirm:hover{background:#1177bb}
-.goal-btn.revise{background:#3c3c3c;color:#d4d4d4}
-.goal-btn.revise:hover{background:#4a4a4a}
-.goal-btn.cancel{background:transparent;color:#888;border:1px solid #4a4a4a}
-.goal-btn.cancel:hover{background:#3c3c3c;color:#ccc}
-.review-request-card{background:#252526;border:1px solid #4ec9b0;border-radius:8px;overflow:hidden}
-.review-card-header{padding:8px 14px;background:#1e3a2f;font-size:12px;font-weight:600;color:#4ec9b0;border-bottom:1px solid #3c3c3c}
-.review-card-body{padding:12px 14px;font-size:13px;line-height:1.5;color:#d4d4d4}
-.review-card-actions{display:flex;gap:8px;padding:8px 14px 12px;border-top:1px solid #3c3c3c}
-.review-btn{flex:1;padding:6px 12px;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;transition:background .15s}
-.review-btn.approve{background:#4ec9b0;color:#1e1e1e}
-.review-btn.approve:hover{background:#5cd4ba}
-.review-btn.reject{background:#3c3c3c;color:#d4d4d4}
-.review-btn.reject:hover{background:#4a4a4a}`;
+.msg-bubble.card-bubble{background:transparent;border:none;padding:0}
+.confirm-card{background:#252526;border:1px solid #3c3c3c;border-radius:8px;overflow:hidden}
+.confirm-card-header{padding:8px 14px;background:#2d2d2d;font-size:12px;font-weight:600;color:#e0e0e0;border-bottom:1px solid #3c3c3c}
+.confirm-card-body{padding:12px 14px;font-size:13px;line-height:1.5;color:#d4d4d4;white-space:pre-wrap;word-wrap:break-word}
+.confirm-card-actions{display:flex;gap:8px;padding:8px 14px 12px;border-top:1px solid #3c3c3c}
+.confirm-btn{flex:1;padding:6px 12px;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;transition:background .15s}
+.confirm-btn.primary{background:#0e639c;color:#fff}
+.confirm-btn.primary:hover{background:#1177bb}
+.confirm-btn.secondary{background:#3c3c3c;color:#d4d4d4}
+.confirm-btn.secondary:hover{background:#4a4a4a}
+.confirm-btn.cancel{background:transparent;color:#888;border:1px solid #4a4a4a}
+.confirm-btn.cancel:hover{background:#3c3c3c;color:#ccc}`;
     }
 
     loadTask(taskId: string) {
