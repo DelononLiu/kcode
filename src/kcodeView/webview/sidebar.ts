@@ -324,6 +324,15 @@ declare function acquireVsCodeApi(): any;
 
         item.addEventListener('click', (e) => {
             if (e.ctrlKey || e.metaKey) {
+                if (selectedTaskIds.size === 0) {
+                    const activeEl = document.querySelector('.task-item.active');
+                    if (activeEl) {
+                        const activeId = (activeEl as HTMLElement).dataset.taskId;
+                        if (activeId && activeId !== task.id) {
+                            selectedTaskIds.add(activeId);
+                        }
+                    }
+                }
                 if (selectedTaskIds.has(task.id)) {
                     selectedTaskIds.delete(task.id);
                 } else {
