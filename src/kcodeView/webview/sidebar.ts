@@ -463,6 +463,8 @@ declare function acquireVsCodeApi(): any;
 
         const header = document.createElement('div');
         header.className = 'section-header';
+        header.draggable = true;
+        header.dataset.groupName = groupName;
 
         const arrow = document.createElement('span');
         arrow.className = 'arrow';
@@ -473,7 +475,8 @@ declare function acquireVsCodeApi(): any;
         header.appendChild(label);
 
         let collapsed = _groupCollapsed.get(groupName) ?? false;
-        header.addEventListener('click', () => {
+        header.addEventListener('click', (e) => {
+            if (e.target && (e.target as HTMLElement).closest('.context-menu')) return;
             collapsed = !collapsed;
             _groupCollapsed.set(groupName, collapsed);
             body.style.display = collapsed ? 'none' : '';
@@ -487,6 +490,60 @@ declare function acquireVsCodeApi(): any;
                 body.style.display = '';
                 arrow.classList.remove('collapsed');
             }
+        });
+
+        header.addEventListener('dragstart', (e) => {
+            e.dataTransfer?.setData('text/plain', 'GROUP:' + groupName);
+            header.classList.add('dragging');
+        });
+
+        header.addEventListener('dragend', () => {
+            header.classList.remove('dragging');
+            clearGroupDropIndicators();
+        });
+
+        header.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const rect = header.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            clearGroupDropIndicators();
+            header.classList.add(y < rect.height / 2 ? 'group-drop-before' : 'group-drop-after');
+        });
+
+        header.addEventListener('dragleave', (e) => {
+            if (!header.contains(e.relatedTarget as Node)) {
+                header.classList.remove('group-drop-before', 'group-drop-after');
+            }
+        });
+
+        header.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            clearGroupDropIndicators();
+            const raw = e.dataTransfer?.getData('text/plain');
+            if (!raw) return;
+            if (raw.startsWith('GROUP:')) {
+                const draggedGroup = raw.slice(6);
+                if (draggedGroup === groupName) return;
+                const groups = JSON.parse(document.getElementById('__sidebarData')?.dataset.groups || '[]');
+                const fromIdx = groups.indexOf(draggedGroup);
+                const toIdx = groups.indexOf(groupName);
+                if (fromIdx === -1 || toIdx === -1) return;
+                const rect = header.getBoundingClientRect();
+                const y = e.clientY - rect.top;
+                const position = y < rect.height / 2 ? 'before' : 'after';
+                groups.splice(fromIdx, 1);
+                const newToIdx = groups.indexOf(groupName);
+                groups.splice(newToIdx + (position === 'after' ? 1 : 0), 0, draggedGroup);
+                vscode.postMessage({ type: 'reorderGroups', groupNames: groups });
+            }
+        });
+
+        header.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showGroupContextMenu(e.clientX, e.clientY, groupName, tasks.length);
         });
 
         section.appendChild(header);
@@ -513,6 +570,40 @@ declare function acquireVsCodeApi(): any;
         }
 
         return section;
+    }
+
+    function showGroupContextMenu(x: number, y: number, groupName: string, taskCount: number) {
+        hideContextMenu();
+
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+
+        const deleteItem = document.createElement('div');
+        deleteItem.className = 'context-menu-item';
+        if (taskCount > 0) {
+            deleteItem.textContent = '删除分组（请先移出所有任务）';
+            deleteItem.style.color = '#888';
+            deleteItem.style.cursor = 'not-allowed';
+        } else {
+            deleteItem.textContent = '删除分组';
+            deleteItem.addEventListener('click', (e) => {
+                e.stopPropagation();
+                hideContextMenu();
+                vscode.postMessage({ type: 'deleteGroup', groupName });
+            });
+        }
+        menu.appendChild(deleteItem);
+
+        document.body.appendChild(menu);
+        contextMenuEl = menu;
+    }
+
+    function clearGroupDropIndicators() {
+        document.querySelectorAll('.section-header').forEach(el => {
+            el.classList.remove('group-drop-before', 'group-drop-after');
+        });
     }
 
     function escapeHtml(str: string): string {

@@ -80,6 +80,14 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     }
                     this.refresh();
                     break;
+                case 'deleteGroup':
+                    this._store.deleteGroup(message.groupName);
+                    this.refresh();
+                    break;
+                case 'reorderGroups':
+                    this._store.reorderGroups(message.groupNames);
+                    this.refresh();
+                    break;
             }
         });
     }
@@ -230,6 +238,9 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         }
         .section-header .arrow.collapsed { transform: rotate(-45deg); }
         .section-header .arrow:not(.collapsed) { transform: rotate(45deg); }
+        .section-header.dragging { opacity: 0.5; }
+        .section-header.group-drop-before { border-top: 2px solid var(--vscode-button-background, #0e639c); }
+        .section-header.group-drop-after { border-bottom: 2px solid var(--vscode-button-background, #0e639c); }
         .section-header-btn {
             background: none;
             border: none;

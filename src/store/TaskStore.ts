@@ -135,6 +135,15 @@ export class TaskStore {
         }
     }
 
+    deleteGroup(name: string): void {
+        const groups = this.getGroups().filter(g => g !== name);
+        this.state.update('groups', groups);
+    }
+
+    reorderGroups(groupNames: string[]): void {
+        this.state.update('groups', groupNames);
+    }
+
     moveTask(taskId: string, targetTaskId: string | null, position: 'before' | 'after' | null, group: string | null): void {
         const tasks = this.getTasks();
         const fromIdx = tasks.findIndex(t => t.id === taskId);
