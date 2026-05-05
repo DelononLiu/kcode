@@ -190,19 +190,6 @@ declare function acquireVsCodeApi(): any;
         item.draggable = true;
         item.dataset.taskId = task.id;
 
-        const iconMap: Record<string, string> = {
-            unknown: '○',
-            pending: '◯',
-            active: '⏳',
-            in_review: '⏸',
-            completed: '✓',
-            cancelled: '✕'
-        };
-        const iconEl = document.createElement('span');
-        iconEl.className = `status-icon ${task.status}`;
-        iconEl.textContent = iconMap[task.status] || '◯';
-        item.appendChild(iconEl);
-
         const label = document.createElement('span');
         label.className = 'task-title';
         label.textContent = escapeHtml(task.title);
