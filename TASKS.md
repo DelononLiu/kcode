@@ -74,7 +74,7 @@ _目标：重新设计 Task 生命周期，引入 用户设定目标→确认→
 | P5-02 | AI 格式化目标输出 + 用户确认交互（unknown→pending→active） | ✅ 已完成 |
 | P5-03 | AI 任务完成标记 + 验收触发 | ✅ 已完成 |
 | P5-04 | 用户验收交互 | ✅ 已完成 |
-| P5-05 | 侧边栏状态显示 + 手动状态操作（取消/完成） | ⬜ 未开始 |
+| P5-05 | 侧边栏状态显示 + 手动状态操作（取消/完成） | ✅ 已完成 |
 
 **验收标准**：任务有明确的 goal 字段，状态可按状态机完整流转，用户确认/验收流程闭环。
 
@@ -146,7 +146,17 @@ _目标：重新设计 Task 生命周期，引入 用户设定目标→确认→
 - pending 态任务显示"待确认"提示
 
 **涉及文件**: `src/kcodeView/KCodeSidebarProvider.ts`, `src/kcodeView/webview/sidebar.ts`
-**状态**: ⬜ 未开始
+
+**实现说明**:
+- `sidebar.ts` — `createTaskItem` 中新增 `getStatusIndicator` 函数，根据 `task.status` 返回对应 Unicode 字符和 CSS 类名
+  - `completed`: ✓ (绿色)
+  - `cancelled`: ✕ (灰色)
+  - `active`: ● (绿色)
+  - `in_review`: ● (蓝色)
+  - `pending`: ○ (琥珀色)
+- `KCodeSidebarProvider.ts` — CSS 新增 `.task-status` 样式，各状态对应不同颜色
+
+**状态**: ✅ 已完成
 
 ## Phase 4: 后端接入
 

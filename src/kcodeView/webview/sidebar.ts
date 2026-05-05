@@ -310,12 +310,32 @@ declare function acquireVsCodeApi(): any;
         }
     }
 
+    function getStatusIndicator(task: any): { text: string; className: string } {
+        if (task.type === 'chat') return { text: '', className: '' };
+        switch (task.status) {
+            case 'completed': return { text: '\u2713', className: 'status-completed' };
+            case 'cancelled': return { text: '\u2715', className: 'status-cancelled' };
+            case 'active': return { text: '\u25CF', className: 'status-active' };
+            case 'in_review': return { text: '\u23F3', className: 'status-waiting' };
+            case 'pending': return { text: '', className: '' };
+            default: return { text: '', className: '' };
+        }
+    }
+
     function createTaskItem(task: any, activeTaskId?: string): HTMLElement {
         const item = document.createElement('div');
         item.className = 'task-item';
         if (task.id === activeTaskId) item.classList.add('active');
         item.draggable = true;
         item.dataset.taskId = task.id;
+
+        const indicator = getStatusIndicator(task);
+        if (indicator.text) {
+            const statusEl = document.createElement('span');
+            statusEl.className = 'task-status ' + indicator.className;
+            statusEl.textContent = indicator.text;
+            item.appendChild(statusEl);
+        }
 
         const label = document.createElement('span');
         label.className = 'task-title';
