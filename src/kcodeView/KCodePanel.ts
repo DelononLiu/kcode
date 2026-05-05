@@ -620,6 +620,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         this.panel.webview.postMessage({ type: 'focusInput' });
     }
 
+    getCurrentTaskId(): string | null {
+        return this.currentTaskId;
+    }
+
     setRefreshSidebarCallback(callback: () => void) {
         this.refreshSidebarCallback = callback;
     }

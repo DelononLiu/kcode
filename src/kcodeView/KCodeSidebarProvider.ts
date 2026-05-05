@@ -10,6 +10,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     private _context: vscode.ExtensionContext;
     private _onTaskSelected: (taskId: string) => void;
     private _onFlashInput?: () => void;
+    private _activeTaskId: string | null = null;
 
     constructor(
         context: vscode.ExtensionContext,
@@ -44,6 +45,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     this.createNewTask();
                     break;
                 case 'selectTask':
+                    this._activeTaskId = message.taskId;
                     this._onTaskSelected(message.taskId);
                     break;
                 case 'pinTask':
@@ -66,8 +68,6 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     break;
             }
         });
-
-        this.refresh();
     }
 
     private async createNewGroup(): Promise<void> {
@@ -111,14 +111,20 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         this.refresh();
     }
 
-    refresh(): void {
+    private escapeAttr(str: string): string {
+        return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&#62;');
+    }
+
+    refresh(activeTaskId?: string): void {
         if (!this._view) return;
         const tasks = this._store.getTasks();
         const groups = this._store.getGroups();
+        this._activeTaskId = activeTaskId ?? this._activeTaskId;
         this._view.webview.postMessage({
             type: 'updateTaskList',
             tasks,
-            groups
+            groups,
+            activeTaskId: this._activeTaskId
         });
     }
 
@@ -413,6 +419,11 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         <button id="btn-settings" class="footer-btn" title="Settings">&#x2699;</button>
     </div>
 
+    <div id="__sidebarData"
+         data-tasks="${this.escapeAttr(JSON.stringify(this._store.getTasks()))}"
+         data-groups="${this.escapeAttr(JSON.stringify(this._store.getGroups()))}"
+         data-active-task-id="${this._activeTaskId || ''}"
+         style="display:none"></div>
     <script src="${scriptUri}"></script>
 </body>
 </html>`;

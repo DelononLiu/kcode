@@ -25,7 +25,7 @@ function openTaskInPanel(context: vscode.ExtensionContext, taskId: string) {
 
 function refreshSidebar() {
     if (sidebarProvider) {
-        sidebarProvider.refresh();
+        sidebarProvider.refresh(panel?.getCurrentTaskId() ?? undefined);
     }
 }
 

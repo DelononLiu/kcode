@@ -35,11 +35,19 @@ declare function acquireVsCodeApi(): any;
             const message = event.data;
             switch (message.type) {
                 case 'updateTaskList':
-                    renderTaskList(message.tasks, message.groups || []);
+                    renderTaskList(message.tasks, message.groups || [], message.activeTaskId);
                     break;
             }
         });
     })();
+
+    const dataEl = document.getElementById('__sidebarData');
+    if (dataEl) {
+        const tasks = JSON.parse(dataEl.dataset.tasks || '[]');
+        const groups = JSON.parse(dataEl.dataset.groups || '[]');
+        const activeTaskId = dataEl.dataset.activeTaskId || undefined;
+        renderTaskList(tasks, groups, activeTaskId);
+    }
 
     function showContextMenu(x: number, y: number, task: any) {
         hideContextMenu();
@@ -81,7 +89,7 @@ declare function acquireVsCodeApi(): any;
         }
     }
 
-    function renderTaskList(tasks: any[], groups: string[]) {
+    function renderTaskList(tasks: any[], groups: string[], activeTaskId?: string) {
         const pinnedList = document.getElementById('pinned-list');
         const taskList = document.getElementById('task-list');
         if (!taskList) return;
@@ -105,7 +113,7 @@ declare function acquireVsCodeApi(): any;
             pinnedSection.style.display = pinned.length > 0 ? '' : 'none';
             pinnedList.innerHTML = '';
             for (const task of pinned) {
-                pinnedList.appendChild(createTaskItem(task));
+                pinnedList.appendChild(createTaskItem(task, activeTaskId));
             }
         }
 
@@ -120,7 +128,7 @@ declare function acquireVsCodeApi(): any;
         ungroupedZone.className = 'section-body drop-zone';
         ungroupedZone.dataset.group = '';
         for (const task of ungrouped) {
-            ungroupedZone.appendChild(createTaskItem(task));
+            ungroupedZone.appendChild(createTaskItem(task, activeTaskId));
         }
         makeContainerDropTarget(ungroupedZone, null);
         taskList.appendChild(ungroupedZone);
@@ -132,7 +140,7 @@ declare function acquireVsCodeApi(): any;
         }
 
         for (const [groupName, groupTasks] of groupMap) {
-            const section = createGroupSection(groupName, groupTasks);
+            const section = createGroupSection(groupName, groupTasks, activeTaskId);
             taskList.appendChild(section);
         }
     }
@@ -175,10 +183,10 @@ declare function acquireVsCodeApi(): any;
         });
     }
 
-    function createTaskItem(task: any): HTMLElement {
+    function createTaskItem(task: any, activeTaskId?: string): HTMLElement {
         const item = document.createElement('div');
         item.className = 'task-item';
-        if (task.status === 'active') item.classList.add('active');
+        if (task.id === activeTaskId) item.classList.add('active');
         item.draggable = true;
         item.dataset.taskId = task.id;
 
@@ -270,7 +278,7 @@ declare function acquireVsCodeApi(): any;
         return item;
     }
 
-    function createGroupSection(groupName: string, tasks: any[]): HTMLElement {
+    function createGroupSection(groupName: string, tasks: any[], activeTaskId?: string): HTMLElement {
         const section = document.createElement('div');
         section.className = 'section';
 
@@ -315,7 +323,7 @@ declare function acquireVsCodeApi(): any;
             body.appendChild(hint);
         }
         for (const task of tasks) {
-            body.appendChild(createTaskItem(task));
+            body.appendChild(createTaskItem(task, activeTaskId));
         }
         makeContainerDropTarget(body, groupName);
         section.appendChild(body);
