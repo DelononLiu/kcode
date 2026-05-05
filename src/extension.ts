@@ -81,7 +81,7 @@ export function activate(context: vscode.ExtensionContext) {
             id: `task_${Date.now()}`,
             title: 'New Task',
             goal: '',
-            status: 'unknown',
+            status: 'pending',
             createdAt: Date.now()
         };
         store.addTask(task);

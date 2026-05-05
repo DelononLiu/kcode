@@ -77,7 +77,7 @@ export class KCodePanel {
 
         const isFirstMessage = this.store.getMessages(tid).length === 0;
         const intent = isFirstMessage ? classifyIntent(text) : 'task';
-        const isGoalFormatting = task.status === 'unknown' && intent === 'task';
+        const isGoalFormatting = task.status === 'pending' && intent === 'task';
         const promptText = isGoalFormatting ? `请将以下需求格式化为清晰的任务目标描述：\n\n${text}` : text;
 
         // Store user message
@@ -242,7 +242,7 @@ export class KCodePanel {
             timestamp: Date.now()
         });
         this.panel.webview.postMessage({ type: 'addUserMessage', content: reviseMsg });
-        this.store.updateTaskStatus(tid, 'unknown');
+        this.store.updateTaskStatus(tid, 'pending');
         this.store.updateTaskGoal(tid, '');
         this.refreshSidebarCallback?.();
     }

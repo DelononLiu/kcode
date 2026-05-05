@@ -138,7 +138,7 @@ export class TaskStore {
     findEmptyTask(): Task | undefined {
         const tasks = this.getTasks();
         for (const task of tasks) {
-            if (!task.goal && task.status === 'unknown') {
+            if (!task.goal && task.status === 'pending' && this.getMessages(task.id).length === 0) {
                 return task;
             }
         }

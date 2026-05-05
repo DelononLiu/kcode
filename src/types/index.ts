@@ -2,7 +2,7 @@ export interface Task {
     id: string;
     title: string;
     goal: string;
-    status: 'unknown' | 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
+    status: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
     createdAt: number;
     pinned?: boolean;
     group?: string;

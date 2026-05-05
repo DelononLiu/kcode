@@ -111,7 +111,7 @@ src/
 
 ### Phase 5: 任务状态重构（当前阶段）
 
-**目标**：重新定义 Task 生命周期，引入 AI 格式化目标→用户确认→执行→AI 自验→用户验收的完整流转。
+**目标**：重新定义 Task 生命周期，引入 用户设定目标→确认→执行→AI 自验→用户验收的简洁流转。
 
 详见下方 [任务状态机](#任务状态机) 章节。
 
@@ -125,38 +125,30 @@ src/
 
 | 状态 | 含义 | 条件 |
 |------|------|------|
-| `unknown` | 占位空壳，用户刚"新建"，无目标描述 | 刚点"新建任务"，甚至没有发过消息 |
-| `pending` | AI 已格式化输出目标，**等待用户确认** | AI 回复了确认卡片，用户还没点"确认目标" |
-| `active` | 用户已确认目标，AI 正在执行或可开始执行 | 用户点了"确认目标" |
-| `in_review` | AI 自我验证完成，**等待用户验收** | AI 完成并通知"我做好了" |
+| `pending` | 任务已创建（含 goal），**等待用户确认开始执行** | 用户输入第一条消息后，系统创建 task 并设 goal，用户还没点"开始" |
+| `active` | 用户已确认，AI 正在执行 | 用户点了"开始执行" |
+| `in_review` | AI 完成，**等待用户验收** | AI 通知"已做完" |
 | `completed` | 验收通过，终态 | 用户点了"验收通过" |
 | `cancelled` | 用户主动放弃 | 用户取消或驳回但不重试 |
 
 ### 状态转换图
 
 ```
-                     ┌── 用户修改需求 ──┐
-                     │                  │
-unknown ──→ pending ──→ active ──→ in_review ──→ completed
-               ↑         ↑  ↑           │
-               │         │  └── 验收驳回 ─┘
-               │         │
-               ├─ AI     └─ 用户
-               │  格式化     确认
-               │  目标
-               │
-               └──→ cancelled（用户随时可放弃）
+                   ┌── 用户修改目标 ──┐
+                   │                  │
+pending ────────→ active ──→ in_review ──→ completed
+  │                 ↑           │
+  │                 └── 验收驳回 ─┘
+  └──→ cancelled（用户随时可放弃）
 ```
 
 ### 状态转换表
 
 | 从 | 到 | 触发者 | 条件/动作 |
 |----|----|--------|----------|
-| `unknown` | `pending` | **AI** | 用户发需求 → AI 格式化输出目标描述（确认卡片） |
-| `pending` | `active` | **用户** | 用户点击"确认目标" |
+| `pending` | `active` | **用户** | 用户点击"开始执行" |
 | `pending` | `cancelled` | **用户** | 用户点击"取消" |
-| `pending` | `unknown` | **用户/AI** | 用户修改需求 → AI 重新输出 |
-| `active` | `in_review` | **AI** | AI 自我验证完成，通知"已完成，等待验收" |
+| `active` | `in_review` | **AI** | AI 完成，通知"已完成，等待验收" |
 | `in_review` | `completed` | **用户** | 用户验收通过 |
 | `in_review` | `active` | **用户** | 用户驳回，AI 继续修改 |
 | `active` / `in_review` | `cancelled` | **用户** | 用户主动放弃 |
@@ -165,12 +157,12 @@ unknown ──→ pending ──→ active ──→ in_review ──→ complet
 
 | 文件 | 改动 |
 |------|------|
-| `types/index.ts` | Task 新增 `goal: string`；`status` 改为完整五态 |
+| `types/index.ts` | Task 新增 `goal: string`；`status` 为 `pending | active | in_review | completed | cancelled` |
 | `store/TaskStore.ts` | `updateTaskStatus` 不再强行重置其他任务为 pending；`addTask` 需 goal；移除 `findEmptyTask` |
-| `KCodePanel.ts` | `handleSendMessage` 分支：pending 态触发目标确认，active 态才执行；新增目标确认卡片发送；新建任务流程 |
-| `KCodeSidebarProvider.ts` | 处理目标确认/修改/取消/验收消息 |
-| `app.ts` | 渲染 goal 确认卡片（含确认/修改/取消按钮）；渲染 agent 完成通知卡片（含验收/驳回按钮） |
-| `sidebar.ts` | pending 态任务显示"待确认"标记；状态图标更新 |
+| `KCodePanel.ts` | `handleSendMessage` 分支：pending 态触发开始执行，active 态才执行；新建任务流程 |
+| `KCodeSidebarProvider.ts` | 处理开始执行/取消/验收消息 |
+| `app.ts` | 渲染 goal 确认卡片（含开始/取消按钮）；渲染 agent 完成通知卡片（含验收/驳回按钮） |
+| `sidebar.ts` | pending 态任务显示"待开始"标记；状态图标更新 |
 | `ACP/callbacks.ts` | 文件写入变更记录；AI 完成时触发 `active → in_review` |
 
 ---
@@ -232,9 +224,9 @@ KCode (ACP Client)                 Agent (ACP Agent)
 ```typescript
 interface Task {
     id: string;
-    title: string;               // 从 goal 自动截取或 AI 生成，用于列表显示
-    goal: string;                // AI 格式化输出的任务目标描述
-    status: 'unknown' | 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
+    title: string;               // 从 goal 自动截取，用于列表显示
+    goal: string;                // 用户设定的任务目标描述
+    status: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
     createdAt: number;
     pinned?: boolean;
     group?: string;
