@@ -255,6 +255,12 @@ export class KCodePanel {
         });
         this.panel.webview.postMessage({ type: 'addUserMessage', content: confirmMsg });
 
+        const msgs = this.store.getMessages(tid);
+        const lastGoal = msgs.filter(m => m.type === 'goal_confirmation').pop();
+        if (lastGoal) {
+            this.store.updateMessageType(tid, lastGoal.id, 'goal_confirmed');
+        }
+
         this.store.updateTaskStatus(tid, 'active');
         this.refreshSidebarCallback?.();
 
@@ -340,6 +346,11 @@ export class KCodePanel {
             content: '🎉 任务已完成',
             timestamp: Date.now()
         });
+        const msgs = this.store.getMessages(tid);
+        const lastReview = msgs.filter(m => m.type === 'review_request').pop();
+        if (lastReview) {
+            this.store.updateMessageType(tid, lastReview.id, 'review_approved');
+        }
         this.store.updateTaskStatus(tid, 'completed');
         this.panel.webview.postMessage({
             type: 'loadMessages',
@@ -350,7 +361,7 @@ export class KCodePanel {
         this.refreshSidebarCallback?.();
     }
 
-    private handleRejectReview(tid: string) {
+    private async handleRejectReview(tid: string) {
         const rejectMsg = '↩️ 驳回，请继续修改';
         this.store.addMessage({
             id: `msg_${Date.now()}`,
@@ -360,7 +371,31 @@ export class KCodePanel {
             timestamp: Date.now()
         });
         this.panel.webview.postMessage({ type: 'addUserMessage', content: rejectMsg });
+        const msgs = this.store.getMessages(tid);
+        const lastReview = msgs.filter(m => m.type === 'review_request').pop();
+        if (lastReview) {
+            this.store.updateMessageType(tid, lastReview.id, 'review_rejected');
+        }
+        this.store.updateTaskStatus(tid, 'active');
         this.refreshSidebarCallback?.();
+
+        const promptText = this.buildTaskPrompt(tid, rejectMsg);
+        const handler = this.createAgentResponseHandler(tid, false, rejectMsg);
+
+        if (this.agentReady && this.acpClient) {
+            this.accumulatedAgentText = '';
+            await this.acpClient.prompt(tid, promptText, handler);
+        } else if (this.fakeAgent) {
+            const sessionId = this.fakeAgent.createSession(tid);
+            this.fakeAgent.setHandler(sessionId, handler);
+            this.accumulatedAgentText = '';
+            await this.fakeAgent.prompt(sessionId, promptText);
+        } else if (this.openaiAgent) {
+            const sessionId = this.openaiAgent.createSession(tid);
+            this.openaiAgent.setHandler(sessionId, handler);
+            this.accumulatedAgentText = '';
+            await this.openaiAgent.prompt(sessionId, promptText);
+        }
     }
 
     private showAgentError(tid: string, errorMsg: string) {

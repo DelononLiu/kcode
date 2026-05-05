@@ -391,10 +391,11 @@ function addMessageElement(msg: any) {
     const role = msg.role;
     const content = msg.content;
 
-    if (msg.type === 'goal_confirmation') {
+    if (msg.type === 'goal_confirmation' || msg.type === 'goal_confirmed') {
         const msgDiv = createCardMessageElement();
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const bodyText = content.replace(/^📋 任务目标确认\n\n/, '');
+        const isConfirmed = msg.type === 'goal_confirmed';
         const card = createCardElement({
             title: '📋 任务目标确认',
             body: bodyText,
@@ -403,18 +404,22 @@ function addMessageElement(msg: any) {
             headerColor: '#e0e0e0',
             buttons: []
         });
+        if (isConfirmed) {
+            updateCardToStatus(card, '✅ 已确认');
+        }
         bubble.appendChild(card);
         container.appendChild(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
     }
 
-    if (msg.type === 'review_request') {
+    if (msg.type === 'review_request' || msg.type === 'review_approved' || msg.type === 'review_rejected') {
         const msgDiv = createCardMessageElement();
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const taskId = msg.taskId;
-        const isResolved = activeTaskStatus === 'completed' || activeTaskStatus === 'active';
-        const buttons = isResolved ? [] : [
+
+        const isPending = msg.type === 'review_request';
+        const buttons = isPending ? [
             {
                 text: '验收通过 ✓',
                 className: 'primary',
@@ -433,9 +438,9 @@ function addMessageElement(msg: any) {
                     vscode.postMessage({ type: 'rejectReview', taskId });
                 }
             }
-        ];
-        const statusText = activeTaskStatus === 'completed' ? '✅ 已验收通过' :
-                           activeTaskStatus === 'active' ? '↩️ 已驳回' : '';
+        ] : [];
+        const statusText = msg.type === 'review_approved' ? '✅ 已验收通过' :
+                           msg.type === 'review_rejected' ? '↩️ 已驳回' : '';
         const card = createCardElement({
             title: '✅ AI 已完成任务',
             body: content,
@@ -607,7 +612,7 @@ function showGoalConfirmationCard(info: any) {
                 className: 'primary',
                 onClick: (e: MouseEvent) => {
                     const target = e.currentTarget as HTMLElement;
-                    updateCardToStatus(findParentCard(target)!, '✅ 已确认，正在执行…');
+                    updateCardToStatus(findParentCard(target)!, '✅ 已确认');
                     vscode.postMessage({ type: 'confirmGoal', taskId: info.taskId, originalRequest: info.originalRequest });
                 }
             },

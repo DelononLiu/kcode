@@ -13,7 +13,7 @@ export interface ChatMessage {
     id: string;
     taskId: string;
     role: 'user' | 'agent';
-    type?: 'text' | 'goal_confirmation' | 'review_request';
+    type?: 'text' | 'goal_confirmation' | 'goal_confirmed' | 'review_request' | 'review_approved' | 'review_rejected';
     content: string;
     timestamp: number;
 }
