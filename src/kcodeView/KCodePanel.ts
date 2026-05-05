@@ -3,6 +3,7 @@ import { TaskStore } from '../store/TaskStore';
 import { AcpClient } from '../acp/AcpClient';
 import { FakeAgent } from '../acp/FakeAgent';
 import { OpenAIAgent } from '../acp/OpenAIAgent';
+import { classifyIntent } from '../acp/intentUtils';
 import type { Task } from '../types';
 
 export class KCodePanel {
@@ -75,7 +76,8 @@ export class KCodePanel {
         if (!task) return;
 
         const isFirstMessage = this.store.getMessages(tid).length === 0;
-        const isGoalFormatting = task.status === 'unknown' && isFirstMessage;
+        const intent = isFirstMessage ? classifyIntent(text) : 'task';
+        const isGoalFormatting = task.status === 'unknown' && intent === 'task';
         const promptText = isGoalFormatting ? `请将以下需求格式化为清晰的任务目标描述：\n\n${text}` : text;
 
         // Store user message
@@ -88,8 +90,12 @@ export class KCodePanel {
         });
 
         if (isFirstMessage) {
-            const shortTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
-            this.store.updateTaskTitle(tid, shortTitle);
+            const prefix = intent === 'task' ? 'Task: ' : 'Chat: ';
+            const rawTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
+            this.store.updateTaskTitle(tid, prefix + rawTitle);
+            if (intent === 'chat') {
+                this.store.updateTaskStatus(tid, 'active');
+            }
             this.refreshSidebarCallback?.();
             this.sendTaskInfo(tid);
         }
