@@ -56,6 +56,14 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     this._store.deleteTask(message.taskId);
                     this.refresh();
                     break;
+                case 'deleteTasks':
+                    this._store.deleteTasks(message.taskIds);
+                    this.refresh();
+                    break;
+                case 'pinTasks':
+                    this._store.updateTasksPin(message.taskIds, message.pinned);
+                    this.refresh();
+                    break;
                 case 'openSettings':
                     vscode.commands.executeCommand('workbench.action.openSettings', 'kcode');
                     break;
@@ -65,6 +73,15 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                 case 'reorderTask':
                     this._store.moveTask(message.taskId, message.targetTaskId, message.position, message.group);
                     this.refresh();
+                    break;
+                case 'reorderTasks':
+                    for (const taskId of message.taskIds) {
+                        this._store.moveTask(taskId, message.targetTaskId, message.position, message.group);
+                    }
+                    this.refresh();
+                    break;
+                case '__debug':
+                    vscode.window.showInformationMessage(`[KCode Debug] ${message.label}: ${message.data}`);
                     break;
             }
         });
@@ -373,6 +390,54 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             background: var(--vscode-menu-selectionBackground, #094771);
             color: var(--vscode-menu-selectionForeground, #fff);
         }
+
+        /* --- Batch Bar --- */
+        .batch-bar {
+            padding: 6px 8px;
+            border-top: 1px solid var(--vscode-sideBar-border, #3c3c3c);
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            background: var(--vscode-sideBar-background, #1e1e1e);
+        }
+        .batch-count {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground, #888);
+            white-space: nowrap;
+            margin-right: 4px;
+        }
+        .batch-bar-btn {
+            flex: 1;
+            padding: 4px 8px;
+            background: var(--vscode-button-background, #0e639c);
+            color: var(--vscode-button-foreground, #fff);
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: inherit;
+            text-align: center;
+        }
+        .batch-bar-btn:hover {
+            background: var(--vscode-button-hoverBackground, #1177bb);
+        }
+        .batch-bar-btn#btn-batch-clear {
+            flex: 0 0 auto;
+            padding: 4px 6px;
+            background: transparent;
+            color: var(--vscode-sideBar-foreground, #888);
+        }
+        .batch-bar-btn#btn-batch-clear:hover {
+            background: var(--vscode-list-hoverBackground, #2a2d2e);
+        }
+
+        /* --- Multi-select --- */
+        .task-item.selected {
+            background: rgba(14, 99, 156, 0.25);
+        }
+        .task-item.selected.active {
+            background: #0E364B;
+        }
     </style>
     <title>KCode</title>
 </head>
@@ -398,6 +463,13 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                 <div class="placeholder-text">No tasks yet</div>
             </div>
         </div>
+    </div>
+
+    <div id="batch-bar" class="batch-bar" style="display:none">
+        <span id="batch-count" class="batch-count"></span>
+        <button id="btn-batch-delete" class="batch-bar-btn">删除选中</button>
+        <button id="btn-batch-pin" class="batch-bar-btn">置顶</button>
+        <button id="btn-batch-clear" class="batch-bar-btn" title="取消选择">✕</button>
     </div>
 
     <div id="sidebar-footer">

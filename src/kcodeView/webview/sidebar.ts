@@ -4,6 +4,8 @@ declare function acquireVsCodeApi(): any;
     const vscode = acquireVsCodeApi();
     let contextMenuEl: HTMLDivElement | null = null;
     let draggedTaskId: string | null = null;
+    let selectedTaskIds: Set<string> = new Set();
+    let anchorTaskId: string | null = null;
     const _groupCollapsed = new Map<string, boolean>();
 
     (function () {
@@ -29,7 +31,59 @@ declare function acquireVsCodeApi(): any;
             });
         }
 
-        document.addEventListener('click', () => hideContextMenu());
+        const batchDeleteBtn = document.getElementById('btn-batch-delete');
+        if (batchDeleteBtn) {
+            batchDeleteBtn.addEventListener('click', () => {
+                if (selectedTaskIds.size === 0) return;
+                const ids = [...selectedTaskIds];
+                debugLog('batchDelete click', { size: selectedTaskIds.size, ids, fromSet: [...selectedTaskIds] });
+                selectedTaskIds.clear();
+                updateSelectionVisual();
+                updateBatchActionBar();
+                vscode.postMessage({ type: 'deleteTasks', taskIds: ids });
+            });
+        }
+
+        const batchPinBtn = document.getElementById('btn-batch-pin');
+        if (batchPinBtn) {
+            batchPinBtn.addEventListener('click', () => {
+                if (selectedTaskIds.size === 0) return;
+                const ids = [...selectedTaskIds];
+                debugLog('batchPin click', { ids });
+                const tasks = JSON.parse(document.getElementById('__sidebarData')?.dataset.tasks || '[]');
+                const allPinned = ids.every((id: string) => {
+                    const t = tasks.find((x: any) => x.id === id);
+                    return t && t.pinned;
+                });
+                vscode.postMessage({ type: 'pinTasks', taskIds: ids, pinned: !allPinned });
+            });
+        }
+
+        const batchClearBtn = document.getElementById('btn-batch-clear');
+        if (batchClearBtn) {
+            batchClearBtn.addEventListener('click', () => {
+                selectedTaskIds.clear();
+                updateSelectionVisual();
+                updateBatchActionBar();
+            });
+        }
+
+        document.addEventListener('click', (e) => {
+            hideContextMenu();
+            const batchBar = document.getElementById('batch-bar');
+            if (batchBar && !batchBar.contains(e.target as Node)) {
+                const target = e.target as HTMLElement;
+                if (!target.closest('.task-item')) {
+                    if (selectedTaskIds.size > 0) {
+                        debugLog('document click outside — cleared', { was: [...selectedTaskIds] });
+                    }
+                    selectedTaskIds.clear();
+                    anchorTaskId = null;
+                    updateSelectionVisual();
+                    updateBatchActionBar();
+                }
+            }
+        });
 
         window.addEventListener('message', (event) => {
             const message = event.data;
@@ -94,6 +148,12 @@ declare function acquireVsCodeApi(): any;
         const taskList = document.getElementById('task-list');
         if (!taskList) return;
 
+        const validIds = new Set(tasks.map((t: any) => t.id));
+        for (const id of Array.from(selectedTaskIds)) {
+            if (!validIds.has(id)) selectedTaskIds.delete(id);
+        }
+        updateBatchActionBar();
+
         const pinned = tasks.filter((t: any) => t.pinned);
         const groupMap = new Map<string, any[]>();
         for (const g of groups) {
@@ -121,6 +181,7 @@ declare function acquireVsCodeApi(): any;
         const hasContent = ungrouped.length > 0 || groups.length > 0 || pinned.length > 0;
         if (!hasContent) {
             taskList.innerHTML = '<div class="placeholder-text">暂无任务</div>';
+            updateSelectionVisual();
             return;
         }
 
@@ -133,7 +194,7 @@ declare function acquireVsCodeApi(): any;
         makeContainerDropTarget(ungroupedZone, null);
         taskList.appendChild(ungroupedZone);
 
-        for (const key of _groupCollapsed.keys()) {
+        for (const key of Array.from(_groupCollapsed.keys())) {
             if (!groups.includes(key)) {
                 _groupCollapsed.delete(key);
             }
@@ -143,6 +204,8 @@ declare function acquireVsCodeApi(): any;
             const section = createGroupSection(groupName, groupTasks, activeTaskId);
             taskList.appendChild(section);
         }
+
+        updateSelectionVisual();
     }
 
     function makeContainerDropTarget(el: HTMLElement, group: string | null) {
@@ -164,11 +227,12 @@ declare function acquireVsCodeApi(): any;
             e.preventDefault();
             e.stopPropagation();
             el.classList.remove('drag-over');
-            const taskId = e.dataTransfer?.getData('text/plain');
-            if (taskId) {
+            const taskIds = parseDragTaskIds(e);
+            debugLog('drop container', { group, taskIds, count: taskIds.length });
+            if (taskIds.length > 0) {
                 vscode.postMessage({
-                    type: 'reorderTask',
-                    taskId,
+                    type: 'reorderTasks',
+                    taskIds,
                     targetTaskId: null,
                     position: null,
                     group
@@ -183,6 +247,56 @@ declare function acquireVsCodeApi(): any;
         });
     }
 
+    function parseDragTaskIds(e: DragEvent): string[] {
+        const raw = e.dataTransfer?.getData('text/plain');
+        if (!raw) return [];
+        try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [raw];
+        } catch {
+            return [raw];
+        }
+    }
+
+    function getTaskOrder(): string[] {
+        return Array.from(document.querySelectorAll('.task-item'))
+            .map(el => (el as HTMLElement).dataset.taskId)
+            .filter((id): id is string => !!id);
+    }
+
+    function debugLog(label: string, data: any) {
+        vscode.postMessage({ type: '__debug', label, data: JSON.stringify(data) });
+    }
+
+    function updateSelectionVisual() {
+        document.querySelectorAll('.task-item').forEach(el => {
+            const id = (el as HTMLElement).dataset.taskId;
+            el.classList.toggle('selected', id ? selectedTaskIds.has(id) : false);
+        });
+    }
+
+    function updateBatchActionBar() {
+        const bar = document.getElementById('batch-bar');
+        const countEl = document.getElementById('batch-count');
+        const pinBtn = document.getElementById('btn-batch-pin');
+        if (!bar) return;
+        const count = selectedTaskIds.size;
+        if (count > 0) {
+            bar.style.display = 'flex';
+            if (countEl) countEl.textContent = `已选 ${count}`;
+            if (pinBtn) {
+                const tasks = JSON.parse(document.getElementById('__sidebarData')?.dataset.tasks || '[]');
+                const allPinned = Array.from(selectedTaskIds).every((id: string) => {
+                    const t = tasks.find((x: any) => x.id === id);
+                    return t && t.pinned;
+                });
+                pinBtn.textContent = allPinned ? '取消置顶' : '置顶';
+            }
+        } else {
+            bar.style.display = 'none';
+        }
+    }
+
     function createTaskItem(task: any, activeTaskId?: string): HTMLElement {
         const item = document.createElement('div');
         item.className = 'task-item';
@@ -195,18 +309,58 @@ declare function acquireVsCodeApi(): any;
         label.textContent = escapeHtml(task.title);
         item.appendChild(label);
 
-        item.addEventListener('click', () => {
-            document.querySelectorAll('.task-item').forEach(t => t.classList.remove('active'));
-            item.classList.add('active');
-            vscode.postMessage({
-                type: 'selectTask',
-                taskId: task.id
-            });
+        item.addEventListener('click', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                if (selectedTaskIds.has(task.id)) {
+                    selectedTaskIds.delete(task.id);
+                } else {
+                    selectedTaskIds.add(task.id);
+                }
+                anchorTaskId = task.id;
+                debugLog('ctrl+click', { taskId: task.id, after: [...selectedTaskIds], size: selectedTaskIds.size });
+                updateSelectionVisual();
+                updateBatchActionBar();
+                e.preventDefault();
+            } else if (e.shiftKey) {
+                if (anchorTaskId) {
+                    const allIds = getTaskOrder();
+                    const anchorIdx = allIds.indexOf(anchorTaskId);
+                    const currentIdx = allIds.indexOf(task.id);
+                    if (anchorIdx !== -1 && currentIdx !== -1) {
+                        const start = Math.min(anchorIdx, currentIdx);
+                        const end = Math.max(anchorIdx, currentIdx);
+                        for (let i = start; i <= end; i++) {
+                            selectedTaskIds.add(allIds[i]);
+                        }
+                    }
+                } else {
+                    selectedTaskIds.add(task.id);
+                    anchorTaskId = task.id;
+                }
+                debugLog('shift+click', { taskId: task.id, anchor: anchorTaskId, after: [...selectedTaskIds] });
+                updateSelectionVisual();
+                updateBatchActionBar();
+                e.preventDefault();
+            } else {
+                selectedTaskIds.clear();
+                anchorTaskId = null;
+                debugLog('plain click — cleared selection', {});
+                updateSelectionVisual();
+                updateBatchActionBar();
+                document.querySelectorAll('.task-item').forEach(t => t.classList.remove('active'));
+                item.classList.add('active');
+                vscode.postMessage({
+                    type: 'selectTask',
+                    taskId: task.id
+                });
+            }
         });
 
         item.addEventListener('dragstart', (e) => {
+            const ids = selectedTaskIds.size > 0 ? [...selectedTaskIds] : [task.id];
+            debugLog('dragstart', { taskId: task.id, selectedCount: selectedTaskIds.size, dragging: ids.length === 1 ? 'single' : 'batch', ids });
+            e.dataTransfer?.setData('text/plain', JSON.stringify(ids));
             draggedTaskId = task.id;
-            e.dataTransfer?.setData('text/plain', task.id);
             item.classList.add('dragging');
         });
         item.addEventListener('dragend', () => {
@@ -246,17 +400,18 @@ declare function acquireVsCodeApi(): any;
             e.preventDefault();
             e.stopPropagation();
             clearDropIndicators();
-            const taskId = e.dataTransfer?.getData('text/plain');
-            if (!taskId) return;
+            const taskIds = parseDragTaskIds(e);
+            debugLog('drop on item', { targetTaskId: item.dataset.taskId, taskIds, count: taskIds.length });
+            if (taskIds.length === 0) return;
             const rect = item.getBoundingClientRect();
             const y = e.clientY - rect.top;
             const position = y < rect.height / 2 ? 'before' : 'after';
             const container = item.closest('.drop-zone') as HTMLElement;
             const group = container?.dataset?.group !== undefined ? (container.dataset.group || null) : null;
             vscode.postMessage({
-                type: 'reorderTask',
-                taskId,
-                targetTaskId: task.id,
+                type: 'reorderTasks',
+                taskIds,
+                targetTaskId: item.dataset.taskId,
                 position,
                 group
             });

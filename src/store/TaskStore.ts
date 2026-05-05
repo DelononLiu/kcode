@@ -88,6 +88,26 @@ export class TaskStore {
         this.state.update(`messages_${taskId}`, []);
     }
 
+    deleteTasks(taskIds: string[]): void {
+        const idSet = new Set(taskIds);
+        const tasks = this.getTasks().filter(t => !idSet.has(t.id));
+        this.state.update('tasks', tasks);
+        for (const id of taskIds) {
+            this.state.update(`messages_${id}`, []);
+        }
+    }
+
+    updateTasksPin(taskIds: string[], pinned: boolean): void {
+        const idSet = new Set(taskIds);
+        const tasks = this.getTasks();
+        for (const task of tasks) {
+            if (idSet.has(task.id)) {
+                task.pinned = pinned;
+            }
+        }
+        this.state.update('tasks', tasks);
+    }
+
     clearMessages(taskId: string): void {
         this.state.update(`messages_${taskId}`, []);
     }
