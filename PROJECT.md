@@ -167,6 +167,68 @@ pending ────────→ active ──→ in_review ──→ complet
 
 ---
 
+## 系统提示词与任务状态标记
+
+### 动机
+
+Task 类型对话需要 AI 在完成时通知系统，以便触发验收流程。但 AI 无法直接调用系统 API，因此采用**在 prompt 中嵌入系统提示词**的方式，让 AI 通过文本标记来通信。
+
+### 系统提示词
+
+当任务类型为 `task` 且处于执行阶段（`active`），系统在发送给 AI 的 prompt 前自动拼接：
+
+```
+[System]
+任务目标：{goal}
+请在回答末尾标注任务状态标记（不显示给用户）：
+- 已完成：[TASK_STATUS: completed]
+- 进行中：[TASK_STATUS: in_progress]
+[/System]
+```
+
+Chat 类型的对话不加此提示词。
+
+### 标记解析流程
+
+```
+AI 流式响应 → onText 回调
+                   │
+                   ▼
+           扫描 [TASK_STATUS: (completed|in_progress)]
+                   │
+         ┌─────────┴─────────┐
+         ▼                   ▼
+      匹配成功             无匹配
+         │                   │
+   记录状态标记         正常追加文本
+   从显示文本中          → 流式渲染
+   剥离标记
+         │
+         ▼
+   流式渲染（无标记）
+         │
+         ▼
+    onDone 回调
+         │
+    ┌────┴────┐
+    ▼         ▼
+ 标记为    标记为
+completed  in_progress
+    │         │
+   触发     正常结束
+   验收卡片
+```
+
+### 通信协议补充
+
+| type | Source | Target | 说明 |
+|------|--------|--------|------|
+| `'showReviewRequest'` | KCodePanel | app.ts | AI 标记完成，显示验收卡片 |
+| `'approveReview'` | app.ts | KCodePanel | 用户验收通过 |
+| `'rejectReview'` | app.ts | KCodePanel | 用户驳回 |
+
+---
+
 ## 技术路线
 
 | 层 | 技术 |
@@ -226,6 +288,7 @@ interface Task {
     id: string;
     title: string;               // 从 goal 自动截取，用于列表显示
     goal: string;                // 用户设定的任务目标描述
+    type: 'task' | 'chat';      // classifyIntent 在第一轮消息确定
     status: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
     createdAt: number;
     pinned?: boolean;
@@ -269,6 +332,7 @@ interface AcpMessageHandler {
 | `deleteTask(taskId)` | 删除任务及其消息 |
 | `updateTaskStatus(id, status)` | 改状态 |
 | `updateTaskTitle(id, title)` | 改标题 |
+| `updateTaskType(id, type)` | 改类型 |
 | `updateTaskPin(id, pinned)` | 置顶/取消置顶 |
 | `updateTaskGroup(id, group)` | 移入/移出分组 |
 | `getGroups()` | 获取全部分组名 |

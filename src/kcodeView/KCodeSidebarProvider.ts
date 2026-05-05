@@ -102,6 +102,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             id: `task_${Date.now()}`,
             title: 'New Task',
             goal: '',
+            type: 'chat',
             status: 'pending',
             createdAt: Date.now(),
             pinned: false

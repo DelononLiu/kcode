@@ -72,8 +72,8 @@ _目标：重新设计 Task 生命周期，引入 用户设定目标→确认→
 |------|------|------|
 | P5-01 | Task 数据模型重构（goal 字段 + 状态集 + store 适配） | ✅ 已完成 |
 | P5-02 | AI 格式化目标输出 + 用户确认交互（unknown→pending→active） | ✅ 已完成 |
-| P5-03 | AI 自验完成通知（active→in_review） | ⬜ 未开始 |
-| P5-04 | 用户验收交互（in_review→completed/active） | ⬜ 未开始 |
+| P5-03 | AI 任务完成标记 + 验收触发 | 🛠️ 实现中 |
+| P5-04 | 用户验收交互 | 🛠️ 实现中 |
 | P5-05 | 侧边栏状态显示 + 手动状态操作（取消/完成） | ⬜ 未开始 |
 
 **验收标准**：任务有明确的 goal 字段，状态可按状态机完整流转，用户确认/验收流程闭环。
@@ -110,28 +110,31 @@ _目标：重新设计 Task 生命周期，引入 用户设定目标→确认→
 
 ---
 
-### P5-03: AI 自验完成通知（active→in_review）
+### P5-03: AI 任务完成标记 + 验收触发
+
+**方案**: 通过系统提示词让 AI 在回答末尾标记 `[TASK_STATUS: completed]`，系统在 `onText` 中实时解析并剥离标记，`onDone` 时触发验收。
 
 **流程**:
-1. AI 执行过程中正常流式输出 + 文件读写
-2. AI 完成自我验证，通过 prompt/sessionUpdate 通知"已做完"
-3. 系统收到完成信号 → status → `in_review`
-4. WebView 渲染 review 请求卡片（含验收/驳回按钮）
+1. `handleSendMessage` 中 `task.type === 'task'` → 拼接系统提示词到 prompt 头部
+2. AI 流式输出，`onText` 实时扫描 `[TASK_STATUS: (completed|in_progress)]`
+3. 匹配完成标记 → 从显示文本剥离，记录状态
+4. `onDone` 检查标记 → 若为 `completed` → `triggerReviewRequest()` 插入验收卡片
+5. `triggerReviewRequest` → `store.addMessage(type: 'review_request')` + `postMessage('showReviewRequest')`
 
-**涉及文件**: `src/acp/callbacks.ts`, `src/acp/AcpClient.ts`, `src/kcodeView/KCodePanel.ts`
-**状态**: ⬜ 未开始
+**涉及文件**: `src/types/index.ts`, `src/store/TaskStore.ts`, `src/kcodeView/KCodePanel.ts`, `src/kcodeView/webview/app.ts`
+**状态**: 🛠️ 实现中
 
 ---
 
-### P5-04: 用户验收交互（in_review→completed/active）
+### P5-04: 用户验收交互
 
 **流程**:
-1. 用户看到 review 请求卡片，点击"验收"或切换到右侧 Diff 面板查看变更
-2. 用户验收通过 → status → `completed`
-3. 用户驳回 → status → `active`，AI 继续修改
+1. 用户看到 review 请求卡片（由 P5-03 触发渲染），点击"验收"或"驳回"
+2. 用户验收通过 → `store.addMessage(type: 'approve')` → 界面展示完成状态
+3. 用户驳回 → AI 继续修改（后续迭代）
 
-**涉及文件**: `src/kcodeView/KCodePanel.ts`, `src/kcodeView/webview/app.ts`, `src/kcodeView/webview/preview.ts`
-**状态**: ⬜ 未开始
+**涉及文件**: `src/kcodeView/KCodePanel.ts`, `src/kcodeView/webview/app.ts`
+**状态**: 🛠️ 实现中
 
 ---
 

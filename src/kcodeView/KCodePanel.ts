@@ -18,6 +18,7 @@ export class KCodePanel {
     private openaiAgent: OpenAIAgent | null = null;
     private agentReady: boolean = false;
     private accumulatedAgentText: string = '';
+    private taskStatusMarker: string | null = null;
     private refreshSidebarCallback?: () => void;
 
     constructor(context: vscode.ExtensionContext, store: TaskStore) {
@@ -63,6 +64,12 @@ export class KCodePanel {
                 case 'cancelTask':
                     this.handleCancelTask(message.taskId);
                     break;
+                case 'approveReview':
+                    this.handleApproveReview(message.taskId);
+                    break;
+                case 'rejectReview':
+                    this.handleRejectReview(message.taskId);
+                    break;
             }
         }, null, this.context.subscriptions);
     }
@@ -78,7 +85,13 @@ export class KCodePanel {
         const isFirstMessage = this.store.getMessages(tid).length === 0;
         const intent = isFirstMessage ? classifyIntent(text) : 'task';
         const isGoalFormatting = task.status === 'pending' && intent === 'task';
-        const promptText = isGoalFormatting ? `请将以下需求格式化为清晰的任务目标描述：\n\n${text}` : text;
+        let promptText: string;
+
+        if (isGoalFormatting) {
+            promptText = `请将以下需求格式化为清晰的任务目标描述：\n\n${text}`;
+        } else {
+            promptText = this.buildTaskPrompt(tid, text);
+        }
 
         // Store user message
         this.store.addMessage({
@@ -93,6 +106,7 @@ export class KCodePanel {
             const prefix = intent === 'task' ? 'Task: ' : 'Chat: ';
             const rawTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
             this.store.updateTaskTitle(tid, prefix + rawTitle);
+            this.store.updateTaskType(tid, intent);
             if (intent === 'chat') {
                 this.store.updateTaskStatus(tid, 'active');
             }
@@ -157,10 +171,11 @@ export class KCodePanel {
         return {
             onText: (chunk: string) => {
                 this.accumulatedAgentText += chunk;
+                const cleanedText = this.stripTaskMarker();
                 if (!isGoalFormatting) {
                     this.panel.webview.postMessage({
                         type: 'agentStreamUpdate',
-                        text: this.accumulatedAgentText
+                        text: cleanedText
                     });
                 }
             },
@@ -170,16 +185,40 @@ export class KCodePanel {
                     if (isGoalFormatting) {
                         this.processGoalProposal(tid, this.accumulatedAgentText, originalText);
                     } else {
-                        this.storeMessage(tid, 'agent', this.accumulatedAgentText);
+                        const cleanedText = this.stripTaskMarker();
+                        this.storeMessage(tid, 'agent', cleanedText);
                         this.panel.webview.postMessage({
                             type: 'loadMessages',
                             messages: this.store.getMessages(tid),
                             taskId: tid
                         });
+                        const task = this.store.getTask(tid);
+                        if (task?.type === 'task' && this.taskStatusMarker === 'completed') {
+                            this.triggerReviewRequest(tid);
+                        }
                     }
                 }
+                this.taskStatusMarker = null;
             }
         };
+    }
+
+    private stripTaskMarker(): string {
+        const match = this.accumulatedAgentText.match(/\[TASK_STATUS:\s*(completed|in_progress)\]/);
+        if (match) {
+            this.taskStatusMarker = match[1];
+            this.accumulatedAgentText = this.accumulatedAgentText.replace(match[0], '');
+        }
+        return this.accumulatedAgentText;
+    }
+
+    private buildTaskPrompt(tid: string, userText: string): string {
+        const task = this.store.getTask(tid);
+        if (!task || task.type !== 'task') return userText;
+
+        const goal = task.goal || '(待确认)';
+        const systemPrompt = `[System]\n任务目标：${goal}\n请在回答末尾标注任务状态标记（不显示给用户）：\n- 已完成：[TASK_STATUS: completed]\n- 进行中：[TASK_STATUS: in_progress]\n[/System]\n\n`;
+        return systemPrompt + userText;
     }
 
     private processGoalProposal(tid: string, goalText: string, originalRequest: string) {
@@ -217,18 +256,19 @@ export class KCodePanel {
         this.refreshSidebarCallback?.();
 
         this.accumulatedAgentText = '';
+        const promptText = this.buildTaskPrompt(tid, originalRequest);
         const handler = this.createAgentResponseHandler(tid, false, originalRequest);
 
         if (this.agentReady && this.acpClient) {
-            await this.acpClient.prompt(tid, originalRequest, handler);
+            await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
             this.fakeAgent.setHandler(sessionId, handler);
-            await this.fakeAgent.prompt(sessionId, originalRequest);
+            await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
-            await this.openaiAgent.prompt(sessionId, originalRequest);
+            await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
 
@@ -258,6 +298,53 @@ export class KCodePanel {
         });
         this.panel.webview.postMessage({ type: 'addUserMessage', content: cancelMsg });
         this.store.updateTaskStatus(tid, 'cancelled');
+        this.refreshSidebarCallback?.();
+    }
+
+    private triggerReviewRequest(tid: string) {
+        this.panel.webview.postMessage({
+            type: 'showReviewRequest',
+            taskId: tid
+        });
+        this.refreshSidebarCallback?.();
+    }
+
+    private handleApproveReview(tid: string) {
+        const approveMsg = '✅ 验收通过';
+        this.store.addMessage({
+            id: `msg_${Date.now()}`,
+            taskId: tid,
+            role: 'user',
+            content: approveMsg,
+            timestamp: Date.now()
+        });
+        this.panel.webview.postMessage({ type: 'addUserMessage', content: approveMsg });
+        this.store.addMessage({
+            id: `msg_${Date.now()}`,
+            taskId: tid,
+            role: 'agent',
+            content: '🎉 任务已完成',
+            timestamp: Date.now()
+        });
+        this.panel.webview.postMessage({
+            type: 'loadMessages',
+            messages: this.store.getMessages(tid),
+            taskId: tid
+        });
+        this.store.updateTaskStatus(tid, 'completed');
+        this.refreshSidebarCallback?.();
+    }
+
+    private handleRejectReview(tid: string) {
+        const rejectMsg = '↩️ 驳回，请继续修改';
+        this.store.addMessage({
+            id: `msg_${Date.now()}`,
+            taskId: tid,
+            role: 'user',
+            content: rejectMsg,
+            timestamp: Date.now()
+        });
+        this.panel.webview.postMessage({ type: 'addUserMessage', content: rejectMsg });
         this.refreshSidebarCallback?.();
     }
 
@@ -562,7 +649,16 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .goal-btn.revise{background:#3c3c3c;color:#d4d4d4}
 .goal-btn.revise:hover{background:#4a4a4a}
 .goal-btn.cancel{background:transparent;color:#888;border:1px solid #4a4a4a}
-.goal-btn.cancel:hover{background:#3c3c3c;color:#ccc}`;
+.goal-btn.cancel:hover{background:#3c3c3c;color:#ccc}
+.review-request-card{background:#252526;border:1px solid #4ec9b0;border-radius:8px;overflow:hidden}
+.review-card-header{padding:8px 14px;background:#1e3a2f;font-size:12px;font-weight:600;color:#4ec9b0;border-bottom:1px solid #3c3c3c}
+.review-card-body{padding:12px 14px;font-size:13px;line-height:1.5;color:#d4d4d4}
+.review-card-actions{display:flex;gap:8px;padding:8px 14px 12px;border-top:1px solid #3c3c3c}
+.review-btn{flex:1;padding:6px 12px;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;transition:background .15s}
+.review-btn.approve{background:#4ec9b0;color:#1e1e1e}
+.review-btn.approve:hover{background:#5cd4ba}
+.review-btn.reject{background:#3c3c3c;color:#d4d4d4}
+.review-btn.reject:hover{background:#4a4a4a}`;
     }
 
     loadTask(taskId: string) {

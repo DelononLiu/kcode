@@ -38,6 +38,15 @@ export class TaskStore {
         }
     }
 
+    updateTaskType(taskId: string, type: 'task' | 'chat'): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            tasks[idx].type = type;
+            this.state.update('tasks', tasks);
+        }
+    }
+
     updateTaskGoal(taskId: string, goal: string): void {
         const tasks = this.getTasks();
         const idx = tasks.findIndex(t => t.id === taskId);

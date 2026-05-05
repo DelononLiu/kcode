@@ -69,7 +69,9 @@ function initMessageHandler() {
             case 'showGoalConfirmation':
                 showGoalConfirmationCard(message);
                 break;
-
+            case 'showReviewRequest':
+                showReviewRequestCard(message);
+                break;
         }
     });
 }
@@ -517,6 +519,58 @@ function showGoalConfirmationCard(info: any) {
 function removeGoalConfirmationCard() {
     const existing = document.querySelector('.goal-confirmation-card');
     if (existing) existing.remove();
+}
+
+// ==================== Review Request Card ====================
+
+function showReviewRequestCard(info: any) {
+    const scrollContainer = document.getElementById('chat-scroll')!;
+
+    // Remove existing review card if it exists
+    const existing = document.querySelector('.review-request-card');
+    if (existing) existing.remove();
+
+    // Find the last agent message bubble and append the card inside it
+    const lastAgentMsg = document.querySelector('.chat-msg.agent:last-child .msg-bubble');
+    if (!lastAgentMsg) return;
+
+    const card = document.createElement('div');
+    card.className = 'review-request-card';
+    card.dataset.taskId = info.taskId;
+
+    const header = document.createElement('div');
+    header.className = 'review-card-header';
+    header.textContent = '✅ AI 已完成任务';
+    card.appendChild(header);
+
+    const actions = document.createElement('div');
+    actions.className = 'review-card-actions';
+
+    const approveBtn = document.createElement('button');
+    approveBtn.className = 'review-btn approve';
+    approveBtn.textContent = '验收通过 ✓';
+    approveBtn.addEventListener('click', () => {
+        vscode.postMessage({
+            type: 'approveReview',
+            taskId: info.taskId
+        });
+    });
+    actions.appendChild(approveBtn);
+
+    const rejectBtn = document.createElement('button');
+    rejectBtn.className = 'review-btn reject';
+    rejectBtn.textContent = '驳回 ↩';
+    rejectBtn.addEventListener('click', () => {
+        vscode.postMessage({
+            type: 'rejectReview',
+            taskId: info.taskId
+        });
+    });
+    actions.appendChild(rejectBtn);
+
+    card.appendChild(actions);
+    lastAgentMsg.appendChild(card);
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
 // Export for use by other modules

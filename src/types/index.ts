@@ -2,6 +2,7 @@ export interface Task {
     id: string;
     title: string;
     goal: string;
+    type: 'task' | 'chat';
     status: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
     createdAt: number;
     pinned?: boolean;
