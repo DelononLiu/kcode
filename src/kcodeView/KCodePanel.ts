@@ -191,10 +191,12 @@ export class KCodePanel {
                             this.triggerReviewRequest(tid, cleanedText);
                         } else {
                             this.storeMessage(tid, 'agent', cleanedText);
+                            const task = this.store.getTask(tid);
                             this.panel.webview.postMessage({
                                 type: 'loadMessages',
                                 messages: this.store.getMessages(tid),
-                                taskId: tid
+                                taskId: tid,
+                                taskStatus: task?.status
                             });
                         }
                     }
@@ -315,7 +317,8 @@ export class KCodePanel {
         this.panel.webview.postMessage({
             type: 'loadMessages',
             messages: this.store.getMessages(tid),
-            taskId: tid
+            taskId: tid,
+            taskStatus: 'in_review'
         });
         this.refreshSidebarCallback?.();
     }
@@ -337,12 +340,13 @@ export class KCodePanel {
             content: '🎉 任务已完成',
             timestamp: Date.now()
         });
+        this.store.updateTaskStatus(tid, 'completed');
         this.panel.webview.postMessage({
             type: 'loadMessages',
             messages: this.store.getMessages(tid),
-            taskId: tid
+            taskId: tid,
+            taskStatus: 'completed'
         });
-        this.store.updateTaskStatus(tid, 'completed');
         this.refreshSidebarCallback?.();
     }
 
@@ -365,10 +369,12 @@ export class KCodePanel {
             type: 'agentStreamUpdate',
             text: `\n\n[错误: ${errorMsg}]`
         });
+        const task = this.store.getTask(tid);
         this.panel.webview.postMessage({
             type: 'loadMessages',
             messages: this.store.getMessages(tid),
-            taskId: tid
+            taskId: tid,
+            taskStatus: task?.status
         });
     }
 
@@ -660,7 +666,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .confirm-btn.secondary{background:#3c3c3c;color:#d4d4d4}
 .confirm-btn.secondary:hover{background:#4a4a4a}
 .confirm-btn.cancel{background:transparent;color:#888;border:1px solid #4a4a4a}
-.confirm-btn.cancel:hover{background:#3c3c3c;color:#ccc}`;
+.confirm-btn.cancel:hover{background:#3c3c3c;color:#ccc}
+.confirm-card-status{padding:6px 14px 12px;font-size:12px;color:#888;text-align:center}`;
     }
 
     loadTask(taskId: string) {
@@ -685,10 +692,12 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
     private sendTaskMessages(taskId: string) {
         const messages = this.store.getMessages(taskId);
+        const task = this.store.getTask(taskId);
         this.panel.webview.postMessage({
             type: 'loadMessages',
             messages,
-            taskId
+            taskId,
+            taskStatus: task?.status
         });
     }
 

@@ -20,6 +20,7 @@ function initMessageHandler() {
             case 'loadMessages':
                 streamMessageEl = null;
                 activeTaskId = message.taskId;
+                activeTaskStatus = message.taskStatus || '';
                 renderMessages(message.messages);
                 break;
             case 'showFilePreview':
@@ -154,8 +155,9 @@ function activateTab(tabName: string) {
     if (content) content.classList.add('active');
 }
 
-// Track the currently selected task ID for sending messages
+// Track the currently selected task ID and status for sending messages
 let activeTaskId: string | null = null;
+let activeTaskStatus: string = '';
 
 // ==================== Layout ====================
 
@@ -411,29 +413,40 @@ function addMessageElement(msg: any) {
         const msgDiv = createCardMessageElement();
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const taskId = msg.taskId;
+        const isResolved = activeTaskStatus === 'completed' || activeTaskStatus === 'active';
+        const buttons = isResolved ? [] : [
+            {
+                text: '验收通过 ✓',
+                className: 'primary',
+                onClick: (e: MouseEvent) => {
+                    const target = e.currentTarget as HTMLElement;
+                    updateCardToStatus(findParentCard(target)!, '✅ 已验收通过');
+                    vscode.postMessage({ type: 'approveReview', taskId });
+                }
+            },
+            {
+                text: '驳回 ↩',
+                className: 'secondary',
+                onClick: (e: MouseEvent) => {
+                    const target = e.currentTarget as HTMLElement;
+                    updateCardToStatus(findParentCard(target)!, '↩️ 已驳回');
+                    vscode.postMessage({ type: 'rejectReview', taskId });
+                }
+            }
+        ];
+        const statusText = activeTaskStatus === 'completed' ? '✅ 已验收通过' :
+                           activeTaskStatus === 'active' ? '↩️ 已驳回' : '';
         const card = createCardElement({
             title: '✅ AI 已完成任务',
             body: content,
             borderColor: '#4ec9b0',
             headerBg: '#1e3a2f',
             headerColor: '#4ec9b0',
-            buttons: [
-                {
-                    text: '验收通过 ✓',
-                    className: 'primary',
-                    onClick: () => {
-                        vscode.postMessage({ type: 'approveReview', taskId });
-                    }
-                },
-                {
-                    text: '驳回 ↩',
-                    className: 'secondary',
-                    onClick: () => {
-                        vscode.postMessage({ type: 'rejectReview', taskId });
-                    }
-                }
-            ]
+            buttons
         });
+        if (statusText) {
+            updateCardToStatus(card, statusText);
+        }
         bubble.appendChild(card);
         container.appendChild(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
@@ -458,6 +471,7 @@ function addMessageElement(msg: any) {
 }
 
 function updateTaskInfo(info: any) {
+    activeTaskStatus = info.status || '';
     const titleEl = document.querySelector('.task-info-title');
     if (titleEl) titleEl.textContent = info.title || '选择任务开始对话';
 
@@ -488,7 +502,7 @@ function flashInput() {
 interface CardButtonConfig {
     text: string;
     className: string;
-    onClick: () => void;
+    onClick: (e: MouseEvent) => void;
 }
 
 interface CardConfig {
@@ -524,7 +538,7 @@ function createCardElement(config: CardConfig): HTMLElement {
         const btn = document.createElement('button');
         btn.className = `confirm-btn ${btnCfg.className}`;
         btn.textContent = btnCfg.text;
-        btn.addEventListener('click', btnCfg.onClick);
+        btn.addEventListener('click', (e: Event) => btnCfg.onClick(e as MouseEvent));
         actions.appendChild(btn);
     }
 
@@ -551,6 +565,21 @@ function createCardMessageElement(taskId?: string): HTMLElement {
 
 // ==================== Goal Confirmation Card ====================
 
+function updateCardToStatus(card: HTMLElement, statusText: string) {
+    const actions = card.querySelector('.confirm-card-actions');
+    if (actions) {
+        actions.innerHTML = '';
+        const statusEl = document.createElement('div');
+        statusEl.className = 'confirm-card-status';
+        statusEl.textContent = statusText;
+        actions.appendChild(statusEl);
+    }
+}
+
+function findParentCard(el: HTMLElement): HTMLElement | null {
+    return el.closest('.confirm-card') as HTMLElement;
+}
+
 function showGoalConfirmationCard(info: any) {
     const container = document.getElementById('chat-messages')!;
     const scrollContainer = document.getElementById('chat-scroll')!;
@@ -576,21 +605,27 @@ function showGoalConfirmationCard(info: any) {
             {
                 text: '确认目标 ✓',
                 className: 'primary',
-                onClick: () => {
+                onClick: (e: MouseEvent) => {
+                    const target = e.currentTarget as HTMLElement;
+                    updateCardToStatus(findParentCard(target)!, '✅ 已确认，正在执行…');
                     vscode.postMessage({ type: 'confirmGoal', taskId: info.taskId, originalRequest: info.originalRequest });
                 }
             },
             {
                 text: '修改需求 ↩',
                 className: 'secondary',
-                onClick: () => {
+                onClick: (e: MouseEvent) => {
+                    const target = e.currentTarget as HTMLElement;
+                    updateCardToStatus(findParentCard(target)!, '↩️ 已修改需求');
                     vscode.postMessage({ type: 'reviseGoal', taskId: info.taskId });
                 }
             },
             {
                 text: '取消 ✕',
                 className: 'cancel',
-                onClick: () => {
+                onClick: (e: MouseEvent) => {
+                    const target = e.currentTarget as HTMLElement;
+                    updateCardToStatus(findParentCard(target)!, '✕ 已取消任务');
                     vscode.postMessage({ type: 'cancelTask', taskId: info.taskId });
                 }
             }
