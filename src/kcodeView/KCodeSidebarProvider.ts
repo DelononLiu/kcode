@@ -80,9 +80,6 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     }
                     this.refresh();
                     break;
-                case '__debug':
-                    vscode.window.showInformationMessage(`[KCode Debug] ${message.label}: ${message.data}`);
-                    break;
             }
         });
     }

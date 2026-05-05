@@ -36,7 +36,6 @@ declare function acquireVsCodeApi(): any;
             batchDeleteBtn.addEventListener('click', () => {
                 if (selectedTaskIds.size === 0) return;
                 const ids = [...selectedTaskIds];
-                debugLog('batchDelete click', { size: selectedTaskIds.size, ids, fromSet: [...selectedTaskIds] });
                 selectedTaskIds.clear();
                 updateSelectionVisual();
                 updateBatchActionBar();
@@ -49,7 +48,6 @@ declare function acquireVsCodeApi(): any;
             batchPinBtn.addEventListener('click', () => {
                 if (selectedTaskIds.size === 0) return;
                 const ids = [...selectedTaskIds];
-                debugLog('batchPin click', { ids });
                 const tasks = JSON.parse(document.getElementById('__sidebarData')?.dataset.tasks || '[]');
                 const allPinned = ids.every((id: string) => {
                     const t = tasks.find((x: any) => x.id === id);
@@ -74,9 +72,6 @@ declare function acquireVsCodeApi(): any;
             if (batchBar && !batchBar.contains(e.target as Node)) {
                 const target = e.target as HTMLElement;
                 if (!target.closest('.task-item')) {
-                    if (selectedTaskIds.size > 0) {
-                        debugLog('document click outside — cleared', { was: [...selectedTaskIds] });
-                    }
                     selectedTaskIds.clear();
                     anchorTaskId = null;
                     updateSelectionVisual();
@@ -111,24 +106,39 @@ declare function acquireVsCodeApi(): any;
         menu.style.left = x + 'px';
         menu.style.top = y + 'px';
 
+        const inSelection = selectedTaskIds.size > 1 && selectedTaskIds.has(task.id);
+        const idsToDelete = inSelection ? [...selectedTaskIds] : [task.id];
+
         const pinText = task.pinned ? '取消置顶' : '置顶';
+        const pinLabel = inSelection ? (task.pinned ? `取消置顶选中 (${idsToDelete.length})` : `置顶选中 (${idsToDelete.length})`) : pinText;
         const pinItem = document.createElement('div');
         pinItem.className = 'context-menu-item';
-        pinItem.textContent = pinText;
+        pinItem.textContent = pinLabel;
         pinItem.addEventListener('click', (e) => {
             e.stopPropagation();
             hideContextMenu();
-            vscode.postMessage({ type: 'pinTask', taskId: task.id, pinned: !task.pinned });
+            if (inSelection) {
+                vscode.postMessage({ type: 'pinTasks', taskIds: idsToDelete, pinned: !task.pinned });
+            } else {
+                vscode.postMessage({ type: 'pinTask', taskId: task.id, pinned: !task.pinned });
+            }
         });
         menu.appendChild(pinItem);
 
         const deleteItem = document.createElement('div');
         deleteItem.className = 'context-menu-item';
-        deleteItem.textContent = 'Delete';
+        deleteItem.textContent = inSelection ? `删除选中 (${idsToDelete.length})` : 'Delete';
         deleteItem.addEventListener('click', (e) => {
             e.stopPropagation();
             hideContextMenu();
-            vscode.postMessage({ type: 'deleteTask', taskId: task.id });
+            if (inSelection) {
+                selectedTaskIds.clear();
+                updateSelectionVisual();
+                updateBatchActionBar();
+                vscode.postMessage({ type: 'deleteTasks', taskIds: idsToDelete });
+            } else {
+                vscode.postMessage({ type: 'deleteTask', taskId: task.id });
+            }
         });
 
         menu.appendChild(deleteItem);
@@ -152,6 +162,14 @@ declare function acquireVsCodeApi(): any;
         for (const id of Array.from(selectedTaskIds)) {
             if (!validIds.has(id)) selectedTaskIds.delete(id);
         }
+
+        const dataEl = document.getElementById('__sidebarData');
+        if (dataEl) {
+            dataEl.dataset.tasks = JSON.stringify(tasks);
+            dataEl.dataset.groups = JSON.stringify(groups);
+            dataEl.dataset.activeTaskId = activeTaskId || '';
+        }
+
         updateBatchActionBar();
 
         const pinned = tasks.filter((t: any) => t.pinned);
@@ -228,7 +246,6 @@ declare function acquireVsCodeApi(): any;
             e.stopPropagation();
             el.classList.remove('drag-over');
             const taskIds = parseDragTaskIds(e);
-            debugLog('drop container', { group, taskIds, count: taskIds.length });
             if (taskIds.length > 0) {
                 vscode.postMessage({
                     type: 'reorderTasks',
@@ -262,10 +279,6 @@ declare function acquireVsCodeApi(): any;
         return Array.from(document.querySelectorAll('.task-item'))
             .map(el => (el as HTMLElement).dataset.taskId)
             .filter((id): id is string => !!id);
-    }
-
-    function debugLog(label: string, data: any) {
-        vscode.postMessage({ type: '__debug', label, data: JSON.stringify(data) });
     }
 
     function updateSelectionVisual() {
@@ -317,7 +330,6 @@ declare function acquireVsCodeApi(): any;
                     selectedTaskIds.add(task.id);
                 }
                 anchorTaskId = task.id;
-                debugLog('ctrl+click', { taskId: task.id, after: [...selectedTaskIds], size: selectedTaskIds.size });
                 updateSelectionVisual();
                 updateBatchActionBar();
                 e.preventDefault();
@@ -337,14 +349,12 @@ declare function acquireVsCodeApi(): any;
                     selectedTaskIds.add(task.id);
                     anchorTaskId = task.id;
                 }
-                debugLog('shift+click', { taskId: task.id, anchor: anchorTaskId, after: [...selectedTaskIds] });
                 updateSelectionVisual();
                 updateBatchActionBar();
                 e.preventDefault();
             } else {
                 selectedTaskIds.clear();
                 anchorTaskId = null;
-                debugLog('plain click — cleared selection', {});
                 updateSelectionVisual();
                 updateBatchActionBar();
                 document.querySelectorAll('.task-item').forEach(t => t.classList.remove('active'));
@@ -358,7 +368,6 @@ declare function acquireVsCodeApi(): any;
 
         item.addEventListener('dragstart', (e) => {
             const ids = selectedTaskIds.size > 0 ? [...selectedTaskIds] : [task.id];
-            debugLog('dragstart', { taskId: task.id, selectedCount: selectedTaskIds.size, dragging: ids.length === 1 ? 'single' : 'batch', ids });
             e.dataTransfer?.setData('text/plain', JSON.stringify(ids));
             draggedTaskId = task.id;
             item.classList.add('dragging');
@@ -401,7 +410,6 @@ declare function acquireVsCodeApi(): any;
             e.stopPropagation();
             clearDropIndicators();
             const taskIds = parseDragTaskIds(e);
-            debugLog('drop on item', { targetTaskId: item.dataset.taskId, taskIds, count: taskIds.length });
             if (taskIds.length === 0) return;
             const rect = item.getBoundingClientRect();
             const y = e.clientY - rect.top;
