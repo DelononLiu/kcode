@@ -4,7 +4,7 @@ import { AcpClient } from '../acp/AcpClient';
 import { FakeAgent } from '../acp/FakeAgent';
 import { OpenAIAgent } from '../acp/OpenAIAgent';
 import { classifyIntent } from '../acp/intentUtils';
-import type { Task } from '../types';
+import type { Task, FileChange } from '../types';
 
 export class KCodePanel {
     private panel: vscode.WebviewPanel;
@@ -69,6 +69,9 @@ export class KCodePanel {
                     break;
                 case 'rejectReview':
                     this.handleRejectReview(message.taskId);
+                    break;
+                case 'showFileDiff':
+                    this.handleShowFileDiff(message.original, message.modified);
                     break;
             }
         }, null, this.context.subscriptions);
@@ -326,6 +329,18 @@ export class KCodePanel {
             taskId: tid,
             taskStatus: 'in_review'
         });
+
+        const changes = this.acpClient?.getReviewChanges(tid)
+            || this.fakeAgent?.getReviewChanges(tid)
+            || [];
+        if (changes.length > 0) {
+            this.panel.webview.postMessage({
+                type: 'showReviewRequest',
+                taskId: tid,
+                changes
+            });
+        }
+
         this.refreshSidebarCallback?.();
     }
 
@@ -706,8 +721,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .confirm-btn.secondary{background:#3c3c3c;color:#d4d4d4}
 .confirm-btn.secondary:hover{background:#4a4a4a}
 .confirm-btn.cancel{background:transparent;color:#888;border:1px solid #4a4a4a}
-.confirm-btn.cancel:hover{background:#3c3c3c;color:#ccc}
-.confirm-card-status{padding:6px 14px 12px;font-size:12px;color:#888;text-align:center}`;
+ .confirm-btn.cancel:hover{background:#3c3c3c;color:#ccc}
+ .confirm-card-status{padding:6px 14px 12px;font-size:12px;color:#888;text-align:center}
+ .review-changes{user-select:none}
+ .review-changes div:hover{background:#2a2a2a;border-radius:3px}`;
     }
 
     loadTask(taskId: string) {
@@ -751,6 +768,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
     showDiff(original: string, modified: string) {
         this.panel.webview.postMessage({ type: 'showDiff', original, modified });
+    }
+
+    private handleShowFileDiff(original: string, modified: string) {
+        this.showDiff(original, modified);
     }
 
     showWebView(url: string) {

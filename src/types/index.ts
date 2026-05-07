@@ -24,6 +24,12 @@ export interface ACPConfig {
     apiKey?: string;
 }
 
+export interface FileChange {
+    filePath: string;
+    original: string;
+    modified: string;
+}
+
 export interface AcpMessageHandler {
     onText: (text: string) => void;
     onError: (error: string) => void;

@@ -2,7 +2,7 @@ import type * as acp from '@agentclientprotocol/sdk';
 import { AgentManager } from './AgentManager';
 import { KCodeClient } from './callbacks';
 import { createHttpStream } from './HttpStream';
-import type { AcpMessageHandler } from '../types';
+import type { AcpMessageHandler, FileChange } from '../types';
 
 export class AcpClient {
     private connection: acp.ClientSideConnection | null = null;
@@ -118,6 +118,7 @@ export class AcpClient {
 
         try {
             this.kcodeClient?.setSessionHandler(sessionId, handler);
+            this.kcodeClient?.setCurrentSession(sessionId);
 
             const result = await this.connection.prompt({
                 sessionId,
@@ -158,6 +159,12 @@ export class AcpClient {
     /**
      * Close the session for a specific task.
      */
+    getReviewChanges(taskId: string): FileChange[] {
+        const sessionId = this.sessions.get(taskId);
+        if (!sessionId || !this.kcodeClient) return [];
+        return this.kcodeClient.getSessionChanges(sessionId);
+    }
+
     closeTaskSession(taskId: string): void {
         this.sessions.delete(taskId);
     }

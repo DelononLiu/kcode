@@ -85,14 +85,17 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "package": "npx @vscode/vsce package --allow-missing-repository",
+    "build:install": "npm run package && code --install-extension kcode-0.1.0.vsix"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^0.21.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
     "@types/vscode": "^1.96.0",
+    "@vscode/vsce": "^3.4.0",
     "typescript": "^5.7.0"
-  },
-  "dependencies": {
-    "@agentclientprotocol/sdk": "^0.21.0"
   }
 }

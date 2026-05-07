@@ -70,6 +70,9 @@ function initMessageHandler() {
             case 'showGoalConfirmation':
                 showGoalConfirmationCard(message);
                 break;
+            case 'showReviewRequest':
+                handleShowReviewRequest(message);
+                break;
 
         }
     });
@@ -566,6 +569,54 @@ function createCardMessageElement(taskId?: string): HTMLElement {
     msgDiv.appendChild(bubble);
 
     return msgDiv;
+}
+
+// ==================== Review Changes ====================
+
+interface FileChange {
+    filePath: string;
+    original: string;
+    modified: string;
+}
+
+const reviewChangesMap: Map<string, FileChange[]> = new Map();
+
+function handleShowReviewRequest(message: any) {
+    reviewChangesMap.set(message.taskId, message.changes || []);
+
+    const cards = document.querySelectorAll('.confirm-card');
+    const reviewCard = cards[cards.length - 1] as HTMLElement;
+    if (!reviewCard) return;
+
+    const changesEl = reviewCard.querySelector('.review-changes');
+    if (changesEl) changesEl.remove();
+
+    const changes = message.changes as FileChange[];
+    if (!changes || changes.length === 0) return;
+
+    const list = document.createElement('div');
+    list.className = 'review-changes';
+    list.style.cssText = 'padding:4px 14px 0;border-top:1px solid #3c3c3c';
+
+    const label = document.createElement('div');
+    label.style.cssText = 'font-size:11px;color:#888;padding:6px 0 2px';
+    label.textContent = `📄 变更文件 (${changes.length})`;
+    list.appendChild(label);
+
+    for (const change of changes) {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:12px;color:#4ec9b0';
+        item.textContent = `📝 ${change.filePath}`;
+        item.addEventListener('click', () => {
+            (window as any).showDiff(change.original, change.modified);
+            const rightPanel = document.getElementById('right-panel');
+            if (rightPanel) rightPanel.classList.remove('hidden');
+            activateTab('diff');
+        });
+        list.appendChild(item);
+    }
+
+    reviewCard.appendChild(list);
 }
 
 // ==================== Goal Confirmation Card ====================

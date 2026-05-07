@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import type * as acp from '@agentclientprotocol/sdk';
-import type { AcpMessageHandler } from '../types';
+import type { AcpMessageHandler, FileChange } from '../types';
 
 /**
  * Client implementation for ACP protocol.
@@ -9,6 +9,8 @@ import type { AcpMessageHandler } from '../types';
  */
 export class KCodeClient implements acp.Client {
     private sessionHandlers: Map<string, AcpMessageHandler> = new Map();
+    private sessionChanges: Map<string, FileChange[]> = new Map();
+    private currentSessionId: string = '';
     private workspaceRoot: string;
 
     constructor(workspaceRoot: string) {
@@ -21,6 +23,15 @@ export class KCodeClient implements acp.Client {
 
     removeSessionHandler(sessionId: string) {
         this.sessionHandlers.delete(sessionId);
+    }
+
+    setCurrentSession(sessionId: string) {
+        this.currentSessionId = sessionId;
+        this.sessionChanges.set(sessionId, []);
+    }
+
+    getSessionChanges(sessionId: string): FileChange[] {
+        return this.sessionChanges.get(sessionId) || [];
     }
 
     async requestPermission(params: acp.RequestPermissionRequest): Promise<acp.RequestPermissionResponse> {
@@ -61,9 +72,22 @@ export class KCodeClient implements acp.Client {
         const filePath = params.path;
         const content = params.content;
 
-        // Resolve relative paths against workspace root
         const resolvedPath = this.resolvePath(filePath);
+
+        let original = '';
+        try {
+            original = fs.readFileSync(resolvedPath, 'utf-8');
+        } catch {
+            // File doesn't exist yet
+        }
+
         fs.writeFileSync(resolvedPath, content, 'utf-8');
+
+        if (this.currentSessionId && original !== content) {
+            const changes = this.sessionChanges.get(this.currentSessionId) || [];
+            changes.push({ filePath, original, modified: content });
+            this.sessionChanges.set(this.currentSessionId, changes);
+        }
 
         return {};
     }
