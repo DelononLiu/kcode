@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { TaskStore } from '../store/TaskStore';
 import { Task } from '../types';
 
+const _output = vscode.window.createOutputChannel('KCode Sidebar');
+
 export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'kcode.viewsMain';
 
@@ -20,6 +22,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         this._context = context;
         this._store = store;
         this._onTaskSelected = onTaskSelected;
+        _output.appendLine('[KCodeSidebarProvider] constructor called, store tasks: ' + store.getTasks().length);
     }
 
     resolveWebviewView(
@@ -38,9 +41,16 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         };
 
         webviewView.webview.html = this.getHtml();
+        _output.appendLine('[KCodeSidebarProvider] resolveWebviewView done, HTML set. Script URI: ' + webviewView.webview.asWebviewUri(
+            vscode.Uri.joinPath(this._context.extensionUri, 'out', 'kcodeView', 'webview', 'sidebar.js')
+        ));
 
         webviewView.webview.onDidReceiveMessage(async (message: any) => {
+            _output.appendLine('[KCodeSidebarProvider] onDidReceiveMessage: type=' + message.type + ' data=' + JSON.stringify(message));
             switch (message.type) {
+                case 'debugLog':
+                    _output.appendLine('[WebView] ' + message.text);
+                    return;
                 case 'newTask':
                     this.createNewTask();
                     break;
@@ -88,6 +98,24 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     this._store.reorderGroups(message.groupNames);
                     this.refresh();
                     break;
+                case 'renameTask':
+                    this.renameTask(message.taskId, message.currentTitle);
+                    break;
+                case 'archiveTask':
+                    this._store.updateTaskArchive(message.taskId, message.archived);
+                    this.refresh();
+                    break;
+                case 'moveTaskToGroup':
+                    this._store.updateTaskGroup(message.taskId, message.group);
+                    this.refresh();
+                    break;
+                case 'renameGroup':
+                    this.renameGroup(message.groupName, message.currentName);
+                    break;
+                case 'moveGroup':
+                    this._store.moveGroup(message.groupName, message.direction);
+                    this.refresh();
+                    break;
             }
         });
     }
@@ -104,6 +132,37 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         });
         if (name && name.trim()) {
             this._store.addGroup(name.trim());
+            this.refresh();
+        }
+    }
+
+    private async renameTask(taskId: string, currentTitle: string): Promise<void> {
+        const newTitle = await vscode.window.showInputBox({
+            prompt: '重命名任务',
+            value: currentTitle,
+            validateInput: (value: string) => {
+                if (!value.trim()) return '名称不能为空';
+                return null;
+            }
+        });
+        if (newTitle && newTitle.trim()) {
+            this._store.updateTaskTitle(taskId, newTitle.trim());
+            this.refresh();
+        }
+    }
+
+    private async renameGroup(groupName: string, currentName: string): Promise<void> {
+        const newName = await vscode.window.showInputBox({
+            prompt: '重命名分组',
+            value: currentName,
+            validateInput: (value: string) => {
+                if (!value.trim()) return '名称不能为空';
+                if (value.trim() !== currentName && this._store.getGroups().includes(value.trim())) return '分组已存在';
+                return null;
+            }
+        });
+        if (newName && newName.trim() && newName.trim() !== currentName) {
+            this._store.renameGroup(currentName, newName.trim());
             this.refresh();
         }
     }
@@ -139,10 +198,14 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     }
 
     refresh(activeTaskId?: string): void {
-        if (!this._view) return;
+        if (!this._view) {
+            _output.appendLine('[KCodeSidebarProvider] refresh skipped — _view is null');
+            return;
+        }
         const tasks = this._store.getTasks();
         const groups = this._store.getGroups();
         this._activeTaskId = activeTaskId ?? this._activeTaskId;
+        _output.appendLine('[KCodeSidebarProvider] refresh — tasks=' + tasks.length + ' groups=' + groups.length + ' active=' + this._activeTaskId);
         this._view.webview.postMessage({
             type: 'updateTaskList',
             tasks,
@@ -158,6 +221,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         const scriptUri = webview.asWebviewUri(
             vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', 'sidebar.js')
         );
+        _output.appendLine('[KCodeSidebarProvider] getHtml() called — generating new HTML with new CSS (separator/submenu styles). scriptUri=' + scriptUri);
 
         return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -412,6 +476,35 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         .context-menu-item:hover {
             background: var(--vscode-menu-selectionBackground, #094771);
             color: var(--vscode-menu-selectionForeground, #fff);
+        }
+        .context-menu-separator {
+            height: 1px;
+            background: var(--vscode-menu-border, #3c3c3c);
+            margin: 4px 8px;
+        }
+        .context-menu-item.has-submenu {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+        .submenu-arrow {
+            font-size: 10px;
+            margin-left: 12px;
+            color: var(--vscode-menu-foreground, #888);
+        }
+        .context-menu.submenu {
+            display: none;
+            position: absolute;
+            left: 100%;
+            top: -4px;
+            background: var(--vscode-menu-background, #252526);
+            border: 1px solid var(--vscode-menu-border, #3c3c3c);
+            border-radius: 4px;
+            padding: 4px 0;
+            min-width: 120px;
+            z-index: 1001;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.36);
         }
 
         /* --- Batch Bar --- */

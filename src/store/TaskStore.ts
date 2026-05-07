@@ -147,6 +147,52 @@ export class TaskStore {
     deleteGroup(name: string): void {
         const groups = this.getGroups().filter(g => g !== name);
         this.state.update('groups', groups);
+        const tasks = this.getTasks();
+        for (const task of tasks) {
+            if (task.group === name) {
+                task.group = undefined;
+            }
+        }
+        this.state.update('tasks', tasks);
+    }
+
+    renameGroup(oldName: string, newName: string): void {
+        const groups = this.getGroups();
+        const idx = groups.indexOf(oldName);
+        if (idx !== -1) {
+            groups[idx] = newName;
+            this.state.update('groups', groups);
+        }
+        const tasks = this.getTasks();
+        for (const task of tasks) {
+            if (task.group === oldName) {
+                task.group = newName;
+            }
+        }
+        this.state.update('tasks', tasks);
+    }
+
+    moveGroup(groupName: string, direction: 'up' | 'down'): void {
+        const groups = this.getGroups();
+        const idx = groups.indexOf(groupName);
+        if (idx === -1) return;
+        if (direction === 'up' && idx > 0) {
+            [groups[idx - 1], groups[idx]] = [groups[idx], groups[idx - 1]];
+        } else if (direction === 'down' && idx < groups.length - 1) {
+            [groups[idx], groups[idx + 1]] = [groups[idx + 1], groups[idx]];
+        } else {
+            return;
+        }
+        this.state.update('groups', groups);
+    }
+
+    updateTaskArchive(taskId: string, archived: boolean): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            tasks[idx].archived = archived;
+            this.state.update('tasks', tasks);
+        }
     }
 
     reorderGroups(groupNames: string[]): void {

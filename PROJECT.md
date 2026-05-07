@@ -460,6 +460,10 @@ function appendDeviceOutput(data: string): void
 | `'newGroup'` | sidebar.ts | KCodeSidebarProvider |
 | `'moveTaskToGroup'` | sidebar.ts | KCodeSidebarProvider |
 | `'reorderTask'` | sidebar.ts | KCodeSidebarProvider |
+| `'renameTask'` | sidebar.ts | KCodeSidebarProvider |
+| `'archiveTask'` | sidebar.ts | KCodeSidebarProvider |
+| `'renameGroup'` | sidebar.ts | KCodeSidebarProvider |
+| `'moveGroup'` | sidebar.ts | KCodeSidebarProvider |
 | `'openSettings'` | sidebar.ts / app.ts | KCodeSidebarProvider |
 | `'sendMessage'` | app.ts | KCodePanel |
 | `'confirmGoal'` | app.ts | KCodePanel |
@@ -643,11 +647,27 @@ function appendDeviceOutput(data: string): void
 
 ```
 ┌──────────────────────┐
-│  📌 置顶 / 取消置顶   │
-│  📂 移至分组...       │  →  分组1
-│                        │     分组2
-│  🗄️ 归档              │     新分组...
-│  🗑️ 删除              │
+│  重命名               │
+│  ──────────────       │
+│  置顶 / 取消置顶       │
+│  归档 / 取消归档       │
+│  ──────────────       │
+│  移至分组  ▸           │  →  未分组
+│                        │     分组1
+│                        │   ✔ 分组2
+└──────────────────────┘
+```
+
+### 分组右键菜单
+
+```
+┌──────────────────────┐
+│  重命名               │
+│  ──────────────       │
+│  上移                 │
+│  下移                 │
+│  ──────────────       │
+│  删除                 │
 └──────────────────────┘
 ```
 

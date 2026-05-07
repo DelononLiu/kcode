@@ -6,6 +6,7 @@ export interface Task {
     status: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
     createdAt: number;
     pinned?: boolean;
+    archived?: boolean;
     group?: string;
 }
 

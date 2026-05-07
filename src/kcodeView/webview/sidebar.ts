@@ -98,7 +98,14 @@ declare function acquireVsCodeApi(): any;
         renderTaskList(tasks, groups, activeTaskId);
     }
 
+    function addSeparator(menu: HTMLDivElement): void {
+        const sep = document.createElement('div');
+        sep.className = 'context-menu-separator';
+        menu.appendChild(sep);
+    }
+
     function showContextMenu(x: number, y: number, task: any) {
+        vscode.postMessage({ type: 'debugLog', text: 'showContextMenu called! task.id=' + task.id + ' task.title=' + task.title + ' task.pinned=' + task.pinned + ' task.archived=' + task.archived });
         hideContextMenu();
 
         const menu = document.createElement('div');
@@ -106,44 +113,87 @@ declare function acquireVsCodeApi(): any;
         menu.style.left = x + 'px';
         menu.style.top = y + 'px';
 
-        const inSelection = selectedTaskIds.size > 1 && selectedTaskIds.has(task.id);
-        const idsToDelete = inSelection ? [...selectedTaskIds] : [task.id];
+        // --- 重命名 ---
+        const renameItem = createMenuItem('重命名', () => {
+            vscode.postMessage({ type: 'renameTask', taskId: task.id, currentTitle: task.title });
+        });
+        menu.appendChild(renameItem);
 
+        addSeparator(menu);
+
+        // --- 置顶 ---
         const pinText = task.pinned ? '取消置顶' : '置顶';
-        const pinLabel = inSelection ? (task.pinned ? `取消置顶选中 (${idsToDelete.length})` : `置顶选中 (${idsToDelete.length})`) : pinText;
-        const pinItem = document.createElement('div');
-        pinItem.className = 'context-menu-item';
-        pinItem.textContent = pinLabel;
-        pinItem.addEventListener('click', (e) => {
-            e.stopPropagation();
-            hideContextMenu();
-            if (inSelection) {
-                vscode.postMessage({ type: 'pinTasks', taskIds: idsToDelete, pinned: !task.pinned });
-            } else {
-                vscode.postMessage({ type: 'pinTask', taskId: task.id, pinned: !task.pinned });
-            }
+        const pinItem = createMenuItem(pinText, () => {
+            vscode.postMessage({ type: 'pinTask', taskId: task.id, pinned: !task.pinned });
         });
         menu.appendChild(pinItem);
 
-        const deleteItem = document.createElement('div');
-        deleteItem.className = 'context-menu-item';
-        deleteItem.textContent = inSelection ? `删除选中 (${idsToDelete.length})` : 'Delete';
-        deleteItem.addEventListener('click', (e) => {
-            e.stopPropagation();
-            hideContextMenu();
-            if (inSelection) {
-                selectedTaskIds.clear();
-                updateSelectionVisual();
-                updateBatchActionBar();
-                vscode.postMessage({ type: 'deleteTasks', taskIds: idsToDelete });
-            } else {
-                vscode.postMessage({ type: 'deleteTask', taskId: task.id });
+        // --- 归档 ---
+        const archiveText = task.archived ? '取消归档' : '归档';
+        const archiveItem = createMenuItem(archiveText, () => {
+            vscode.postMessage({ type: 'archiveTask', taskId: task.id, archived: !task.archived });
+        });
+        menu.appendChild(archiveItem);
+
+        addSeparator(menu);
+
+        // --- 分组子菜单 ---
+        const tasks = JSON.parse(document.getElementById('__sidebarData')?.dataset.tasks || '[]');
+        const groups = JSON.parse(document.getElementById('__sidebarData')?.dataset.groups || '[]');
+
+        const submenuTrigger = document.createElement('div');
+        submenuTrigger.className = 'context-menu-item has-submenu';
+        submenuTrigger.innerHTML = '<span>移至分组</span><span class="submenu-arrow">&#x25B6;</span>';
+
+        const submenu = document.createElement('div');
+        submenu.className = 'context-menu submenu';
+
+        const noneItem = createMenuItem(task.group ? '未分组' : '✔ 未分组', () => {
+            vscode.postMessage({ type: 'moveTaskToGroup', taskId: task.id, group: null });
+        });
+        submenu.appendChild(noneItem);
+
+        for (const g of groups) {
+            const checked = task.group === g ? '✔ ' : '';
+            const groupItem = createMenuItem(checked + g, () => {
+                vscode.postMessage({ type: 'moveTaskToGroup', taskId: task.id, group: g });
+            });
+            submenu.appendChild(groupItem);
+        }
+
+        submenuTrigger.appendChild(submenu);
+
+        submenuTrigger.addEventListener('mouseenter', () => {
+            submenu.style.display = 'block';
+        });
+        submenuTrigger.addEventListener('mouseleave', (e) => {
+            const rel = e.relatedTarget as Node;
+            if (!submenu.contains(rel) && rel !== submenuTrigger) {
+                submenu.style.display = 'none';
+            }
+        });
+        submenu.addEventListener('mouseleave', (e) => {
+            const rel = e.relatedTarget as Node;
+            if (!submenuTrigger.contains(rel) && rel !== submenuTrigger) {
+                submenu.style.display = 'none';
             }
         });
 
-        menu.appendChild(deleteItem);
+        menu.appendChild(submenuTrigger);
         document.body.appendChild(menu);
         contextMenuEl = menu;
+    }
+
+    function createMenuItem(text: string, action: () => void): HTMLDivElement {
+        const item = document.createElement('div');
+        item.className = 'context-menu-item';
+        item.textContent = text;
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            hideContextMenu();
+            action();
+        });
+        return item;
     }
 
     function hideContextMenu() {
@@ -172,12 +222,13 @@ declare function acquireVsCodeApi(): any;
 
         updateBatchActionBar();
 
-        const pinned = tasks.filter((t: any) => t.pinned);
+        const visible = tasks.filter((t: any) => !t.archived);
+        const pinned = visible.filter((t: any) => t.pinned);
         const groupMap = new Map<string, any[]>();
         for (const g of groups) {
             groupMap.set(g, []);
         }
-        const ungrouped = tasks.filter((t: any) => {
+        const ungrouped = visible.filter((t: any) => {
             if (t.pinned) return false;
             if (t.group && groupMap.has(t.group)) {
                 groupMap.get(t.group)!.push(t);
@@ -410,6 +461,7 @@ declare function acquireVsCodeApi(): any;
         item.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
+            vscode.postMessage({ type: 'debugLog', text: 'contextmenu fired on task.id=' + task.id });
             showContextMenu(e.clientX, e.clientY, task);
         });
 
@@ -580,6 +632,29 @@ declare function acquireVsCodeApi(): any;
         menu.style.left = x + 'px';
         menu.style.top = y + 'px';
 
+        // --- 重命名 ---
+        const renameItem = createMenuItem('重命名', () => {
+            vscode.postMessage({ type: 'renameGroup', groupName, currentName: groupName });
+        });
+        menu.appendChild(renameItem);
+
+        addSeparator(menu);
+
+        // --- 上移 ---
+        const upItem = createMenuItem('上移', () => {
+            vscode.postMessage({ type: 'moveGroup', groupName, direction: 'up' });
+        });
+        menu.appendChild(upItem);
+
+        // --- 下移 ---
+        const downItem = createMenuItem('下移', () => {
+            vscode.postMessage({ type: 'moveGroup', groupName, direction: 'down' });
+        });
+        menu.appendChild(downItem);
+
+        addSeparator(menu);
+
+        // --- 删除 ---
         const deleteItem = document.createElement('div');
         deleteItem.className = 'context-menu-item';
         if (taskCount > 0) {
@@ -587,7 +662,7 @@ declare function acquireVsCodeApi(): any;
             deleteItem.style.color = '#888';
             deleteItem.style.cursor = 'not-allowed';
         } else {
-            deleteItem.textContent = '删除分组';
+            deleteItem.textContent = '删除';
             deleteItem.addEventListener('click', (e) => {
                 e.stopPropagation();
                 hideContextMenu();
