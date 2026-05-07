@@ -158,6 +158,58 @@ _目标：重新设计 Task 生命周期，引入 用户设定目标→确认→
 
 **状态**: ✅ 已完成
 
+## Phase 6: 任务层级与拆分
+
+_目标：引入子任务树状结构，支持大任务拆分为多个子任务独立流转。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P6-01 | 数据模型 — Task 新增 `parentId`、`order` 字段 | ⬜ 未开始 |
+| P6-02 | TaskStore — 父子任务 CRUD（getChildren、getDescendants、reorder） | ⬜ 未开始 |
+| P6-03 | 拆分交互 — 任务详情/右键"拆分为子任务"，AI 自动分解 goal | ⬜ 未开始 |
+| P6-04 | 侧边栏树状渲染 — 缩进层级 + 折叠/展开 + 连线 | ⬜ 未开始 |
+| P6-05 | 父任务状态聚合 — 父任务状态反映子任务进度，子任务独立流转 | ⬜ 未开始 |
+
+**涉及文件**: `src/types/index.ts`, `src/store/TaskStore.ts`, `src/kcodeView/KCodeSidebarProvider.ts`, `src/kcodeView/webview/sidebar.ts`, `src/kcodeView/KCodePanel.ts`, `src/kcodeView/webview/app.ts`
+
+**验收标准**：任务可创建子任务，侧边栏以树状展示并支持折叠展开；子任务可独立经历 pending→active→completed 状态流转。
+
+---
+
+## Phase 7: 任务搜索与过滤
+
+_目标：支持对任务列表进行全文搜索和状态/分组过滤。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P7-01 | 搜索框 — 侧边栏顶部搜索输入框，实时过滤 | ⬜ 未开始 |
+| P7-02 | TaskStore — 按标题/goal 关键字搜索方法 | ⬜ 未开始 |
+| P7-03 | 过滤栏 — 按状态、分组的快速过滤 chips | ⬜ 未开始 |
+| P7-04 | 空状态 — 搜索无结果时提示 | ⬜ 未开始 |
+
+**涉及文件**: `src/kcodeView/KCodeSidebarProvider.ts`, `src/kcodeView/webview/sidebar.ts`, `src/store/TaskStore.ts`, `src/types/index.ts`
+
+**验收标准**：搜索框输入实时过滤；可按状态/分组筛选；无结果时有提示。
+
+---
+
+## Phase 8: 任务与文件关联
+
+_目标：任务绑定相关文件，侧边栏展示关联文件列表，支持点击跳转。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P8-01 | 数据模型 — Task 新增 `files: string[]` 字段 | ⬜ 未开始 |
+| P8-02 | TaskStore — 文件关联 CRUD（addFile、removeFile、getFiles） | ⬜ 未开始 |
+| P8-03 | 侧边栏 — 选中任务展示关联文件，点击用 VS Code 打开 | ⬜ 未开始 |
+| P8-04 | 自动关联 — AI 写入/读取文件时自动记录到 task.files | ⬜ 未开始 |
+
+**涉及文件**: `src/types/index.ts`, `src/store/TaskStore.ts`, `src/kcodeView/KCodeSidebarProvider.ts`, `src/kcodeView/webview/sidebar.ts`, `src/acp/callbacks.ts`
+
+**验收标准**：AI 修改的文件自动关联到任务；侧边栏展示文件列表；点击文件在 VS Code 中打开。
+
+---
+
 ## Phase 4: 后端接入
 
 _目标：支持通过 HTTP 协议接入后端 Agent（如 opencode），替代当前仅支持 stdio 子进程的模式，便于调试和常驻后端。_
