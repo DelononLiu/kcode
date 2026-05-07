@@ -104,6 +104,45 @@ declare function acquireVsCodeApi(): any;
         menu.appendChild(sep);
     }
 
+    function startInlineEdit(
+        displayEl: HTMLElement,
+        currentText: string,
+        onSave: (newText: string) => void,
+    ): void {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentText;
+        input.className = 'inline-edit-input';
+
+        const parent = displayEl.parentNode!;
+        parent.insertBefore(input, displayEl.nextSibling);
+        displayEl.style.display = 'none';
+        input.focus();
+        input.select();
+
+        const finish = (save: boolean) => {
+            const newText = input.value.trim();
+            if (save && newText && newText !== currentText) {
+                onSave(newText);
+            }
+            displayEl.style.display = '';
+            input.remove();
+        };
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                finish(true);
+            } else if (e.key === 'Escape') {
+                finish(false);
+            }
+        });
+
+        input.addEventListener('blur', () => {
+            finish(true);
+        });
+    }
+
     function showContextMenu(x: number, y: number, task: any) {
         vscode.postMessage({ type: 'debugLog', text: 'showContextMenu called! task.id=' + task.id + ' task.title=' + task.title + ' task.pinned=' + task.pinned + ' task.archived=' + task.archived });
         hideContextMenu();
@@ -115,7 +154,17 @@ declare function acquireVsCodeApi(): any;
 
         // --- 重命名 ---
         const renameItem = createMenuItem('重命名', () => {
-            vscode.postMessage({ type: 'renameTask', taskId: task.id, currentTitle: task.title });
+            const taskItem = document.querySelector(`.task-item[data-task-id="${task.id}"]`);
+            if (taskItem) {
+                const titleEl = taskItem.querySelector('.task-title');
+                if (titleEl) {
+                    const prefix = task.type === 'task' ? 'Task: ' : 'Chat: ';
+                    const rawName = task.title.startsWith(prefix) ? task.title.slice(prefix.length) : task.title;
+                    startInlineEdit(titleEl as HTMLElement, rawName, (newTitle) => {
+                        vscode.postMessage({ type: 'renameTask', taskId: task.id, currentTitle: prefix + newTitle });
+                    });
+                }
+            }
         });
         menu.appendChild(renameItem);
 
@@ -523,6 +572,7 @@ declare function acquireVsCodeApi(): any;
         header.appendChild(arrow);
 
         const label = document.createElement('span');
+        label.className = 'group-label';
         label.textContent = escapeHtml(groupName);
         header.appendChild(label);
 
@@ -634,7 +684,15 @@ declare function acquireVsCodeApi(): any;
 
         // --- 重命名 ---
         const renameItem = createMenuItem('重命名', () => {
-            vscode.postMessage({ type: 'renameGroup', groupName, currentName: groupName });
+            const header = document.querySelector(`.section-header[data-group-name="${groupName}"]`);
+            if (header) {
+                const label = header.querySelector('.group-label');
+                if (label) {
+                    startInlineEdit(label as HTMLElement, groupName, (newName) => {
+                        vscode.postMessage({ type: 'renameGroup', groupName, currentName: newName });
+                    });
+                }
+            }
         });
         menu.appendChild(renameItem);
 

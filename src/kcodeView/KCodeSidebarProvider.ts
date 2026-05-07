@@ -136,33 +136,16 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         }
     }
 
-    private async renameTask(taskId: string, currentTitle: string): Promise<void> {
-        const newTitle = await vscode.window.showInputBox({
-            prompt: '重命名任务',
-            value: currentTitle,
-            validateInput: (value: string) => {
-                if (!value.trim()) return '名称不能为空';
-                return null;
-            }
-        });
+    private renameTask(taskId: string, newTitle: string): void {
         if (newTitle && newTitle.trim()) {
             this._store.updateTaskTitle(taskId, newTitle.trim());
             this.refresh();
         }
     }
 
-    private async renameGroup(groupName: string, currentName: string): Promise<void> {
-        const newName = await vscode.window.showInputBox({
-            prompt: '重命名分组',
-            value: currentName,
-            validateInput: (value: string) => {
-                if (!value.trim()) return '名称不能为空';
-                if (value.trim() !== currentName && this._store.getGroups().includes(value.trim())) return '分组已存在';
-                return null;
-            }
-        });
-        if (newName && newName.trim() && newName.trim() !== currentName) {
-            this._store.renameGroup(currentName, newName.trim());
+    private renameGroup(groupName: string, newName: string): void {
+        if (newName && newName.trim() && newName.trim() !== groupName && !this._store.getGroups().includes(newName.trim())) {
+            this._store.renameGroup(groupName, newName.trim());
             this.refresh();
         }
     }
@@ -385,6 +368,20 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+        .inline-edit-input {
+            flex: 1;
+            background: var(--vscode-input-background, #3c3c3c);
+            color: var(--vscode-input-foreground, #d4d4d4);
+            border: 1px solid var(--vscode-input-border, #555);
+            border-radius: 2px;
+            padding: 1px 4px;
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+        }
+        .inline-edit-input:focus {
+            border-color: var(--vscode-focusBorder, #0e639c);
         }
 
         .task-status {
