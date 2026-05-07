@@ -440,7 +440,12 @@ export class KCodePanel {
             // OpenAI Agent
             if (agentName === 'openai') {
                 console.log('[KCode] Using OpenAIAgent');
-                this.openaiAgent = new OpenAIAgent();
+                const openaiConfig = vscode.workspace.getConfiguration('kcode');
+                this.openaiAgent = new OpenAIAgent({
+                    apiKey: openaiConfig.get<string>('openaiApiKey'),
+                    model: openaiConfig.get<string>('openaiModel'),
+                    baseURL: openaiConfig.get<string>('openaiBaseUrl'),
+                });
                 this.panel.webview.postMessage({
                     type: 'agentStatus',
                     status: 'connected',

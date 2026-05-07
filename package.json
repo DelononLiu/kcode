@@ -62,6 +62,21 @@
           "type": "string",
           "default": "http://127.0.0.1:8080",
           "description": "HTTP URL of a remote ACP agent (e.g. http://127.0.0.1:8080). When set, connects via HTTP instead of spawning a subprocess."
+        },
+        "kcode.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API key for the built-in OpenAI agent. Falls back to OPENAI_API_KEY environment variable."
+        },
+        "kcode.openaiModel": {
+          "type": "string",
+          "default": "deepseek-v4-flash",
+          "description": "OpenAI model name for the built-in OpenAI agent. Falls back to OPENAI_MODEL environment variable."
+        },
+        "kcode.openaiBaseUrl": {
+          "type": "string",
+          "default": "https://api.deepseek.com",
+          "description": "OpenAI API base URL for the built-in OpenAI agent. Falls back to OPENAI_BASE_URL environment variable."
         }
       }
     }

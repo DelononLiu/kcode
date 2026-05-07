@@ -10,10 +10,10 @@ export class OpenAIAgent {
     private handlers: Map<string, AcpMessageHandler> = new Map();
     private config: OpenAIConfig;
 
-    constructor() {
-        const apiKey = process.env['OPENAI_API_KEY'] || '';
-        const model = process.env['OPENAI_MODEL'] || 'deepseek-v4-flash';
-        let baseURL = process.env['OPENAI_BASE_URL'] || 'https://api.deepseek.com';
+    constructor(overrides?: Partial<OpenAIConfig>) {
+        const apiKey = overrides?.apiKey || process.env['OPENAI_API_KEY'] || '';
+        const model = overrides?.model || process.env['OPENAI_MODEL'] || 'deepseek-v4-flash';
+        let baseURL = overrides?.baseURL || process.env['OPENAI_BASE_URL'] || 'https://api.deepseek.com';
         baseURL = baseURL.replace(/\/+$/, '');
         this.config = { apiKey, model, baseURL };
     }
@@ -40,6 +40,9 @@ export class OpenAIAgent {
                 ? this.config.baseURL
                 : `${this.config.baseURL}/chat/completions`;
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -51,7 +54,9 @@ export class OpenAIAgent {
                     messages: [{ role: 'user', content: text }],
                     stream: true,
                 }),
+                signal: controller.signal,
             });
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
                 const errText = await response.text().catch(() => '');
@@ -83,6 +88,10 @@ export class OpenAIAgent {
 
                     try {
                         const json = JSON.parse(trimmed.slice(6));
+                        if (json.error) {
+                            handler.onError(json.error.message || JSON.stringify(json.error));
+                            return;
+                        }
                         const content = json.choices?.[0]?.delta?.content || '';
                         if (content) {
                             handler.onText(content);
