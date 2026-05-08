@@ -562,9 +562,9 @@ export class KCodePanel {
         const webview = this.panel.webview;
         const extensionUri = this.context.extensionUri;
 
-        const scriptUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', 'app.js')
-        );
+        const scriptUri = (name: string) => webview.asWebviewUri(
+            vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', `${name}.js`)
+        ).toString();
         // NOTE: all CSS is inlined to avoid webview external resource loading issues
         const inlineStyles = this.getInlineStyles();
 
@@ -625,21 +625,20 @@ export class KCodePanel {
                 <div class="tabs">
                     <button class="tab active" data-tab="preview">Preview</button>
                     <button class="tab" data-tab="diff">Diff</button>
-                    <button class="tab" data-tab="webview">WebView</button>
-                    <button class="tab" data-tab="device">Device</button>
+                    <button class="tab disabled" data-tab="device" title="即将推出">Device</button>
                 </div>
                 <button id="right-panel-close" class="close-btn" title="关闭右侧面板">✕</button>
             </div>
             <div id="right-panel-content">
                 <div id="tab-preview" class="tab-content active">Preview</div>
                 <div id="tab-diff" class="tab-content">Diff</div>
-                <div id="tab-webview" class="tab-content">WebView</div>
                 <div id="tab-device" class="tab-content">Device</div>
             </div>
         </div>
     </div>
 
-    <script src="${scriptUri}"></script>
+    <script src="${scriptUri('app')}"></script>
+    <script src="${scriptUri('preview')}"></script>
 </body>
 </html>`;
     }
@@ -704,8 +703,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tabs{display:flex;flex:1;overflow-x:auto}
 .tab{padding:8px 12px;background:none;border:none;color:#888;font-size:12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
 .tab:hover{color:#ccc}
-.tab.active{color:#fff;border-bottom-color:#0e639c}
-.close-btn{background:none;border:none;color:#888;font-size:14px;cursor:pointer;padding:8px 12px}
+ .tab.active{color:#fff;border-bottom-color:#0e639c}
+ .tab.disabled{color:#555;cursor:default}
+ .close-btn{background:none;border:none;color:#888;font-size:14px;cursor:pointer;padding:8px 12px}
 .close-btn:hover{color:#fff}
 #right-panel-content{flex:1;overflow:hidden;position:relative}
 .tab-content{display:none;height:100%;overflow-y:auto;padding:12px}

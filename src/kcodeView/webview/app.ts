@@ -35,12 +35,6 @@ function initMessageHandler() {
                     activateTab('diff');
                 }
                 break;
-            case 'showWebView':
-                if ((window as any).showWebView) {
-                    (window as any).showWebView(message.url);
-                    activateTab('webview');
-                }
-                break;
             case 'deviceConnect':
                 if ((window as any).connectToDevice) {
                     (window as any).connectToDevice(message.host, message.port, message.connectionType);
@@ -223,6 +217,7 @@ function initTabs() {
     const tabButtons = document.querySelectorAll('.tab');
     tabButtons.forEach(btn => {
         btn.addEventListener('click', () => {
+            if (btn.classList.contains('disabled')) return;
             const tabName = (btn as HTMLElement).dataset.tab;
 
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));

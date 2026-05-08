@@ -36,8 +36,9 @@ export class FakeAgent {
             '',
             '已完成以下文件修改：',
             '',
-            '- Created `src/utils/helper.ts` — 添加了辅助函数',
-            '- Modified `src/index.ts` — 更新了导入路径',
+            '- Modified `requirements.txt` — 更新依赖版本',
+            '- Modified `template_PRD.md` — 补充功能与非功能需求',
+            '- Modified `README.md` — 补充项目文档',
             '',
             '请验收以上更改。',
             '',
@@ -68,14 +69,19 @@ export class FakeAgent {
     getReviewChanges(_taskId: string): FileChange[] {
         return [
             {
-                filePath: 'src/utils/helper.ts',
-                original: '// helper.ts (empty)',
-                modified: 'export function average(nums: number[]): number {\n  return nums.reduce((a, b) => a + b, 0) / nums.length;\n}\n\nexport function median(nums: number[]): number {\n  const sorted = [...nums].sort((a, b) => a - b);\n  const mid = Math.floor(sorted.length / 2);\n  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;\n}'
+                filePath: 'requirements.txt',
+                original: 'flask==2.3.0\nnumpy==1.24.0',
+                modified: 'flask==2.3.0\nnumpy==1.26.0\npandas==2.1.0'
             },
             {
-                filePath: 'src/index.ts',
-                original: '// Empty index',
-                modified: 'import { average, median } from "./utils/helper";\n\nconst data = [1, 2, 3, 4, 5];\nconsole.log(average(data));\nconsole.log(median(data));'
+                filePath: 'template_PRD.md',
+                original: '# PRD Template\n\n## Overview\n\n## Requirements',
+                modified: '# PRD Template\n\n## Overview\n\n## Requirements\n\n### Functional\n- User authentication\n- Data export\n\n### Non-functional\n- Response time < 200ms'
+            },
+            {
+                filePath: 'README.md',
+                original: '# Project\n\nGetting started...',
+                modified: '# Project\n\n## Getting Started\n\n```bash\nnpm install\nnpm run dev\n```\n\n## Features\n\n- Task management\n- AI-powered development'
             }
         ];
     }
