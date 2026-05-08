@@ -40,6 +40,7 @@ export function activate(context: vscode.ExtensionContext) {
         (taskId) => openTaskInPanel(context, taskId)
     );
     sidebarProvider.setFlashInputCallback(() => panel?.flashInput());
+    sidebarProvider.setToggleRightPanelCallback(() => panel?.toggleRightPanel());
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
             KCodeSidebarProvider.viewType,

@@ -61,6 +61,15 @@ function initMessageHandler() {
             case 'flashInput':
                 flashInput();
                 break;
+            case 'toggleRightPanel':
+                const rp = document.getElementById('right-panel');
+                if (rp) {
+                    rp.classList.toggle('hidden');
+                    if (!rp.classList.contains('hidden')) {
+                        activateTab('preview');
+                    }
+                }
+                break;
             case 'showGoalConfirmation':
                 showGoalConfirmationCard(message);
                 break;

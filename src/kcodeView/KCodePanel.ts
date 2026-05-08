@@ -794,6 +794,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         this.panel.webview.postMessage({ type: 'focusInput' });
     }
 
+    toggleRightPanel() {
+        this.panel.webview.postMessage({ type: 'toggleRightPanel' });
+    }
+
     getCurrentTaskId(): string | null {
         return this.currentTaskId;
     }

@@ -12,6 +12,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     private _context: vscode.ExtensionContext;
     private _onTaskSelected: (taskId: string) => void;
     private _onFlashInput?: () => void;
+    private _onToggleRightPanel?: () => void;
     private _activeTaskId: string | null = null;
 
     constructor(
@@ -116,6 +117,9 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     this._store.moveGroup(message.groupName, message.direction);
                     this.refresh();
                     break;
+                case 'toggleRightPanel':
+                    this._onToggleRightPanel?.();
+                    break;
             }
         });
     }
@@ -152,6 +156,10 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
 
     setFlashInputCallback(cb: () => void) {
         this._onFlashInput = cb;
+    }
+
+    setToggleRightPanelCallback(cb: () => void) {
+        this._onToggleRightPanel = cb;
     }
 
     createNewTask(): void {
@@ -238,13 +246,13 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
 
         /* --- Action Bar --- */
         .action-bar {
-            padding: 8px 8px 8px;
+            padding: 8px 8px;
             display: flex;
-            align-items: center;
+            flex-direction: column;
             gap: 4px;
         }
         .sidebar-btn {
-            flex: 1;
+            width: 100%;
             display: flex;
             align-items: center;
             gap: 6px;
@@ -558,6 +566,14 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     <div id="sidebar-content">
         <div class="action-bar">
             <button id="btn-new-task" class="sidebar-btn">+ 新建任务</button>
+            <button id="btn-toggle-panel" class="sidebar-btn" style="font-size:12px;">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
+                    <rect x="1" y="2" width="14" height="10" rx="1"/>
+                    <line x1="5" y1="14" x2="11" y2="14"/>
+                    <line x1="8" y1="12" x2="8" y2="14"/>
+                </svg>
+                打开右侧面板
+            </button>
         </div>
 
         <div id="section-pinned" class="section" style="display:none">

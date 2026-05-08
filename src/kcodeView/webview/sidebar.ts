@@ -31,6 +31,13 @@ declare function acquireVsCodeApi(): any;
             });
         }
 
+        const togglePanelBtn = document.getElementById('btn-toggle-panel');
+        if (togglePanelBtn) {
+            togglePanelBtn.addEventListener('click', () => {
+                vscode.postMessage({ type: 'toggleRightPanel' });
+            });
+        }
+
         const batchDeleteBtn = document.getElementById('btn-batch-delete');
         if (batchDeleteBtn) {
             batchDeleteBtn.addEventListener('click', () => {
