@@ -303,6 +303,19 @@ function initChat() {
     });
 }
 
+function formatTimestamp(ts: number): string {
+    const d = new Date(ts);
+    const now = new Date();
+    const hh = d.getHours().toString().padStart(2, '0');
+    const mm = d.getMinutes().toString().padStart(2, '0');
+    if (d.toDateString() === now.toDateString()) {
+        return `${hh}:${mm}`;
+    }
+    const mon = (d.getMonth() + 1).toString().padStart(2, '0');
+    const dd = d.getDate().toString().padStart(2, '0');
+    return `${mon}/${dd} ${hh}:${mm}`;
+}
+
 function addUserMessage(content: string) {
     const container = document.getElementById('chat-messages')!;
     const scrollContainer = document.getElementById('chat-scroll')!;
@@ -315,7 +328,7 @@ function addUserMessage(content: string) {
 
     const sender = document.createElement('div');
     sender.className = 'msg-sender';
-    sender.textContent = 'You';
+    sender.innerHTML = 'You <span class="msg-timestamp">' + formatTimestamp(Date.now()) + '</span>';
     msgDiv.appendChild(sender);
 
     const bubble = document.createElement('div');
@@ -389,6 +402,23 @@ function addMessage(role: 'user' | 'agent', content: string) {
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
+function collectChangedFiles(messages: any[], startIdx: number): string[] {
+    const files: string[] = [];
+    for (let i = startIdx; i < messages.length; i++) {
+        const m = messages[i];
+        if (m.role !== 'tool') break;
+        if (m.type === 'tool_call') {
+            try {
+                const info = JSON.parse(m.content);
+                if (info.kind === 'write' || info.kind === 'edit') {
+                    files.push(info.title);
+                }
+            } catch {}
+        }
+    }
+    return files;
+}
+
 function renderMessages(messages: any[]) {
     activeToolCallElements.clear();
     const container = document.getElementById('chat-messages');
@@ -408,8 +438,20 @@ function renderMessages(messages: any[]) {
 
     scrollContainer.classList.remove('chat-empty');
     if (inputEl) inputEl.placeholder = '提出后续修改要求';
-    for (const msg of messages) {
-        addMessageElement(msg);
+
+    const changedFilesMap = new Map<number, string[]>();
+    for (let i = 0; i < messages.length; i++) {
+        const msg = messages[i];
+        if (msg.role === 'agent' && !msg.type) {
+            const files = collectChangedFiles(messages, i + 1);
+            if (files.length > 0) {
+                changedFilesMap.set(i, files);
+            }
+        }
+    }
+
+    for (let i = 0; i < messages.length; i++) {
+        addMessageElement(messages[i], changedFilesMap.get(i));
     }
     if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
     focusChatInput();
@@ -420,7 +462,7 @@ function focusChatInput() {
     if (el) el.focus();
 }
 
-function addMessageElement(msg: any) {
+function addMessageElement(msg: any, changedFiles?: string[]) {
     const container = document.getElementById('chat-messages')!;
     const scrollContainer = document.getElementById('chat-scroll')!;
     const placeholder = container.querySelector('.chat-placeholder');
@@ -434,13 +476,13 @@ function addMessageElement(msg: any) {
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const bodyText = content.replace(/^📋 任务目标确认\n\n/, '');
         const isConfirmed = msg.type === 'goal_confirmed';
-        const card = createCardElement({
-            title: '📋 任务目标确认',
-            body: bodyText,
+        const card = createCard({
+            headerHtml: '📋 任务目标确认',
+            bodyMarkdown: bodyText,
+            defaultCollapsed: false,
             borderColor: '#3c3c3c',
             headerBg: '#2d2d2d',
-            headerColor: '#e0e0e0',
-            buttons: []
+            headerColor: '#e0e0e0'
         });
         if (isConfirmed) {
             updateCardToStatus(card, '✅ 已确认');
@@ -457,35 +499,35 @@ function addMessageElement(msg: any) {
         const taskId = msg.taskId;
 
         const isPending = msg.type === 'review_request';
-        const buttons = isPending ? [
-            {
-                text: '验收通过 ✓',
-                className: 'primary',
-                onClick: (e: MouseEvent) => {
-                    const target = e.currentTarget as HTMLElement;
-                    updateCardToStatus(findParentCard(target)!, '✅ 已验收通过');
-                    vscode.postMessage({ type: 'approveReview', taskId });
-                }
-            },
-            {
-                text: '驳回 ↩',
-                className: 'secondary',
-                onClick: (e: MouseEvent) => {
-                    const target = e.currentTarget as HTMLElement;
-                    updateCardToStatus(findParentCard(target)!, '↩️ 已驳回');
-                    vscode.postMessage({ type: 'rejectReview', taskId });
-                }
-            }
-        ] : [];
         const statusText = msg.type === 'review_approved' ? '✅ 已验收通过' :
                            msg.type === 'review_rejected' ? '↩️ 已驳回' : '';
-        const card = createCardElement({
-            title: '✅ AI 已完成任务',
-            body: content,
+        const card = createCard({
+            headerHtml: '✅ AI 已完成任务',
+            bodyMarkdown: content,
+            defaultCollapsed: false,
             borderColor: '#4ec9b0',
             headerBg: '#1e3a2f',
             headerColor: '#4ec9b0',
-            buttons
+            actions: isPending ? [
+                {
+                    text: '验收通过 ✓',
+                    className: 'primary',
+                    onClick: (e: MouseEvent) => {
+                        const target = e.currentTarget as HTMLElement;
+                        updateCardToStatus(findParentCard(target)!, '✅ 已验收通过');
+                        vscode.postMessage({ type: 'approveReview', taskId });
+                    }
+                },
+                {
+                    text: '驳回 ↩',
+                    className: 'secondary',
+                    onClick: (e: MouseEvent) => {
+                        const target = e.currentTarget as HTMLElement;
+                        updateCardToStatus(findParentCard(target)!, '↩️ 已驳回');
+                        vscode.postMessage({ type: 'rejectReview', taskId });
+                    }
+                }
+            ] : undefined
         });
         if (statusText) {
             updateCardToStatus(card, statusText);
@@ -506,42 +548,11 @@ function addMessageElement(msg: any) {
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg tool';
 
-        const sender = document.createElement('div');
-        sender.className = 'msg-sender';
-        sender.textContent = '🔧 Tool';
-        msgDiv.appendChild(sender);
-
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble tool-bubble';
         msgDiv.appendChild(bubble);
 
-        const statusIcon = toolInfo.status === 'completed' ? '✅' : toolInfo.status === 'error' ? '❌' : '⏳';
-        const header = document.createElement('div');
-        header.className = 'tool-header';
-        header.innerHTML = `${statusIcon} ${toolInfo.kind}: ${escapeHtml(toolInfo.title)}`;
-        bubble.appendChild(header);
-
-        if (toolInfo.output) {
-            const toggle = document.createElement('span');
-            toggle.className = 'tool-toggle';
-            toggle.textContent = '▶';
-            header.appendChild(toggle);
-
-            const body = document.createElement('div');
-            body.className = 'tool-body collapsed';
-            const bodyContent = document.createElement('pre');
-            bodyContent.className = 'tool-body-content';
-            bodyContent.textContent = toolInfo.output;
-            body.appendChild(bodyContent);
-            bubble.appendChild(body);
-
-            header.style.cursor = 'pointer';
-            header.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const isCollapsed = body.classList.toggle('collapsed');
-                toggle.textContent = isCollapsed ? '▶' : '▼';
-            });
-        }
+        renderToolBubbleContent(bubble, toolInfo);
 
         container.appendChild(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
@@ -553,12 +564,22 @@ function addMessageElement(msg: any) {
 
     const sender = document.createElement('div');
     sender.className = 'msg-sender';
-    sender.textContent = role === 'user' ? 'You' : 'Agent';
+    const ts = msg.timestamp ? formatTimestamp(msg.timestamp) : '';
+    sender.innerHTML = (role === 'user' ? 'You' : 'Agent') + (ts ? ' <span class="msg-timestamp">' + ts + '</span>' : '');
     msgDiv.appendChild(sender);
 
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
     bubble.innerHTML = renderMarkdown(content);
+
+    if (role === 'agent' && changedFiles && changedFiles.length > 0) {
+        const summary = document.createElement('div');
+        summary.className = 'agent-diff-summary';
+        summary.innerHTML = '📄 <strong>变更文件</strong> (' + changedFiles.length + '):<br>' +
+            changedFiles.map(f => '&nbsp;&nbsp;📝 ' + escapeHtml(f)).join('<br>');
+        bubble.appendChild(summary);
+    }
+
     msgDiv.appendChild(bubble);
 
     container.appendChild(msgDiv);
@@ -592,50 +613,79 @@ function flashInput() {
     wrapper.classList.add('input-flash');
 }
 
-interface CardButtonConfig {
+interface CardAction {
     text: string;
     className: string;
     onClick: (e: MouseEvent) => void;
 }
 
-interface CardConfig {
-    title: string;
-    body: string;
-    buttons: CardButtonConfig[];
-    borderColor: string;
-    headerBg: string;
-    headerColor: string;
-}
-
-function createCardElement(config: CardConfig): HTMLElement {
+function createCard(config: {
+    headerHtml: string;
+    bodyHtml?: string;
+    bodyMarkdown?: string;
+    defaultCollapsed?: boolean;
+    actions?: CardAction[];
+    borderColor?: string;
+    headerBg?: string;
+    headerColor?: string;
+    bodyClassName?: string;
+}): HTMLElement {
     const card = document.createElement('div');
-    card.className = 'confirm-card';
-    card.style.borderColor = config.borderColor;
+    card.className = 'msg-card';
+    if (config.borderColor) card.style.borderColor = config.borderColor;
 
     const header = document.createElement('div');
-    header.className = 'confirm-card-header';
-    header.style.background = config.headerBg;
-    header.style.color = config.headerColor;
-    header.textContent = config.title;
+    header.className = 'msg-card-header';
+    if (config.headerBg) header.style.background = config.headerBg;
+    if (config.headerColor) header.style.color = config.headerColor;
+
+    const headerSpan = document.createElement('span');
+    headerSpan.className = 'msg-card-header-text';
+    headerSpan.innerHTML = config.headerHtml;
+    header.appendChild(headerSpan);
+
+    const toggle = document.createElement('span');
+    toggle.className = 'msg-card-toggle';
+    toggle.textContent = config.defaultCollapsed ? '▶' : '▼';
+    header.appendChild(toggle);
+
     card.appendChild(header);
 
     const body = document.createElement('div');
-    body.className = 'confirm-card-body';
-    body.innerHTML = renderMarkdown(config.body);
-    card.appendChild(body);
+    body.className = 'msg-card-body';
+    if (config.bodyClassName) body.classList.add(config.bodyClassName);
+    if (config.defaultCollapsed) body.classList.add('collapsed');
 
-    const actions = document.createElement('div');
-    actions.className = 'confirm-card-actions';
-
-    for (const btnCfg of config.buttons) {
-        const btn = document.createElement('button');
-        btn.className = `confirm-btn ${btnCfg.className}`;
-        btn.textContent = btnCfg.text;
-        btn.addEventListener('click', (e: Event) => btnCfg.onClick(e as MouseEvent));
-        actions.appendChild(btn);
+    if (config.bodyHtml) {
+        body.innerHTML = config.bodyHtml;
+    } else if (config.bodyMarkdown) {
+        body.innerHTML = renderMarkdown(config.bodyMarkdown);
     }
 
-    card.appendChild(actions);
+    card.appendChild(body);
+
+    header.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('.msg-card-btn, .code-copy-btn')) return;
+        body.classList.toggle('collapsed');
+        toggle.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+    });
+
+    if (config.actions && config.actions.length > 0) {
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'msg-card-actions';
+        for (const action of config.actions) {
+            const btn = document.createElement('button');
+            btn.className = `msg-card-btn ${action.className}`;
+            btn.textContent = action.text;
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                action.onClick(e);
+            });
+            actionsDiv.appendChild(btn);
+        }
+        card.appendChild(actionsDiv);
+    }
+
     return card;
 }
 
@@ -667,28 +717,30 @@ const reviewChangesMap: Map<string, FileChange[]> = new Map();
 function handleShowReviewRequest(message: any) {
     reviewChangesMap.set(message.taskId, message.changes || []);
 
-    const cards = document.querySelectorAll('.confirm-card');
+    const cards = document.querySelectorAll('.msg-card');
     const reviewCard = cards[cards.length - 1] as HTMLElement;
     if (!reviewCard) return;
-
-    const changesEl = reviewCard.querySelector('.review-changes');
-    if (changesEl) changesEl.remove();
 
     const changes = message.changes as FileChange[];
     if (!changes || changes.length === 0) return;
 
+    const body = reviewCard.querySelector('.msg-card-body');
+    if (!body) return;
+
+    const existing = body.querySelector('.review-changes');
+    if (existing) existing.remove();
+
     const list = document.createElement('div');
     list.className = 'review-changes';
-    list.style.cssText = 'padding:4px 14px 0;border-top:1px solid #3c3c3c';
 
     const label = document.createElement('div');
-    label.style.cssText = 'font-size:11px;color:#888;padding:6px 0 2px';
+    label.className = 'review-changes-label';
     label.textContent = `📄 变更文件 (${changes.length})`;
     list.appendChild(label);
 
     for (const change of changes) {
         const item = document.createElement('div');
-        item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:12px;color:#4ec9b0';
+        item.className = 'review-changes-item';
         item.textContent = `📝 ${change.filePath}`;
         item.addEventListener('click', () => {
             (window as any).showDiff(change.original, change.modified);
@@ -699,22 +751,22 @@ function handleShowReviewRequest(message: any) {
         list.appendChild(item);
     }
 
-    reviewCard.appendChild(list);
+    body.appendChild(list);
 }
 
 function updateCardToStatus(card: HTMLElement, statusText: string) {
-    const actions = card.querySelector('.confirm-card-actions');
+    const actions = card.querySelector('.msg-card-actions');
     if (actions) {
         actions.innerHTML = '';
         const statusEl = document.createElement('div');
-        statusEl.className = 'confirm-card-status';
+        statusEl.className = 'msg-card-status';
         statusEl.textContent = statusText;
         actions.appendChild(statusEl);
     }
 }
 
 function findParentCard(el: HTMLElement): HTMLElement | null {
-    return el.closest('.confirm-card') as HTMLElement;
+    return el.closest('.msg-card') as HTMLElement;
 }
 
 function showGoalConfirmationCard(info: any) {
@@ -732,13 +784,14 @@ function showGoalConfirmationCard(info: any) {
     const msgDiv = createCardMessageElement(info.taskId);
     const bubble = msgDiv.querySelector('.msg-bubble')!;
 
-    const card = createCardElement({
-        title: '📋 任务目标确认',
-        body: info.goal,
+    const card = createCard({
+        headerHtml: '📋 任务目标确认',
+        bodyMarkdown: info.goal,
+        defaultCollapsed: false,
         borderColor: '#3c3c3c',
         headerBg: '#2d2d2d',
         headerColor: '#e0e0e0',
-        buttons: [
+        actions: [
             {
                 text: '确认目标 ✓',
                 className: 'primary',
@@ -775,7 +828,7 @@ function showGoalConfirmationCard(info: any) {
 }
 
 function removeGoalConfirmationCard() {
-    document.querySelectorAll('.confirm-card').forEach(el => el.remove());
+    document.querySelectorAll('.msg-card').forEach(el => el.remove());
 }
 
 function handleToolCallUpdate(msg: any) {
@@ -802,11 +855,6 @@ function createToolMessageElement(msg: any): HTMLElement {
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg tool';
 
-    const sender = document.createElement('div');
-    sender.className = 'msg-sender';
-    sender.textContent = '🔧 Tool';
-    msgDiv.appendChild(sender);
-
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble tool-bubble';
     msgDiv.appendChild(bubble);
@@ -824,33 +872,79 @@ function updateToolMessageElement(el: HTMLElement, msg: any) {
 }
 
 function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
-    const statusIcon = msg.status === 'completed' ? '✅' : msg.status === 'error' ? '❌' : '⏳';
+    const kind = msg.kind || '';
+    const title = msg.title || '';
+    const status = msg.status || 'pending';
+    const content = msg.content || '';
 
-    const header = document.createElement('div');
-    header.className = 'tool-header';
-    header.innerHTML = `${statusIcon} ${msg.kind}: ${escapeHtml(msg.title)}`;
-    bubble.appendChild(header);
+    const isRunning = status === 'running' || status === 'pending';
 
-    if (msg.content) {
-        const toggle = document.createElement('span');
-        toggle.className = 'tool-toggle';
-        toggle.textContent = '▶';
-        header.appendChild(toggle);
+    let statusHtml: string;
+    if (isRunning) {
+        statusHtml = '<span class="tool-spinner"></span>';
+    } else if (status === 'completed') {
+        statusHtml = '✅';
+    } else if (status === 'error' || status === 'failed') {
+        statusHtml = '❌';
+    } else {
+        statusHtml = '⏳';
+    }
 
-        const body = document.createElement('div');
-        body.className = 'tool-body collapsed';
-        const bodyContent = document.createElement('pre');
-        bodyContent.className = 'tool-body-content';
-        bodyContent.textContent = msg.content;
-        body.appendChild(bodyContent);
-        bubble.appendChild(body);
+    const kindIcon = getToolKindIcon(kind);
+    const headerHtml = statusHtml + ' ' + kindIcon + escapeHtml(title);
 
-        header.style.cursor = 'pointer';
-        header.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const isCollapsed = body.classList.toggle('collapsed');
-            toggle.textContent = isCollapsed ? '▶' : '▼';
+    if (kind === 'thinking') {
+        const card = createCard({
+            headerHtml,
+            defaultCollapsed: false,
+            bodyClassName: 'tool-thinking'
         });
+        bubble.appendChild(card);
+        return;
+    }
+
+    let bodyHtml = '';
+    if (content) {
+        let preClass = 'tool-body-content';
+        if (kind === 'bash' || kind === 'command' || kind === 'terminal') preClass += ' tool-bash-output';
+        else if (kind === 'write' || kind === 'edit') preClass += ' tool-body-diff';
+        bodyHtml = '<pre class="' + preClass + '">' + escapeHtml(content) + '</pre>';
+    }
+
+    let bodyClassName = '';
+    if (kind === 'bash' || kind === 'command' || kind === 'terminal') bodyClassName = 'tool-body-bash';
+
+    const isDefaultCollapsed = kind === 'thinking' ? false : !isRunning;
+
+    const card = createCard({
+        headerHtml,
+        bodyHtml: bodyHtml || undefined,
+        defaultCollapsed: isDefaultCollapsed,
+        bodyClassName: bodyClassName || undefined
+    });
+    bubble.appendChild(card);
+}
+
+function getToolKindIcon(kind: string): string {
+    switch (kind) {
+        case 'bash':
+        case 'command':
+        case 'terminal':
+            return '<span class="tool-kind-icon">$</span> ';
+        case 'read':
+            return '<span class="tool-kind-icon">📖</span> ';
+        case 'write':
+        case 'edit':
+            return '<span class="tool-kind-icon">✏️</span> ';
+        case 'glob':
+            return '<span class="tool-kind-icon">🔍</span> ';
+        case 'grep':
+        case 'search':
+            return '<span class="tool-kind-icon">🔎</span> ';
+        case 'thinking':
+            return '<span class="tool-kind-icon">💭</span> ';
+        default:
+            return '';
     }
 }
 

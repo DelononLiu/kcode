@@ -73,8 +73,8 @@ _目标：升级 AI 对话消息渲染质量，实现与 Kilo 接近的消息展
 |------|------|------|--------|
 | P6-01 | Markdown 渲染升级（marked + 代码块语法高亮） | ✅ 已完成 | P0 |
 | P6-02 | 流式消息增量渲染优化 | ✅ 已完成 | P0 |
-| P6-03 | Tool 调用 UI 改进（按工具类型差异渲染） | 📋 已调研 | P1 |
-| P6-04 | 对话消息 UX 细节完善（Code 复制、时间戳、Diff 总结） | 📋 已调研 | P2 |
+| P6-03 | Tool 调用 UI 改进（按工具类型差异渲染） | ✅ 已完成 | P1 |
+| P6-04 | 对话消息 UX 细节完善（Code 复制、时间戳、Diff 总结） | ✅ 已完成 | P2 |
 
 **验收标准**：AI 回复代码块带语法高亮，流式输出不闪烁不碎裂，工具调用状态清晰可辨，对话消息信息完整。
 
@@ -139,6 +139,49 @@ _目标：逐步用 KCode 自身开发 KCode，从"能看"到"完全切换"。_
 **调研步骤**:
 1. 在 P6-01 基础上实现增量渲染策略
 2. 处理边界：代码块未闭合时的渲染降级
+
+**状态**: ✅ 已完成
+
+---
+
+### P6-03: Tool 调用 UI 改进（按工具类型差异渲染）
+
+**涉及文件**: `src/kcodeView/webview/app.ts`, `src/kcodeView/KCodePanel.ts`
+
+**调研结果**:
+- `app.ts:852-992` — `renderToolBubbleContent()` 重写为按工具类型差异渲染
+- `app.ts:971-991` — `getToolKindIcon()` 按 tool kind 返回对应图标
+- `KCodePanel.ts:859-875` — 新增 tool 类型 CSS（spinner、bash终端、diff 样式、thinking 样式）
+
+**实现说明**:
+- **bash/command/terminal**: 运行中自动展开且绿色终端风格，完成后自动折叠，支持点击切换
+- **read/glob/grep/search**: 默认折叠卡片，带 ▶/▼ 切换
+- **write/edit**: 默认折叠，内容以 diff 颜色展示，点击展开查看
+- **thinking**: 极简样式（灰色斜体），无展开内容
+- **其他**: 保持原有折叠卡片行为
+- **运行中状态**: 统一显示旋转动画代替 ⏳，完成后切换为 ✅/❌
+- 每个工具类型都有对应的图标前缀（`$` / 📖 / ✏️ / 🔍 / 🔎 / 💭）
+
+**状态**: ✅ 已完成
+
+---
+
+### P6-04: 对话消息 UX 细节完善（Code 复制、时间戳、Diff 总结）
+
+**涉及文件**: `src/kcodeView/webview/app.ts`, `src/kcodeView/KCodePanel.ts`
+
+**调研结果**:
+- Code 复制按钮已通过 marked 渲染器内建（`code-copy-btn`），hover 时显示，点击复制到剪贴板
+- `app.ts:340-345` — `formatTimestamp()` 日期格式化（今天显示 HH:mm，之前显示 MM/DD HH:mm）
+- `app.ts:306-328` — `addUserMessage()` 新增消息时间戳
+- `app.ts:567-592` — `addMessageElement()` 所有消息类型增加时间戳渲染
+- `app.ts:413-430` — `collectChangedFiles()` / `renderMessages()` 扫描 agent 消息后的 write/edit 工具调用，在 agent 消息底部展示变更文件列表
+- `KCodePanel.ts:860` — `.msg-timestamp` CSS
+- `KCodePanel.ts:875` — `.agent-diff-summary` CSS
+
+**实现说明**:
+- 时间戳：每条消息 sender 旁显示，今天仅显示 HH:mm，之前显示 MM/DD HH:mm
+- Diff 总结：agent 文本消息底部自动扫描其后跟随的 write/edit 工具调用，汇总展示📄 变更文件列表，带绿色左边框视觉区隔
 
 **状态**: ✅ 已完成
 

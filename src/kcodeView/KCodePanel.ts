@@ -842,28 +842,39 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tab-content{display:none;height:100%;overflow-y:auto;padding:12px}
 .tab-content.active{display:block}
 .msg-bubble.card-bubble{padding:0;border:none;background:transparent}
-.confirm-card{background:#1f1f23;border:1px solid rgba(255,255,255,.08);border-radius:6px;overflow:hidden}
-.confirm-card-header{padding:8px 14px;background:rgba(255,255,255,.02);font-size:12px;font-weight:600;color:#ccc;border-bottom:1px solid rgba(255,255,255,.05)}
-.confirm-card-body{padding:12px 14px;font-size:13.5px;line-height:1.6;color:#d2d2d4;white-space:pre-wrap;word-wrap:break-word}
-.confirm-card-actions{display:flex;gap:8px;padding:8px 14px 12px;border-top:1px solid rgba(255,255,255,.05)}
-.confirm-btn{flex:1;padding:6px 12px;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .2s}
-.confirm-btn.primary{background:#4a8bb5;color:#fff}
-.confirm-btn.primary:hover{background:#5a9bc8}
-.confirm-btn.secondary{background:rgba(255,255,255,.06);color:#d2d2d4}
-.confirm-btn.secondary:hover{background:rgba(255,255,255,.1)}
-.confirm-btn.cancel{background:transparent;color:#888;border:1px solid rgba(255,255,255,.08)}
-.confirm-btn.cancel:hover{background:rgba(255,255,255,.04);color:#bbb}
-.confirm-card-status{padding:6px 14px 12px;font-size:12px;color:#777;text-align:center}
-.review-changes{user-select:none}
-.review-changes div:hover{background:rgba(255,255,255,.03);border-radius:3px}
-.chat-msg.tool .msg-sender{display:flex;color:#889f7d;font-size:11px;text-transform:none;letter-spacing:0}
+.msg-card{background:#1f1f23;border:1px solid rgba(255,255,255,.08);border-radius:6px;overflow:hidden}
+.msg-card-header{display:flex;align-items:center;padding:7px 12px;font-size:12px;cursor:pointer;user-select:none;gap:6px}
+.msg-card-header:hover{background:rgba(255,255,255,.015)}
+.msg-card-header-text{flex:1;display:flex;align-items:center;gap:5px;min-width:0}
+.msg-card-toggle{font-size:10px;color:#666;flex-shrink:0;transition:transform .2s}
+.msg-card-body{padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05);font-size:13.5px;line-height:1.6;color:#d2d2d4}
+.msg-card-body.collapsed{display:none}
+.msg-card-actions{display:flex;gap:8px;padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05)}
+.msg-card-btn{flex:1;padding:5px 10px;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .2s}
+.msg-card-btn.primary{background:#4a8bb5;color:#fff}
+.msg-card-btn.primary:hover{background:#5a9bc8}
+.msg-card-btn.secondary{background:rgba(255,255,255,.06);color:#d2d2d4}
+.msg-card-btn.secondary:hover{background:rgba(255,255,255,.1)}
+.msg-card-btn.cancel{background:transparent;color:#888;border:1px solid rgba(255,255,255,.08)}
+.msg-card-btn.cancel:hover{background:rgba(255,255,255,.04);color:#bbb}
+.msg-card-status{padding:4px 12px 10px;font-size:12px;color:#777;text-align:center}
+.review-changes{padding:6px 0 0;border-top:1px solid rgba(255,255,255,.04);margin-top:6px}
+.review-changes-label{font-size:11px;color:#888;padding:4px 0 2px}
+.review-changes-item{display:flex;align-items:center;gap:8px;padding:3px 4px;cursor:pointer;font-size:12px;color:#4ec9b0;border-radius:3px;transition:background .15s}
+.review-changes-item:hover{background:rgba(255,255,255,.03)}
+.msg-sender{display:flex;align-items:center;gap:4px}
+.msg-timestamp{font-size:10px;color:#555;font-weight:400}
+.chat-msg.tool{padding:2px 0}
 .chat-msg.tool .msg-bubble{font-size:13px;line-height:1.5;color:#b5c9a8}
-.tool-header{display:flex;align-items:center;gap:6px;font-size:12px;font-family:inherit}
-.tool-toggle{font-size:10px;color:#777;margin-left:auto;flex-shrink:0;padding-left:8px;cursor:pointer;transition:transform .2s}
-.tool-body{font-size:12.5px;line-height:1.5;padding:8px 0 0;margin-top:6px;border-top:1px solid rgba(255,255,255,.05)}
-.tool-body.collapsed{display:none}
+.tool-kind-icon{font-size:12px;flex-shrink:0}
 .tool-body-content{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px;color:#9aa;background:transparent;padding:0}
-.msg-sender{display:flex;align-items:center;gap:4px}`;
+.tool-body-bash{background:rgba(0,0,0,.3);border-radius:3px;padding:8px!important}
+.tool-bash-output{color:#5a9d6b}
+.tool-body-diff{color:#d2d2d4}
+.tool-thinking .msg-card-header{color:#888;font-style:italic}
+.tool-spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.08);border-top-color:#5a9d6b;border-radius:50%;animation:tool-spin .8s linear infinite;flex-shrink:0}
+@keyframes tool-spin{to{transform:rotate(360deg)}}
+.agent-diff-summary{margin-top:10px;padding:6px 10px;background:rgba(78,201,176,.04);border-left:2px solid #4ec9b0;border-radius:3px;font-size:12px;line-height:1.6;color:#9aa}`;
     }
 
     loadTask(taskId: string) {

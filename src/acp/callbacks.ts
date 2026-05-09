@@ -65,10 +65,17 @@ export class KCodeClient implements acp.Client {
                 break;
             case 'tool_call_update': {
                 const item = update.content?.[0];
-                const textContent =
-                    item?.type === 'content' && item.content.type === 'text'
-                        ? item.content.text
-                        : undefined;
+                let textContent: string | undefined;
+                if (item) {
+                    if (item.type === 'content' && (item as any).content?.type === 'text') {
+                        textContent = (item as any).content.text;
+                    } else if (item.type === 'diff') {
+                        textContent = (item as any).newText;
+                    }
+                }
+                if (!textContent && update.rawOutput != null) {
+                    textContent = String(update.rawOutput);
+                }
                 handler.onToolCallUpdate?.(
                     update.toolCallId,
                     update.status ?? 'pending',
