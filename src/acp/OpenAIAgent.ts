@@ -103,7 +103,11 @@ export class OpenAIAgent {
                             handler.onError(json.error.message || JSON.stringify(json.error));
                             return;
                         }
-                        const content = json.choices?.[0]?.delta?.content || '';
+                        const delta = json.choices?.[0]?.delta;
+                        if (delta?.reasoning_content) {
+                            handler.onReasoning?.(delta.reasoning_content);
+                        }
+                        const content = delta?.content || '';
                         if (content) {
                             handler.onText(content);
                         }

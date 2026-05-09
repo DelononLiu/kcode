@@ -32,6 +32,7 @@ export interface FileChange {
 
 export interface AcpMessageHandler {
     onText: (text: string) => void;
+    onReasoning?: (text: string) => void;
     onToolCall?: (toolCallId: string, title: string, kind: string, status: string) => void;
     onToolCallUpdate?: (toolCallId: string, status: string, content?: string) => void;
     onPlan?: (entries: { content: string; priority: string; status: string }[]) => void;

@@ -693,7 +693,9 @@ function createCard(config: {
 
     const body = document.createElement('div');
     body.className = 'msg-card-body';
-    if (config.bodyClassName) body.classList.add(config.bodyClassName);
+    if (config.bodyClassName) {
+        body.className += ' ' + config.bodyClassName;
+    }
     if (config.defaultCollapsed) body.classList.add('collapsed');
 
     if (config.bodyHtml) {
@@ -701,6 +703,7 @@ function createCard(config: {
     } else if (config.bodyMarkdown) {
         body.innerHTML = renderMarkdown(config.bodyMarkdown);
     }
+    requestAnimationFrame(() => { body.scrollTop = body.scrollHeight; });
 
     card.appendChild(body);
 
@@ -914,33 +917,36 @@ function updateToolMessageElement(el: HTMLElement, msg: any) {
     renderToolBubbleContent(bubble as HTMLElement, msg);
 }
 
+function formatToolTitle(kind: string, title: string): string {
+    switch (kind) {
+        case 'read': return '读取 ' + title;
+        case 'write': return '写入 ' + title;
+        case 'edit': return '修改 ' + title;
+        case 'bash':
+        case 'command':
+        case 'terminal': return title;
+        case 'grep':
+        case 'search': return '搜索 ' + title;
+        case 'glob': return '查找 ' + title;
+        case 'thinking': return '推理';
+        default: return title;
+    }
+}
+
 function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
     const kind = msg.kind || '';
     const title = msg.title || '';
-    const status = msg.status || 'pending';
     const content = msg.content || msg.output || '';
 
-    const isRunning = status === 'running' || status === 'pending';
-
-    let statusHtml: string;
-    if (isRunning) {
-        statusHtml = '<span class="tool-spinner"></span>';
-    } else if (status === 'completed') {
-        statusHtml = '✅';
-    } else if (status === 'error' || status === 'failed') {
-        statusHtml = '❌';
-    } else {
-        statusHtml = '⏳';
-    }
-
     const kindIcon = getToolKindIcon(kind);
-    const headerHtml = statusHtml + ' ' + kindIcon + escapeHtml(title);
+    const headerHtml = kindIcon + escapeHtml(formatToolTitle(kind, title));
 
     if (kind === 'thinking') {
         const card = createCard({
             headerHtml,
+            bodyHtml: content ? '<pre class="tool-body-content" style="white-space:pre-wrap;font-size:12.5px;color:#9aa">' + escapeHtml(content) + '</pre>' : undefined,
             defaultCollapsed: false,
-            bodyClassName: 'tool-thinking'
+            bodyClassName: 'tool-card-body tool-thinking'
         });
         bubble.appendChild(card);
         return;
@@ -954,10 +960,10 @@ function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
         bodyHtml = '<pre class="' + preClass + '">' + escapeHtml(content) + '</pre>';
     }
 
-    let bodyClassName = '';
-    if (kind === 'bash' || kind === 'command' || kind === 'terminal') bodyClassName = 'tool-body-bash';
+    let bodyClassName = 'tool-card-body';
+    if (kind === 'bash' || kind === 'command' || kind === 'terminal') bodyClassName += ' tool-body-bash';
 
-    const isDefaultCollapsed = kind === 'thinking' ? false : !isRunning;
+    const isDefaultCollapsed = false;
 
     const card = createCard({
         headerHtml,

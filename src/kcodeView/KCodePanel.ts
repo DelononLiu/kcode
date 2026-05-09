@@ -187,6 +187,20 @@ export class KCodePanel {
     }
 
     private createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string) {
+        const REASONING_ID = '_reasoning';
+        let reasoningText = '';
+        let reasoningActive = false;
+
+        const completeReasoning = () => {
+            if (!reasoningActive) return;
+            reasoningActive = false;
+            const tc = this.activeToolCalls.get(REASONING_ID);
+            if (tc) {
+                tc.status = 'completed';
+                sendToolCallUpdate(REASONING_ID, '推理过程', 'thinking', 'completed', reasoningText);
+            }
+        };
+
         const onError = (error: string) => {
             this.setGenerationState(false);
             if (!isGoalFormatting) {
@@ -220,9 +234,20 @@ export class KCodePanel {
 
         return {
             onText: (chunk: string) => {
+                completeReasoning();
                 this.accumulatedAgentText += chunk;
                 this.stripTaskMarker();
                 sendDisplayUpdate();
+            },
+            onReasoning: (text: string) => {
+                if (!reasoningActive) {
+                    reasoningActive = true;
+                    this.activeToolCalls.set(REASONING_ID, { title: '推理', kind: 'thinking', status: 'running' });
+                }
+                reasoningText += text;
+                const tc = this.activeToolCalls.get(REASONING_ID);
+                if (tc) tc.output = reasoningText;
+                sendToolCallUpdate(REASONING_ID, '推理', 'thinking', 'running', reasoningText);
             },
             onToolCall: (toolCallId: string, title: string, kind: string, status: string) => {
                 this.activeToolCalls.set(toolCallId, { title, kind, status });
@@ -242,6 +267,7 @@ export class KCodePanel {
             },
             onError,
             onDone: (stopReason?: string) => {
+                completeReasoning();
                 this.setGenerationState(false);
                 if (stopReason === 'cancelled') {
                     this.taskStatusMarker = null;
@@ -937,7 +963,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-card-header:hover{background:rgba(255,255,255,.015)}
 .msg-card-header-text{flex:1;display:flex;align-items:center;gap:5px;min-width:0}
 .msg-card-toggle{font-size:10px;color:#666;flex-shrink:0;transition:transform .2s}
-.msg-card-body{padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05);font-size:13.5px;line-height:1.6;color:#d2d2d4}
+.msg-card{background:rgba(0,0,0,.15)}
+.msg-card-body{padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05);font-size:13.5px;line-height:1.6;color:#d2d2d4;overflow-y:auto;max-height:300px}
+.msg-card-body.tool-card-body{max-height:100px}
 .msg-card-body.collapsed{display:none}
 .msg-card-actions{display:flex;gap:8px;padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05)}
 .msg-card-btn{flex:1;padding:5px 10px;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .2s}

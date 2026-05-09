@@ -87,6 +87,9 @@ export class KCodeClient implements acp.Client {
                 handler.onPlan?.(update.entries);
                 break;
             case 'agent_thought_chunk':
+                if (update.content.type === 'text') {
+                    handler.onReasoning?.(update.content.text);
+                }
                 break;
         }
     }
