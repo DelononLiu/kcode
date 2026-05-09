@@ -363,7 +363,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             margin: 1px 4px;
             background: transparent;
         }
-        .task-item:not(.active):hover { background: #252526; }
+        .task-item:not(.active):not(.selected):hover { background: #252526; }
         .task-item.dragging { opacity: 0.5; }
         .task-item.active {
             background: #0E364B;
