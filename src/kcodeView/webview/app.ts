@@ -544,9 +544,9 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
     }
 
     if (msg.type === 'review_request' || msg.type === 'review_approved' || msg.type === 'review_rejected') {
-        const msgDiv = createCardMessageElement();
-        const bubble = msgDiv.querySelector('.msg-bubble')!;
         const taskId = msg.taskId;
+        const msgDiv = createCardMessageElement(taskId);
+        const bubble = msgDiv.querySelector('.msg-bubble')!;
 
         const isPending = msg.type === 'review_request';
         const statusText = msg.type === 'review_approved' ? '✅ 已验收通过' :
@@ -572,9 +572,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
                     text: '驳回 ↩',
                     className: 'secondary',
                     onClick: (e: MouseEvent) => {
-                        const target = e.currentTarget as HTMLElement;
-                        updateCardToStatus(findParentCard(target)!, '↩️ 已驳回');
-                        vscode.postMessage({ type: 'rejectReview', taskId });
+                        showRejectInput(e.currentTarget as HTMLElement, taskId);
                     }
                 }
             ] : undefined
@@ -864,12 +862,30 @@ interface FileChange {
 
 const reviewChangesMap: Map<string, FileChange[]> = new Map();
 
+function getChangeType(original: string, modified: string): { icon: string; label: string } {
+    if (!original) return { icon: '📄', label: '新建' };
+    if (!modified) return { icon: '🗑️', label: '删除' };
+    return { icon: '📝', label: '修改' };
+}
+
+function getChangeSummary(original: string, modified: string): string {
+    if (!original) return '新建文件';
+    if (!modified) return '删除文件';
+    const oLines = original.split('\n').filter(l => l.trim());
+    const mLines = modified.split('\n').filter(l => l.trim());
+    const added = mLines.length - oLines.length;
+    const changed = Math.abs(added);
+    return added >= 0 ? `+${added} 行` : `${added} 行`;
+}
+
 function handleShowReviewRequest(message: any) {
     reviewChangesMap.set(message.taskId, message.changes || []);
 
-    const cards = document.querySelectorAll('.msg-card');
-    const reviewCard = cards[cards.length - 1] as HTMLElement;
-    if (!reviewCard) return;
+    const reviewCard = document.querySelector(`.msg-bubble.card-bubble[data-taskid="${message.taskId}"] .msg-card`) as HTMLElement
+        || document.querySelector('#chat-messages > .chat-msg.agent:last-child .msg-card') as HTMLElement;
+    if (!reviewCard) {
+        return;
+    }
 
     const changes = message.changes as FileChange[];
     if (!changes || changes.length === 0) return;
@@ -889,19 +905,95 @@ function handleShowReviewRequest(message: any) {
     list.appendChild(label);
 
     for (const change of changes) {
+        const type = getChangeType(change.original, change.modified);
+        const summary = getChangeSummary(change.original, change.modified);
+
         const item = document.createElement('div');
         item.className = 'review-changes-item';
-        item.textContent = `📝 ${change.filePath}`;
+
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'review-changes-icon';
+        iconSpan.textContent = type.icon;
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'review-changes-name';
+        nameSpan.textContent = change.filePath;
+
+        const typeLabel = document.createElement('span');
+        typeLabel.className = 'review-changes-type';
+        typeLabel.textContent = type.label;
+
+        const summarySpan = document.createElement('span');
+        summarySpan.className = 'review-changes-summary';
+        summarySpan.textContent = summary;
+
+        item.appendChild(iconSpan);
+        item.appendChild(nameSpan);
+        item.appendChild(typeLabel);
+        item.appendChild(summarySpan);
+
         item.addEventListener('click', () => {
-            (window as any).showDiff(change.original, change.modified);
-            const rightPanel = document.getElementById('right-panel');
-            if (rightPanel) rightPanel.classList.remove('hidden');
-            activateTab('diff');
+            vscode.postMessage({
+                type: 'openNativeDiff',
+                original: change.original,
+                modified: change.modified,
+                filePath: change.filePath
+            });
         });
         list.appendChild(item);
     }
 
     body.appendChild(list);
+}
+
+function showRejectInput(btn: HTMLElement, taskId: string) {
+    const card = findParentCard(btn);
+    if (!card) return;
+
+    const actions = card.querySelector('.msg-card-actions');
+    if (!actions) return;
+
+    const existing = actions.querySelector('.reject-input-area');
+    if (existing) return;
+
+    actions.innerHTML = '';
+
+    const area = document.createElement('div');
+    area.className = 'reject-input-area';
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'reject-input';
+    textarea.placeholder = '驳回原因（可选）...';
+    textarea.rows = 2;
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'reject-btn-row';
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'msg-card-btn primary';
+    confirmBtn.textContent = '确认驳回';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'msg-card-btn secondary';
+    cancelBtn.textContent = '取消';
+
+    confirmBtn.addEventListener('click', () => {
+        const reason = textarea.value.trim();
+        updateCardToStatus(card, reason ? `↩️ 已驳回: ${reason}` : '↩️ 已驳回');
+        vscode.postMessage({ type: 'rejectReview', taskId, reason });
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        vscode.postMessage({ type: 'rejectReview', taskId });
+    });
+
+    btnRow.appendChild(confirmBtn);
+    btnRow.appendChild(cancelBtn);
+    area.appendChild(textarea);
+    area.appendChild(btnRow);
+    actions.appendChild(area);
+
+    textarea.focus();
 }
 
 function updateCardToStatus(card: HTMLElement, statusText: string) {

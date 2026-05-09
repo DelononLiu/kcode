@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as os from 'os';
 import { TaskStore } from '../store/TaskStore';
 import { AcpClient } from '../acp/AcpClient';
 import { FakeAgent } from '../acp/FakeAgent';
@@ -71,13 +73,16 @@ export class KCodePanel {
                     this.handleApproveReview(message.taskId);
                     break;
                 case 'rejectReview':
-                    this.handleRejectReview(message.taskId);
+                    this.handleRejectReview(message.taskId, message.reason);
                     break;
                 case 'showFileDiff':
                     this.handleShowFileDiff(message.original, message.modified);
                     break;
                 case 'stopGeneration':
                     this.handleStopGeneration(message.taskId);
+                    break;
+                case 'openNativeDiff':
+                    this.handleOpenNativeDiff(message.original, message.modified, message.filePath);
                     break;
                 case 'updateGoal':
                     this.handleUpdateGoal(message.taskId, message.goal);
@@ -312,6 +317,7 @@ export class KCodePanel {
                         this.processGoalProposal(tid, this.accumulatedAgentText, originalText);
                     } else {
                         const cleanedText = this.stripTaskMarker();
+                        this.stripFileMarkers();
                         const task = this.store.getTask(tid);
                         if (task?.type === 'task' && this.taskStatusMarker === 'completed') {
                             this.triggerReviewRequest(tid, cleanedText);
@@ -343,12 +349,35 @@ export class KCodePanel {
         return this.accumulatedAgentText;
     }
 
+    private parsedFileChanges: FileChange[] = [];
+
+    private stripFileMarkers(): void {
+        this.parsedFileChanges = [];
+        const lines = this.accumulatedAgentText.split('\n');
+        const kept: string[] = [];
+        for (const line of lines) {
+            const m = line.match(/^\s*\[FILE\]\s+(.+?)\s*\((\w+)\)\s*$/);
+            if (m) {
+                const filePath = m[1].trim();
+                const status = m[2];
+                this.parsedFileChanges.push({
+                    filePath,
+                    original: status === 'new' ? '' : '(see file)',
+                    modified: status === 'deleted' ? '' : '(see file)'
+                });
+            } else {
+                kept.push(line);
+            }
+        }
+        this.accumulatedAgentText = kept.join('\n');
+    }
+
     private buildTaskPrompt(tid: string, userText: string): string {
         const task = this.store.getTask(tid);
         if (!task || task.type !== 'task') return userText;
 
         const goal = task.goal || '(待确认)';
-        const systemPrompt = `[System]\n任务目标：${goal}\n请在回答末尾标注任务状态标记（不显示给用户）：\n- 已完成：[TASK_STATUS: completed]\n- 进行中：[TASK_STATUS: in_progress]\n[/System]\n\n`;
+        const systemPrompt = `[System]\n任务目标：${goal}\n请按以下要求回答：\n1. 回答末尾标注任务状态标记（不显示给用户）：\n   - 已完成：[TASK_STATUS: completed]\n   - 进行中：[TASK_STATUS: in_progress]\n2. 如果你创建、修改或删除了文件，请在回答中用以下格式逐行列出行（不显示给用户）：\n   [FILE] 文件路径 (状态)\n   状态为：new / modified / deleted\n   例如：\n   [FILE] hello.py (new)\n   [FILE] src/main.py (modified)\n[/System]\n\n`;
         return systemPrompt + userText;
     }
 
@@ -526,9 +555,17 @@ export class KCodePanel {
             taskStatus: 'in_review'
         });
 
-        const changes = this.acpClient?.getReviewChanges(tid)
-            || this.fakeAgent?.getReviewChanges(tid)
-            || [];
+        let changes: FileChange[] = [];
+        if (this.acpClient) {
+            changes = this.acpClient.getReviewChanges(tid);
+        } else if (this.fakeAgent) {
+            changes = this.fakeAgent.getReviewChanges(tid);
+        } else if (this.openaiAgent) {
+            changes = this.openaiAgent.getReviewChanges?.(tid) || [];
+        }
+        if (changes.length === 0 && this.parsedFileChanges.length > 0) {
+            changes = this.parsedFileChanges;
+        }
         if (changes.length > 0) {
             this.panel.webview.postMessage({
                 type: 'showReviewRequest',
@@ -572,8 +609,8 @@ export class KCodePanel {
         this.refreshSidebarCallback?.();
     }
 
-    private async handleRejectReview(tid: string) {
-        const rejectMsg = '↩️ 驳回，请继续修改';
+    private async handleRejectReview(tid: string, reason?: string) {
+        const rejectMsg = reason ? `↩️ 驳回: ${reason}` : '↩️ 驳回，请继续修改';
         this.store.addMessage({
             id: `msg_${Date.now()}`,
             taskId: tid,
@@ -1040,8 +1077,16 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-card-status{padding:4px 12px 10px;font-size:12px;color:#777;text-align:center}
 .review-changes{padding:6px 0 0;border-top:1px solid rgba(255,255,255,.04);margin-top:6px}
 .review-changes-label{font-size:11px;color:#888;padding:4px 0 2px}
-.review-changes-item{display:flex;align-items:center;gap:8px;padding:3px 4px;cursor:pointer;font-size:12px;color:#4ec9b0;border-radius:3px;transition:background .15s}
+.review-changes-item{display:flex;align-items:center;gap:8px;padding:4px 4px;cursor:pointer;font-size:12px;color:#4ec9b0;border-radius:3px;transition:background .15s}
 .review-changes-item:hover{background:rgba(255,255,255,.03)}
+.review-changes-icon{flex-shrink:0;font-size:13px}
+.review-changes-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.review-changes-type{font-size:10px;color:#888;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.04);flex-shrink:0}
+.review-changes-summary{font-size:10px;color:#5a9d6b;flex-shrink:0}
+.reject-input-area{padding:4px 0;width:100%}
+.reject-input{width:100%;background:#25252a;border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:12px;padding:5px 7px;resize:vertical;outline:none;min-height:32px}
+.reject-input:focus{border-color:rgba(255,255,255,.2)}
+.reject-btn-row{display:flex;gap:6px;padding:6px 0 0;justify-content:flex-end}
 .msg-sender{display:flex;align-items:center;gap:4px}
 .msg-timestamp{font-size:10px;color:#555;font-weight:400}
 .chat-msg.tool{padding:2px 0}
@@ -1102,6 +1147,21 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
     showDiff(original: string, modified: string) {
         this.panel.webview.postMessage({ type: 'showDiff', original, modified });
+    }
+
+    private async handleOpenNativeDiff(original: string, modified: string, filePath: string) {
+        const ext = path.extname(filePath) || '.txt';
+        const baseName = path.basename(filePath, ext);
+        const timestamp = Date.now();
+        const leftUri = vscode.Uri.file(path.join(os.tmpdir(), `kcode_${baseName}_${timestamp}_original${ext}`));
+        const rightUri = vscode.Uri.file(path.join(os.tmpdir(), `kcode_${baseName}_${timestamp}_modified${ext}`));
+        try {
+            await vscode.workspace.fs.writeFile(leftUri, Buffer.from(original));
+            await vscode.workspace.fs.writeFile(rightUri, Buffer.from(modified));
+            await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, `变更对比: ${baseName}${ext}`);
+        } catch (err) {
+            console.error('[KCode] Failed to open diff:', err);
+        }
     }
 
     private handleShowFileDiff(original: string, modified: string) {

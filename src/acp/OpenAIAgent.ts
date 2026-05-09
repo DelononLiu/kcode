@@ -1,4 +1,4 @@
-import type { AcpMessageHandler } from '../types';
+import type { AcpMessageHandler, FileChange } from '../types';
 
 interface OpenAIConfig {
     apiKey: string;
@@ -9,6 +9,7 @@ interface OpenAIConfig {
 export class OpenAIAgent {
     private handlers: Map<string, AcpMessageHandler> = new Map();
     private abortControllers: Map<string, AbortController> = new Map();
+    private sessionChanges: Map<string, FileChange[]> = new Map();
     private config: OpenAIConfig;
 
     constructor(overrides?: Partial<OpenAIConfig>) {
@@ -137,6 +138,11 @@ export class OpenAIAgent {
     }
 
     createSession(taskId: string): string {
+        this.sessionChanges.set(taskId, []);
         return `openai-session-${taskId}`;
+    }
+
+    getReviewChanges(taskId: string): FileChange[] {
+        return this.sessionChanges.get(taskId) || [];
     }
 }
