@@ -88,19 +88,22 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && node scripts/build-webview.js",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext .ts",
     "package": "npx @vscode/vsce package --allow-missing-repository",
     "build:install": "npm run package && code --install-extension kcode-0.1.0.vsix"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^0.21.0"
+    "@agentclientprotocol/sdk": "^0.21.0",
+    "highlight.js": "^11.11.1",
+    "marked": "^18.0.3"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
     "@types/vscode": "^1.96.0",
     "@vscode/vsce": "^3.4.0",
+    "esbuild": "^0.28.0",
     "typescript": "^5.7.0"
   }
 }

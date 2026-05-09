@@ -1,8 +1,65 @@
-// KCode WebView Main App
-// Handles layout interactions, message passing, and coordinates sub-modules
+import { marked } from 'marked';
+import hljs from 'highlight.js';
 
 declare function acquireVsCodeApi(): any;
 const vscode = acquireVsCodeApi();
+
+marked.use({
+    renderer: {
+        code(token: { text: string; lang?: string }) {
+            const lang = token.lang || '';
+            let highlighted: string;
+            try {
+                if (lang && hljs.getLanguage(lang)) {
+                    highlighted = hljs.highlight(token.text, { language: lang, ignoreIllegals: true }).value;
+                } else {
+                    highlighted = hljs.highlightAuto(token.text).value;
+                }
+            } catch {
+                highlighted = token.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+            const langClass = lang ? `language-${lang}` : '';
+            const langLabel = lang ? `<span class="code-lang-label">${lang}</span>` : '';
+            return `<div class="code-block-wrapper"><div class="code-block-header">${langLabel}<button class="code-copy-btn" data-code="${escapeAttr(token.text)}">复制</button></div><pre><code class="hljs ${langClass}">${highlighted}</code></pre></div>`;
+        }
+    },
+    breaks: true,
+    gfm: true,
+});
+
+function escapeAttr(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderMarkdown(text: string): string {
+    const result = marked.parse(text);
+    return typeof result === 'string' ? result : '';
+}
+
+document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('code-copy-btn')) {
+        const code = target.getAttribute('data-code') || '';
+        navigator.clipboard.writeText(code).then(() => {
+            const orig = target.textContent;
+            target.textContent = '已复制!';
+            setTimeout(() => { target.textContent = orig; }, 1500);
+        }).catch(() => {
+            const pre = target.closest('.code-block-wrapper')?.querySelector('pre');
+            if (pre) {
+                const range = document.createRange();
+                range.selectNode(pre);
+                window.getSelection()?.removeAllRanges();
+                window.getSelection()?.addRange(range);
+                document.execCommand('copy');
+                window.getSelection()?.removeAllRanges();
+                const orig = target.textContent;
+                target.textContent = '已复制!';
+                setTimeout(() => { target.textContent = orig; }, 1500);
+            }
+        });
+    }
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     initLayout();
@@ -10,8 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initChat();
     initMessageHandler();
 });
-
-// ==================== VSCode Message Handler ====================
 
 function initMessageHandler() {
     window.addEventListener('message', (event) => {
@@ -79,33 +134,9 @@ function initMessageHandler() {
             case 'toolCallUpdate':
                 handleToolCallUpdate(message);
                 break;
-
         }
     });
 }
-
-// ==================== Markdown ====================
-
-function simpleMarkdown(text: string): string {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        // fenced code blocks (before inline code so ticks inside are safe)
-        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-        // inline code
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        // bold
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        // italic
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        // links
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-        // newlines to <br>
-        .replace(/\n/g, '<br>');
-}
-
-// ==================== Streaming ====================
 
 let streamMessageEl: HTMLElement | null = null;
 
@@ -117,7 +148,6 @@ function handleAgentStreamUpdate(text: string) {
     if (placeholder) placeholder.remove();
 
     if (!streamMessageEl) {
-        // Create agent streaming bubble
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg agent';
 
@@ -134,11 +164,21 @@ function handleAgentStreamUpdate(text: string) {
         streamMessageEl = bubble;
     }
 
-    const rendered = simpleMarkdown(text);
-
-    streamMessageEl.innerHTML = rendered;
-    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    latestStreamText = text;
+    if (!streamRenderPending) {
+        streamRenderPending = true;
+        setTimeout(() => {
+            streamRenderPending = false;
+            if (streamMessageEl) {
+                streamMessageEl.innerHTML = renderMarkdown(latestStreamText);
+                scrollContainer.scrollTop = scrollContainer.scrollHeight;
+            }
+        }, 50);
+    }
 }
+
+let latestStreamText = '';
+let streamRenderPending = false;
 
 function handleAgentStatus(status: string, message: string) {
     const statusDot = document.getElementById('agent-status-dot');
@@ -148,7 +188,6 @@ function handleAgentStatus(status: string, message: string) {
     }
 }
 
-/** Reset streaming state when loading messages */
 (window as any).__resetStream = () => {
     streamMessageEl = null;
 };
@@ -164,14 +203,10 @@ function activateTab(tabName: string) {
     if (content) content.classList.add('active');
 }
 
-// Track tool call DOM elements for streaming updates
 const activeToolCallElements: Map<string, HTMLElement> = new Map();
 
-// Track the currently selected task ID and status for sending messages
 let activeTaskId: string | null = null;
 let activeTaskStatus: string = '';
-
-// ==================== Layout ====================
 
 function initLayout() {
     const container = document.getElementById('container')!;
@@ -210,14 +245,11 @@ function initLayout() {
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
 
-    // Right panel close button
     const closeBtn = document.getElementById('right-panel-close')!;
     closeBtn.addEventListener('click', () => {
         rightPanel.classList.toggle('hidden');
     });
 }
-
-// ==================== Instruction Toggle ====================
 
 function initInstructionToggle() {
     const toggle = document.querySelector('.instruction-toggle');
@@ -225,8 +257,6 @@ function initInstructionToggle() {
         toggle.classList.toggle('collapsed');
     });
 }
-
-// ==================== Tabs ====================
 
 function initTabs() {
     const tabButtons = document.querySelectorAll('.tab');
@@ -244,8 +274,6 @@ function initTabs() {
         });
     });
 }
-
-// ==================== Chat / Input ====================
 
 function initChat() {
     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
@@ -269,7 +297,6 @@ function initChat() {
         }
     });
 
-    // Input tool buttons
     const settingsBtn = document.querySelector('.settings-btn');
     settingsBtn?.addEventListener('click', () => {
         vscode.postMessage({ type: 'openSettings' });
@@ -333,7 +360,6 @@ function showAgentThinking() {
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
-// Legacy addMessage for compatibility
 function addMessage(role: 'user' | 'agent', content: string) {
     if (role === 'user') {
         addUserMessage(content);
@@ -354,7 +380,7 @@ function addMessage(role: 'user' | 'agent', content: string) {
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
 
-    const rendered = simpleMarkdown(content);
+    const rendered = renderMarkdown(content);
 
     bubble.innerHTML = rendered;
     msgDiv.appendChild(bubble);
@@ -362,8 +388,6 @@ function addMessage(role: 'user' | 'agent', content: string) {
     container.appendChild(msgDiv);
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
-
-// ==================== renderMessages (from chat.ts) ====================
 
 function renderMessages(messages: any[]) {
     activeToolCallElements.clear();
@@ -534,7 +558,7 @@ function addMessageElement(msg: any) {
 
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
-    bubble.innerHTML = simpleMarkdown(content);
+    bubble.innerHTML = renderMarkdown(content);
     msgDiv.appendChild(bubble);
 
     container.appendChild(msgDiv);
@@ -568,8 +592,6 @@ function flashInput() {
     wrapper.classList.add('input-flash');
 }
 
-// ==================== Unified Confirm Card ====================
-
 interface CardButtonConfig {
     text: string;
     className: string;
@@ -599,7 +621,7 @@ function createCardElement(config: CardConfig): HTMLElement {
 
     const body = document.createElement('div');
     body.className = 'confirm-card-body';
-    body.innerHTML = simpleMarkdown(config.body);
+    body.innerHTML = renderMarkdown(config.body);
     card.appendChild(body);
 
     const actions = document.createElement('div');
@@ -633,8 +655,6 @@ function createCardMessageElement(taskId?: string): HTMLElement {
 
     return msgDiv;
 }
-
-// ==================== Review Changes ====================
 
 interface FileChange {
     filePath: string;
@@ -681,8 +701,6 @@ function handleShowReviewRequest(message: any) {
 
     reviewCard.appendChild(list);
 }
-
-// ==================== Goal Confirmation Card ====================
 
 function updateCardToStatus(card: HTMLElement, statusText: string) {
     const actions = card.querySelector('.confirm-card-actions');
@@ -759,8 +777,6 @@ function showGoalConfirmationCard(info: any) {
 function removeGoalConfirmationCard() {
     document.querySelectorAll('.confirm-card').forEach(el => el.remove());
 }
-
-// ==================== Tool Call Messages ====================
 
 function handleToolCallUpdate(msg: any) {
     const container = document.getElementById('chat-messages')!;
@@ -842,7 +858,6 @@ function escapeHtml(text: string): string {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// Export for use by other modules
 (window as any).addMessage = addMessage;
-(window as any).simpleMarkdown = simpleMarkdown;
+(window as any).renderMarkdown = renderMarkdown;
 (window as any).renderMessages = renderMessages;

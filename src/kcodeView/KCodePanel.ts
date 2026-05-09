@@ -755,7 +755,7 @@ export class KCodePanel {
         </div>
     </div>
 
-    <script src="${scriptUri('app')}"></script>
+    <script src="${scriptUri('app.bundle')}"></script>
     <script src="${scriptUri('preview')}"></script>
 </body>
 </html>`;
@@ -787,8 +787,15 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .chat-msg.user .msg-bubble{background:#0e639c;color:#fff;border-bottom-right-radius:2px}
 .chat-msg.agent .msg-bubble{background:#2d2d2d;color:#d4d4d4;border-bottom-left-radius:2px;border:1px solid #3c3c3c}
 .chat-msg.agent .msg-bubble code{background:#1e1e1e;padding:2px 6px;border-radius:3px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px}
-.chat-msg.agent .msg-bubble pre{background:#1e1e1e;padding:12px;border-radius:6px;overflow-x:auto;margin:8px 0;border:1px solid #333}
-.chat-msg.agent .msg-bubble pre code{background:transparent;padding:0}
+.chat-msg.agent .msg-bubble .code-block-wrapper{margin:8px 0;border-radius:6px;overflow:hidden;border:1px solid #333;background:#1e1e1e}
+.chat-msg.agent .msg-bubble .code-block-header{display:flex;align-items:center;justify-content:space-between;padding:4px 12px;background:#252526;border-bottom:1px solid #333;font-size:11px}
+.chat-msg.agent .msg-bubble .code-lang-label{color:#888}
+.chat-msg.agent .msg-bubble .code-copy-btn{background:none;border:none;color:#888;cursor:pointer;font-size:11px;padding:2px 8px;border-radius:3px;font-family:inherit}
+.chat-msg.agent .msg-bubble .code-copy-btn:hover{background:#3c3c3c;color:#ccc}
+.chat-msg.agent .msg-bubble .code-block-wrapper pre{background:transparent;padding:12px;margin:0;border:none;border-radius:0;overflow-x:auto}
+.chat-msg.agent .msg-bubble .code-block-wrapper code.hljs{background:transparent;padding:0;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px;line-height:1.5}
+/* highlight.js vs2015 theme */
+pre code.hljs{display:block;overflow-x:auto;padding:1em}code.hljs{padding:3px 5px}.hljs{background:#1e1e1e;color:#dcdcdc}.hljs-keyword,.hljs-literal,.hljs-symbol,.hljs-name{color:#569cd6}.hljs-link{color:#569cd6;text-decoration:underline}.hljs-built_in,.hljs-type{color:#4ec9b0}.hljs-number,.hljs-class{color:#b8d7a3}.hljs-string,.hljs-meta .hljs-string{color:#d69d85}.hljs-regexp,.hljs-template-tag{color:#9a5334}.hljs-subst,.hljs-function,.hljs-title,.hljs-params,.hljs-formula{color:#dcdcdc}.hljs-comment,.hljs-quote{color:#57a64a;font-style:italic}.hljs-doctag{color:#608b4e}.hljs-meta,.hljs-meta .hljs-keyword,.hljs-tag{color:#9b9b9b}.hljs-variable,.hljs-template-variable{color:#bd63c5}.hljs-attr,.hljs-attribute{color:#9cdcfe}.hljs-section{color:gold}.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}.hljs-bullet,.hljs-selector-attr,.hljs-selector-class,.hljs-selector-id,.hljs-selector-pseudo,.hljs-selector-tag{color:#d7ba7d}.hljs-addition{background-color:#144212;display:inline-block;width:100%}.hljs-deletion{background-color:#600;display:inline-block;width:100%}
 #chat-input-area{border-top:1px solid #2d2d2d;padding:8px 16px 0;background:#1e1e1e;flex-shrink:0;width:100%;max-width:900px;margin:0 auto}
 .input-wrapper{display:flex;align-items:flex-end;gap:8px;background:#2d2d2d;border:1px solid #3c3c3c;border-radius:10px;padding:6px 8px;transition:border-color .15s}
 .input-wrapper:focus-within{border-color:#0e639c}
