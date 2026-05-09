@@ -843,21 +843,21 @@ export class KCodePanel {
     private getInlineStyles(): string {
         return `/* === Reset & Base === */
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:#ccc;background:#1b1b1f}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:#ccc;background:var(--vscode-sideBar-background,#1e1e1e)}
 #container{display:flex;height:100vh;width:100vw;overflow:hidden}
 .splitter{width:3px;cursor:col-resize;background:rgba(255,255,255,.04);flex-shrink:0;z-index:10;transition:background .2s}
 .splitter:hover,.splitter.active{background:rgba(255,255,255,.12)}
-#chat-area{flex:1;display:flex;flex-direction:column;min-width:300px;background:#1b1b1f}
+#chat-area{flex:1;display:flex;flex-direction:column;min-width:300px;background:var(--vscode-sideBar-background,#1e1e1e)}
 #task-info{display:flex;align-items:baseline;gap:20px;padding:14px 24px 12px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;background:linear-gradient(180deg,rgba(255,255,255,.015) 0%,transparent 100%)}
 #task-info-primary{display:flex;align-items:center;gap:10px}
 .task-info-title{font-size:15px;font-weight:700;color:#e8e8ec;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:520px;letter-spacing:-.2px}
 #task-info-secondary{display:flex;align-items:center;gap:14px;font-size:11px;color:#666}
-#chat-scroll{flex:1;overflow-y:auto;min-height:0;background:#1b1b1f;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
+#chat-scroll{flex:1;overflow-y:auto;min-height:0;background:var(--vscode-sideBar-background,#1e1e1e);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
 #chat-scroll::-webkit-scrollbar{width:6px}
 #chat-scroll::-webkit-scrollbar-track{background:transparent}
 #chat-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px}
 #chat-scroll::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.15)}
-#chat-messages{max-width:860px;margin:0 auto;padding:0 24px;min-height:100%;width:100%}
+#chat-messages{padding:0 24px;min-height:100%;width:100%}
 #chat-scroll.chat-empty{display:none}
 #chat-area:has(#chat-scroll.chat-empty){justify-content:center}
 #chat-area:has(#chat-scroll.chat-empty) #task-info{display:none}
@@ -892,7 +892,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .chat-msg .msg-bubble .code-block-wrapper pre::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.12)}
 .chat-msg .msg-bubble .code-block-wrapper code.hljs{font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12.5px;line-height:1.55;background:transparent;padding:0;display:block}
 .hljs{color:#d2d2d4}.hljs-keyword,.hljs-literal,.hljs-symbol,.hljs-name{color:#569cd6}.hljs-link{color:#569cd6;text-decoration:underline}.hljs-built_in,.hljs-type{color:#4ec9b0}.hljs-number,.hljs-class{color:#b5cea8}.hljs-string,.hljs-meta .hljs-string{color:#d69d85}.hljs-regexp,.hljs-template-tag{color:#9a5334}.hljs-subst,.hljs-function,.hljs-title,.hljs-params,.hljs-formula{color:#dcdcaa}.hljs-comment,.hljs-quote{color:#6a9955;font-style:italic}.hljs-doctag{color:#608b4e}.hljs-meta,.hljs-meta .hljs-keyword,.hljs-tag{color:#808080}.hljs-variable,.hljs-template-variable{color:#bd63c5}.hljs-attr,.hljs-attribute{color:#9cdcfe}.hljs-section{color:gold}.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}.hljs-bullet,.hljs-selector-attr,.hljs-selector-class,.hljs-selector-id,.hljs-selector-pseudo,.hljs-selector-tag{color:#d7ba7d}.hljs-addition{background:#144212;display:inline-block;width:100%}.hljs-deletion{background:#600;display:inline-block;width:100%}
-#chat-input-area{border-top:1px solid rgba(255,255,255,.06);padding:12px 24px 10px;background:#1b1b1f;flex-shrink:0}
+#chat-input-area{border-top:1px solid rgba(255,255,255,.06);padding:12px 24px 10px;background:var(--vscode-sideBar-background,#1e1e1e);flex-shrink:0}
 .input-wrapper{background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:10px 12px;transition:border-color .2s,box-shadow .2s}
 .input-wrapper:focus-within{border-color:rgba(255,255,255,.15);box-shadow:0 0 0 2px rgba(255,255,255,.03)}
 .input-wrapper.input-flash{animation:input-flash .8s ease-out}
@@ -918,7 +918,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .thinking-dots .dot:nth-child(2){animation-delay:-0.16s}
 .thinking-dots .dot:nth-child(3){animation-delay:0s}
 @keyframes dot-bounce{0%,80%,100%{transform:scale(0.6);opacity:.3}40%{transform:scale(1);opacity:.8}}
-#right-panel{width:320px;min-width:200px;max-width:600px;background:#1f1f23;border-left:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;transition:width .2s ease}
+#right-panel{width:320px;min-width:200px;max-width:600px;background:var(--vscode-sideBar-background,#1e1e1e);border-left:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;transition:width .2s ease}
 #right-panel.hidden{width:0!important;min-width:0;overflow:hidden;border-left:none}
 #right-panel-header{display:flex;align-items:center;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
 .tabs{display:flex;flex:1;overflow-x:auto}
