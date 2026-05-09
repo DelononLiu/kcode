@@ -133,6 +133,27 @@ src/
 
 ---
 
+### Phase 7—10: 自举之路
+
+**自举定义**：使用 KCode 自身来开发 KCode，即 KCode 的 AI Agent 能够对 KCode 源码进行读、写、编译、调试、打包的全流程操作，开发者只需通过对话下达指令即可完成开发任务。
+
+```
+能力线：Phase 6 打磨体验 → Phase 7 修小bug → Phase 8 做小功能
+     → Phase 9 主导开发 → Phase 10 完全切换
+```
+
+| Phase | 自举等级 | 目标 | 条件 |
+|-------|---------|------|------|
+| **6** | 🟫 Level 0 — 能看 | 提升 AI 输出可读性，开发者能看清 AI 写的代码 | P0 完成：语法高亮 + 流畅流式 |
+| **7** | 🟥 Level 1 — 能改 | KCode 可参与修小 bug，开发者信任 AI 做局部修复 | Phase 6 全量完成 + 实践中修复若干真实 issue |
+| **8** | 🟧 Level 2 — 能造 | KCode 能完成独立小功能，从零到 PR 全流程 | 验证：用 KCode 完成至少 1 个 Phase 功能 |
+| **9** | 🟨 Level 3 — 能带 | KCode 主导功能开发，开发者只做 code review | 验证：连做 3 个功能，AI 产出代码无需大改 |
+| **10** | 🟩 Level 4 — 能吃 | 团队完全切换到 KCode 开发 KCode，不再用其他 AI 工具 | 验证：用 KCode 完成一次完整的 release 迭代 |
+
+> **当前阶段：🟫 Level 0** — Phase 6 P0 尚未完成，AI 输出可读性不足。
+
+---
+
 ## 任务状态机
 
 ### 状态定义
@@ -171,7 +192,7 @@ pending ────────→ active ──→ in_review ──→ complet
 
 | 文件 | 改动 |
 |------|------|
-| `types/index.ts` | Task 新增 `goal: string`；`status` 为 `pending | active | in_review | completed | cancelled` |
+| `types/index.ts` | Task 新增 `goal: string`；`status` 为 `pending \| active \| in_review \| completed \| cancelled` |
 | `store/TaskStore.ts` | `updateTaskStatus` 不再强行重置其他任务为 pending；`addTask` 需 goal；移除 `findEmptyTask` |
 | `KCodePanel.ts` | `handleSendMessage` 分支：pending 态触发开始执行，active 态才执行；新建任务流程 |
 | `KCodeSidebarProvider.ts` | 处理开始执行/取消/验收消息 |
