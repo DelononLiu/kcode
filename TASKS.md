@@ -84,15 +84,21 @@ _目标：升级 AI 对话消息渲染质量，实现与 Kilo 接近的消息展
 
 **涉及文件**: `src/kcodeView/webview/app.ts`, `src/kcodeView/KCodePanel.ts`, `package.json`
 
+**Kilo 参考**:
+- `packages/kilo-ui/src/components/markdown.tsx` — Markdown 组件，用 `marked` + `shiki` 渲染
+- `packages/kilo-ui/src/components/markdown.css` — Markdown 样式
+- `packages/kilo-ui/src/components/code.tsx` — 代码块渲染（高亮 + 复制按钮）
+
 **调研结果**:
 - `app.ts:89-106` — `simpleMarkdown()` 纯正则替换，缺失：代码块语法高亮、标题、列表、表格、引用、分割线
 - `KCodePanel.ts:764-853` — `getInlineStyles()` 内联 CSS，代码块预/码样式需扩展
 - WebView 当前通过 `<script src="out/...js">` 加载编译后 JS（无打包工具），无法直接 npm import。需引入 CDN 加载 `marked` + `highlight.js`，或引入 esbuild/vite 打包 webview 脚本
 
 **调研步骤**:
-1. 确认 `package.json` 已安装的构建工具情况
-2. 决定方案：CDN 加载 vs 内置打包
-3. 安装 `marked` 库并集成到 webview
+1. 读取 Kilo 的 `markdown.tsx` 确认 `marked` 用法和配置
+2. 确认 `package.json` 已安装的构建工具情况
+3. 决定方案：CDN 加载 vs 内置打包
+4. 安装 `marked` 库并集成到 webview
 
 **状态**: 📋 已调研
 
@@ -101,6 +107,10 @@ _目标：升级 AI 对话消息渲染质量，实现与 Kilo 接近的消息展
 ### P6-02: 流式消息增量渲染优化（P0）
 
 **涉及文件**: `src/kcodeView/webview/app.ts`, `src/kcodeView/KCodePanel.ts`
+
+**Kilo 参考**:
+- `packages/kilo-ui/src/components/message-part.tsx:1258-1412` — `TextPartDisplay` 用 `createThrottledValue` 节流流式文本，每次只更新文本内容而非重建 DOM
+- `packages/kilo-ui/src/components/markdown.tsx` — 底层的 Markdown 组件支持增量文本更新
 
 **调研结果**:
 - `app.ts:112-141` — `handleAgentStreamUpdate()` 每 chunk 全量 `innerHTML = rendered`，破坏流式过程中的代码块
@@ -120,6 +130,14 @@ _目标：升级 AI 对话消息渲染质量，实现与 Kilo 接近的消息展
 
 **涉及文件**: `src/kcodeView/webview/app.ts`, `src/kcodeView/KCodePanel.ts`
 
+**Kilo 参考**:
+- `packages/kilo-ui/src/components/basic-tool.tsx` — `BasicTool` 可折叠卡片（图标 + 参数 + 展开输出），所有工具的基础 UI
+- `packages/kilo-ui/src/components/message-part.tsx:1153-1241` — `ToolPartDisplay` 通过 `PART_MAPPING` + `ToolRegistry` 按工具类型分发渲染
+- `packages/kilo-ui/src/components/message-part.tsx:184-293` — `getToolInfo()` 根据工具名返回对应 icon/title/subtitle
+- `packages/kilo-ui/src/components/shell-rolling-results.tsx` — bash 工具的实时输出流渲染
+- `packages/kilo-ui/src/components/context-tool-results.tsx` — read/glob/list 上下文工具的折叠渲染
+- `packages/kilo-ui/src/components/tool-utils.ts` — 工具状态工具函数（`busy`、`useToolFade` 等）
+
 **调研结果**:
 - `app.ts:785-839` — Tool 消息渲染只有一种深绿色气泡样式，不区分工具类型
 - `app.ts:810-838` — `renderToolBubbleContent()` 通用展示 `status + kind: title`，output 折叠在 `pre` 中
@@ -127,10 +145,11 @@ _目标：升级 AI 对话消息渲染质量，实现与 Kilo 接近的消息展
 - 当前 KCode 每个 tool 都是同一套样式，没有 pending/running/completed 的状态动画
 
 **调研步骤**:
-1. 定义工具类型和对应的渲染配置映射表
-2. 为 bash 工具增加实时输出流渲染
-3. 为 read/write/glob 增加文件路径 subtitle
-4. 添加 pending → running → completed 状态过渡动画
+1. 读 Kilo `getToolInfo()` + `PART_MAPPING` 理解工具注册机制
+2. 定义工具类型和对应的渲染配置映射表（KCode 用 Object 映射即可）
+3. 为 bash 工具增加实时输出流渲染
+4. 为 read/write/glob 增加文件路径 subtitle
+5. 添加 pending → running → completed 状态过渡动画
 
 **状态**: 📋 已调研
 
@@ -140,6 +159,11 @@ _目标：升级 AI 对话消息渲染质量，实现与 Kilo 接近的消息展
 
 **涉及文件**: `src/kcodeView/webview/app.ts`, `src/kcodeView/KCodePanel.ts`
 
+**Kilo 参考**:
+- `packages/kilo-ui/src/components/code.tsx` — 代码块 + 右上角复制按钮实现
+- `packages/kilo-ui/src/components/message-part.tsx:724-925` — `UserMessageDisplay` 时间戳 + model 名渲染
+- `packages/kilo-vscode/webview-ui/src/components/chat/VscodeSessionTurn.tsx:80-92` — Diff 总结条（`diffs()` 提取文件变更，`DiffChanges` 组件渲染 +X -Y）
+
 **调研结果**:
 - `app.ts:279-301` — `addUserMessage()` 只有文本，没有时间戳、文件附件、model 信息
 - `app.ts:527-542` — Agent 消息底部没有 Code 复制按钮、没有反馈 thumbs
@@ -147,9 +171,12 @@ _目标：升级 AI 对话消息渲染质量，实现与 Kilo 接近的消息展
 - Kilo 做法：用户消息带时间 + model 名；代码块 hover 出复制按钮；每个 turn 底部自动显示 `N files changed (+X -Y)` 摘要条
 
 **调研步骤**:
-1. 消息元信息扩展：时间戳、状态标签
-2. 代码块右上角增加复制按钮
-3. Agent 回复末尾增加 Diff 总结条（文件数 + 增删行数），点击跳转右侧 Diff tab
+1. 读 Kilo `UserMessageDisplay` 了解时间戳 + model 信息渲染
+2. 读 Kilo `code.tsx` 了解代码块复制按钮实现
+3. 读 Kilo `VscodeSessionTurn` 了解 Diff 总结条的实现
+4. 消息元信息扩展：时间戳、状态标签
+5. 代码块右上角增加复制按钮
+6. Agent 回复末尾增加 Diff 总结条（文件数 + 增删行数），点击跳转右侧 Diff tab
 
 **状态**: 📋 已调研
 
