@@ -711,6 +711,10 @@ export class KCodePanel {
             <div id="chat-scroll" class="chat-empty">
                 <div id="chat-messages">
                     <div class="chat-placeholder">输入需求，开始与 AI 对话</div>
+                    <div id="working-indicator" class="hidden">
+                        <span class="working-spinner"></span>
+                        <span class="working-text">思考中</span>
+                    </div>
                 </div>
             </div>
             <div id="chat-input-area">
@@ -784,6 +788,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-area:has(#chat-scroll.chat-empty) #task-info{display:none}
 #chat-area:has(#chat-scroll.chat-empty) #chat-input-area{border-top:none}
 .chat-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:14px;user-select:none}
+#working-indicator{display:flex;align-items:center;gap:8px;padding:8px 0 4px;font-size:12px;color:#888;width:100%}
+#working-indicator.hidden{display:none}
+.working-spinner{width:12px;height:12px;border:2px solid rgba(255,255,255,.08);border-top-color:#5a9d6b;border-radius:50%;animation:tool-spin .8s linear infinite;flex-shrink:0}
+.working-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chat-msg{padding:14px 0}
 .chat-msg+.chat-msg{border-top:1px solid rgba(255,255,255,.03)}
 .chat-msg.user{text-align:right}

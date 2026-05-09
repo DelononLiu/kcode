@@ -73,6 +73,7 @@ function initMessageHandler() {
         const message = event.data;
         switch (message.type) {
             case 'loadMessages':
+                hideWorkingIndicator();
                 streamMessageEl = null;
                 activeTaskId = message.taskId;
                 activeTaskStatus = message.taskStatus || '';
@@ -140,6 +141,16 @@ function initMessageHandler() {
 
 let streamMessageEl: HTMLElement | null = null;
 
+function appendToChatMessages(el: Element) {
+    const container = document.getElementById('chat-messages')!;
+    const indicator = document.getElementById('working-indicator');
+    if (indicator && !indicator.classList.contains('hidden') && indicator.parentElement === container) {
+        container.insertBefore(el, indicator);
+    } else {
+        container.appendChild(el);
+    }
+}
+
 function handleAgentStreamUpdate(text: string) {
     const container = document.getElementById('chat-messages')!;
     const scrollContainer = document.getElementById('chat-scroll')!;
@@ -148,6 +159,8 @@ function handleAgentStreamUpdate(text: string) {
     if (placeholder) placeholder.remove();
 
     if (!streamMessageEl) {
+        hideWorkingIndicator();
+
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg agent';
 
@@ -160,7 +173,7 @@ function handleAgentStreamUpdate(text: string) {
         bubble.className = 'msg-bubble';
         msgDiv.appendChild(bubble);
 
-        container.appendChild(msgDiv);
+        appendToChatMessages(msgDiv);
         streamMessageEl = bubble;
     }
 
@@ -336,40 +349,27 @@ function addUserMessage(content: string) {
     bubble.textContent = content;
     msgDiv.appendChild(bubble);
 
-    container.appendChild(msgDiv);
+    appendToChatMessages(msgDiv);
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
 function showAgentThinking() {
-    if (streamMessageEl) return;
-    const container = document.getElementById('chat-messages')!;
-    const scrollContainer = document.getElementById('chat-scroll')!;
+    const indicator = document.getElementById('working-indicator');
+    if (!indicator) return;
+    const container = document.getElementById('chat-messages');
+    const scrollContainer = document.getElementById('chat-scroll');
+    if (!container || !scrollContainer) return;
+
     scrollContainer.classList.remove('chat-empty');
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
 
-    const msgDiv = document.createElement('div');
-    msgDiv.className = 'chat-msg agent';
-
-    const sender = document.createElement('div');
-    sender.className = 'msg-sender';
-    sender.textContent = 'Agent';
-    msgDiv.appendChild(sender);
-
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble';
-    const dots = document.createElement('div');
-    dots.className = 'thinking-dots';
-    for (let i = 0; i < 3; i++) {
-        const dot = document.createElement('span');
-        dot.className = 'dot';
-        dots.appendChild(dot);
+    indicator.classList.remove('hidden');
+    const textEl = indicator.querySelector('.working-text') as HTMLElement;
+    if (textEl) textEl.textContent = '思考中';
+    if (indicator.parentElement === container) {
+        container.appendChild(indicator);
     }
-    bubble.appendChild(dots);
-    msgDiv.appendChild(bubble);
-
-    container.appendChild(msgDiv);
-    streamMessageEl = bubble;
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
@@ -398,7 +398,7 @@ function addMessage(role: 'user' | 'agent', content: string) {
     bubble.innerHTML = rendered;
     msgDiv.appendChild(bubble);
 
-    container.appendChild(msgDiv);
+    appendToChatMessages(msgDiv);
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
@@ -425,12 +425,16 @@ function renderMessages(messages: any[]) {
     const scrollContainer = document.getElementById('chat-scroll');
     if (!container || !scrollContainer) return;
 
+    const existingIndicator = document.getElementById('working-indicator');
+
     container.innerHTML = '';
+    if (existingIndicator) container.appendChild(existingIndicator);
 
     const inputEl = document.getElementById('chat-input') as HTMLTextAreaElement;
     if (!messages || messages.length === 0) {
         scrollContainer.classList.add('chat-empty');
         container.innerHTML = '<div class="chat-placeholder">输入需求，开始与 AI 对话</div>';
+        if (existingIndicator) container.appendChild(existingIndicator);
         if (inputEl) inputEl.placeholder = '输入需求，开始与 AI 对话';
         focusChatInput();
         return;
@@ -488,7 +492,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
             updateCardToStatus(card, '✅ 已确认');
         }
         bubble.appendChild(card);
-        container.appendChild(msgDiv);
+        appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
     }
@@ -533,7 +537,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
             updateCardToStatus(card, statusText);
         }
         bubble.appendChild(card);
-        container.appendChild(msgDiv);
+        appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
     }
@@ -554,7 +558,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
 
         renderToolBubbleContent(bubble, toolInfo);
 
-        container.appendChild(msgDiv);
+        appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
     }
@@ -582,7 +586,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
 
     msgDiv.appendChild(bubble);
 
-    container.appendChild(msgDiv);
+    appendToChatMessages(msgDiv);
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
@@ -770,6 +774,7 @@ function findParentCard(el: HTMLElement): HTMLElement | null {
 }
 
 function showGoalConfirmationCard(info: any) {
+    hideWorkingIndicator();
     const container = document.getElementById('chat-messages')!;
     const scrollContainer = document.getElementById('chat-scroll')!;
 
@@ -823,7 +828,7 @@ function showGoalConfirmationCard(info: any) {
     });
 
     bubble.appendChild(card);
-    container.appendChild(msgDiv);
+    appendToChatMessages(msgDiv);
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
@@ -842,11 +847,13 @@ function handleToolCallUpdate(msg: any) {
 
     if (!toolEl) {
         toolEl = createToolMessageElement(msg);
-        container.appendChild(toolEl);
+        appendToChatMessages(toolEl);
         activeToolCallElements.set(msg.toolCallId, toolEl);
     } else {
         updateToolMessageElement(toolEl, msg);
     }
+
+    updateWorkingIndicator(msg);
 
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
@@ -950,6 +957,25 @@ function getToolKindIcon(kind: string): string {
 
 function escapeHtml(text: string): string {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function updateWorkingIndicator(msg: any) {
+    const indicator = document.getElementById('working-indicator');
+    if (!indicator || indicator.classList.contains('hidden')) return;
+    const textEl = indicator.querySelector('.working-text') as HTMLElement;
+    if (!textEl) return;
+    const status = msg.status || 'pending';
+    const isRunning = status === 'running' || status === 'pending';
+    if (isRunning && msg.title) {
+        textEl.textContent = msg.title;
+    } else if (!isRunning) {
+        textEl.textContent = '思考中';
+    }
+}
+
+function hideWorkingIndicator() {
+    const indicator = document.getElementById('working-indicator');
+    if (indicator) indicator.classList.add('hidden');
 }
 
 (window as any).addMessage = addMessage;
