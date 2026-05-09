@@ -5,15 +5,19 @@ agent: general
 
 根据 AGENTS.md 中的 Git 提交规范执行：
 
-## 调研阶段
-并行执行：
-1. `!git status` - 查看工作区状态
-2. `!git diff` - 查看具体改动
+## 1. 调研（单次 Shell）
 
-## 分析
-- 检查是否有敏感文件（如 .env、credentials.json），如果有则警告不要提交
+运行一条命令获取全部状态：
+```
+git status --porcelain && echo "===DIFF===" && git diff && echo "===STAGED===" && git diff --cached && echo "===LOG===" && git log --oneline -5
+```
+
+## 2. 分析
+
+检查输出中是否有敏感文件（.env、credentials.json 等），有则警告不要提交。根据改动内容分析性质和范围，草拟提交消息。
 
 ## 消息格式
+
 ```
 <type>: <简短描述>
 
@@ -24,11 +28,12 @@ agent: general
 
 **规则**：简短描述不超过 50 字，使用中文
 
-## 执行
-- `git add` 将所有修改和未跟踪的文件加入暂存区（排除敏感文件后）
-- 执行 `git commit -m "<消息>"`，消息包含类型、简短描述和可选的正文（说明 why）
+## 3. 执行（单次 Shell）
+
+```
+git add -A && git commit -m "<消息>" && git status --short
+```
 
 ## 原则
 - 不要自动 push
 - 如果提交被 hook 拒绝，修复问题后重新提交（不要 amend）
-- 不需要用户确认，直接完成整个流程
