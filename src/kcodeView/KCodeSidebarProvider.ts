@@ -240,9 +240,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             overflow-y: auto;
             padding: 4px 0;
         }
-        #sidebar-content::-webkit-scrollbar { width: 4px; }
-        #sidebar-content::-webkit-scrollbar-track { background: transparent; }
-        #sidebar-content::-webkit-scrollbar-thumb { background: var(--vscode-scrollbarSlider-background, #555); border-radius: 2px; }
+        #sidebar-content{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
 
         /* --- Action Bar --- */
         .action-bar {
@@ -521,36 +519,23 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             align-items: center;
             background: var(--vscode-sideBar-background, #1e1e1e);
         }
-        .batch-count {
-            font-size: 11px;
-            color: var(--vscode-descriptionForeground, #888);
-            white-space: nowrap;
-            margin-right: 4px;
-        }
-        .batch-bar-btn {
-            flex: 1;
-            padding: 4px 8px;
-            background: var(--vscode-button-background, #0e639c);
-            color: var(--vscode-button-foreground, #fff);
+        #btn-batch-clear {
+            padding: 2px 6px;
+            background: transparent;
+            color: var(--vscode-sideBar-foreground, #888);
             border: none;
             border-radius: 3px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 13px;
             font-family: inherit;
-            text-align: center;
+            line-height: 1;
+            margin-left: auto;
         }
-        .batch-bar-btn:hover {
-            background: var(--vscode-button-hoverBackground, #1177bb);
-        }
-        .batch-bar-btn#btn-batch-clear {
-            flex: 0 0 auto;
-            padding: 4px 6px;
-            background: transparent;
-            color: var(--vscode-sideBar-foreground, #888);
-        }
-        .batch-bar-btn#btn-batch-clear:hover {
+        #btn-batch-clear:hover {
             background: var(--vscode-list-hoverBackground, #2a2d2e);
+            color: var(--vscode-sideBar-foreground, #ccc);
         }
+
 
         /* --- Multi-select --- */
         .task-item.selected {
@@ -595,9 +580,6 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     </div>
 
     <div id="batch-bar" class="batch-bar" style="display:none">
-        <span id="batch-count" class="batch-count"></span>
-        <button id="btn-batch-delete" class="batch-bar-btn">删除选中</button>
-        <button id="btn-batch-pin" class="batch-bar-btn">置顶</button>
         <button id="btn-batch-clear" class="batch-bar-btn" title="取消选择">✕</button>
     </div>
 

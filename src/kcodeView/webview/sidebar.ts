@@ -38,32 +38,6 @@ declare function acquireVsCodeApi(): any;
             });
         }
 
-        const batchDeleteBtn = document.getElementById('btn-batch-delete');
-        if (batchDeleteBtn) {
-            batchDeleteBtn.addEventListener('click', () => {
-                if (selectedTaskIds.size === 0) return;
-                const ids = [...selectedTaskIds];
-                selectedTaskIds.clear();
-                updateSelectionVisual();
-                updateBatchActionBar();
-                vscode.postMessage({ type: 'deleteTasks', taskIds: ids });
-            });
-        }
-
-        const batchPinBtn = document.getElementById('btn-batch-pin');
-        if (batchPinBtn) {
-            batchPinBtn.addEventListener('click', () => {
-                if (selectedTaskIds.size === 0) return;
-                const ids = [...selectedTaskIds];
-                const tasks = JSON.parse(document.getElementById('__sidebarData')?.dataset.tasks || '[]');
-                const allPinned = ids.every((id: string) => {
-                    const t = tasks.find((x: any) => x.id === id);
-                    return t && t.pinned;
-                });
-                vscode.postMessage({ type: 'pinTasks', taskIds: ids, pinned: !allPinned });
-            });
-        }
-
         const batchClearBtn = document.getElementById('btn-batch-clear');
         if (batchClearBtn) {
             batchClearBtn.addEventListener('click', () => {
@@ -397,24 +371,8 @@ declare function acquireVsCodeApi(): any;
 
     function updateBatchActionBar() {
         const bar = document.getElementById('batch-bar');
-        const countEl = document.getElementById('batch-count');
-        const pinBtn = document.getElementById('btn-batch-pin');
         if (!bar) return;
-        const count = selectedTaskIds.size;
-        if (count > 0) {
-            bar.style.display = 'flex';
-            if (countEl) countEl.textContent = `已选 ${count}`;
-            if (pinBtn) {
-                const tasks = JSON.parse(document.getElementById('__sidebarData')?.dataset.tasks || '[]');
-                const allPinned = Array.from(selectedTaskIds).every((id: string) => {
-                    const t = tasks.find((x: any) => x.id === id);
-                    return t && t.pinned;
-                });
-                pinBtn.textContent = allPinned ? '取消置顶' : '置顶';
-            }
-        } else {
-            bar.style.display = 'none';
-        }
+        bar.style.display = selectedTaskIds.size > 0 ? 'flex' : 'none';
     }
 
     function getStatusIndicator(task: any): { text: string; className: string } {

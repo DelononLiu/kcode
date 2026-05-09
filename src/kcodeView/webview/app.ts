@@ -370,7 +370,7 @@ function addUserMessage(content: string) {
 
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
-    bubble.textContent = content;
+    bubble.innerHTML = escapeHtml(content).replace(/\n/g, '<br>');
     msgDiv.appendChild(bubble);
 
     appendToChatMessages(msgDiv);
