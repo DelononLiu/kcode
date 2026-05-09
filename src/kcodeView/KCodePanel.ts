@@ -894,7 +894,12 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .working-spinner{width:12px;height:12px;border:2px solid rgba(255,255,255,.08);border-top-color:#5a9d6b;border-radius:50%;animation:tool-spin .8s linear infinite;flex-shrink:0}
 .working-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chat-msg{padding:14px 0}
-.chat-msg+.chat-msg{border-top:1px solid rgba(255,255,255,.03)}
+.msg-row{display:flex;align-items:center;min-height:20px}
+.chat-msg.agent .msg-row{justify-content:flex-start;padding-left:2px}
+.chat-msg.user .msg-row{justify-content:flex-end}
+.copy-msg-btn{opacity:0;flex-shrink:0;background:none;border:none;color:#555;cursor:pointer;padding:2px 4px;border-radius:3px;line-height:1;transition:opacity .2s,color .2s,background .2s;display:inline-flex;align-items:center;gap:3px;font-size:12px;font-family:inherit}
+.chat-msg:hover .copy-msg-btn{opacity:1}
+.copy-msg-btn:hover{background:rgba(255,255,255,.04);color:#999}
 .chat-msg.user{text-align:right}
 .chat-msg .msg-sender{display:none}
 .chat-msg .msg-bubble{font-size:13.5px;line-height:1.6;word-wrap:break-word;color:#d2d2d4}

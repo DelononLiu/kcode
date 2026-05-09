@@ -65,7 +65,7 @@ declare function acquireVsCodeApi(): any;
             const message = event.data;
             switch (message.type) {
                 case 'updateTaskList':
-                    renderTaskList(message.tasks, message.groups || [], message.activeTaskId);
+                    renderTaskList(message.tasks, message.groups || [], message.activeTaskId, message.editingGroupName);
                     break;
             }
         });
@@ -236,7 +236,7 @@ declare function acquireVsCodeApi(): any;
         }
     }
 
-    function renderTaskList(tasks: any[], groups: string[], activeTaskId?: string) {
+    function renderTaskList(tasks: any[], groups: string[], activeTaskId?: string, editingGroupName?: string) {
         const pinnedList = document.getElementById('pinned-list');
         const taskList = document.getElementById('task-list');
         if (!taskList) return;
@@ -308,6 +308,20 @@ declare function acquireVsCodeApi(): any;
         }
 
         updateSelectionVisual();
+
+        if (editingGroupName) {
+            requestAnimationFrame(() => {
+                const header = document.querySelector(`.section-header[data-group-name="${editingGroupName}"]`);
+                if (header) {
+                    const label = header.querySelector('.group-label');
+                    if (label) {
+                        startInlineEdit(label as HTMLElement, editingGroupName, (newName) => {
+                            vscode.postMessage({ type: 'renameGroup', groupName: editingGroupName, currentName: newName });
+                        });
+                    }
+                }
+            });
+        }
     }
 
     function makeContainerDropTarget(el: HTMLElement, group: string | null) {

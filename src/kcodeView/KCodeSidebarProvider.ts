@@ -128,20 +128,16 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         });
     }
 
-    private async createNewGroup(): Promise<void> {
-        const name = await vscode.window.showInputBox({
-            prompt: '输入分组名称',
-            placeHolder: '分组名称',
-            validateInput: (value: string) => {
-                if (!value.trim()) return '名称不能为空';
-                if (this._store.getGroups().includes(value.trim())) return '分组已存在';
-                return null;
-            }
-        });
-        if (name && name.trim()) {
-            this._store.addGroup(name.trim());
-            this.refresh();
+    private createNewGroup(): void {
+        const groups = this._store.getGroups();
+        let name = '新分组';
+        let i = 1;
+        while (groups.includes(name)) {
+            i++;
+            name = `新分组 ${i}`;
         }
+        this._store.addGroup(name);
+        this.refresh(undefined, name);
     }
 
     private renameTask(taskId: string, newTitle: string): void {
@@ -192,7 +188,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&#62;');
     }
 
-    refresh(activeTaskId?: string): void {
+    refresh(activeTaskId?: string, editingGroupName?: string): void {
         if (!this._view) {
             _output.appendLine('[KCodeSidebarProvider] refresh skipped — _view is null');
             return;
@@ -205,7 +201,8 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             type: 'updateTaskList',
             tasks,
             groups,
-            activeTaskId: this._activeTaskId
+            activeTaskId: this._activeTaskId,
+            editingGroupName
         });
     }
 
@@ -267,6 +264,12 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             border: none;
             border-radius: 3px;
             font-family: inherit;
+            font-weight: 500;
+        }
+        .sidebar-btn .plus-icon {
+            font-size: 17px;
+            font-weight: 700;
+            line-height: 1;
         }
         .sidebar-btn:hover { background: #252526; }
         /* --- Section --- */
@@ -303,12 +306,13 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             border: none;
             color: var(--vscode-sideBarSectionHeader-foreground, #888);
             cursor: pointer;
-            padding: 0 4px;
+            padding: 2px 8px;
             margin-left: auto;
-            font-size: 14px;
+            font-size: 18px;
+            font-weight: 700;
             line-height: 1;
             font-family: inherit;
-            border-radius: 3px;
+            border-radius: 4px;
         }
         .section-header-btn:hover {
             background: var(--vscode-list-hoverBackground, #2a2d2e);
@@ -451,9 +455,9 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             border: none;
             color: var(--vscode-sideBar-foreground, #888);
             cursor: pointer;
-            padding: 4px 6px;
-            border-radius: 3px;
-            font-size: 16px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 20px;
             line-height: 1;
             display: flex;
             align-items: center;
@@ -554,7 +558,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
 <body>
     <div id="sidebar-content">
         <div class="action-bar">
-            <button id="btn-new-task" class="sidebar-btn">+ 新建任务</button>
+            <button id="btn-new-task" class="sidebar-btn"><span class="plus-icon">+</span> 新建任务</button>
             <button id="btn-toggle-panel" class="sidebar-btn" style="font-size:12px;">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
                     <rect x="1" y="2" width="14" height="10" rx="1"/>
