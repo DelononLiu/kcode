@@ -195,6 +195,17 @@ export class TaskStore {
         }
     }
 
+    updateTasksArchive(taskIds: string[], archived: boolean): void {
+        const idSet = new Set(taskIds);
+        const tasks = this.getTasks();
+        for (const task of tasks) {
+            if (idSet.has(task.id)) {
+                task.archived = archived;
+            }
+        }
+        this.state.update('tasks', tasks);
+    }
+
     reorderGroups(groupNames: string[]): void {
         this.state.update('groups', groupNames);
     }

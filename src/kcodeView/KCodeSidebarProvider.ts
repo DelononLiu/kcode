@@ -106,6 +106,10 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     this._store.updateTaskArchive(message.taskId, message.archived);
                     this.refresh();
                     break;
+                case 'archiveTasks':
+                    this._store.updateTasksArchive(message.taskIds, message.archived);
+                    this.refresh();
+                    break;
                 case 'moveTaskToGroup':
                     this._store.updateTaskGroup(message.taskId, message.group);
                     this.refresh();

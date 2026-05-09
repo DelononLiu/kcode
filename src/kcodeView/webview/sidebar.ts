@@ -151,23 +151,22 @@ declare function acquireVsCodeApi(): any;
 
         addSeparator(menu);
 
-        // --- 置顶 ---
+        const targetIds = selectedTaskIds.has(task.id) ? Array.from(selectedTaskIds) : [task.id];
+
         const pinText = task.pinned ? '取消置顶' : '置顶';
         const pinItem = createMenuItem(pinText, () => {
-            vscode.postMessage({ type: 'pinTask', taskId: task.id, pinned: !task.pinned });
+            vscode.postMessage({ type: 'pinTasks', taskIds: targetIds, pinned: !task.pinned });
         });
         menu.appendChild(pinItem);
 
-        // --- 归档 ---
         const archiveText = task.archived ? '取消归档' : '归档';
         const archiveItem = createMenuItem(archiveText, () => {
-            vscode.postMessage({ type: 'archiveTask', taskId: task.id, archived: !task.archived });
+            vscode.postMessage({ type: 'archiveTasks', taskIds: targetIds, archived: !task.archived });
         });
         menu.appendChild(archiveItem);
 
         addSeparator(menu);
 
-        // --- 分组子菜单 ---
         const tasks = JSON.parse(document.getElementById('__sidebarData')?.dataset.tasks || '[]');
         const groups = JSON.parse(document.getElementById('__sidebarData')?.dataset.groups || '[]');
 
@@ -179,14 +178,18 @@ declare function acquireVsCodeApi(): any;
         submenu.className = 'context-menu submenu';
 
         const noneItem = createMenuItem(task.group ? '未分组' : '✔ 未分组', () => {
-            vscode.postMessage({ type: 'moveTaskToGroup', taskId: task.id, group: null });
+            for (const id of targetIds) {
+                vscode.postMessage({ type: 'moveTaskToGroup', taskId: id, group: null });
+            }
         });
         submenu.appendChild(noneItem);
 
         for (const g of groups) {
             const checked = task.group === g ? '✔ ' : '';
             const groupItem = createMenuItem(checked + g, () => {
-                vscode.postMessage({ type: 'moveTaskToGroup', taskId: task.id, group: g });
+                for (const id of targetIds) {
+                    vscode.postMessage({ type: 'moveTaskToGroup', taskId: id, group: g });
+                }
             });
             submenu.appendChild(groupItem);
         }
@@ -435,8 +438,16 @@ declare function acquireVsCodeApi(): any;
                     if (anchorIdx !== -1 && currentIdx !== -1) {
                         const start = Math.min(anchorIdx, currentIdx);
                         const end = Math.max(anchorIdx, currentIdx);
+                        const outside = Array.from(selectedTaskIds).filter(id => {
+                            const idx = allIds.indexOf(id);
+                            return idx < start || idx > end;
+                        });
+                        selectedTaskIds.clear();
                         for (let i = start; i <= end; i++) {
                             selectedTaskIds.add(allIds[i]);
+                        }
+                        for (const id of outside) {
+                            selectedTaskIds.add(id);
                         }
                     }
                 } else {
@@ -448,7 +459,7 @@ declare function acquireVsCodeApi(): any;
                 e.preventDefault();
             } else {
                 selectedTaskIds.clear();
-                anchorTaskId = null;
+                anchorTaskId = task.id;
                 updateSelectionVisual();
                 updateBatchActionBar();
                 document.querySelectorAll('.task-item').forEach(t => t.classList.remove('active'));
