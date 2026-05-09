@@ -78,6 +78,37 @@ _目标：升级 AI 对话消息渲染质量，实现与 Kilo 接近的消息展
 
 **验收标准**：AI 回复代码块带语法高亮，流式输出不闪烁不碎裂，工具调用状态清晰可辨，对话消息信息完整。
 
+---
+
+### P6-05: 输入框停止按钮（生成中可中断）
+
+**涉及文件**:
+- `src/kcodeView/KCodePanel.ts`
+- `src/kcodeView/webview/app.ts`
+- `src/acp/FakeAgent.ts`
+- `src/acp/OpenAIAgent.ts`
+
+**调研结果**:
+- `KCodePanel.ts:26` — 新增 `isGenerating` 状态跟踪
+- `KCodePanel.ts:68-75` — 新增 `stopGeneration` 消息处理 + `handleStopGeneration()` 调用对应 agent 的 cancel
+- `KCodePanel.ts:720-745` — HTML 新增 send/stop 按钮（SVG图标），通过 `generationState` 消息通知 WebView 切换
+- `app.ts:294-318` — `initChat()` 绑定 send/stop 按钮点击事件
+- `app.ts:320-334` — `handleGenerationState()` 切换按钮显隐
+- `FakeAgent.ts:14-16` — 新增 `cancel()` 设置取消标记，prompt 循环中检查
+- `OpenAIAgent.ts` — 新增 `abortControllers` map、`cancel(sessionId)` 方法调用 AbortController.abort()
+
+**实现说明**:
+- 发送按钮（↑ 箭头图标，蓝色 hover）和停止按钮（■ 方块图标，红色 hover）共享 input-actions 位置
+- 生成开始时（`setGenerationState(true)`），Extension 向 WebView 发送 `generationState { isGenerating: true }`，WebView 隐藏发送按钮、显示停止按钮
+- 生成结束（onDone/onError），Extension 发送 `generationState { isGenerating: false }`，恢复发送按钮
+- 停止按钮点击 → `vscode.postMessage({ type: 'stopGeneration', taskId })` → `handleStopGeneration` → 调用 agent.cancel(taskId)
+- ACP: `AcpClient.cancel()` 发送 `connection.cancel({ sessionId })` 给 Agent 进程
+- FakeAgent: 设置 cancelled flag，prompt 循环检测到后调用 `handler.onDone('cancelled')`
+- OpenAIAgent: AbortController.abort() 中断 fetch，catch 中识别 `AbortError` + 检查 controller 是否已从 map 移除（区分用户取消 vs 超时）
+- 取消后 `onDone('cancelled')` 触发 `setGenerationState(false)` 恢复 UI
+
+**状态**: ✅ 已完成
+
 > 🟫 Level 0 — 自举之路第一步：能看清 AI 写的代码
 
 ---

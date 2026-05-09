@@ -2,6 +2,7 @@ import type { AcpMessageHandler, FileChange } from '../types';
 
 export class FakeAgent {
     private handlers: Map<string, AcpMessageHandler> = new Map();
+    private cancelledSessions: Set<string> = new Set();
 
     setHandler(sessionId: string, handler: AcpMessageHandler) {
         this.handlers.set(sessionId, handler);
@@ -11,12 +12,22 @@ export class FakeAgent {
         this.handlers.delete(sessionId);
     }
 
+    cancel(sessionId: string) {
+        this.cancelledSessions.add(sessionId);
+    }
+
     async prompt(sessionId: string, text: string): Promise<void> {
         console.log('[FakeAgent] prompt called, sessionId:', sessionId, 'text:', text);
         const handler = this.handlers.get(sessionId);
         if (!handler) {
             console.warn('[FakeAgent] No handler for session:', sessionId);
             console.warn('[FakeAgent] Available handlers:', Array.from(this.handlers.keys()));
+            return;
+        }
+
+        if (this.cancelledSessions.has(sessionId)) {
+            this.cancelledSessions.delete(sessionId);
+            handler.onDone('cancelled');
             return;
         }
 
@@ -46,6 +57,11 @@ export class FakeAgent {
         ];
 
         for (let i = 0; i < fakeResponses.length; i++) {
+            if (this.cancelledSessions.has(sessionId)) {
+                this.cancelledSessions.delete(sessionId);
+                handler.onDone('cancelled');
+                return;
+            }
             await new Promise(resolve => setTimeout(resolve, 200));
             const chunk = fakeResponses[i];
             if (chunk) {

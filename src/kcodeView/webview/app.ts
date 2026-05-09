@@ -135,6 +135,9 @@ function initMessageHandler() {
             case 'toolCallUpdate':
                 handleToolCallUpdate(message);
                 break;
+            case 'generationState':
+                handleGenerationState(message.isGenerating);
+                break;
         }
     });
 }
@@ -290,7 +293,6 @@ function initTabs() {
 
 function initChat() {
     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
-
     if (!input) return;
 
     function sendMessage() {
@@ -310,10 +312,32 @@ function initChat() {
         }
     });
 
+    const sendBtn = document.getElementById('send-btn');
+    sendBtn?.addEventListener('click', sendMessage);
+
+    const stopBtn = document.getElementById('stop-btn');
+    stopBtn?.addEventListener('click', () => {
+        vscode.postMessage({ type: 'stopGeneration', taskId: activeTaskId });
+    });
+
     const settingsBtn = document.querySelector('.settings-btn');
     settingsBtn?.addEventListener('click', () => {
         vscode.postMessage({ type: 'openSettings' });
     });
+}
+
+function handleGenerationState(isGenerating: boolean) {
+    const sendBtn = document.getElementById('send-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    if (!sendBtn || !stopBtn) return;
+
+    if (isGenerating) {
+        sendBtn.classList.add('hidden');
+        stopBtn.classList.remove('hidden');
+    } else {
+        sendBtn.classList.remove('hidden');
+        stopBtn.classList.add('hidden');
+    }
 }
 
 function formatTimestamp(ts: number): string {
@@ -537,6 +561,18 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
             updateCardToStatus(card, statusText);
         }
         bubble.appendChild(card);
+        appendToChatMessages(msgDiv);
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        return;
+    }
+
+    if (msg.type === 'stop_message') {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'chat-msg agent stop-message';
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+        bubble.textContent = content;
+        msgDiv.appendChild(bubble);
         appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;

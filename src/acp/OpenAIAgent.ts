@@ -8,6 +8,7 @@ interface OpenAIConfig {
 
 export class OpenAIAgent {
     private handlers: Map<string, AcpMessageHandler> = new Map();
+    private abortControllers: Map<string, AbortController> = new Map();
     private config: OpenAIConfig;
 
     constructor(overrides?: Partial<OpenAIConfig>) {
@@ -26,6 +27,14 @@ export class OpenAIAgent {
         this.handlers.delete(sessionId);
     }
 
+    cancel(sessionId: string) {
+        const controller = this.abortControllers.get(sessionId);
+        if (controller) {
+            controller.abort();
+            this.abortControllers.delete(sessionId);
+        }
+    }
+
     async prompt(sessionId: string, text: string): Promise<void> {
         const handler = this.handlers.get(sessionId);
         if (!handler) return;
@@ -41,6 +50,7 @@ export class OpenAIAgent {
                 : `${this.config.baseURL}/chat/completions`;
 
             const controller = new AbortController();
+            this.abortControllers.set(sessionId, controller);
             const timeoutId = setTimeout(() => controller.abort(), 10000);
 
             const response = await fetch(url, {
@@ -57,6 +67,7 @@ export class OpenAIAgent {
                 signal: controller.signal,
             });
             clearTimeout(timeoutId);
+            this.abortControllers.delete(sessionId);
 
             if (!response.ok) {
                 const errText = await response.text().catch(() => '');
@@ -104,7 +115,16 @@ export class OpenAIAgent {
 
             handler.onDone('end_turn');
         } catch (err: any) {
-            handler.onError(err?.message || 'OpenAI 请求失败');
+            if (err?.name === 'AbortError') {
+                if (!this.abortControllers.has(sessionId)) {
+                    handler.onDone('cancelled');
+                } else {
+                    this.abortControllers.delete(sessionId);
+                    handler.onError('请求超时');
+                }
+            } else {
+                handler.onError(err?.message || 'OpenAI 请求失败');
+            }
         }
     }
 

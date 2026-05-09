@@ -511,6 +511,7 @@ function appendDeviceOutput(data: string): void
 | `'confirmGoal'` | app.ts | KCodePanel |
 | `'reviseGoal'` | app.ts | KCodePanel |
 | `'cancelTask'` | app.ts | KCodePanel |
+| `'stopGeneration'` | app.ts | KCodePanel |
 | `'approveReview'` | app.ts | KCodePanel |
 | `'rejectReview'` | app.ts | KCodePanel |
 
@@ -529,6 +530,7 @@ function appendDeviceOutput(data: string): void
 | `'deviceConnect'` | KCodePanel | app.ts / device.ts |
 | `'focusInput'` | KCodePanel | app.ts |
 | `'flashInput'` | KCodePanel | app.ts |
+| `'generationState'` | KCodePanel | app.ts |
 | `'updateTaskInfo'` | KCodePanel | app.ts |
 | `'showGoalConfirmation'` | KCodePanel | app.ts |
 | `'toolCallUpdate'` | KCodePanel | app.ts | 实时工具调用状态更新（独立消息，不混入 agent 文本） |

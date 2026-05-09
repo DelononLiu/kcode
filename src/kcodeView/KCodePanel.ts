@@ -22,6 +22,7 @@ export class KCodePanel {
     private planEntries: { content: string; priority: string; status: string }[] = [];
     private taskStatusMarker: string | null = null;
     private refreshSidebarCallback?: () => void;
+    private isGenerating: boolean = false;
 
     constructor(context: vscode.ExtensionContext, store: TaskStore) {
         this.context = context;
@@ -75,6 +76,9 @@ export class KCodePanel {
                 case 'showFileDiff':
                     this.handleShowFileDiff(message.original, message.modified);
                     break;
+                case 'stopGeneration':
+                    this.handleStopGeneration(message.taskId);
+                    break;
             }
         }, null, this.context.subscriptions);
     }
@@ -83,6 +87,7 @@ export class KCodePanel {
         const tid = taskId || this.currentTaskId;
         console.log('[KCode] handleSendMessage called, text:', text, 'tid:', tid, 'agentReady:', this.agentReady, 'acpClient:', !!this.acpClient, 'fakeAgent:', !!this.fakeAgent);
         if (!tid) return;
+        if (this.isGenerating) return;
 
         const task = this.store.getTask(tid);
         if (!task) return;
@@ -143,6 +148,7 @@ export class KCodePanel {
             this.accumulatedAgentText = '';
             this.activeToolCalls.clear();
             this.planEntries = [];
+            this.setGenerationState(true);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -150,6 +156,7 @@ export class KCodePanel {
             this.accumulatedAgentText = '';
             this.activeToolCalls.clear();
             this.planEntries = [];
+            this.setGenerationState(true);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -157,6 +164,7 @@ export class KCodePanel {
             this.accumulatedAgentText = '';
             this.activeToolCalls.clear();
             this.planEntries = [];
+            this.setGenerationState(true);
             await this.openaiAgent.prompt(sessionId, promptText);
         } else {
             const config = vscode.workspace.getConfiguration('kcode');
@@ -180,6 +188,7 @@ export class KCodePanel {
 
     private createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string) {
         const onError = (error: string) => {
+            this.setGenerationState(false);
             if (!isGoalFormatting) {
                 this.panel.webview.postMessage({
                     type: 'agentStreamUpdate',
@@ -233,10 +242,22 @@ export class KCodePanel {
             },
             onError,
             onDone: (stopReason?: string) => {
+                this.setGenerationState(false);
                 if (stopReason === 'cancelled') {
                     this.taskStatusMarker = null;
                     this.activeToolCalls.clear();
                     this.planEntries = [];
+                    if (this.accumulatedAgentText && !isGoalFormatting) {
+                        this.storeMessage(tid, 'agent', this.accumulatedAgentText);
+                    }
+                    this.accumulatedAgentText = '';
+                    const task = this.store.getTask(tid);
+                    this.panel.webview.postMessage({
+                        type: 'loadMessages',
+                        messages: this.store.getMessages(tid),
+                        taskId: tid,
+                        taskStatus: task?.status
+                    });
                     return;
                 }
                 if (!isGoalFormatting) {
@@ -349,6 +370,7 @@ export class KCodePanel {
         const handler = this.createAgentResponseHandler(tid, false, originalRequest);
 
         if (this.agentReady && this.acpClient) {
+            this.setGenerationState(true);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -356,6 +378,7 @@ export class KCodePanel {
             this.accumulatedAgentText = '';
             this.activeToolCalls.clear();
             this.planEntries = [];
+            this.setGenerationState(true);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -363,6 +386,7 @@ export class KCodePanel {
             this.accumulatedAgentText = '';
             this.activeToolCalls.clear();
             this.planEntries = [];
+            this.setGenerationState(true);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
@@ -394,6 +418,44 @@ export class KCodePanel {
         this.panel.webview.postMessage({ type: 'addUserMessage', content: cancelMsg });
         this.store.updateTaskStatus(tid, 'cancelled');
         this.refreshSidebarCallback?.();
+        this.setGenerationState(false);
+    }
+
+    private handleStopGeneration(taskId?: string) {
+        const tid = taskId || this.currentTaskId;
+        if (!tid) return;
+        this.setGenerationState(false);
+        if (this.acpClient) {
+            this.acpClient.cancel(tid);
+        } else if (this.fakeAgent) {
+            this.fakeAgent.cancel(tid);
+        } else if (this.openaiAgent) {
+            this.openaiAgent.cancel(tid);
+        }
+        this.store.addMessage({
+            id: `msg_${Date.now()}`,
+            taskId: tid,
+            role: 'agent',
+            type: 'stop_message',
+            content: '⏹️ 用户已停止生成',
+            timestamp: Date.now()
+        });
+        if (this.accumulatedAgentText) {
+            this.storeMessage(tid, 'agent', this.accumulatedAgentText);
+            this.accumulatedAgentText = '';
+        }
+        const task = this.store.getTask(tid);
+        this.panel.webview.postMessage({
+            type: 'loadMessages',
+            messages: this.store.getMessages(tid),
+            taskId: tid,
+            taskStatus: task?.status
+        });
+    }
+
+    private setGenerationState(generating: boolean) {
+        this.isGenerating = generating;
+        this.panel.webview.postMessage({ type: 'generationState', isGenerating: generating });
     }
 
     private triggerReviewRequest(tid: string, content: string) {
@@ -484,6 +546,7 @@ export class KCodePanel {
             this.accumulatedAgentText = '';
             this.activeToolCalls.clear();
             this.planEntries = [];
+            this.setGenerationState(true);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -491,6 +554,7 @@ export class KCodePanel {
             this.accumulatedAgentText = '';
             this.activeToolCalls.clear();
             this.planEntries = [];
+            this.setGenerationState(true);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -498,6 +562,7 @@ export class KCodePanel {
             this.accumulatedAgentText = '';
             this.activeToolCalls.clear();
             this.planEntries = [];
+            this.setGenerationState(true);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
@@ -723,6 +788,16 @@ export class KCodePanel {
                     </div>
                     <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
                     <div class="input-actions">
+                        <button id="send-btn" class="input-tool-btn" title="发送">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M2 14L14 8L2 2v4.5l6 1.5-6 1.5V14z" fill="currentColor"/>
+                            </svg>
+                        </button>
+                        <button id="stop-btn" class="input-tool-btn hidden" title="停止生成">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor"/>
+                            </svg>
+                        </button>
                         <button class="input-tool-btn settings-btn" title="设置">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                 <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.2"/>
@@ -822,6 +897,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-input::placeholder{color:#555}
 .input-actions{display:flex;align-items:center;gap:4px;flex-shrink:0;position:absolute;right:12px;bottom:10px}
 .input-tool-btn{background:none;border:none;color:#666;cursor:pointer;padding:4px;border-radius:3px;display:flex;align-items:center;justify-content:center;transition:color .2s,background .2s}
+.input-tool-btn.hidden{display:none}
+#send-btn{color:#4a8bb5}#send-btn:hover{color:#5a9bc8;background:rgba(74,139,181,.1)}
+#stop-btn{color:#c94a4a}#stop-btn:hover{color:#e06060;background:rgba(201,74,74,.1)}
 .input-tool-btn:hover{background:rgba(255,255,255,.05);color:#999}
 #chat-statusbar{display:flex;align-items:center;gap:2px;padding:6px 0 0;font-size:11px;color:#555;flex-shrink:0}
 .status-item{display:flex;align-items:center;gap:4px;padding:1px 4px;white-space:nowrap}
@@ -882,7 +960,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tool-thinking .msg-card-header{color:#888;font-style:italic}
 .tool-spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.08);border-top-color:#5a9d6b;border-radius:50%;animation:tool-spin .8s linear infinite;flex-shrink:0}
 @keyframes tool-spin{to{transform:rotate(360deg)}}
-.agent-diff-summary{margin-top:10px;padding:6px 10px;background:rgba(78,201,176,.04);border-left:2px solid #4ec9b0;border-radius:3px;font-size:12px;line-height:1.6;color:#9aa}`;
+.agent-diff-summary{margin-top:10px;padding:6px 10px;background:rgba(78,201,176,.04);border-left:2px solid #4ec9b0;border-radius:3px;font-size:12px;line-height:1.6;color:#9aa}
+.chat-msg.stop-message .msg-bubble{text-align:center;font-size:12px;color:#666;padding:4px 0}`;
     }
 
     loadTask(taskId: string) {
