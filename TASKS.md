@@ -284,3 +284,51 @@ _目标：逐步用 KCode 自身开发 KCode，从"能看"到"完全切换"。_
 - `updateTaskInfo()` 函数处理 WebView 端 DOM 更新
 
 **状态**: ✅ 已完成
+
+---
+
+## Phase 7: 自举之路 Level 1 — 能改
+
+_目标：端到端验证目标确认与验收流程，修复发现的真实问题。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P7-01 | 目标确认流程验证与修复 | ⬜ 未开始 |
+| P7-02 | 验收流程验证与修复 | ⬜ 未开始 |
+
+---
+
+### P7-01: 目标确认流程验证与修复
+
+**涉及文件**:
+- `src/kcodeView/KCodePanel.ts` — sendMessage/processGoalProposal/confirmGoal
+- `src/kcodeView/webview/app.ts` — showGoalConfirmationCard
+- `src/acp/intentUtils.ts` — classifyIntent
+- `src/acp/FakeAgent.ts` — 调试模拟
+
+**调研步骤**:
+1. 编译确认无类型错误（`npx tsc --noEmit`）
+2. 验证 intent 分类："写一个 python hello" 是否被正确识别为 task
+3. 验证 goal 格式化阶段：AI 回复是否正确渲染，processGoalProposal 是否触发确认卡片
+4. 验证确认后状态流转：pending → active，AI prompt 是否拼接 system prompt（含 goal）
+5. 验证取消/修改需求功能
+
+**状态**: ⬜ 未开始
+
+---
+
+### P7-02: 验收流程验证与修复
+
+**涉及文件**:
+- `src/kcodeView/KCodePanel.ts` — triggerReviewRequest/approveReview/rejectReview
+- `src/kcodeView/webview/app.ts` — handleShowReviewRequest/验收卡片渲染
+- `src/acp/FakeAgent.ts` — TASK_STATUS 标记模拟
+
+**调研步骤**:
+1. 验证 `[TASK_STATUS: completed]` 标记解析：stripTaskMarker 调用时序是否正确
+2. 验证状态流转：active → in_review
+3. 验证验收卡片渲染 + 变更文件列表展示
+4. 验证验收通过：in_review → completed
+5. 验证驳回：in_review → active，AI 继续执行
+
+**状态**: ⬜ 未开始
