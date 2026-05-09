@@ -875,7 +875,7 @@ function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
     const kind = msg.kind || '';
     const title = msg.title || '';
     const status = msg.status || 'pending';
-    const content = msg.content || '';
+    const content = msg.content || msg.output || '';
 
     const isRunning = status === 'running' || status === 'pending';
 
