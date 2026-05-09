@@ -79,6 +79,9 @@ export class KCodePanel {
                 case 'stopGeneration':
                     this.handleStopGeneration(message.taskId);
                     break;
+                case 'updateGoal':
+                    this.handleUpdateGoal(message.taskId, message.goal);
+                    break;
             }
         }, null, this.context.subscriptions);
     }
@@ -360,6 +363,7 @@ export class KCodePanel {
             content: `📋 任务目标确认\n\n${goalText}`,
             timestamp: Date.now()
         });
+        this.sendTaskInfo(tid);
         this.refreshSidebarCallback?.();
         this.panel.webview.postMessage({
             type: 'showGoalConfirmation',
@@ -387,6 +391,7 @@ export class KCodePanel {
         }
 
         this.store.updateTaskStatus(tid, 'active');
+        this.sendTaskInfo(tid);
         this.refreshSidebarCallback?.();
 
         this.accumulatedAgentText = '';
@@ -445,6 +450,26 @@ export class KCodePanel {
         this.store.updateTaskStatus(tid, 'cancelled');
         this.refreshSidebarCallback?.();
         this.setGenerationState(false);
+    }
+
+    private handleUpdateGoal(tid: string, newGoal: string) {
+        const task = this.store.getTask(tid);
+        if (!task) return;
+        const oldGoal = task.goal;
+        if (oldGoal === newGoal) return;
+        this.store.updateTaskGoal(tid, newGoal);
+        this.store.addMessage({
+            id: `msg_${Date.now()}`,
+            taskId: tid,
+            role: 'agent',
+            type: 'goal_updated',
+            content: `🎯 目标已更新\n\n\`\`\`\n${oldGoal}\n\`\`\` → \n\`\`\`\n${newGoal}\n\`\`\``,
+            timestamp: Date.now()
+        });
+        this.sendTaskInfo(tid);
+        this.refreshSidebarCallback?.();
+        this.sendTaskMessages(tid);
+        this.panel.webview.postMessage({ type: 'focusInput' });
     }
 
     private handleStopGeneration(taskId?: string) {
@@ -799,6 +824,20 @@ export class KCodePanel {
                     <span id="task-info-review"></span>
                 </div>
             </div>
+            <div id="goal-header" class="hidden">
+                <div id="goal-header-view">
+                    <span id="goal-header-icon">🎯</span>
+                    <span id="goal-header-text"></span>
+                    <button id="goal-edit-btn" title="修改目标">✏️</button>
+                </div>
+                <div id="goal-header-edit" class="hidden">
+                    <textarea id="goal-edit-input" rows="2"></textarea>
+                    <div id="goal-edit-actions">
+                        <button id="goal-save-btn" class="goal-edit-btn">保存</button>
+                        <button id="goal-cancel-btn" class="goal-edit-btn cancel">取消</button>
+                    </div>
+                </div>
+            </div>
             <div id="chat-scroll" class="chat-empty">
                 <div id="chat-messages">
                     <div class="chat-placeholder">输入需求，开始与 AI 对话</div>
@@ -887,7 +926,25 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-scroll.chat-empty{display:none}
 #chat-area:has(#chat-scroll.chat-empty){justify-content:center}
 #chat-area:has(#chat-scroll.chat-empty) #task-info{display:none}
+#chat-area:has(#chat-scroll.chat-empty) #goal-header{display:none}
 #chat-area:has(#chat-scroll.chat-empty) #chat-input-area{border-top:none}
+#goal-header{flex-shrink:0;padding:8px 24px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(78,201,176,.03)}
+#goal-header.hidden{display:none}
+#goal-header-view{display:flex;align-items:center;gap:8px}
+#goal-header-icon{font-size:13px;flex-shrink:0}
+#goal-header-text{flex:1;font-size:12.5px;color:#4ec9b0;line-height:1.5;word-wrap:break-word}
+#goal-edit-btn{background:none;border:none;color:#666;cursor:pointer;padding:2px 4px;border-radius:3px;font-size:12px;transition:color .2s,background .2s;flex-shrink:0}
+#goal-edit-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
+#goal-header-edit{padding:4px 0}
+#goal-header-edit.hidden{display:none}
+#goal-edit-input{width:100%;background:#25252a;border:1px solid rgba(255,255,255,.12);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:12.5px;padding:6px 8px;resize:vertical;outline:none;min-height:36px}
+#goal-edit-input:focus{border-color:rgba(255,255,255,.25)}
+#goal-edit-actions{display:flex;gap:6px;padding:6px 0 0}
+.goal-edit-btn{padding:3px 10px;border:none;border-radius:3px;font-size:11px;cursor:pointer;font-family:inherit;transition:background .2s}
+#goal-save-btn{background:#4a8bb5;color:#fff}
+#goal-save-btn:hover{background:#5a9bc8}
+#goal-cancel-btn{background:rgba(255,255,255,.06);color:#d2d2d4}
+#goal-cancel-btn:hover{background:rgba(255,255,255,.1)}
 .chat-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:14px;user-select:none}
 #working-indicator{display:flex;align-items:center;gap:8px;padding:8px 0 4px;font-size:12px;color:#888;width:100%}
 #working-indicator.hidden{display:none}
@@ -1015,7 +1072,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         this.panel.webview.postMessage({
             type: 'updateTaskInfo',
             title: task.title,
+            goal: task.goal,
+            goalHint: task.goal ? '🎯 ' + task.goal : '',
             status: task.status,
+            taskType: task.type,
             createdAt: task.createdAt,
             pendingReviewFiles: 0
         });

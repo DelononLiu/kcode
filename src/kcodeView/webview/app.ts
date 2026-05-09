@@ -66,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     initChat();
     initMessageHandler();
+    initGoalHeader();
 });
 
 function initMessageHandler() {
@@ -599,6 +600,23 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
         return;
     }
 
+    if (msg.type === 'goal_updated') {
+        const msgDiv = createCardMessageElement();
+        const bubble = msgDiv.querySelector('.msg-bubble')!;
+        const card = createCard({
+            headerHtml: '🎯 目标已更新',
+            bodyMarkdown: content.replace(/^🎯 目标已更新\n\n/, ''),
+            defaultCollapsed: true,
+            borderColor: '#4ec9b0',
+            headerBg: '#1a2e2a',
+            headerColor: '#4ec9b0'
+        });
+        bubble.appendChild(card);
+        appendToChatMessages(msgDiv);
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        return;
+    }
+
     if (role === 'tool') {
         let toolInfo: any;
         try {
@@ -669,6 +687,69 @@ function updateTaskInfo(info: any) {
     if (reviewEl) {
         reviewEl.textContent = `待验收 ${info.pendingReviewFiles || 0} 个文件`;
     }
+
+    const goalHeader = document.getElementById('goal-header');
+    const goalText = document.getElementById('goal-header-text');
+    if (goalHeader && goalText) {
+        const hasGoal = info.taskType === 'task' && info.goal && info.status !== 'cancelled' && info.status !== 'completed';
+        goalHeader.classList.toggle('hidden', !hasGoal);
+        goalText.textContent = info.goal || '';
+        showGoalViewMode();
+    }
+}
+
+let goalOriginalText = '';
+
+function showGoalViewMode() {
+    const view = document.getElementById('goal-header-view');
+    const edit = document.getElementById('goal-header-edit');
+    if (view) view.classList.remove('hidden');
+    if (edit) edit.classList.add('hidden');
+}
+
+function showGoalEditMode() {
+    const view = document.getElementById('goal-header-view');
+    const edit = document.getElementById('goal-header-edit');
+    const input = document.getElementById('goal-edit-input') as HTMLTextAreaElement;
+    const text = document.getElementById('goal-header-text');
+    if (view) view.classList.add('hidden');
+    if (edit) edit.classList.remove('hidden');
+    if (input && text) {
+        goalOriginalText = text.textContent || '';
+        input.value = goalOriginalText;
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+    }
+}
+
+function initGoalHeader() {
+    const editBtn = document.getElementById('goal-edit-btn');
+    const saveBtn = document.getElementById('goal-save-btn');
+    const cancelBtn = document.getElementById('goal-cancel-btn');
+    const input = document.getElementById('goal-edit-input') as HTMLTextAreaElement;
+
+    editBtn?.addEventListener('click', showGoalEditMode);
+    cancelBtn?.addEventListener('click', showGoalViewMode);
+
+    saveBtn?.addEventListener('click', () => {
+        if (!input) return;
+        const newGoal = input.value.trim();
+        if (!newGoal || newGoal === goalOriginalText) {
+            showGoalViewMode();
+            return;
+        }
+        vscode.postMessage({ type: 'updateGoal', taskId: activeTaskId, goal: newGoal });
+    });
+
+    input?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            saveBtn?.click();
+        }
+        if (e.key === 'Escape') {
+            showGoalViewMode();
+        }
+    });
 }
 
 function flashInput() {
