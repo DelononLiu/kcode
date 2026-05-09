@@ -1,6 +1,5 @@
 ---
 description: 分析改动并提交 git commit
-agent: general
 ---
 
 根据 AGENTS.md 中的 Git 提交规范执行：
