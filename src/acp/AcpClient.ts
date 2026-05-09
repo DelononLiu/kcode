@@ -64,6 +64,11 @@ export class AcpClient {
                     writeTextFile: true,
                 },
             },
+            clientInfo: {
+                name: 'kcode',
+                title: 'KCode',
+                version: '0.1.0',
+            },
         });
 
         console.log(`ACP connected (protocol v${initResult.protocolVersion})`);
@@ -132,11 +137,7 @@ export class AcpClient {
 
             this.kcodeClient?.removeSessionHandler(sessionId);
 
-            if (result.stopReason === 'cancelled') {
-                handler.onError('已取消');
-            } else {
-                handler.onDone();
-            }
+            handler.onDone(result.stopReason || 'end_turn');
         } catch (err: any) {
             handler.onError(err?.message || 'ACP 请求失败');
         }
@@ -165,7 +166,15 @@ export class AcpClient {
         return this.kcodeClient.getSessionChanges(sessionId);
     }
 
-    closeTaskSession(taskId: string): void {
+    async closeTaskSession(taskId: string): Promise<void> {
+        const sessionId = this.sessions.get(taskId);
+        if (this.connection && sessionId) {
+            try {
+                await this.connection.closeSession({ sessionId });
+            } catch {
+                // closeSession may not be supported by agent
+            }
+        }
         this.sessions.delete(taskId);
     }
 
@@ -173,6 +182,9 @@ export class AcpClient {
      * Disconnect and clean up.
      */
     async dispose(): Promise<void> {
+        for (const [taskId] of this.sessions) {
+            await this.closeTaskSession(taskId);
+        }
         this.sessions.clear();
         this.kcodeClient = null;
         if (!this.httpMode) {

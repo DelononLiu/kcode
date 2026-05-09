@@ -73,6 +73,11 @@
           "default": "deepseek-v4-flash",
           "description": "OpenAI model name for the built-in OpenAI agent. Falls back to OPENAI_MODEL environment variable."
         },
+        "kcode.opencodePath": {
+          "type": "string",
+          "default": "opencode",
+          "description": "Path to the opencode executable. Used when kcode.agentName is \"opencode\"."
+        },
         "kcode.openaiBaseUrl": {
           "type": "string",
           "default": "https://api.deepseek.com",

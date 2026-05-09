@@ -76,6 +76,9 @@ function initMessageHandler() {
             case 'showReviewRequest':
                 handleShowReviewRequest(message);
                 break;
+            case 'toolCallUpdate':
+                handleToolCallUpdate(message);
+                break;
 
         }
     });
@@ -160,6 +163,9 @@ function activateTab(tabName: string) {
     const content = document.getElementById(`tab-${tabName}`);
     if (content) content.classList.add('active');
 }
+
+// Track tool call DOM elements for streaming updates
+const activeToolCallElements: Map<string, HTMLElement> = new Map();
 
 // Track the currently selected task ID and status for sending messages
 let activeTaskId: string | null = null;
@@ -360,6 +366,7 @@ function addMessage(role: 'user' | 'agent', content: string) {
 // ==================== renderMessages (from chat.ts) ====================
 
 function renderMessages(messages: any[]) {
+    activeToolCallElements.clear();
     const container = document.getElementById('chat-messages');
     const scrollContainer = document.getElementById('chat-scroll');
     if (!container || !scrollContainer) return;
@@ -460,6 +467,58 @@ function addMessageElement(msg: any) {
             updateCardToStatus(card, statusText);
         }
         bubble.appendChild(card);
+        container.appendChild(msgDiv);
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        return;
+    }
+
+    if (role === 'tool') {
+        let toolInfo: any;
+        try {
+            toolInfo = JSON.parse(content);
+        } catch {
+            toolInfo = { title: content, kind: '', status: '', output: '' };
+        }
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'chat-msg tool';
+
+        const sender = document.createElement('div');
+        sender.className = 'msg-sender';
+        sender.textContent = '🔧 Tool';
+        msgDiv.appendChild(sender);
+
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble tool-bubble';
+        msgDiv.appendChild(bubble);
+
+        const statusIcon = toolInfo.status === 'completed' ? '✅' : toolInfo.status === 'error' ? '❌' : '⏳';
+        const header = document.createElement('div');
+        header.className = 'tool-header';
+        header.innerHTML = `${statusIcon} ${toolInfo.kind}: ${escapeHtml(toolInfo.title)}`;
+        bubble.appendChild(header);
+
+        if (toolInfo.output) {
+            const toggle = document.createElement('span');
+            toggle.className = 'tool-toggle';
+            toggle.textContent = '▶';
+            header.appendChild(toggle);
+
+            const body = document.createElement('div');
+            body.className = 'tool-body collapsed';
+            const bodyContent = document.createElement('pre');
+            bodyContent.className = 'tool-body-content';
+            bodyContent.textContent = toolInfo.output;
+            body.appendChild(bodyContent);
+            bubble.appendChild(body);
+
+            header.style.cursor = 'pointer';
+            header.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isCollapsed = body.classList.toggle('collapsed');
+                toggle.textContent = isCollapsed ? '▶' : '▼';
+            });
+        }
+
         container.appendChild(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
@@ -701,7 +760,87 @@ function removeGoalConfirmationCard() {
     document.querySelectorAll('.confirm-card').forEach(el => el.remove());
 }
 
+// ==================== Tool Call Messages ====================
 
+function handleToolCallUpdate(msg: any) {
+    const container = document.getElementById('chat-messages')!;
+    const scrollContainer = document.getElementById('chat-scroll')!;
+    scrollContainer.classList.remove('chat-empty');
+    const placeholder = container.querySelector('.chat-placeholder');
+    if (placeholder) placeholder.remove();
+
+    let toolEl = activeToolCallElements.get(msg.toolCallId);
+
+    if (!toolEl) {
+        toolEl = createToolMessageElement(msg);
+        container.appendChild(toolEl);
+        activeToolCallElements.set(msg.toolCallId, toolEl);
+    } else {
+        updateToolMessageElement(toolEl, msg);
+    }
+
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+}
+
+function createToolMessageElement(msg: any): HTMLElement {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chat-msg tool';
+
+    const sender = document.createElement('div');
+    sender.className = 'msg-sender';
+    sender.textContent = '🔧 Tool';
+    msgDiv.appendChild(sender);
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble tool-bubble';
+    msgDiv.appendChild(bubble);
+
+    renderToolBubbleContent(bubble, msg);
+
+    return msgDiv;
+}
+
+function updateToolMessageElement(el: HTMLElement, msg: any) {
+    const bubble = el.querySelector('.msg-bubble');
+    if (!bubble) return;
+    bubble.innerHTML = '';
+    renderToolBubbleContent(bubble as HTMLElement, msg);
+}
+
+function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
+    const statusIcon = msg.status === 'completed' ? '✅' : msg.status === 'error' ? '❌' : '⏳';
+
+    const header = document.createElement('div');
+    header.className = 'tool-header';
+    header.innerHTML = `${statusIcon} ${msg.kind}: ${escapeHtml(msg.title)}`;
+    bubble.appendChild(header);
+
+    if (msg.content) {
+        const toggle = document.createElement('span');
+        toggle.className = 'tool-toggle';
+        toggle.textContent = '▶';
+        header.appendChild(toggle);
+
+        const body = document.createElement('div');
+        body.className = 'tool-body collapsed';
+        const bodyContent = document.createElement('pre');
+        bodyContent.className = 'tool-body-content';
+        bodyContent.textContent = msg.content;
+        body.appendChild(bodyContent);
+        bubble.appendChild(body);
+
+        header.style.cursor = 'pointer';
+        header.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isCollapsed = body.classList.toggle('collapsed');
+            toggle.textContent = isCollapsed ? '▶' : '▼';
+        });
+    }
+}
+
+function escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 // Export for use by other modules
 (window as any).addMessage = addMessage;

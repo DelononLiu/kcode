@@ -13,8 +13,8 @@ export interface Task {
 export interface ChatMessage {
     id: string;
     taskId: string;
-    role: 'user' | 'agent';
-    type?: 'text' | 'goal_confirmation' | 'goal_confirmed' | 'review_request' | 'review_approved' | 'review_rejected';
+    role: 'user' | 'agent' | 'tool';
+    type?: 'text' | 'goal_confirmation' | 'goal_confirmed' | 'review_request' | 'review_approved' | 'review_rejected' | 'tool_call';
     content: string;
     timestamp: number;
 }
@@ -32,6 +32,9 @@ export interface FileChange {
 
 export interface AcpMessageHandler {
     onText: (text: string) => void;
+    onToolCall?: (toolCallId: string, title: string, kind: string, status: string) => void;
+    onToolCallUpdate?: (toolCallId: string, status: string, content?: string) => void;
+    onPlan?: (entries: { content: string; priority: string; status: string }[]) => void;
     onError: (error: string) => void;
-    onDone: () => void;
+    onDone: (stopReason?: string) => void;
 }

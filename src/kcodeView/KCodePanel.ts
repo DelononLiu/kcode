@@ -18,6 +18,8 @@ export class KCodePanel {
     private openaiAgent: OpenAIAgent | null = null;
     private agentReady: boolean = false;
     private accumulatedAgentText: string = '';
+    private activeToolCalls: Map<string, { title: string; kind: string; status: string; output?: string }> = new Map();
+    private planEntries: { content: string; priority: string; status: string }[] = [];
     private taskStatusMarker: string | null = null;
     private refreshSidebarCallback?: () => void;
 
@@ -139,16 +141,22 @@ export class KCodePanel {
             }
 
             this.accumulatedAgentText = '';
+            this.activeToolCalls.clear();
+            this.planEntries = [];
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
             this.fakeAgent.setHandler(sessionId, handler);
             this.accumulatedAgentText = '';
+            this.activeToolCalls.clear();
+            this.planEntries = [];
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
             this.accumulatedAgentText = '';
+            this.activeToolCalls.clear();
+            this.planEntries = [];
             await this.openaiAgent.prompt(sessionId, promptText);
         } else {
             const config = vscode.workspace.getConfiguration('kcode');
@@ -158,6 +166,16 @@ export class KCodePanel {
                 : `Agent 连接失败：无法连接到 "${agentName}"，请检查路径是否正确并确保 Agent 已启动`;
             this.showAgentError(tid, errorMsg);
         }
+    }
+
+    private buildPlanSection(): string {
+        if (this.planEntries.length === 0) return '';
+        const lines = ['', '📋 计划:'];
+        for (const e of this.planEntries) {
+            const icon = e.status === 'completed' ? '✅' : e.status === 'in_progress' ? '🔄' : '⬜';
+            lines.push(` ${icon} ${e.content}`);
+        }
+        return '\n' + lines.join('\n');
     }
 
     private createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string) {
@@ -171,19 +189,74 @@ export class KCodePanel {
             this.storeMessage(tid, 'agent', `错误: ${error}`);
         };
 
+        const sendDisplayUpdate = () => {
+            if (isGoalFormatting) return;
+            this.panel.webview.postMessage({
+                type: 'agentStreamUpdate',
+                text: this.accumulatedAgentText + this.buildPlanSection()
+            });
+        };
+
+        const sendToolCallUpdate = (toolCallId: string, title: string, kind: string, status: string, content?: string) => {
+            if (isGoalFormatting) return;
+            this.panel.webview.postMessage({
+                type: 'toolCallUpdate',
+                toolCallId,
+                title,
+                kind,
+                status,
+                content
+            });
+        };
+
         return {
             onText: (chunk: string) => {
                 this.accumulatedAgentText += chunk;
-                const cleanedText = this.stripTaskMarker();
-                if (!isGoalFormatting) {
-                    this.panel.webview.postMessage({
-                        type: 'agentStreamUpdate',
-                        text: cleanedText
-                    });
+                this.stripTaskMarker();
+                sendDisplayUpdate();
+            },
+            onToolCall: (toolCallId: string, title: string, kind: string, status: string) => {
+                this.activeToolCalls.set(toolCallId, { title, kind, status });
+                sendToolCallUpdate(toolCallId, title, kind, status);
+            },
+            onToolCallUpdate: (toolCallId: string, status: string, content?: string) => {
+                const tc = this.activeToolCalls.get(toolCallId);
+                if (tc) {
+                    tc.status = status;
+                    if (content) tc.output = content;
                 }
+                sendToolCallUpdate(toolCallId, tc?.title || '', tc?.kind || '', status, content);
+            },
+            onPlan: (entries: { content: string; priority: string; status: string }[]) => {
+                this.planEntries = entries;
+                sendDisplayUpdate();
             },
             onError,
-            onDone: () => {
+            onDone: (stopReason?: string) => {
+                if (stopReason === 'cancelled') {
+                    this.taskStatusMarker = null;
+                    this.activeToolCalls.clear();
+                    this.planEntries = [];
+                    return;
+                }
+                if (!isGoalFormatting) {
+                    for (const [toolCallId, tc] of this.activeToolCalls) {
+                        this.store.addMessage({
+                            id: `msg_tool_${toolCallId}`,
+                            taskId: tid,
+                            role: 'tool',
+                            type: 'tool_call',
+                            content: JSON.stringify({
+                                toolCallId,
+                                title: tc.title,
+                                kind: tc.kind,
+                                status: tc.status,
+                                output: tc.output || ''
+                            }),
+                            timestamp: Date.now()
+                        });
+                    }
+                }
                 if (this.accumulatedAgentText) {
                     if (isGoalFormatting) {
                         this.processGoalProposal(tid, this.accumulatedAgentText, originalText);
@@ -205,6 +278,8 @@ export class KCodePanel {
                     }
                 }
                 this.taskStatusMarker = null;
+                this.activeToolCalls.clear();
+                this.planEntries = [];
             }
         };
     }
@@ -268,6 +343,8 @@ export class KCodePanel {
         this.refreshSidebarCallback?.();
 
         this.accumulatedAgentText = '';
+        this.activeToolCalls.clear();
+        this.planEntries = [];
         const promptText = this.buildTaskPrompt(tid, originalRequest);
         const handler = this.createAgentResponseHandler(tid, false, originalRequest);
 
@@ -276,10 +353,16 @@ export class KCodePanel {
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
             this.fakeAgent.setHandler(sessionId, handler);
+            this.accumulatedAgentText = '';
+            this.activeToolCalls.clear();
+            this.planEntries = [];
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
+            this.accumulatedAgentText = '';
+            this.activeToolCalls.clear();
+            this.planEntries = [];
             await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
@@ -399,16 +482,22 @@ export class KCodePanel {
 
         if (this.agentReady && this.acpClient) {
             this.accumulatedAgentText = '';
+            this.activeToolCalls.clear();
+            this.planEntries = [];
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
             this.fakeAgent.setHandler(sessionId, handler);
             this.accumulatedAgentText = '';
+            this.activeToolCalls.clear();
+            this.planEntries = [];
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
             this.accumulatedAgentText = '';
+            this.activeToolCalls.clear();
+            this.planEntries = [];
             await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
@@ -439,6 +528,35 @@ export class KCodePanel {
             const agentUrl = config.get<string>('agentUrl') || '';
             const agentName = config.get<string>('agentName') || '';
             const agentArgs = config.get<string[]>('agentArgs') || [];
+
+            // OpenCode agent via stdio ACP
+            if (agentName === 'opencode') {
+                console.log('[KCode] Using OpenCode agent');
+                const opencodePath = config.get<string>('opencodePath') || 'opencode';
+                this.acpClient = new AcpClient(workspacePath);
+                const connectPromise = this.acpClient.connect(opencodePath, [
+                    'acp', '--port', '0', '--cwd', workspacePath
+                ]);
+                const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10000));
+                const connected = await Promise.race([connectPromise, timeoutPromise]);
+                if (connected) {
+                    this.agentReady = true;
+                    this.panel.webview.postMessage({
+                        type: 'agentStatus',
+                        status: 'connected',
+                        message: `OpenCode (${opencodePath})`
+                    });
+                    return;
+                }
+                console.log('[KCode] OpenCode connection failed');
+                this.acpClient = null;
+                this.panel.webview.postMessage({
+                    type: 'agentStatus',
+                    status: 'disconnected',
+                    message: `OpenCode 连接失败: ${opencodePath}`
+                });
+                return;
+            }
 
             // FakeAgent for debugging
             if (agentName === 'fake') {
@@ -723,8 +841,16 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .confirm-btn.cancel{background:transparent;color:#888;border:1px solid #4a4a4a}
  .confirm-btn.cancel:hover{background:#3c3c3c;color:#ccc}
  .confirm-card-status{padding:6px 14px 12px;font-size:12px;color:#888;text-align:center}
- .review-changes{user-select:none}
- .review-changes div:hover{background:#2a2a2a;border-radius:3px}`;
+.review-changes{user-select:none}
+.review-changes div:hover{background:#2a2a2a;border-radius:3px}
+.chat-msg.tool{text-align:left}
+.chat-msg.tool .msg-bubble{background:#1e2a1e;color:#b5cea8;border-bottom-left-radius:2px;border:1px solid #3a4a3a;padding:8px 14px;cursor:default;display:inline-block;max-width:90%}
+.tool-header{display:flex;align-items:center;gap:6px;font-size:12px;font-family:'Cascadia Code','Fira Code',Consolas,monospace}
+.tool-toggle{font-size:10px;color:#888;margin-left:auto;flex-shrink:0;padding-left:8px}
+.tool-body{font-size:12px;line-height:1.4;padding:8px 0 0;border-top:1px solid #3a4a3a;margin-top:6px}
+.tool-body.collapsed{display:none}
+.tool-body-content{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px;color:#b5cea8;background:transparent;padding:0}
+.msg-sender{font-size:10px;color:#6b6b6b;margin-bottom:2px;display:flex;align-items:center;gap:4px}`;
     }
 
     loadTask(taskId: string) {

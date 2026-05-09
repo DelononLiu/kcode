@@ -51,6 +51,16 @@ export class AgentManager {
         return this.startAgent(npxCmd, ['tsx', scriptPath]);
     }
 
+    /**
+     * Start OpenCode ACP agent via stdio.
+     * Spawns: `opencode acp --port 0 --cwd <workspacePath>`
+     */
+    async startOpenCodeAgent(opencodePath: string, workspacePath: string): Promise<AgentProcess> {
+        return this.startAgent(opencodePath, [
+            'acp', '--port', '0', '--cwd', workspacePath
+        ]);
+    }
+
     stopAgent(): void {
         if (this.process) {
             this.process.kill('SIGTERM');

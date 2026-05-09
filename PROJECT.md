@@ -43,7 +43,7 @@ src/
 | 编辑器面板 | 两栏布局、Tab切换、拖拽分割、流式消息 | - |
 | AI 对话 | 输入/发送、Markdown渲染、历史绑定 | - |
 | 右侧面板 | Preview、Diff、WebView、Device UI壳 | 验收流程 |
-| ACP | 多会话管理、Agent进程、文件读写、流式回调 | - |
+| ACP | 多会话管理、Agent进程、文件读写、流式回调、工具调用/计划事件 | opencode stdio/HTTP 双模式 |
 | 数据层 | Task CRUD、消息存储 | - |
 
 ---
@@ -241,22 +241,23 @@ completed  in_progress
 ACP 会话流程：
 
 ```
-KCode (ACP Client)                 Agent (ACP Agent)
+KCode (ACP Client)                 Agent (ACP Agent / OpenCode)
       │                                   │
       ├── initialize() ──────────────────►│
-      │◄─ {capabilities} ────────────────┤
+      │◄─ {capabilities, clientInfo} ─────┤
       │                                   │
-      ├── session_new() ────────────────►│
-      │◄─ session_id ────────────────────┤
+      ├── session/new() ────────────────►│
+      │◄─ sessionId ─────────────────────┤
       │                                   │
-      ├── prompt({ sessionId, prompt }) ───────────►│
-      │◄─ agent_message_chunk (stream) ──┤
-      │◄─ tool_call (读/写文件) ─────────┤
-      │  ├─ Client 执行并返回结果 ────────►│
-      │◄─ agent_message_chunk (继续) ────┤
-      │◄─ stop_reason ───────────────────┤
+      ├── session/prompt() ─────────────►│
+      │◄─ session/update (plan) ─────────┤
+      │◄─ session/update (agent_message_chunk) ──┤
+      │◄─ session/update (tool_call) ────┤
+      │◄─ session/update (tool_call_update) ─────┤
+      │◄─ stopReason (end_turn) ─────────┤
       │                                   │
-      ├── session_close() ──────────────►│
+      ├── session/cancel() (optional) ──►│
+      ├── session/close() (optional) ───►│
 ```
 
 ---
@@ -298,8 +299,8 @@ interface Task {
 interface ChatMessage {
     id: string;
     taskId: string;
-    role: 'user' | 'agent';
-    type?: 'text' | 'goal_confirmation' | 'review_request';  // 消息子类型
+    role: 'user' | 'agent' | 'tool';
+    type?: 'text' | 'goal_confirmation' | 'goal_confirmed' | 'review_request' | 'review_approved' | 'review_rejected' | 'tool_call';  // 消息子类型
     content: string;
     timestamp: number;
 }
@@ -311,8 +312,11 @@ interface ACPConfig {
 
 interface AcpMessageHandler {
     onText: (text: string) => void;
+    onToolCall?: (toolCallId: string, title: string, kind: string, status: string) => void;
+    onToolCallUpdate?: (toolCallId: string, status: string, content?: string) => void;
+    onPlan?: (entries: { content: string; priority: string; status: string }[]) => void;
     onError: (error: string) => void;
-    onDone: () => void;
+    onDone: (stopReason?: string) => void;
 }
 ```
 
@@ -415,13 +419,16 @@ function appendDeviceOutput(data: string): void
 | 方法 | 说明 |
 |---|---|
 | `connect(agentPath, args)` | 连接 Agent（共享一个连接） |
+| `connectHttp(agentUrl)` | 通过 HTTP 连接远程 Agent |
 | `createSession(taskId, cwd)` | 为指定 task 创建会话 |
 | `getSessionId(taskId)` | 获取 task 的 sessionId |
 | `hasSession(taskId)` | 检查 task 是否有会话 |
-| `prompt(taskId, text, handler)` | 发送 prompt + 流式回调 |
+| `prompt(taskId, text, handler)` | 发送 prompt + 流式回调（含 stopReason 传递） |
 | `cancel(taskId)` | 取消指定 task 的 prompt |
-| `closeTaskSession(taskId)` | 关闭指定 task 的会话（本地删除，暂未发送 ACP 关闭请求） |
-| `dispose()` | 释放资源 |
+| `closeTaskSession(taskId)` | 关闭 ACP 会话（发送 session/close 请求 + 本地删除） |
+| `closeSession(taskId)` | 别名，发送 session/close 到 Agent |
+| `getReviewChanges(taskId)` | 获取 task 的文件变更记录 |
+| `dispose()` | 关闭所有会话 + 停止 Agent 进程 |
 
 ### `src/acp/AgentManager.ts`
 
@@ -441,8 +448,8 @@ function appendDeviceOutput(data: string): void
 | `setSessionHandler(sessionId, handler)` | 注册 session 流式处理器 |
 | `removeSessionHandler(sessionId)` | 移除处理器 |
 | `requestPermission()` | MVP auto-accept |
-| `sessionUpdate()` | 按 `params.sessionId` 路由到对应 handler |
-| `writeTextFile()` | 写文件（路径解析到 workspaceRoot） |
+| `sessionUpdate()` | 完整路由：`agent_message_chunk` → `onText`，`tool_call` → `onToolCall`，`tool_call_update` → `onToolCallUpdate`，`plan` → `onPlan` |
+| `writeTextFile()` | 写文件（路径解析到 workspaceRoot，记录变更供验收） |
 | `readTextFile()` | 读文件 |
 
 ---
@@ -489,6 +496,7 @@ function appendDeviceOutput(data: string): void
 | `'flashInput'` | KCodePanel | app.ts |
 | `'updateTaskInfo'` | KCodePanel | app.ts |
 | `'showGoalConfirmation'` | KCodePanel | app.ts |
+| `'toolCallUpdate'` | KCodePanel | app.ts | 实时工具调用状态更新（独立消息，不混入 agent 文本） |
 
 ---
 

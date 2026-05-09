@@ -56,14 +56,30 @@ export class KCodeClient implements acp.Client {
                 }
                 break;
             case 'tool_call':
-                console.log(`[ACP Tool Call] ${update.title} (${update.status})`);
+                handler.onToolCall?.(
+                    update.toolCallId,
+                    update.title ?? '',
+                    update.kind ?? 'other',
+                    update.status ?? 'pending'
+                );
                 break;
-            case 'tool_call_update':
-                console.log(`[ACP Tool Update] ${update.toolCallId}: ${update.status}`);
+            case 'tool_call_update': {
+                const item = update.content?.[0];
+                const textContent =
+                    item?.type === 'content' && item.content.type === 'text'
+                        ? item.content.text
+                        : undefined;
+                handler.onToolCallUpdate?.(
+                    update.toolCallId,
+                    update.status ?? 'pending',
+                    textContent
+                );
                 break;
+            }
             case 'plan':
+                handler.onPlan?.(update.entries);
+                break;
             case 'agent_thought_chunk':
-                // Can be displayed in UI as thinking indicator
                 break;
         }
     }

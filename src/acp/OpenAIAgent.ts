@@ -102,7 +102,7 @@ export class OpenAIAgent {
                 }
             }
 
-            handler.onDone();
+            handler.onDone('end_turn');
         } catch (err: any) {
             handler.onError(err?.message || 'OpenAI 请求失败');
         }

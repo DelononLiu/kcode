@@ -55,7 +55,7 @@ export class FakeAgent {
         }
 
         console.log('[FakeAgent] All chunks sent, calling onDone');
-        handler.onDone();
+        handler.onDone('end_turn');
     }
 
     hasSession(sessionId: string): boolean {
