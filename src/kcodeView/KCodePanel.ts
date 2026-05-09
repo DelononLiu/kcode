@@ -989,7 +989,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-timestamp{font-size:10px;color:#555;font-weight:400}
 .chat-msg.tool{padding:2px 0}
 .chat-msg.tool .msg-bubble{font-size:13px;line-height:1.5;color:#b5c9a8}
-.tool-kind-icon{font-size:12px;flex-shrink:0}
+.tool-kind-icon{font-size:12px;flex-shrink:0;opacity:.45;display:inline-flex;vertical-align:middle}
 .tool-body-content{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px;color:#9aa;background:transparent;padding:0}
 .tool-body-bash{background:rgba(0,0,0,.3);border-radius:3px;padding:8px!important}
 .tool-bash-output{color:#5a9d6b}
