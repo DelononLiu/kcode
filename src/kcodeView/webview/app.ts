@@ -230,41 +230,7 @@ let activeTaskId: string | null = null;
 let activeTaskStatus: string = '';
 
 function initLayout() {
-    const container = document.getElementById('container')!;
-    const splitter2 = document.getElementById('splitter-2')!;
     const rightPanel = document.getElementById('right-panel')!;
-    const sidebar = document.getElementById('sidebar')!;
-
-    let activeSplitter: HTMLElement | null = null;
-
-    function onMouseDown(e: MouseEvent, splitter: HTMLElement) {
-        activeSplitter = splitter;
-        splitter.classList.add('active');
-        e.preventDefault();
-    }
-
-    function onMouseMove(e: MouseEvent) {
-        if (!activeSplitter) return;
-
-        const containerRect = container.getBoundingClientRect();
-
-        if (activeSplitter === splitter2) {
-            let newWidth = containerRect.right - e.clientX;
-            newWidth = Math.max(200, Math.min(600, newWidth));
-            rightPanel.style.width = `${newWidth}px`;
-        }
-    }
-
-    function onMouseUp() {
-        if (activeSplitter) {
-            activeSplitter.classList.remove('active');
-            activeSplitter = null;
-        }
-    }
-
-    splitter2.addEventListener('mousedown', (e) => onMouseDown(e, splitter2));
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
 
     const closeBtn = document.getElementById('right-panel-close')!;
     closeBtn.addEventListener('click', () => {
@@ -866,7 +832,6 @@ interface FileChange {
 
 const reviewChangesMap: Map<string, FileChange[]> = new Map();
 let selectedReviewFileIdx: number | null = null;
-let savedRightPanelWidth: string | null = null;
 
 function getChangeType(original: string, modified: string): { icon: string; label: string } {
     if (!original) return { icon: '📄', label: '新建' };
@@ -886,7 +851,6 @@ function getChangeSummary(original: string, modified: string): string {
 
 function handleShowReviewRequest(message: any) {
     selectedReviewFileIdx = null;
-    savedRightPanelWidth = null;
     reviewChangesMap.set(message.taskId, message.changes || []);
 
     const reviewCard = document.querySelector(`.msg-bubble.card-bubble[data-taskid="${message.taskId}"] .msg-card`) as HTMLElement
@@ -974,32 +938,15 @@ function toggleReviewFileSelection(change: FileChange, item: HTMLElement, idx: n
     if (selectedReviewFileIdx === idx) {
         selectedReviewFileIdx = null;
         item.classList.remove('selected');
-
-        if (savedRightPanelWidth) {
-            rp.style.width = savedRightPanelWidth;
-            savedRightPanelWidth = null;
-            activateTab('preview');
-        } else {
-            rp.classList.add('hidden');
-        }
+        rp.classList.add('hidden');
         return;
     }
 
     document.querySelectorAll('.review-changes-item.selected').forEach(el => el.classList.remove('selected'));
 
-    if (selectedReviewFileIdx === null) {
-        if (!rp.classList.contains('hidden')) {
-            savedRightPanelWidth = rp.style.width || '320px';
-        } else {
-            savedRightPanelWidth = null;
-            rp.classList.remove('hidden');
-        }
-    }
-
     selectedReviewFileIdx = idx;
     item.classList.add('selected');
-
-    rp.style.width = '500px';
+    rp.classList.remove('hidden');
 
     (window as any).showDiffWithFile?.(change.original, change.modified, change.filePath);
     activateTab('diff');

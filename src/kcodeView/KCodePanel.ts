@@ -981,9 +981,8 @@ export class KCodePanel {
         return `/* === Reset & Base === */
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:#ccc;background:var(--vscode-sideBar-background,#1e1e1e)}
-#container{display:flex;height:100vh;width:100vw;overflow:hidden}
-.splitter{width:3px;cursor:col-resize;background:rgba(255,255,255,.04);flex-shrink:0;z-index:10;transition:background .2s}
-.splitter:hover,.splitter.active{background:rgba(255,255,255,.12)}
+#container{display:flex;height:100vh;width:100vw;overflow:hidden;position:relative}
+#splitter-2{display:none}
 #chat-area{flex:1;display:flex;flex-direction:column;min-width:300px;background:var(--vscode-sideBar-background,#1e1e1e)}
 #task-info{display:flex;align-items:baseline;gap:20px;padding:14px 24px 12px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;background:linear-gradient(180deg,rgba(255,255,255,.015) 0%,transparent 100%)}
 #task-info-primary{display:flex;align-items:center;gap:10px}
@@ -1078,8 +1077,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .thinking-dots .dot:nth-child(2){animation-delay:-0.16s}
 .thinking-dots .dot:nth-child(3){animation-delay:0s}
 @keyframes dot-bounce{0%,80%,100%{transform:scale(0.6);opacity:.3}40%{transform:scale(1);opacity:.8}}
-#right-panel{width:320px;min-width:200px;max-width:600px;background:var(--vscode-sideBar-background,#1e1e1e);border-left:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;transition:width .2s ease}
-#right-panel.hidden{width:0!important;min-width:0;overflow:hidden;border-left:none}
+#right-panel{position:absolute;right:0;top:0;height:100%;width:500px;background:var(--vscode-sideBar-background,#1e1e1e);border-left:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;z-index:20;box-shadow:-4px 0 16px rgba(0,0,0,.35)}
+#right-panel.hidden{display:none}
 #right-panel-header{display:flex;align-items:center;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
 .tabs{display:flex;flex:1;overflow-x:auto}
 .tab{padding:8px 14px;background:none;border:none;color:#777;font-size:12px;cursor:pointer;border-bottom:1px solid transparent;white-space:nowrap;transition:color .2s}
@@ -1102,7 +1101,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-card-body.tool-card-body{max-height:100px}
 .msg-card-body.collapsed{display:none}
 .msg-card-actions{display:flex;gap:8px;padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05)}
-.msg-card-btn{flex:1;padding:5px 10px;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .2s}
+.msg-card-btn{flex:1;max-width:150px;padding:5px 10px;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .2s}
 .msg-card-btn.primary{background:#4a8bb5;color:#fff}
 .msg-card-btn.primary:hover{background:#5a9bc8}
 .msg-card-btn.secondary{background:rgba(255,255,255,.06);color:#d2d2d4}
