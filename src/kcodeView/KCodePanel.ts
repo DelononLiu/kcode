@@ -1114,18 +1114,13 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .review-changes-label{font-size:11px;color:#888;padding:4px 0 2px}
 .review-changes-item{display:flex;align-items:center;gap:8px;padding:4px 4px;cursor:pointer;font-size:12px;color:#4ec9b0;border-radius:3px;transition:background .15s}
 .review-changes-item:hover{background:rgba(255,255,255,.03)}
+.review-changes-item.selected{background:rgba(78,201,176,.12);color:#fff}
 .review-changes-icon{flex-shrink:0;font-size:13px}
 .review-changes-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-changes-type{font-size:10px;color:#888;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.04);flex-shrink:0}
 .review-changes-summary{font-size:10px;color:#5a9d6b;flex-shrink:0}
-.review-changes-expand{font-size:9px;color:#666;flex-shrink:0;width:12px;text-align:center;transition:transform .2s}
-.review-changes-open{font-size:12px;color:#555;flex-shrink:0;cursor:pointer;padding:0 4px;opacity:0;transition:opacity .2s,color .2s}
-.review-changes-item:hover .review-changes-open{opacity:1}
+.review-changes-open{font-size:12px;color:#555;flex-shrink:0;cursor:pointer;padding:0 4px;transition:color .2s}
 .review-changes-open:hover{color:#4a8bb5}
-.review-changes-item-expandable{cursor:pointer}
-.review-changes-item-expandable:hover{background:rgba(255,255,255,.05)}
-.review-changes-diff{border-top:1px solid rgba(255,255,255,.04);background:rgba(0,0,0,.15);margin:4px -4px -4px;padding:6px 8px;overflow-x:auto;max-height:400px;overflow-y:auto;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px;line-height:1.5}
-.review-changes-diff.hidden{display:none}
 .unified-diff{direction:ltr}
 .diff-hunk-header{color:#569cd6;padding:4px 0;font-weight:500;font-size:11px}
 .diff-line{display:flex;gap:0;min-height:20px;align-items:stretch}

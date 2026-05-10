@@ -865,6 +865,8 @@ interface FileChange {
 }
 
 const reviewChangesMap: Map<string, FileChange[]> = new Map();
+let selectedReviewFileIdx: number | null = null;
+let savedRightPanelWidth: string | null = null;
 
 function getChangeType(original: string, modified: string): { icon: string; label: string } {
     if (!original) return { icon: '📄', label: '新建' };
@@ -883,6 +885,8 @@ function getChangeSummary(original: string, modified: string): string {
 }
 
 function handleShowReviewRequest(message: any) {
+    selectedReviewFileIdx = null;
+    savedRightPanelWidth = null;
     reviewChangesMap.set(message.taskId, message.changes || []);
 
     const reviewCard = document.querySelector(`.msg-bubble.card-bubble[data-taskid="${message.taskId}"] .msg-card`) as HTMLElement
@@ -906,18 +910,15 @@ function handleShowReviewRequest(message: any) {
     label.textContent = `📄 变更文件 (${changes.length})`;
     list.appendChild(label);
 
-    for (const change of changes) {
+    for (let idx = 0; idx < changes.length; idx++) {
+        const change = changes[idx];
         const type = getChangeType(change.original, change.modified);
         const summary = getChangeSummary(change.original, change.modified);
-        const hasRealContent = change.original !== '(see file)' && change.modified !== '(see file)';
 
         const item = document.createElement('div');
         item.className = 'review-changes-item';
         item.dataset.filePath = change.filePath;
-
-        const expandIcon = document.createElement('span');
-        expandIcon.className = 'review-changes-expand';
-        expandIcon.textContent = hasRealContent ? '▶' : '';
+        item.dataset.idx = String(idx);
 
         const iconSpan = document.createElement('span');
         iconSpan.className = 'review-changes-icon';
@@ -949,34 +950,16 @@ function handleShowReviewRequest(message: any) {
             });
         });
 
-        item.appendChild(expandIcon);
         item.appendChild(iconSpan);
         item.appendChild(nameSpan);
         item.appendChild(typeLabel);
         item.appendChild(summarySpan);
         item.appendChild(openBtn);
 
-        const diffContainer = document.createElement('div');
-        diffContainer.className = 'review-changes-diff hidden';
-        item.appendChild(diffContainer);
-
-        if (hasRealContent) {
-            item.classList.add('review-changes-item-expandable');
-            item.addEventListener('click', (e) => {
-                if ((e.target as HTMLElement).classList.contains('review-changes-open')) return;
-                const isExpanded = !diffContainer.classList.contains('hidden');
-                toggleFileDiff(change, diffContainer, expandIcon, !isExpanded);
-            });
-        } else {
-            item.addEventListener('click', () => {
-                vscode.postMessage({
-                    type: 'openNativeDiff',
-                    original: change.original,
-                    modified: change.modified,
-                    filePath: change.filePath
-                });
-            });
-        }
+        item.addEventListener('click', (e) => {
+            if ((e.target as HTMLElement).classList.contains('review-changes-open')) return;
+            toggleReviewFileSelection(change, item, idx);
+        });
 
         list.appendChild(item);
     }
@@ -984,27 +967,42 @@ function handleShowReviewRequest(message: any) {
     body.appendChild(list);
 }
 
-function toggleFileDiff(change: FileChange, container: HTMLElement, expandIcon: HTMLElement, expand: boolean) {
-    if (expand) {
-        if (container.innerHTML === '') {
-            const diffHtml = (window as any).generateDiffHtml?.(change.original, change.modified)
-                || '<div style="padding:12px;color:#888;">无法生成 diff</div>';
-            container.innerHTML = diffHtml;
+function toggleReviewFileSelection(change: FileChange, item: HTMLElement, idx: number) {
+    const rp = document.getElementById('right-panel');
+    if (!rp) return;
+
+    if (selectedReviewFileIdx === idx) {
+        selectedReviewFileIdx = null;
+        item.classList.remove('selected');
+
+        if (savedRightPanelWidth) {
+            rp.style.width = savedRightPanelWidth;
+            savedRightPanelWidth = null;
+            activateTab('preview');
+        } else {
+            rp.classList.add('hidden');
         }
-        container.classList.remove('hidden');
-        expandIcon.textContent = '▼';
+        return;
+    }
 
-        (window as any).showDiffWithFile?.(change.original, change.modified, change.filePath);
-        activateTab('diff');
+    document.querySelectorAll('.review-changes-item.selected').forEach(el => el.classList.remove('selected'));
 
-        const rp = document.getElementById('right-panel');
-        if (rp && rp.classList.contains('hidden')) {
+    if (selectedReviewFileIdx === null) {
+        if (!rp.classList.contains('hidden')) {
+            savedRightPanelWidth = rp.style.width || '320px';
+        } else {
+            savedRightPanelWidth = null;
             rp.classList.remove('hidden');
         }
-    } else {
-        container.classList.add('hidden');
-        expandIcon.textContent = '▶';
     }
+
+    selectedReviewFileIdx = idx;
+    item.classList.add('selected');
+
+    rp.style.width = '500px';
+
+    (window as any).showDiffWithFile?.(change.original, change.modified, change.filePath);
+    activateTab('diff');
 }
 
 function showRejectInput(btn: HTMLElement, taskId: string) {
