@@ -55,14 +55,31 @@ export class KCodeClient implements acp.Client {
                     handler.onText(update.content.text);
                 }
                 break;
-            case 'tool_call':
+            case 'tool_call': {
+                const debugData = {
+                    title: update.title,
+                    kind: update.kind,
+                    hasLocations: !!update.locations?.length,
+                    locationsPath: update.locations?.[0]?.path,
+                    rawInputType: typeof update.rawInput,
+                    rawInputKeys: typeof update.rawInput === 'object' && update.rawInput !== null ? Object.keys(update.rawInput) : null,
+                    rawInput: update.rawInput,
+                    allKeys: Object.keys(update)
+                };
+                console.log('[KCode] tool_call data:', JSON.stringify(debugData, null, 2));
+
+                const toolKind = update.kind ?? 'other';
+                const displayTitle = extractToolDisplayTitle(update);
+                console.log('[KCode] tool_call displayTitle:', displayTitle, 'kind:', toolKind);
+
                 handler.onToolCall?.(
                     update.toolCallId,
-                    update.title ?? '',
-                    update.kind ?? 'other',
+                    displayTitle,
+                    toolKind,
                     update.status ?? 'pending'
                 );
                 break;
+            }
             case 'tool_call_update': {
                 const item = update.content?.[0];
                 let textContent: string | undefined;
@@ -76,10 +93,16 @@ export class KCodeClient implements acp.Client {
                 if (!textContent && update.rawOutput != null) {
                     textContent = String(update.rawOutput);
                 }
+
+                const titleFromUpdate = update.title ?? undefined;
+                const kindFromUpdate = update.kind ?? undefined;
+
                 handler.onToolCallUpdate?.(
                     update.toolCallId,
                     update.status ?? 'pending',
-                    textContent
+                    textContent,
+                    titleFromUpdate,
+                    kindFromUpdate
                 );
                 break;
             }
@@ -132,4 +155,35 @@ export class KCodeClient implements acp.Client {
         }
         return this.workspaceRoot ? `${this.workspaceRoot}/${filePath}` : filePath;
     }
+}
+
+function extractToolDisplayTitle(update: any): string {
+    const kind = update.kind ?? 'other';
+    const title = update.title ?? '';
+
+    if (title && title !== kind) {
+        return title;
+    }
+
+    if (update.locations?.length && update.locations[0].path) {
+        return update.locations[0].path;
+    }
+
+    const rawInput = update.rawInput as any;
+    if (rawInput != null) {
+        if (typeof rawInput === 'string') {
+            return rawInput;
+        }
+        if (typeof rawInput === 'object') {
+            const pathKeys = ['path', 'filePath', 'file', 'file_path', 'filepath', 'target', 'target_file', 'filename', 'file_name'];
+            for (const key of pathKeys) {
+                if (rawInput[key]) return String(rawInput[key]);
+            }
+            if (rawInput.command) return String(rawInput.command);
+            if (rawInput.args) return String(rawInput.args);
+            if (rawInput.pattern) return String(rawInput.pattern);
+        }
+    }
+
+    return title;
 }

@@ -261,11 +261,13 @@ export class KCodePanel {
                 this.activeToolCalls.set(toolCallId, { title, kind, status });
                 sendToolCallUpdate(toolCallId, title, kind, status);
             },
-            onToolCallUpdate: (toolCallId: string, status: string, content?: string) => {
+            onToolCallUpdate: (toolCallId: string, status: string, content?: string, title?: string, kind?: string) => {
                 const tc = this.activeToolCalls.get(toolCallId);
                 if (tc) {
                     tc.status = status;
                     if (content) tc.output = content;
+                    if (title) tc.title = title;
+                    if (kind) tc.kind = kind;
                 }
                 sendToolCallUpdate(toolCallId, tc?.title || '', tc?.kind || '', status, content);
             },
