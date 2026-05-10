@@ -8,6 +8,7 @@ export interface Task {
     pinned?: boolean;
     archived?: boolean;
     group?: string;
+    nodeMessageIds?: Partial<Record<'demand' | 'goal' | 'plan' | 'execute' | 'review', string>>;
 }
 
 export interface ChatMessage {
@@ -36,6 +37,7 @@ export interface ProgressNode {
     label: string;
     status: 'pending' | 'active' | 'completed' | 'cancelled';
     order: number;
+    messageId?: string;
 }
 
 export interface AcpMessageHandler {

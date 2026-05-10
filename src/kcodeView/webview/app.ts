@@ -497,6 +497,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
 
     if (msg.type === 'goal_confirmation' || msg.type === 'goal_confirmed') {
         const msgDiv = createCardMessageElement();
+        msgDiv.dataset.msgId = msg.id;
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const bodyText = content.replace(/^📋 任务目标确认\n\n/, '');
         const isConfirmed = msg.type === 'goal_confirmed';
@@ -520,6 +521,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
     if (msg.type === 'review_request' || msg.type === 'review_approved' || msg.type === 'review_rejected') {
         const taskId = msg.taskId;
         const msgDiv = createCardMessageElement(taskId);
+        msgDiv.dataset.msgId = msg.id;
         const bubble = msgDiv.querySelector('.msg-bubble')!;
 
         const isPending = msg.type === 'review_request';
@@ -563,6 +565,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
     if (msg.type === 'stop_message') {
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg agent stop-message';
+        msgDiv.dataset.msgId = msg.id;
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble';
         bubble.textContent = content;
@@ -574,6 +577,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
 
     if (msg.type === 'goal_updated') {
         const msgDiv = createCardMessageElement();
+        msgDiv.dataset.msgId = msg.id;
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const card = createCard({
             headerHtml: '🎯 目标已更新',
@@ -598,6 +602,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
         }
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg tool';
+        msgDiv.dataset.msgId = msg.id;
 
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble tool-bubble';
@@ -612,6 +617,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
 
     const msgDiv = document.createElement('div');
     msgDiv.className = `chat-msg ${role}`;
+    msgDiv.dataset.msgId = msg.id;
 
     const sender = document.createElement('div');
     sender.className = 'msg-sender';
@@ -1261,6 +1267,9 @@ function handleNodePanelUpdate(nodes: any[], taskType: string) {
         const dot = document.createElement('div');
         dot.className = `tl-node status-${node.status}`;
         dot.title = `${getNodeEmoji(node.type)} ${node.label}`;
+        if (node.messageId) {
+            dot.dataset.msgId = node.messageId;
+        }
 
         const emoji = document.createElement('span');
         emoji.className = 'tl-emoji';
@@ -1271,8 +1280,30 @@ function handleNodePanelUpdate(nodes: any[], taskType: string) {
     }
 }
 
+function scrollToMessage(msgId: string) {
+    const el = document.querySelector(`[data-msg-id="${msgId}"]`) as HTMLElement;
+    if (!el) return;
+    const scrollContainer = document.getElementById('chat-scroll');
+    if (!scrollContainer) return;
+    const offset = el.getBoundingClientRect().top - scrollContainer.getBoundingClientRect().top + scrollContainer.scrollTop - 16;
+    scrollContainer.scrollTo({ top: offset, behavior: 'smooth' });
+    el.classList.remove('msg-highlight');
+    void el.offsetWidth;
+    el.classList.add('msg-highlight');
+}
+
 function initNodePanel() {
-    // no-op: timeline gutter dots handled by flexbox CSS
+    const dotsEl = document.getElementById('tl-dots');
+    if (!dotsEl) return;
+    dotsEl.addEventListener('click', (e) => {
+        const node = (e.target as HTMLElement).closest('.tl-node') as HTMLElement;
+        if (!node) return;
+        if (node.classList.contains('status-pending')) return;
+        const msgId = node.dataset.msgId;
+        if (msgId) {
+            scrollToMessage(msgId);
+        }
+    });
 }
 
 (window as any).addMessage = addMessage;

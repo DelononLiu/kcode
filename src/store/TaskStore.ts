@@ -195,6 +195,18 @@ export class TaskStore {
         this.state.update('groups', groups);
     }
 
+    updateTaskNodeMessageId(taskId: string, nodeType: string, messageId: string): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            if (!tasks[idx].nodeMessageIds) {
+                tasks[idx].nodeMessageIds = {};
+            }
+            (tasks[idx].nodeMessageIds as Record<string, string>)[nodeType] = messageId;
+            this.state.update('tasks', tasks);
+        }
+    }
+
     updateTaskArchive(taskId: string, archived: boolean): void {
         const tasks = this.getTasks();
         const idx = tasks.findIndex(t => t.id === taskId);

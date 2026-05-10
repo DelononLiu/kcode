@@ -27,6 +27,8 @@ export class KCodePanel {
     private taskStatusMarker: string | null = null;
     private refreshSidebarCallback?: () => void;
     private isGenerating: boolean = false;
+    private hasSetPlanMessage: boolean = false;
+    private hasSetExecuteMessage: boolean = false;
 
     constructor(context: vscode.ExtensionContext, store: TaskStore) {
         this.context = context;
@@ -116,8 +118,9 @@ export class KCodePanel {
         }
 
         // Store user message
+        const userMsgId = this.store.nextMessageId(tid);
         this.store.addMessage({
-            id: this.store.nextMessageId(tid),
+            id: userMsgId,
             taskId: tid,
             role: 'user',
             content: text,
@@ -125,6 +128,7 @@ export class KCodePanel {
         });
 
         if (isFirstMessage) {
+            this.store.updateTaskNodeMessageId(tid, 'demand', userMsgId);
             const prefix = intent === 'task' ? 'Task: ' : 'Chat: ';
             const rawTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
             this.store.updateTaskTitle(tid, prefix + rawTitle);
@@ -134,6 +138,7 @@ export class KCodePanel {
             }
             this.refreshSidebarCallback?.();
             this.sendTaskInfo(tid);
+            this.sendNodePanelUpdate(tid);
         }
 
         // Send user message to webview for immediate rendering
@@ -305,9 +310,12 @@ export class KCodePanel {
                     return;
                 }
                 if (!isGoalFormatting) {
+                    let firstToolMsgId: string | null = null;
                     for (const [toolCallId, tc] of this.activeToolCalls) {
+                        const msgId = this.store.nextMessageId(tid);
+                        if (!firstToolMsgId) firstToolMsgId = msgId;
                         this.store.addMessage({
-                            id: this.store.nextMessageId(tid),
+                            id: msgId,
                             taskId: tid,
                             role: 'tool',
                             type: 'tool_call',
@@ -321,6 +329,10 @@ export class KCodePanel {
                             timestamp: Date.now()
                         });
                     }
+                    if (firstToolMsgId && !this.hasSetExecuteMessage) {
+                        this.store.updateTaskNodeMessageId(tid, 'execute', firstToolMsgId);
+                        this.hasSetExecuteMessage = true;
+                    }
                 }
                 if (this.accumulatedAgentText) {
                     if (isGoalFormatting) {
@@ -332,7 +344,12 @@ export class KCodePanel {
                         if (task?.type === 'task' && this.taskStatusMarker === 'completed') {
                             this.triggerReviewRequest(tid, cleanedText);
                         } else {
-                            this.storeMessage(tid, 'agent', cleanedText);
+                            const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
+                            if (agentMsgId && !this.hasSetPlanMessage) {
+                                this.store.updateTaskNodeMessageId(tid, 'plan', agentMsgId);
+                                this.hasSetPlanMessage = true;
+                            }
+                            this.sendNodePanelUpdate(tid);
                             const task = this.store.getTask(tid);
                             this.panel.webview.postMessage({
                                 type: 'loadMessages',
@@ -394,15 +411,18 @@ export class KCodePanel {
     private processGoalProposal(tid: string, goalText: string, originalRequest: string) {
         this.store.updateTaskGoal(tid, goalText);
         this.store.updateTaskStatus(tid, 'pending');
+        const goalMsgId = this.store.nextMessageId(tid);
         this.store.addMessage({
-            id: this.store.nextMessageId(tid),
+            id: goalMsgId,
             taskId: tid,
             role: 'agent',
             type: 'goal_confirmation',
             content: `📋 任务目标确认\n\n${goalText}`,
             timestamp: Date.now()
         });
+        this.store.updateTaskNodeMessageId(tid, 'goal', goalMsgId);
         this.sendTaskInfo(tid);
+        this.sendNodePanelUpdate(tid);
         this.refreshSidebarCallback?.();
         this.panel.webview.postMessage({
             type: 'showGoalConfirmation',
@@ -552,14 +572,16 @@ export class KCodePanel {
     }
 
     private triggerReviewRequest(tid: string, content: string) {
+        const reviewMsgId = this.store.nextMessageId(tid);
         this.store.addMessage({
-            id: this.store.nextMessageId(tid),
+            id: reviewMsgId,
             taskId: tid,
             role: 'agent',
             type: 'review_request',
             content,
             timestamp: Date.now()
         });
+        this.store.updateTaskNodeMessageId(tid, 'review', reviewMsgId);
         this.store.updateTaskStatus(tid, 'in_review');
         this.panel.webview.postMessage({
             type: 'loadMessages',
@@ -863,14 +885,16 @@ export class KCodePanel {
         await this.acpClient.createSession(taskId, workspacePath);
     }
 
-    private storeMessage(taskId: string, role: 'user' | 'agent', content: string) {
+    private storeMessage(taskId: string, role: 'user' | 'agent', content: string): string {
+        const id = this.store.nextMessageId(taskId);
         this.store.addMessage({
-            id: this.store.nextMessageId(taskId),
+            id,
             taskId,
             role,
             content,
             timestamp: Date.now()
         });
+        return id;
     }
 
     private getWebviewContent(): string {
@@ -1177,11 +1201,17 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tl-node.status-cancelled{background:#e06060;box-shadow:0 0 6px rgba(224,96,96,.5)}
 .tl-emoji{position:absolute;left:-16px;top:-3px;font-size:9px;pointer-events:none;line-height:1}
 @keyframes tl-pulse{0%{box-shadow:0 0 0 0 rgba(74,139,181,.4)}70%{box-shadow:0 0 0 6px rgba(74,139,181,0)}100%{box-shadow:0 0 0 0 rgba(74,139,181,0)}}
+.msg-highlight{animation:msg-highlight-fade 1.5s ease-out}
+@keyframes msg-highlight-fade{0%{background:rgba(78,201,176,.1);border-left:2px solid #4ec9b0}100%{background:transparent;border-left:2px solid transparent}}
 `;
     }
 
     loadTask(taskId: string) {
         this.currentTaskId = taskId;
+        this.planEntries = [];
+        const task = this.store.getTask(taskId);
+        this.hasSetPlanMessage = !!task?.nodeMessageIds?.plan;
+        this.hasSetExecuteMessage = !!task?.nodeMessageIds?.execute;
         this.sendTaskMessages(taskId);
         this.sendTaskInfo(taskId);
         this.sendNodePanelUpdate(taskId);
@@ -1243,12 +1273,14 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         const demandDone = hasGoal || hasConfirmedGoal || s === 'in_review' || s === 'completed';
         const goalActive = hasGoal && !hasConfirmedGoal && s !== 'cancelled';
 
+        const nm = task.nodeMessageIds || {};
+
         return [
-            { id: 'demand', type: 'demand', label: '需求提交', status: ns('demand', demandDone, !demandDone && s !== 'cancelled'), order: 1 },
-            { id: 'goal', type: 'goal', label: '目标确认', status: ns('goal', hasConfirmedGoal, goalActive), order: 2 },
-            { id: 'plan', type: 'plan', label: '计划', status: ns('plan', hasPlan || s === 'in_review' || s === 'completed', false), order: 3 },
-            { id: 'execute', type: 'execute', label: '执行', status: ns('execute', s === 'in_review' || s === 'completed', s === 'active'), order: 4 },
-            { id: 'review', type: 'review', label: '验收', status: ns('review', s === 'completed', s === 'in_review'), order: 5 },
+            { id: 'demand', type: 'demand', label: '需求提交', status: ns('demand', demandDone, !demandDone && s !== 'cancelled'), order: 1, messageId: nm.demand },
+            { id: 'goal', type: 'goal', label: '目标确认', status: ns('goal', hasConfirmedGoal, goalActive), order: 2, messageId: nm.goal },
+            { id: 'plan', type: 'plan', label: '计划', status: ns('plan', hasPlan || s === 'in_review' || s === 'completed', false), order: 3, messageId: nm.plan },
+            { id: 'execute', type: 'execute', label: '执行', status: ns('execute', s === 'in_review' || s === 'completed', s === 'active'), order: 4, messageId: nm.execute },
+            { id: 'review', type: 'review', label: '验收', status: ns('review', s === 'completed', s === 'in_review'), order: 5, messageId: nm.review },
         ];
     }
 
