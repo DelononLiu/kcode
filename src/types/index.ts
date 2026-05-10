@@ -32,10 +32,9 @@ export interface FileChange {
 
 export interface ProgressNode {
     id: string;
-    type: 'goal' | 'plan' | 'step' | 'review';
+    type: 'demand' | 'goal' | 'plan' | 'execute' | 'review';
     label: string;
-    status: 'pending' | 'active' | 'completed';
-    messageId?: string;
+    status: 'pending' | 'active' | 'completed' | 'cancelled';
     order: number;
 }
 

@@ -1231,9 +1231,10 @@ function hideWorkingIndicator() {
 
 function getNodeEmoji(type: string): string {
     switch (type) {
+        case 'demand': return '📝';
         case 'goal': return '🎯';
         case 'plan': return '📋';
-        case 'step': return '⚡';
+        case 'execute': return '⚡';
         case 'review': return '✅';
         default: return '●';
     }

@@ -921,7 +921,6 @@ export class KCodePanel {
             </div>
             <div id="chat-body">
                 <div id="node-timeline-gutter" class="hidden">
-                    <div id="tl-line"></div>
                     <div id="tl-dots"></div>
                 </div>
                 <div id="chat-scroll" class="chat-empty">
@@ -1168,13 +1167,14 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 /* === Timeline Gutter === */
 #node-timeline-gutter{position:absolute;left:2px;top:0;bottom:0;width:20px;z-index:5;display:flex;flex-direction:column;align-items:center;pointer-events:none;overflow:visible}
 #node-timeline-gutter.hidden{display:none}
-#tl-line{position:absolute;left:50%;top:4px;bottom:4px;width:2px;background:rgba(255,255,255,.05);transform:translateX(-50%);border-radius:1px}
-#tl-dots{flex:1;display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;position:relative;width:100%;z-index:1}
-.tl-node-wrap{display:flex;align-items:center;justify-content:center;position:relative;z-index:1;width:100%}
+#tl-dots{flex:1;display:flex;flex-direction:column;justify-content:space-between;align-items:center;position:relative;width:100%;z-index:1}
+#tl-dots::before{content:'';position:absolute;left:50%;top:5px;bottom:5px;width:2px;background:rgba(255,255,255,.05);transform:translateX(-50%);border-radius:1px}
+.tl-node-wrap{display:flex;align-items:center;justify-content:center;width:100%;z-index:2}
 .tl-node{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.08);position:relative;transition:background .3s,box-shadow .3s;pointer-events:auto;cursor:pointer;flex-shrink:0}
 .tl-node.status-completed{background:#4ec9b0}
 .tl-node.status-active{background:#4a8bb5;box-shadow:0 0 6px rgba(74,139,181,.5);animation:tl-pulse 2s infinite}
 .tl-node.status-pending{background:rgba(255,255,255,.12)}
+.tl-node.status-cancelled{background:#e06060;box-shadow:0 0 6px rgba(224,96,96,.5)}
 .tl-emoji{position:absolute;left:-16px;top:-3px;font-size:9px;pointer-events:none;line-height:1}
 @keyframes tl-pulse{0%{box-shadow:0 0 0 0 rgba(74,139,181,.4)}70%{box-shadow:0 0 0 6px rgba(74,139,181,0)}100%{box-shadow:0 0 0 0 rgba(74,139,181,0)}}
 `;
@@ -1217,53 +1217,39 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
     private deriveNodes(taskId: string): ProgressNode[] {
         const task = this.store.getTask(taskId);
-        if (!task || task.type !== 'task') return [];
+        if (!task || task.type === 'chat') return [];
 
-        const nodes: ProgressNode[] = [];
         const msgs = this.store.getMessages(taskId);
-        const hasConfirmedGoal = msgs.some(m => m.type === 'goal_confirmed');
         const hasGoal = !!task.goal;
+        const hasConfirmedGoal = msgs.some(m => m.type === 'goal_confirmed');
+        const hasReviewRequest = msgs.some(m => m.type === 'review_request');
+        const hasPlan = this.planEntries.length > 0;
+        const s = task.status;
 
-        if (hasGoal) {
-            nodes.push({
-                id: 'goal',
-                type: 'goal',
-                label: '确认目标',
-                status: hasConfirmedGoal ? 'completed' : 'active',
-                order: 1,
-            });
+        let interruptAt = '';
+        if (s === 'cancelled') {
+            if (!hasGoal || !hasConfirmedGoal) interruptAt = 'goal';
+            else if (!hasReviewRequest) interruptAt = 'execute';
+            else interruptAt = 'review';
         }
 
-        if (this.planEntries.length > 0) {
-            nodes.push({
-                id: 'plan',
-                type: 'plan',
-                label: '执行计划',
-                status: 'completed',
-                order: 2,
-            });
-            this.planEntries.forEach((entry, idx) => {
-                nodes.push({
-                    id: `step-${idx}`,
-                    type: 'step',
-                    label: entry.content,
-                    status: (entry.status === 'completed' ? 'completed' : entry.status === 'in_progress' ? 'active' : 'pending') as 'pending' | 'active' | 'completed',
-                    order: 3 + idx,
-                });
-            });
-        }
+        const ns = (id: string, completed: boolean, active: boolean): 'pending' | 'active' | 'completed' | 'cancelled' => {
+            if (s === 'cancelled' && id === interruptAt) return 'cancelled';
+            if (completed) return 'completed';
+            if (active) return 'active';
+            return 'pending';
+        };
 
-        if (task.status === 'in_review' || task.status === 'completed') {
-            nodes.push({
-                id: 'review',
-                type: 'review',
-                label: '验收',
-                status: task.status === 'completed' ? 'completed' : 'active',
-                order: 999,
-            });
-        }
+        const demandDone = hasGoal || hasConfirmedGoal || s === 'in_review' || s === 'completed';
+        const goalActive = hasGoal && !hasConfirmedGoal && s !== 'cancelled';
 
-        return nodes;
+        return [
+            { id: 'demand', type: 'demand', label: '需求提交', status: ns('demand', demandDone, !demandDone && s !== 'cancelled'), order: 1 },
+            { id: 'goal', type: 'goal', label: '目标确认', status: ns('goal', hasConfirmedGoal, goalActive), order: 2 },
+            { id: 'plan', type: 'plan', label: '计划', status: ns('plan', hasPlan || s === 'in_review' || s === 'completed', false), order: 3 },
+            { id: 'execute', type: 'execute', label: '执行', status: ns('execute', s === 'in_review' || s === 'completed', s === 'active'), order: 4 },
+            { id: 'review', type: 'review', label: '验收', status: ns('review', s === 'completed', s === 'in_review'), order: 5 },
+        ];
     }
 
     private sendNodePanelUpdate(taskId: string) {
@@ -1272,7 +1258,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         this.panel.webview.postMessage({
             type: 'updateNodePanel',
             nodes,
-            taskType: task?.type || 'chat',
+            taskType: task?.type || 'task',
         });
     }
 
