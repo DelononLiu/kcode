@@ -563,6 +563,7 @@ function appendDeviceOutput(data: string): void
 | `'openSettings'` | sidebar.ts / app.ts | KCodeSidebarProvider |
 | `'sendMessage'` | app.ts | KCodePanel |
 | `'confirmGoal'` | app.ts | KCodePanel |
+| `'confirmGoalWithEdit'` | app.ts | KCodePanel |
 | `'reviseGoal'` | app.ts | KCodePanel |
 | `'cancelTask'` | app.ts | KCodePanel |
 | `'stopGeneration'` | app.ts | KCodePanel |

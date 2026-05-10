@@ -88,8 +88,8 @@ export class KCodePanel {
                 case 'openNativeDiff':
                     this.handleOpenNativeDiff(message.original, message.modified, message.filePath);
                     break;
-                case 'updateGoal':
-                    this.handleUpdateGoal(message.taskId, message.goal);
+                case 'confirmGoalWithEdit':
+                    await this.handleConfirmGoalWithEdit(message.taskId, message.goal, message.originalRequest);
                     break;
                 case 'collapseTimeline':
                     break;
@@ -514,24 +514,54 @@ export class KCodePanel {
         this.setGenerationState(false);
     }
 
-    private handleUpdateGoal(tid: string, newGoal: string) {
-        const task = this.store.getTask(tid);
-        if (!task) return;
-        const oldGoal = task.goal;
-        if (oldGoal === newGoal) return;
+    private async handleConfirmGoalWithEdit(tid: string, newGoal: string, originalRequest: string) {
         this.store.updateTaskGoal(tid, newGoal);
         this.store.addMessage({
             id: this.store.nextMessageId(tid),
             taskId: tid,
-            role: 'agent',
-            type: 'goal_updated',
-            content: `🎯 目标已更新\n\n\`\`\`\n${oldGoal}\n\`\`\` → \n\`\`\`\n${newGoal}\n\`\`\``,
+            role: 'user',
+            content: '✅ 确认目标，开始执行',
             timestamp: Date.now()
         });
+        this.panel.webview.postMessage({ type: 'addUserMessage', content: '✅ 确认目标，开始执行' });
+
+        const msgs = this.store.getMessages(tid);
+        const lastGoal = msgs.filter(m => m.type === 'goal_confirmation').pop();
+        if (lastGoal) {
+            this.store.updateMessageType(tid, lastGoal.id, 'goal_confirmed');
+        }
+
+        this.store.updateTaskStatus(tid, 'active');
         this.sendTaskInfo(tid);
         this.refreshSidebarCallback?.();
-        this.sendTaskMessages(tid);
-        this.panel.webview.postMessage({ type: 'focusInput' });
+        this.sendNodePanelUpdate(tid);
+
+        this.accumulatedAgentText = '';
+        this.activeToolCalls.clear();
+        this.planEntries = [];
+        const promptText = this.buildTaskPrompt(tid, originalRequest);
+        const handler = this.createAgentResponseHandler(tid, false, originalRequest);
+
+        if (this.agentReady && this.acpClient) {
+            this.setGenerationState(true);
+            await this.acpClient.prompt(tid, promptText, handler);
+        } else if (this.fakeAgent) {
+            const sessionId = this.fakeAgent.createSession(tid);
+            this.fakeAgent.setHandler(sessionId, handler);
+            this.accumulatedAgentText = '';
+            this.activeToolCalls.clear();
+            this.planEntries = [];
+            this.setGenerationState(true);
+            await this.fakeAgent.prompt(sessionId, promptText);
+        } else if (this.openaiAgent) {
+            const sessionId = this.openaiAgent.createSession(tid);
+            this.openaiAgent.setHandler(sessionId, handler);
+            this.accumulatedAgentText = '';
+            this.activeToolCalls.clear();
+            this.planEntries = [];
+            this.setGenerationState(true);
+            await this.openaiAgent.prompt(sessionId, promptText);
+        }
     }
 
     private handleStopGeneration(taskId?: string) {
@@ -932,22 +962,8 @@ export class KCodePanel {
                             <span id="task-info-review"></span>
                         </div>
                         <div id="task-info-goal" class="hidden">
-                            <div id="goal-header-view">
-                                <span class="header-label">Goal：</span>
-                                <span id="goal-header-text"></span>
-                                <button id="goal-edit-btn" title="修改目标">✏️</button>
-                            </div>
-                            <div id="task-info-points" class="hidden">
-                                <span class="header-label">验收要点：</span>
-                                <span id="points-text"></span>
-                            </div>
-                            <div id="goal-header-edit" class="hidden">
-                                <textarea id="goal-edit-input" rows="2"></textarea>
-                                <div id="goal-edit-actions">
-                                    <button id="goal-save-btn" class="goal-edit-btn">保存</button>
-                                    <button id="goal-cancel-btn" class="goal-edit-btn cancel">取消</button>
-                                </div>
-                            </div>
+                            <span class="header-label">Goal：</span>
+                            <span id="goal-header-text"></span>
                         </div>
                     </div>
                 </div>
@@ -1055,27 +1071,11 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #task-info-created,#task-info-review{color:#666}
 #task-info-sep{color:#444}
 
-/* === Task Info — Goal Row (merged into header) === */
-#task-info-goal{display:flex;flex-direction:column;gap:2px;padding:2px 24px 6px;background:rgba(78,201,176,.03)}
+/* === Task Info — Goal Row (read-only) === */
+#task-info-goal{display:flex;align-items:center;gap:6px;padding:2px 24px 6px;background:rgba(78,201,176,.03)}
 #task-info-goal.hidden{display:none}
 #task-info-goal .header-label{font-size:11px;color:#888;font-weight:500;flex-shrink:0}
-#task-info-goal #goal-header-view{display:flex;align-items:center;gap:6px}
 #task-info-goal #goal-header-text{font-size:12.5px;color:#4ec9b0;line-height:1.4;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#task-info-goal #goal-edit-btn{background:none;border:none;color:#555;cursor:pointer;padding:1px 4px;border-radius:3px;font-size:11px;flex-shrink:0;line-height:1;transition:color .2s,background .2s}
-#task-info-goal #goal-edit-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
-#task-info-goal #task-info-points{display:flex;align-items:flex-start;gap:6px;padding:0 0 0 0}
-#task-info-goal #task-info-points.hidden{display:none}
-#task-info-goal #points-text{font-size:12px;color:#d2d2d4;line-height:1.4}
-#task-info-goal #goal-header-edit{padding:2px 0}
-#task-info-goal #goal-header-edit.hidden{display:none}
-#goal-edit-input{width:100%;background:#25252a;border:1px solid rgba(255,255,255,.12);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:12.5px;padding:6px 8px;resize:vertical;outline:none;min-height:36px}
-#goal-edit-input:focus{border-color:rgba(255,255,255,.25)}
-#goal-edit-actions{display:flex;gap:6px;padding:6px 0 0}
-.goal-edit-btn{padding:3px 10px;border:none;border-radius:3px;font-size:11px;cursor:pointer;font-family:inherit;transition:background .2s}
-#goal-save-btn{background:#4a8bb5;color:#fff}
-#goal-save-btn:hover{background:#5a9bc8}
-#goal-cancel-btn{background:rgba(255,255,255,.06);color:#d2d2d4}
-#goal-cancel-btn:hover{background:rgba(255,255,255,.1)}
 .chat-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:14px;user-select:none}
 #working-indicator{display:flex;align-items:center;gap:8px;padding:8px 0 4px;font-size:12px;color:#888;width:100%}
 #working-indicator.hidden{display:none}
@@ -1198,6 +1198,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .diff-file-header span{font-size:12px;color:#888;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .diff-open-native{background:none;border:1px solid rgba(255,255,255,.1);color:#4a8bb5;cursor:pointer;font-size:11px;padding:2px 8px;border-radius:3px;font-family:inherit;white-space:nowrap;flex-shrink:0;transition:background .2s,border-color .2s}
 .diff-open-native:hover{background:rgba(74,139,181,.08);border-color:rgba(74,139,181,.3)}
+.goal-edit-textarea{width:100%;background:#25252a;border:1px solid rgba(255,255,255,.12);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:13px;padding:8px;resize:vertical;outline:none;min-height:120px;line-height:1.5}
+.goal-edit-textarea:focus{border-color:rgba(78,201,176,.4)}
 .reject-input-area{padding:4px 0;width:100%}
 .reject-input{width:100%;background:#25252a;border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:12px;padding:5px 7px;resize:vertical;outline:none;min-height:32px}
 .reject-input:focus{border-color:rgba(255,255,255,.2)}
@@ -1215,6 +1217,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tool-spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.08);border-top-color:#5a9d6b;border-radius:50%;animation:tool-spin .8s linear infinite;flex-shrink:0}
 @keyframes tool-spin{to{transform:rotate(360deg)}}
 .agent-diff-summary{margin-top:10px;padding:6px 10px;background:rgba(78,201,176,.04);border-left:2px solid #4ec9b0;border-radius:3px;font-size:12px;line-height:1.6;color:#9aa}
+.review-inline-actions{display:flex;gap:8px;padding:8px 0 2px}
+.review-inline-status{font-size:12px;color:#777;padding:6px 0 2px}
+.goal-confirmed-label{font-size:11px;color:#777;padding:4px 0 2px}
 .chat-msg.stop-message .msg-bubble{text-align:center;font-size:12px;color:#666;padding:4px 0}
 
 /* === Timeline Gutter === */

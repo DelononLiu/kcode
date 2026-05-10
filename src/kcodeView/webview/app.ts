@@ -66,7 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     initChat();
     initMessageHandler();
-    initGoalHeader();
     initNodePanel();
 
     (window as any).__openNativeDiff = (original: string, modified: string, filePath: string) => {
@@ -496,23 +495,31 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
     const content = msg.content;
 
     if (msg.type === 'goal_confirmation' || msg.type === 'goal_confirmed') {
-        const msgDiv = createCardMessageElement();
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'chat-msg agent';
         msgDiv.dataset.msgId = msg.id;
-        const bubble = msgDiv.querySelector('.msg-bubble')!;
+
+        const sender = document.createElement('div');
+        sender.className = 'msg-sender';
+        const ts = msg.timestamp ? formatTimestamp(msg.timestamp) : '';
+        sender.innerHTML = 'Agent' + (ts ? ' <span class="msg-timestamp">' + ts + '</span>' : '');
+        msgDiv.appendChild(sender);
+
         const bodyText = content.replace(/^📋 任务目标确认\n\n/, '');
         const isConfirmed = msg.type === 'goal_confirmed';
-        const card = createCard({
-            headerHtml: '📋 任务目标确认',
-            bodyMarkdown: bodyText,
-            defaultCollapsed: false,
-            borderColor: '#3c3c3c',
-            headerBg: '#2d2d2d',
-            headerColor: '#e0e0e0'
-        });
+
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+        bubble.innerHTML = renderMarkdown(bodyText);
+        msgDiv.appendChild(bubble);
+
         if (isConfirmed) {
-            updateCardToStatus(card, '✅ 已确认');
+            const statusEl = document.createElement('div');
+            statusEl.className = 'goal-confirmed-label';
+            statusEl.textContent = '✅ 已确认';
+            msgDiv.appendChild(statusEl);
         }
-        bubble.appendChild(card);
+
         appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
@@ -520,43 +527,58 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
 
     if (msg.type === 'review_request' || msg.type === 'review_approved' || msg.type === 'review_rejected') {
         const taskId = msg.taskId;
-        const msgDiv = createCardMessageElement(taskId);
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'chat-msg agent';
         msgDiv.dataset.msgId = msg.id;
-        const bubble = msgDiv.querySelector('.msg-bubble')!;
+
+        const sender = document.createElement('div');
+        sender.className = 'msg-sender';
+        const ts = msg.timestamp ? formatTimestamp(msg.timestamp) : '';
+        sender.innerHTML = 'Agent' + (ts ? ' <span class="msg-timestamp">' + ts + '</span>' : '');
+        msgDiv.appendChild(sender);
+
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+        bubble.innerHTML = renderMarkdown(content);
+        msgDiv.appendChild(bubble);
 
         const isPending = msg.type === 'review_request';
         const statusText = msg.type === 'review_approved' ? '✅ 已验收通过' :
                            msg.type === 'review_rejected' ? '↩️ 已驳回' : '';
-        const card = createCard({
-            headerHtml: '✅ AI 已完成任务',
-            bodyMarkdown: content,
-            defaultCollapsed: false,
-            borderColor: '#4ec9b0',
-            headerBg: '#1e3a2f',
-            headerColor: '#4ec9b0',
-            actions: isPending ? [
-                {
-                    text: '验收通过 ✓',
-                    className: 'primary',
-                    onClick: (e: MouseEvent) => {
-                        const target = e.currentTarget as HTMLElement;
-                        updateCardToStatus(findParentCard(target)!, '✅ 已验收通过');
-                        vscode.postMessage({ type: 'approveReview', taskId });
-                    }
-                },
-                {
-                    text: '驳回 ↩',
-                    className: 'secondary',
-                    onClick: (e: MouseEvent) => {
-                        showRejectInput(e.currentTarget as HTMLElement, taskId);
-                    }
-                }
-            ] : undefined
-        });
-        if (statusText) {
-            updateCardToStatus(card, statusText);
+
+        if (isPending) {
+            const actions = document.createElement('div');
+            actions.className = 'review-inline-actions';
+
+            const approveBtn = document.createElement('button');
+            approveBtn.className = 'msg-card-btn primary';
+            approveBtn.textContent = '验收通过 ✓';
+            approveBtn.addEventListener('click', () => {
+                actions.innerHTML = '';
+                const status = document.createElement('span');
+                status.className = 'review-inline-status';
+                status.textContent = '✅ 已验收通过';
+                actions.appendChild(status);
+                vscode.postMessage({ type: 'approveReview', taskId });
+            });
+
+            const rejectBtn = document.createElement('button');
+            rejectBtn.className = 'msg-card-btn secondary';
+            rejectBtn.textContent = '驳回 ↩';
+            rejectBtn.addEventListener('click', () => {
+                showRejectInput(rejectBtn, taskId);
+            });
+
+            actions.appendChild(approveBtn);
+            actions.appendChild(rejectBtn);
+            msgDiv.appendChild(actions);
+        } else if (statusText) {
+            const statusBar = document.createElement('div');
+            statusBar.className = 'review-inline-status';
+            statusBar.textContent = statusText;
+            msgDiv.appendChild(statusBar);
         }
-        bubble.appendChild(card);
+
         appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
@@ -570,24 +592,6 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
         bubble.className = 'msg-bubble';
         bubble.textContent = content;
         msgDiv.appendChild(bubble);
-        appendToChatMessages(msgDiv);
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-        return;
-    }
-
-    if (msg.type === 'goal_updated') {
-        const msgDiv = createCardMessageElement();
-        msgDiv.dataset.msgId = msg.id;
-        const bubble = msgDiv.querySelector('.msg-bubble')!;
-        const card = createCard({
-            headerHtml: '🎯 目标已更新',
-            bodyMarkdown: content.replace(/^🎯 目标已更新\n\n/, ''),
-            defaultCollapsed: true,
-            borderColor: '#4ec9b0',
-            headerBg: '#1a2e2a',
-            headerColor: '#4ec9b0'
-        });
-        bubble.appendChild(card);
         appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
@@ -692,79 +696,12 @@ function updateTaskInfo(info: any) {
     if (goalRow && goalText) {
         const hasGoal = info.taskType === 'task' && info.goal && info.status !== 'cancelled' && info.status !== 'completed';
         goalRow.classList.toggle('hidden', !hasGoal);
-        goalRow.dataset.fullGoal = info.goal || '';
         const summary = (info.goal || '').split('\n')[0].replace(/[*_#`>\[\]]/g, '').trim();
         goalText.textContent = summary || '目标';
-
-        const pointsRow = document.getElementById('task-info-points');
-        const pointsText = document.getElementById('points-text');
-        if (pointsRow && pointsText) {
-            const lines = (info.goal || '').split('\n').filter((l: string) => /^\s*(?:\d+[\.\)]|[-*])\s/.test(l));
-            if (lines.length > 0) {
-                pointsText.textContent = lines.map((l: string) => l.trim()).join('  ');
-                pointsRow.classList.remove('hidden');
-            } else {
-                pointsRow.classList.add('hidden');
-            }
-        }
-
-        showGoalViewMode();
     }
 }
 
-let goalOriginalText = '';
 
-function showGoalViewMode() {
-    const view = document.getElementById('goal-header-view');
-    const edit = document.getElementById('goal-header-edit');
-    if (view) view.classList.remove('hidden');
-    if (edit) edit.classList.add('hidden');
-}
-
-function showGoalEditMode() {
-    const view = document.getElementById('goal-header-view');
-    const edit = document.getElementById('goal-header-edit');
-    const input = document.getElementById('goal-edit-input') as HTMLTextAreaElement;
-    const goalRow = document.getElementById('task-info-goal');
-    if (view) view.classList.add('hidden');
-    if (edit) edit.classList.remove('hidden');
-    if (input && goalRow) {
-        goalOriginalText = goalRow.dataset.fullGoal || '';
-        input.value = goalOriginalText;
-        input.focus();
-        input.setSelectionRange(input.value.length, input.value.length);
-    }
-}
-
-function initGoalHeader() {
-    const editBtn = document.getElementById('goal-edit-btn');
-    const saveBtn = document.getElementById('goal-save-btn');
-    const cancelBtn = document.getElementById('goal-cancel-btn');
-    const input = document.getElementById('goal-edit-input') as HTMLTextAreaElement;
-
-    editBtn?.addEventListener('click', showGoalEditMode);
-    cancelBtn?.addEventListener('click', showGoalViewMode);
-
-    saveBtn?.addEventListener('click', () => {
-        if (!input) return;
-        const newGoal = input.value.trim();
-        if (!newGoal || newGoal === goalOriginalText) {
-            showGoalViewMode();
-            return;
-        }
-        vscode.postMessage({ type: 'updateGoal', taskId: activeTaskId, goal: newGoal });
-    });
-
-    input?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            saveBtn?.click();
-        }
-        if (e.key === 'Escape') {
-            showGoalViewMode();
-        }
-    });
-}
 
 function flashInput() {
     const wrapper = document.querySelector('.input-wrapper');
@@ -899,17 +836,13 @@ function handleShowReviewRequest(message: any) {
     selectedReviewFileIdx = null;
     reviewChangesMap.set(message.taskId, message.changes || []);
 
-    const reviewCard = document.querySelector(`.msg-bubble.card-bubble[data-taskid="${message.taskId}"] .msg-card`) as HTMLElement
-        || document.querySelector('#chat-messages > .chat-msg.agent:last-child .msg-card') as HTMLElement;
-    if (!reviewCard) return;
+    const lastReviewMsg = document.querySelector('#chat-messages > .chat-msg.agent:last-child') as HTMLElement;
+    if (!lastReviewMsg) return;
 
     const changes = message.changes as FileChange[];
     if (!changes || changes.length === 0) return;
 
-    const body = reviewCard.querySelector('.msg-card-body');
-    if (!body) return;
-
-    const existing = body.querySelector('.review-changes');
+    const existing = lastReviewMsg.querySelector('.review-changes');
     if (existing) existing.remove();
 
     const list = document.createElement('div');
@@ -974,7 +907,7 @@ function handleShowReviewRequest(message: any) {
         list.appendChild(item);
     }
 
-    body.appendChild(list);
+    lastReviewMsg.appendChild(list);
 }
 
 function toggleReviewFileSelection(change: FileChange, item: HTMLElement, idx: number) {
@@ -999,10 +932,10 @@ function toggleReviewFileSelection(change: FileChange, item: HTMLElement, idx: n
 }
 
 function showRejectInput(btn: HTMLElement, taskId: string) {
-    const card = findParentCard(btn);
-    if (!card) return;
+    const msgDiv = btn.closest('.chat-msg.agent') as HTMLElement;
+    if (!msgDiv) return;
 
-    const actions = card.querySelector('.msg-card-actions');
+    const actions = msgDiv.querySelector('.review-inline-actions') as HTMLElement;
     if (!actions) return;
 
     const existing = actions.querySelector('.reject-input-area');
@@ -1031,7 +964,11 @@ function showRejectInput(btn: HTMLElement, taskId: string) {
 
     confirmBtn.addEventListener('click', () => {
         const reason = textarea.value.trim();
-        updateCardToStatus(card, reason ? `↩️ 已驳回: ${reason}` : '↩️ 已驳回');
+        actions.innerHTML = '';
+        const statusEl = document.createElement('span');
+        statusEl.className = 'review-inline-status';
+        statusEl.textContent = reason ? `↩️ 已驳回: ${reason}` : '↩️ 已驳回';
+        actions.appendChild(statusEl);
         vscode.postMessage({ type: 'rejectReview', taskId, reason });
     });
 
@@ -1079,43 +1016,118 @@ function showGoalConfirmationCard(info: any) {
     const msgDiv = createCardMessageElement(info.taskId);
     const bubble = msgDiv.querySelector('.msg-bubble')!;
 
+    let currentGoal = info.goal;
+
+    function enterEditMode(targetCard: HTMLElement) {
+        const body = targetCard.querySelector('.msg-card-body') as HTMLElement;
+        const actionsDiv = targetCard.querySelector('.msg-card-actions') as HTMLElement;
+        if (!body || !actionsDiv) return;
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'goal-edit-textarea';
+        textarea.value = currentGoal;
+        textarea.rows = 6;
+
+        const saveEdit = () => {
+            const newGoal = textarea.value.trim();
+            if (!newGoal) return;
+            currentGoal = newGoal;
+            vscode.postMessage({ type: 'confirmGoalWithEdit', taskId: info.taskId, goal: newGoal, originalRequest: info.originalRequest });
+            updateCardToStatus(targetCard, '✅ 已确认');
+        };
+
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                saveEdit();
+            }
+            if (e.key === 'Escape') {
+                exitEditMode(targetCard);
+            }
+        });
+
+        body.innerHTML = '';
+        body.appendChild(textarea);
+
+        actionsDiv.innerHTML = '';
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'msg-card-btn primary';
+        saveBtn.textContent = '保存修改 ✓';
+        saveBtn.addEventListener('click', (e) => { e.stopPropagation(); saveEdit(); });
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'msg-card-btn secondary';
+        cancelBtn.textContent = '取消';
+        cancelBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            exitEditMode(targetCard);
+        });
+
+        actionsDiv.appendChild(saveBtn);
+        actionsDiv.appendChild(cancelBtn);
+
+        setTimeout(() => textarea.focus(), 0);
+    }
+
+    function exitEditMode(targetCard: HTMLElement) {
+        const body = targetCard.querySelector('.msg-card-body') as HTMLElement;
+        const actionsDiv = targetCard.querySelector('.msg-card-actions') as HTMLElement;
+        if (!body || !actionsDiv) return;
+
+        body.innerHTML = renderMarkdown(currentGoal as string);
+        body.classList.remove('collapsed');
+
+        actionsDiv.innerHTML = '';
+        addConfirmationActions(actionsDiv);
+    }
+
+    function addConfirmationActions(actionsDiv: HTMLElement) {
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'msg-card-btn primary';
+        confirmBtn.textContent = '确认目标 ✓';
+        confirmBtn.addEventListener('click', (e) => {
+            const target = e.currentTarget as HTMLElement;
+            updateCardToStatus(findParentCard(target)!, '✅ 已确认');
+            vscode.postMessage({ type: 'confirmGoal', taskId: info.taskId, originalRequest: info.originalRequest });
+        });
+
+        const reviseBtn = document.createElement('button');
+        reviseBtn.className = 'msg-card-btn secondary';
+        reviseBtn.textContent = '修改需求 ↩';
+        reviseBtn.addEventListener('click', (e) => {
+            const target = e.currentTarget as HTMLElement;
+            const card = findParentCard(target);
+            if (card) enterEditMode(card);
+        });
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'msg-card-btn cancel';
+        cancelBtn.textContent = '取消 ✕';
+        cancelBtn.addEventListener('click', (e) => {
+            const target = e.currentTarget as HTMLElement;
+            updateCardToStatus(findParentCard(target)!, '✕ 已取消任务');
+            vscode.postMessage({ type: 'cancelTask', taskId: info.taskId });
+        });
+
+        actionsDiv.appendChild(confirmBtn);
+        actionsDiv.appendChild(reviseBtn);
+        actionsDiv.appendChild(cancelBtn);
+    }
+
     const card = createCard({
         headerHtml: '📋 任务目标确认',
-        bodyMarkdown: info.goal,
+        bodyMarkdown: currentGoal,
         defaultCollapsed: false,
         borderColor: '#3c3c3c',
         headerBg: '#2d2d2d',
         headerColor: '#e0e0e0',
-        actions: [
-            {
-                text: '确认目标 ✓',
-                className: 'primary',
-                onClick: (e: MouseEvent) => {
-                    const target = e.currentTarget as HTMLElement;
-                    updateCardToStatus(findParentCard(target)!, '✅ 已确认');
-                    vscode.postMessage({ type: 'confirmGoal', taskId: info.taskId, originalRequest: info.originalRequest });
-                }
-            },
-            {
-                text: '修改需求 ↩',
-                className: 'secondary',
-                onClick: (e: MouseEvent) => {
-                    const target = e.currentTarget as HTMLElement;
-                    updateCardToStatus(findParentCard(target)!, '↩️ 已修改需求');
-                    vscode.postMessage({ type: 'reviseGoal', taskId: info.taskId });
-                }
-            },
-            {
-                text: '取消 ✕',
-                className: 'cancel',
-                onClick: (e: MouseEvent) => {
-                    const target = e.currentTarget as HTMLElement;
-                    updateCardToStatus(findParentCard(target)!, '✕ 已取消任务');
-                    vscode.postMessage({ type: 'cancelTask', taskId: info.taskId });
-                }
-            }
-        ]
+        actions: undefined
     });
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'msg-card-actions';
+    addConfirmationActions(actionsDiv);
+    card.appendChild(actionsDiv);
 
     bubble.appendChild(card);
     appendToChatMessages(msgDiv);
@@ -1188,6 +1200,7 @@ function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
     const kind = msg.kind || '';
     const title = msg.title || '';
     const content = msg.content || msg.output || '';
+    const status = msg.status || '';
 
     const kindIcon = getToolKindIcon(kind);
     const headerHtml = kindIcon + escapeHtml(formatToolTitle(kind, title));
@@ -1214,12 +1227,10 @@ function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
     let bodyClassName = 'tool-card-body';
     if (kind === 'bash' || kind === 'command' || kind === 'terminal') bodyClassName += ' tool-body-bash';
 
-    const isDefaultCollapsed = false;
-
     const card = createCard({
         headerHtml,
         bodyHtml: bodyHtml || undefined,
-        defaultCollapsed: isDefaultCollapsed,
+        defaultCollapsed: false,
         bodyClassName: bodyClassName || undefined
     });
     bubble.appendChild(card);
