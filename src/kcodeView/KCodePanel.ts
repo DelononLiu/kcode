@@ -918,31 +918,38 @@ export class KCodePanel {
 </head>
 <body>
     <div id="container">
-        <!-- Chat Area -->
-        <div id="chat-area">
-            <div id="task-info">
-                <div id="task-info-primary">
-                    <span class="task-info-title">选择任务开始对话</span>
-                </div>
-                <div id="task-info-secondary">
-                    <span id="task-info-created"></span>
-                    <span id="task-info-review"></span>
-                </div>
-            </div>
-            <div id="goal-header" class="hidden">
-                <div id="goal-header-view">
-                    <span id="goal-header-icon">🎯</span>
-                    <span id="goal-header-text"></span>
-                    <button id="goal-edit-btn" title="修改目标">✏️</button>
-                </div>
-                <div id="goal-header-edit" class="hidden">
-                    <textarea id="goal-edit-input" rows="2"></textarea>
-                    <div id="goal-edit-actions">
-                        <button id="goal-save-btn" class="goal-edit-btn">保存</button>
-                        <button id="goal-cancel-btn" class="goal-edit-btn cancel">取消</button>
+            <!-- Chat Area -->
+            <div id="chat-area">
+                <div id="chat-header">
+                    <div id="task-info">
+                        <div id="task-info-primary">
+                            <span class="task-info-title">选择任务开始对话</span>
+                            <span id="task-status-badge" class="task-status-badge hidden"></span>
+                        </div>
+                        <div id="task-info-secondary">
+                            <span id="task-info-created"></span>
+                            <span id="task-info-sep" class="hidden">|</span>
+                            <span id="task-info-review"></span>
+                        </div>
+                    </div>
+                    <div id="goal-header" class="hidden">
+                        <div id="goal-header-view">
+                            <div class="goal-header-label">
+                                <span id="goal-header-icon">🎯</span>
+                                <span class="goal-label-text">目标</span>
+                                <button id="goal-edit-btn" title="修改目标">✏️</button>
+                            </div>
+                            <div id="goal-header-text"></div>
+                        </div>
+                        <div id="goal-header-edit" class="hidden">
+                            <textarea id="goal-edit-input" rows="2"></textarea>
+                            <div id="goal-edit-actions">
+                                <button id="goal-save-btn" class="goal-edit-btn">保存</button>
+                                <button id="goal-cancel-btn" class="goal-edit-btn cancel">取消</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
             <div id="chat-body">
                 <div id="node-timeline-gutter" class="hidden">
                     <div id="tl-dots"></div>
@@ -1027,15 +1034,35 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-messages{padding:0 24px 0 32px;min-height:100%;width:100%}
 #chat-scroll.chat-empty{display:none}
 #chat-area:has(#chat-scroll.chat-empty){justify-content:center}
-#chat-area:has(#chat-scroll.chat-empty) #task-info{display:none}
-#chat-area:has(#chat-scroll.chat-empty) #goal-header{display:none}
+#chat-area:has(#chat-scroll.chat-empty) #chat-header{display:none}
 #chat-area:has(#chat-scroll.chat-empty) #chat-input-area{border-top:none}
-#goal-header{flex-shrink:0;padding:8px 24px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(78,201,176,.03)}
+
+/* === Chat Header === */
+#chat-header{flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06)}
+
+/* === Task Info === */
+#task-info{padding:10px 24px 6px}
+#task-info-primary{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.task-info-title{font-size:14px;font-weight:600;color:#e0e0e0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.task-status-badge{font-size:10px;padding:1px 7px;border-radius:3px;background:rgba(255,255,255,.06);color:#888;flex-shrink:0;white-space:nowrap}
+.task-status-badge.status-pending{color:#888}
+.task-status-badge.status-active{background:rgba(74,139,181,.15);color:#5a9bc8}
+.task-status-badge.status-in_review{background:rgba(78,201,176,.12);color:#4ec9b0}
+.task-status-badge.status-completed{background:rgba(90,157,107,.12);color:#5a9d6b}
+.task-status-badge.status-cancelled{background:rgba(224,96,96,.1);color:#e06060}
+#task-info-secondary{display:flex;align-items:center;gap:8px;font-size:11px;color:#666;flex-wrap:wrap}
+#task-info-created,#task-info-review{color:#666}
+#task-info-sep{color:#444}
+
+/* === Goal Header === */
+#goal-header{padding:4px 24px 8px;background:rgba(78,201,176,.03)}
 #goal-header.hidden{display:none}
-#goal-header-view{display:flex;align-items:center;gap:8px}
-#goal-header-icon{font-size:13px;flex-shrink:0}
-#goal-header-text{flex:1;font-size:12.5px;color:#4ec9b0;line-height:1.5;word-wrap:break-word}
-#goal-edit-btn{background:none;border:none;color:#666;cursor:pointer;padding:2px 4px;border-radius:3px;font-size:12px;transition:color .2s,background .2s;flex-shrink:0}
+.goal-header-label{display:flex;align-items:center;gap:6px;margin-bottom:2px}
+#goal-header-icon{font-size:11px;flex-shrink:0}
+.goal-label-text{font-size:11px;color:#888;font-weight:500}
+#goal-edit-btn{background:none;border:none;color:#555;cursor:pointer;padding:1px 4px;border-radius:3px;font-size:11px;transition:color .2s,background .2s;margin-left:auto;flex-shrink:0;line-height:1}
+#goal-edit-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
+#goal-header-text{font-size:12.5px;color:#4ec9b0;line-height:1.5;word-wrap:break-word;padding:0 0 0 17px}
 #goal-edit-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
 #goal-header-edit{padding:4px 0}
 #goal-header-edit.hidden{display:none}

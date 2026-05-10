@@ -653,6 +653,27 @@ function updateTaskInfo(info: any) {
     const titleEl = document.querySelector('.task-info-title');
     if (titleEl) titleEl.textContent = info.title || '选择任务开始对话';
 
+    const badge = document.getElementById('task-status-badge');
+    const sep = document.getElementById('task-info-sep');
+    if (badge && sep) {
+        const hasStatus = !!info.status && info.status !== 'pending' && info.title;
+        badge.classList.toggle('hidden', !hasStatus);
+        sep.classList.toggle('hidden', !hasStatus);
+        if (hasStatus) {
+            const statusMap: Record<string, string> = {
+                pending: 'Pending',
+                active: 'Active',
+                in_review: 'In Review',
+                completed: 'Completed',
+                cancelled: 'Cancelled'
+            };
+            const label = statusMap[info.status] || info.status;
+            badge.textContent = label;
+            badge.className = 'task-status-badge';
+            badge.classList.add('status-' + info.status);
+        }
+    }
+
     const createdEl = document.getElementById('task-info-created');
     if (createdEl && info.createdAt) {
         const d = new Date(info.createdAt);
