@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
+import * as fs from 'fs';
+import { execSync } from 'child_process';
 import { TaskStore } from '../store/TaskStore';
 import { AcpClient } from '../acp/AcpClient';
 import { FakeAgent } from '../acp/FakeAgent';
@@ -569,7 +571,35 @@ export class KCodePanel {
             changes = this.openaiAgent.getReviewChanges?.(tid) || [];
         }
         if (changes.length === 0 && this.parsedFileChanges.length > 0) {
-            changes = this.parsedFileChanges;
+            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || '';
+            changes = this.parsedFileChanges.map(pc => {
+                const filePath = pc.filePath;
+                const isDeleted = pc.modified === '';
+                const isAbsolute = filePath.startsWith('/');
+                const resolvedPath = isAbsolute ? filePath : path.join(workspaceRoot, filePath);
+                let currentContent = '';
+                try {
+                    currentContent = fs.readFileSync(resolvedPath, 'utf-8');
+                } catch {}
+                let originalFromGit = '';
+                if (workspaceRoot && currentContent) {
+                    const gitPath = isAbsolute && filePath.startsWith(workspaceRoot)
+                        ? filePath.slice(workspaceRoot.length + 1)
+                        : filePath;
+                    try {
+                        originalFromGit = execSync(`git show HEAD:"${gitPath}"`, {
+                            encoding: 'utf-8',
+                            cwd: workspaceRoot,
+                            timeout: 3000,
+                            stdio: ['pipe', 'pipe', 'ignore']
+                        });
+                    } catch {}
+                }
+                if (isDeleted) {
+                    return { filePath, original: originalFromGit || currentContent || '(deleted)', modified: '' };
+                }
+                return { filePath, original: originalFromGit || '', modified: currentContent };
+            }).filter(fc => fc.modified !== '' || (fc.original !== '' && fc.original !== '(deleted)'));
         }
         if (changes.length > 0) {
             this.panel.webview.postMessage({
@@ -1088,6 +1118,32 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .review-changes-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-changes-type{font-size:10px;color:#888;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.04);flex-shrink:0}
 .review-changes-summary{font-size:10px;color:#5a9d6b;flex-shrink:0}
+.review-changes-expand{font-size:9px;color:#666;flex-shrink:0;width:12px;text-align:center;transition:transform .2s}
+.review-changes-open{font-size:12px;color:#555;flex-shrink:0;cursor:pointer;padding:0 4px;opacity:0;transition:opacity .2s,color .2s}
+.review-changes-item:hover .review-changes-open{opacity:1}
+.review-changes-open:hover{color:#4a8bb5}
+.review-changes-item-expandable{cursor:pointer}
+.review-changes-item-expandable:hover{background:rgba(255,255,255,.05)}
+.review-changes-diff{border-top:1px solid rgba(255,255,255,.04);background:rgba(0,0,0,.15);margin:4px -4px -4px;padding:6px 8px;overflow-x:auto;max-height:400px;overflow-y:auto;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px;line-height:1.5}
+.review-changes-diff.hidden{display:none}
+.unified-diff{direction:ltr}
+.diff-hunk-header{color:#569cd6;padding:4px 0;font-weight:500;font-size:11px}
+.diff-line{display:flex;gap:0;min-height:20px;align-items:stretch}
+.diff-line.diff-add{background:rgba(90,157,107,.1)}
+.diff-line.diff-del{background:rgba(226,119,122,.08)}
+.diff-ln{min-width:36px;text-align:right;padding:0 6px;color:#555;font-size:11px;user-select:none;flex-shrink:0;line-height:20px}
+.diff-ln-new{border-left:1px solid rgba(255,255,255,.06);margin-left:4px;padding-left:8px;min-width:36px}
+.diff-prefix{width:16px;flex-shrink:0;text-align:center;color:#888;line-height:20px;font-weight:700}
+.diff-add .diff-prefix{color:#7ec87e}
+.diff-del .diff-prefix{color:#e2777a}
+.diff-text{flex:1;white-space:pre;padding:0 4px;line-height:20px;overflow:hidden}
+.diff-add .diff-text{color:#7ec87e}
+.diff-del .diff-text{color:#e2777a}
+.diff-eq .diff-text{color:#999}
+.diff-file-header{display:flex;align-items:center;justify-content:space-between;padding:6px 0 8px;border-bottom:1px solid #3c3c3c;margin-bottom:8px;gap:8px}
+.diff-file-header span{font-size:12px;color:#888;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.diff-open-native{background:none;border:1px solid rgba(255,255,255,.1);color:#4a8bb5;cursor:pointer;font-size:11px;padding:2px 8px;border-radius:3px;font-family:inherit;white-space:nowrap;flex-shrink:0;transition:background .2s,border-color .2s}
+.diff-open-native:hover{background:rgba(74,139,181,.08);border-color:rgba(74,139,181,.3)}
 .reject-input-area{padding:4px 0;width:100%}
 .reject-input{width:100%;background:#25252a;border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:12px;padding:5px 7px;resize:vertical;outline:none;min-height:32px}
 .reject-input:focus{border-color:rgba(255,255,255,.2)}

@@ -14,29 +14,123 @@ export function showPreview(filePath: string, content: string) {
     `;
 }
 
+type DiffLine = { type: 'equal' | 'insert' | 'delete'; text: string; oldNum?: number; newNum?: number };
+
+function computeDiff(original: string[], modified: string[]): DiffLine[] {
+    const oLen = original.length;
+    const mLen = modified.length;
+
+    const dp: number[][] = Array.from({ length: oLen + 1 }, () => Array(mLen + 1).fill(0));
+    for (let i = 1; i <= oLen; i++) {
+        for (let j = 1; j <= mLen; j++) {
+            dp[i][j] = original[i - 1] === modified[j - 1]
+                ? dp[i - 1][j - 1] + 1
+                : Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+    }
+
+    const result: DiffLine[] = [];
+    let i = oLen, j = mLen;
+    const temp: DiffLine[] = [];
+
+    while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && original[i - 1] === modified[j - 1]) {
+            temp.push({ type: 'equal', text: original[i - 1], oldNum: i, newNum: j });
+            i--; j--;
+        } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+            temp.push({ type: 'insert', text: modified[j - 1], newNum: j });
+            j--;
+        } else {
+            temp.push({ type: 'delete', text: original[i - 1], oldNum: i });
+            i--;
+        }
+    }
+
+    return temp.reverse();
+}
+
+function escapeAttr(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+export function generateDiffHtml(original: string, modified: string): string {
+    const oLines = original ? original.split('\n') : [];
+    const mLines = modified ? modified.split('\n') : [];
+    if (oLines.length === 0 && mLines.length === 0) return '<div style="padding:12px;color:#888;text-align:center;">文件无差异</div>';
+    const diffLines = computeDiff(oLines, mLines);
+
+    const CONTEXT = 3;
+
+    const changeRegions: { start: number; end: number }[] = [];
+    let inChange = false;
+    let regionStart = 0;
+
+    for (let i = 0; i < diffLines.length; i++) {
+        if (diffLines[i].type !== 'equal') {
+            if (!inChange) {
+                regionStart = Math.max(0, i - CONTEXT);
+                inChange = true;
+            }
+        } else if (inChange) {
+            let nextChange = -1;
+            for (let j = i + 1; j < Math.min(diffLines.length, i + 1 + CONTEXT); j++) {
+                if (diffLines[j].type !== 'equal') { nextChange = j; break; }
+            }
+            if (nextChange === -1) {
+                changeRegions.push({ start: regionStart, end: Math.min(diffLines.length, i + CONTEXT) });
+                inChange = false;
+            }
+        }
+    }
+    if (inChange) {
+        changeRegions.push({ start: regionStart, end: diffLines.length });
+    }
+
+    if (changeRegions.length === 0) return '<div style="padding:12px;color:#888;text-align:center;">文件无差异</div>';
+
+    let html = '<div class="unified-diff">';
+    for (const region of changeRegions) {
+        const lines = diffLines.slice(region.start, region.end);
+        const firstChange = lines.find(l => l.type !== 'equal') || lines[0];
+        const lastChange = [...lines].reverse().find(l => l.type !== 'equal') || lines[lines.length - 1];
+        const oldStart = firstChange.oldNum ?? 1;
+        const newStart = firstChange.newNum ?? 1;
+        const oldCount = (lastChange.oldNum ?? 1) - oldStart + 1;
+        const newCount = (lastChange.newNum ?? 1) - newStart + 1;
+
+        html += `<div class="diff-hunk-header">@@ -${oldStart},${oldCount} +${newStart},${newCount} @@</div>`;
+        for (const line of lines) {
+            const prefix = line.type === 'insert' ? '+' : line.type === 'delete' ? '-' : ' ';
+            const cls = line.type === 'insert' ? 'diff-add' : line.type === 'delete' ? 'diff-del' : 'diff-eq';
+            html += `<div class="diff-line ${cls}"><span class="diff-ln">${line.oldNum || ''}</span><span class="diff-ln diff-ln-new">${line.newNum || ''}</span><span class="diff-prefix">${prefix}</span><span class="diff-text">${escapeHtml(line.text)}</span></div>`;
+        }
+    }
+    html += '</div>';
+    return html;
+}
+
 export function showDiff(original: string, modified: string) {
     const el = document.getElementById('tab-diff');
     if (!el) return;
+    el.innerHTML = generateDiffHtml(original, modified);
+}
 
-    const origLines = original.split('\n');
-    const modLines = modified.split('\n');
-    const maxLen = Math.max(origLines.length, modLines.length);
-
-    let html = '<div style="font-family:\'Cascadia Code\',Consolas,monospace;font-size:12px;overflow:auto;height:100%;">';
-    html += '<table style="width:100%;border-collapse:collapse;">';
-    for (let i = 0; i < maxLen; i++) {
-        const o = origLines[i] ?? '';
-        const m = modLines[i] ?? '';
-        if (o !== m) {
-            html += `<tr style="background:#3a1a1a;"><td style="color:#e2777a;padding:2px 8px;width:50%;white-space:pre;">${escapeHtml(o)}</td>`;
-            html += `<td style="color:#7ec87e;padding:2px 8px;width:50%;white-space:pre;">${escapeHtml(m)}</td></tr>`;
-        } else {
-            html += `<tr><td style="padding:2px 8px;width:50%;white-space:pre;color:#888;">${escapeHtml(o)}</td>`;
-            html += `<td style="padding:2px 8px;width:50%;white-space:pre;color:#888;">${escapeHtml(m)}</td></tr>`;
-        }
-    }
-    html += '</table></div>';
-    el.innerHTML = html;
+export function showDiffWithFile(original: string, modified: string, filePath: string) {
+    const el = document.getElementById('tab-diff');
+    if (!el) return;
+    const fileName = filePath.split('/').pop() || filePath;
+    el.innerHTML = `
+        <div class="diff-file-header">
+            <span>📄 ${escapeHtml(filePath)}</span>
+            <button class="diff-open-native" data-original="${escapeAttr(original)}" data-modified="${escapeAttr(modified)}" data-file="${escapeAttr(filePath)}">⇱ 打开原生对比</button>
+        </div>
+        ${generateDiffHtml(original, modified)}
+    `;
+    el.querySelector('.diff-open-native')?.addEventListener('click', () => {
+        const btn = el.querySelector('.diff-open-native') as HTMLElement;
+        if (!btn) return;
+        (window as any).__openNativeDiff?.(btn.dataset.original || '', btn.dataset.modified || '', btn.dataset.file || '');
+    });
 }
 
 export function showWebView(url: string) {
@@ -84,5 +178,7 @@ function escapeHtml(str: string): string {
 // Register globals
 (window as any).showPreview = showPreview;
 (window as any).showDiff = showDiff;
+(window as any).showDiffWithFile = showDiffWithFile;
+(window as any).generateDiffHtml = generateDiffHtml;
 (window as any).showWebView = showWebView;
 (window as any).showDeviceFallback = showDeviceFallback;

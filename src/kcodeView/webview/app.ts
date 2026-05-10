@@ -67,6 +67,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initChat();
     initMessageHandler();
     initGoalHeader();
+
+    (window as any).__openNativeDiff = (original: string, modified: string, filePath: string) => {
+        vscode.postMessage({ type: 'openNativeDiff', original, modified, filePath });
+    };
 });
 
 function initMessageHandler() {
@@ -883,9 +887,7 @@ function handleShowReviewRequest(message: any) {
 
     const reviewCard = document.querySelector(`.msg-bubble.card-bubble[data-taskid="${message.taskId}"] .msg-card`) as HTMLElement
         || document.querySelector('#chat-messages > .chat-msg.agent:last-child .msg-card') as HTMLElement;
-    if (!reviewCard) {
-        return;
-    }
+    if (!reviewCard) return;
 
     const changes = message.changes as FileChange[];
     if (!changes || changes.length === 0) return;
@@ -907,9 +909,15 @@ function handleShowReviewRequest(message: any) {
     for (const change of changes) {
         const type = getChangeType(change.original, change.modified);
         const summary = getChangeSummary(change.original, change.modified);
+        const hasRealContent = change.original !== '(see file)' && change.modified !== '(see file)';
 
         const item = document.createElement('div');
         item.className = 'review-changes-item';
+        item.dataset.filePath = change.filePath;
+
+        const expandIcon = document.createElement('span');
+        expandIcon.className = 'review-changes-expand';
+        expandIcon.textContent = hasRealContent ? '▶' : '';
 
         const iconSpan = document.createElement('span');
         iconSpan.className = 'review-changes-icon';
@@ -927,12 +935,12 @@ function handleShowReviewRequest(message: any) {
         summarySpan.className = 'review-changes-summary';
         summarySpan.textContent = summary;
 
-        item.appendChild(iconSpan);
-        item.appendChild(nameSpan);
-        item.appendChild(typeLabel);
-        item.appendChild(summarySpan);
-
-        item.addEventListener('click', () => {
+        const openBtn = document.createElement('span');
+        openBtn.className = 'review-changes-open';
+        openBtn.textContent = '⇱';
+        openBtn.title = '在 VS Code 中打开对比';
+        openBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             vscode.postMessage({
                 type: 'openNativeDiff',
                 original: change.original,
@@ -940,10 +948,63 @@ function handleShowReviewRequest(message: any) {
                 filePath: change.filePath
             });
         });
+
+        item.appendChild(expandIcon);
+        item.appendChild(iconSpan);
+        item.appendChild(nameSpan);
+        item.appendChild(typeLabel);
+        item.appendChild(summarySpan);
+        item.appendChild(openBtn);
+
+        const diffContainer = document.createElement('div');
+        diffContainer.className = 'review-changes-diff hidden';
+        item.appendChild(diffContainer);
+
+        if (hasRealContent) {
+            item.classList.add('review-changes-item-expandable');
+            item.addEventListener('click', (e) => {
+                if ((e.target as HTMLElement).classList.contains('review-changes-open')) return;
+                const isExpanded = !diffContainer.classList.contains('hidden');
+                toggleFileDiff(change, diffContainer, expandIcon, !isExpanded);
+            });
+        } else {
+            item.addEventListener('click', () => {
+                vscode.postMessage({
+                    type: 'openNativeDiff',
+                    original: change.original,
+                    modified: change.modified,
+                    filePath: change.filePath
+                });
+            });
+        }
+
         list.appendChild(item);
     }
 
     body.appendChild(list);
+}
+
+function toggleFileDiff(change: FileChange, container: HTMLElement, expandIcon: HTMLElement, expand: boolean) {
+    if (expand) {
+        if (container.innerHTML === '') {
+            const diffHtml = (window as any).generateDiffHtml?.(change.original, change.modified)
+                || '<div style="padding:12px;color:#888;">无法生成 diff</div>';
+            container.innerHTML = diffHtml;
+        }
+        container.classList.remove('hidden');
+        expandIcon.textContent = '▼';
+
+        (window as any).showDiffWithFile?.(change.original, change.modified, change.filePath);
+        activateTab('diff');
+
+        const rp = document.getElementById('right-panel');
+        if (rp && rp.classList.contains('hidden')) {
+            rp.classList.remove('hidden');
+        }
+    } else {
+        container.classList.add('hidden');
+        expandIcon.textContent = '▶';
+    }
 }
 
 function showRejectInput(btn: HTMLElement, taskId: string) {
