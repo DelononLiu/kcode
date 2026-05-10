@@ -907,7 +907,12 @@ function handleShowReviewRequest(message: any) {
         list.appendChild(item);
     }
 
-    lastReviewMsg.appendChild(list);
+    const actionsEl = lastReviewMsg.querySelector('.review-inline-actions');
+    if (actionsEl) {
+        lastReviewMsg.insertBefore(list, actionsEl);
+    } else {
+        lastReviewMsg.appendChild(list);
+    }
 }
 
 function toggleReviewFileSelection(change: FileChange, item: HTMLElement, idx: number) {
