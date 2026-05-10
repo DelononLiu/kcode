@@ -67,6 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initChat();
     initMessageHandler();
     initGoalHeader();
+    initNodePanel();
 
     (window as any).__openNativeDiff = (original: string, modified: string, filePath: string) => {
         vscode.postMessage({ type: 'openNativeDiff', original, modified, filePath });
@@ -142,6 +143,9 @@ function initMessageHandler() {
                 break;
             case 'generationState':
                 handleGenerationState(message.isGenerating);
+                break;
+            case 'updateNodePanel':
+                handleNodePanelUpdate(message.nodes, message.taskType);
                 break;
         }
     });
@@ -1223,6 +1227,51 @@ function updateWorkingIndicator(msg: any) {
 function hideWorkingIndicator() {
     const indicator = document.getElementById('working-indicator');
     if (indicator) indicator.classList.add('hidden');
+}
+
+function getNodeEmoji(type: string): string {
+    switch (type) {
+        case 'goal': return '🎯';
+        case 'plan': return '📋';
+        case 'step': return '⚡';
+        case 'review': return '✅';
+        default: return '●';
+    }
+}
+
+function handleNodePanelUpdate(nodes: any[], taskType: string) {
+    const gutter = document.getElementById('node-timeline-gutter');
+    const dotsEl = document.getElementById('tl-dots');
+    if (!gutter || !dotsEl) return;
+
+    const hasNodes = taskType === 'task' && nodes.length > 0;
+    gutter.classList.toggle('hidden', !hasNodes);
+
+    if (!hasNodes) {
+        dotsEl.innerHTML = '';
+        return;
+    }
+
+    dotsEl.innerHTML = '';
+    for (const node of nodes) {
+        const wrap = document.createElement('div');
+        wrap.className = 'tl-node-wrap';
+
+        const dot = document.createElement('div');
+        dot.className = `tl-node status-${node.status}`;
+        dot.title = `${getNodeEmoji(node.type)} ${node.label}`;
+
+        const emoji = document.createElement('span');
+        emoji.className = 'tl-emoji';
+        emoji.textContent = getNodeEmoji(node.type);
+        dot.appendChild(emoji);
+        wrap.appendChild(dot);
+        dotsEl.appendChild(wrap);
+    }
+}
+
+function initNodePanel() {
+    // no-op: timeline gutter dots handled by flexbox CSS
 }
 
 (window as any).addMessage = addMessage;

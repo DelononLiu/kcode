@@ -8,7 +8,7 @@ import { AcpClient } from '../acp/AcpClient';
 import { FakeAgent } from '../acp/FakeAgent';
 import { OpenAIAgent } from '../acp/OpenAIAgent';
 import { classifyIntent } from '../acp/intentUtils';
-import type { Task, FileChange } from '../types';
+import type { Task, FileChange, ProgressNode } from '../types';
 
 export class KCodePanel {
     private panel: vscode.WebviewPanel;
@@ -88,6 +88,8 @@ export class KCodePanel {
                     break;
                 case 'updateGoal':
                     this.handleUpdateGoal(message.taskId, message.goal);
+                    break;
+                case 'collapseTimeline':
                     break;
             }
         }, null, this.context.subscriptions);
@@ -279,6 +281,7 @@ export class KCodePanel {
             onPlan: (entries: { content: string; priority: string; status: string }[]) => {
                 this.planEntries = entries;
                 sendDisplayUpdate();
+                this.sendNodePanelUpdate(tid);
             },
             onError,
             onDone: (stopReason?: string) => {
@@ -429,6 +432,7 @@ export class KCodePanel {
         this.store.updateTaskStatus(tid, 'active');
         this.sendTaskInfo(tid);
         this.refreshSidebarCallback?.();
+        this.sendNodePanelUpdate(tid);
 
         this.accumulatedAgentText = '';
         this.activeToolCalls.clear();
@@ -471,6 +475,7 @@ export class KCodePanel {
         this.store.updateTaskStatus(tid, 'pending');
         this.store.updateTaskGoal(tid, '');
         this.refreshSidebarCallback?.();
+        this.sendNodePanelUpdate(tid);
     }
 
     private handleCancelTask(tid: string) {
@@ -485,6 +490,7 @@ export class KCodePanel {
         this.panel.webview.postMessage({ type: 'addUserMessage', content: cancelMsg });
         this.store.updateTaskStatus(tid, 'cancelled');
         this.refreshSidebarCallback?.();
+        this.sendNodePanelUpdate(tid);
         this.setGenerationState(false);
     }
 
@@ -609,6 +615,7 @@ export class KCodePanel {
             });
         }
 
+        this.sendNodePanelUpdate(tid);
         this.refreshSidebarCallback?.();
     }
 
@@ -641,6 +648,7 @@ export class KCodePanel {
             taskId: tid,
             taskStatus: 'completed'
         });
+        this.sendNodePanelUpdate(tid);
         this.refreshSidebarCallback?.();
     }
 
@@ -661,6 +669,7 @@ export class KCodePanel {
         }
         this.store.updateTaskStatus(tid, 'active');
         this.refreshSidebarCallback?.();
+        this.sendNodePanelUpdate(tid);
 
         const promptText = this.buildTaskPrompt(tid, rejectMsg);
         const handler = this.createAgentResponseHandler(tid, false, rejectMsg);
@@ -910,14 +919,20 @@ export class KCodePanel {
                     </div>
                 </div>
             </div>
-            <div id="chat-scroll" class="chat-empty">
-                <div id="chat-messages">
+            <div id="chat-body">
+                <div id="node-timeline-gutter" class="hidden">
+                    <div id="tl-line"></div>
+                    <div id="tl-dots"></div>
+                </div>
+                <div id="chat-scroll" class="chat-empty">
+                    <div id="chat-messages">
                     <div class="chat-placeholder">输入需求，开始与 AI 对话</div>
                     <div id="working-indicator" class="hidden">
                         <span class="working-spinner"></span>
                         <span class="working-text">思考中</span>
                     </div>
                 </div>
+            </div>
             </div>
             <div id="chat-input-area">
                 <div class="input-wrapper">
@@ -983,17 +998,10 @@ export class KCodePanel {
 html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:#ccc;background:var(--vscode-sideBar-background,#1e1e1e)}
 #container{display:flex;height:100vh;width:100vw;overflow:hidden;position:relative}
 #splitter-2{display:none}
-#chat-area{flex:1;display:flex;flex-direction:column;min-width:300px;background:var(--vscode-sideBar-background,#1e1e1e)}
-#task-info{display:flex;align-items:baseline;gap:20px;padding:14px 24px 12px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;background:linear-gradient(180deg,rgba(255,255,255,.015) 0%,transparent 100%)}
-#task-info-primary{display:flex;align-items:center;gap:10px}
-.task-info-title{font-size:15px;font-weight:700;color:#e8e8ec;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:520px;letter-spacing:-.2px}
-#task-info-secondary{display:flex;align-items:center;gap:14px;font-size:11px;color:#666}
+#chat-area{position:relative;flex:1;display:flex;flex-direction:column;min-width:300px;background:var(--vscode-sideBar-background,#1e1e1e)}
+#chat-body{position:relative;flex:1;display:flex;min-height:0}
 #chat-scroll{flex:1;overflow-y:auto;min-height:0;background:var(--vscode-sideBar-background,#1e1e1e);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
-#chat-scroll::-webkit-scrollbar{width:6px}
-#chat-scroll::-webkit-scrollbar-track{background:transparent}
-#chat-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px}
-#chat-scroll::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.15)}
-#chat-messages{padding:0 24px;min-height:100%;width:100%}
+#chat-messages{padding:0 24px 0 32px;min-height:100%;width:100%}
 #chat-scroll.chat-empty{display:none}
 #chat-area:has(#chat-scroll.chat-empty){justify-content:center}
 #chat-area:has(#chat-scroll.chat-empty) #task-info{display:none}
@@ -1155,13 +1163,28 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tool-spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.08);border-top-color:#5a9d6b;border-radius:50%;animation:tool-spin .8s linear infinite;flex-shrink:0}
 @keyframes tool-spin{to{transform:rotate(360deg)}}
 .agent-diff-summary{margin-top:10px;padding:6px 10px;background:rgba(78,201,176,.04);border-left:2px solid #4ec9b0;border-radius:3px;font-size:12px;line-height:1.6;color:#9aa}
-.chat-msg.stop-message .msg-bubble{text-align:center;font-size:12px;color:#666;padding:4px 0}`;
+.chat-msg.stop-message .msg-bubble{text-align:center;font-size:12px;color:#666;padding:4px 0}
+
+/* === Timeline Gutter === */
+#node-timeline-gutter{position:absolute;left:2px;top:0;bottom:0;width:20px;z-index:5;display:flex;flex-direction:column;align-items:center;pointer-events:none;overflow:visible}
+#node-timeline-gutter.hidden{display:none}
+#tl-line{position:absolute;left:50%;top:4px;bottom:4px;width:2px;background:rgba(255,255,255,.05);transform:translateX(-50%);border-radius:1px}
+#tl-dots{flex:1;display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;position:relative;width:100%;z-index:1}
+.tl-node-wrap{display:flex;align-items:center;justify-content:center;position:relative;z-index:1;width:100%}
+.tl-node{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.08);position:relative;transition:background .3s,box-shadow .3s;pointer-events:auto;cursor:pointer;flex-shrink:0}
+.tl-node.status-completed{background:#4ec9b0}
+.tl-node.status-active{background:#4a8bb5;box-shadow:0 0 6px rgba(74,139,181,.5);animation:tl-pulse 2s infinite}
+.tl-node.status-pending{background:rgba(255,255,255,.12)}
+.tl-emoji{position:absolute;left:-16px;top:-3px;font-size:9px;pointer-events:none;line-height:1}
+@keyframes tl-pulse{0%{box-shadow:0 0 0 0 rgba(74,139,181,.4)}70%{box-shadow:0 0 0 6px rgba(74,139,181,0)}100%{box-shadow:0 0 0 0 rgba(74,139,181,0)}}
+`;
     }
 
     loadTask(taskId: string) {
         this.currentTaskId = taskId;
         this.sendTaskMessages(taskId);
         this.sendTaskInfo(taskId);
+        this.sendNodePanelUpdate(taskId);
         // Ensure a session exists for this task (non-blocking)
         this.ensureSession(taskId);
     }
@@ -1189,6 +1212,67 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
             messages,
             taskId,
             taskStatus: task?.status
+        });
+    }
+
+    private deriveNodes(taskId: string): ProgressNode[] {
+        const task = this.store.getTask(taskId);
+        if (!task || task.type !== 'task') return [];
+
+        const nodes: ProgressNode[] = [];
+        const msgs = this.store.getMessages(taskId);
+        const hasConfirmedGoal = msgs.some(m => m.type === 'goal_confirmed');
+        const hasGoal = !!task.goal;
+
+        if (hasGoal) {
+            nodes.push({
+                id: 'goal',
+                type: 'goal',
+                label: '确认目标',
+                status: hasConfirmedGoal ? 'completed' : 'active',
+                order: 1,
+            });
+        }
+
+        if (this.planEntries.length > 0) {
+            nodes.push({
+                id: 'plan',
+                type: 'plan',
+                label: '执行计划',
+                status: 'completed',
+                order: 2,
+            });
+            this.planEntries.forEach((entry, idx) => {
+                nodes.push({
+                    id: `step-${idx}`,
+                    type: 'step',
+                    label: entry.content,
+                    status: (entry.status === 'completed' ? 'completed' : entry.status === 'in_progress' ? 'active' : 'pending') as 'pending' | 'active' | 'completed',
+                    order: 3 + idx,
+                });
+            });
+        }
+
+        if (task.status === 'in_review' || task.status === 'completed') {
+            nodes.push({
+                id: 'review',
+                type: 'review',
+                label: '验收',
+                status: task.status === 'completed' ? 'completed' : 'active',
+                order: 999,
+            });
+        }
+
+        return nodes;
+    }
+
+    private sendNodePanelUpdate(taskId: string) {
+        const nodes = this.deriveNodes(taskId);
+        const task = this.store.getTask(taskId);
+        this.panel.webview.postMessage({
+            type: 'updateNodePanel',
+            nodes,
+            taskType: task?.type || 'chat',
         });
     }
 

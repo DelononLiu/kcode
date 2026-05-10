@@ -30,6 +30,15 @@ export interface FileChange {
     modified: string;
 }
 
+export interface ProgressNode {
+    id: string;
+    type: 'goal' | 'plan' | 'step' | 'review';
+    label: string;
+    status: 'pending' | 'active' | 'completed';
+    messageId?: string;
+    order: number;
+}
+
 export interface AcpMessageHandler {
     onText: (text: string) => void;
     onReasoning?: (text: string) => void;
