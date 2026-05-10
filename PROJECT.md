@@ -158,47 +158,92 @@ src/
 
 ### 状态定义
 
-| 状态 | 含义 | 条件 |
-|------|------|------|
-| `pending` | 任务已创建（含 goal），**等待用户确认开始执行** | 用户输入第一条消息后，系统创建 task 并设 goal，用户还没点"开始" |
-| `active` | 用户已确认，AI 正在执行 | 用户点了"开始执行" |
-| `in_review` | AI 完成，**等待用户验收** | AI 通知"已做完" |
-| `completed` | 验收通过，终态 | 用户点了"验收通过" |
-| `cancelled` | 用户主动放弃 | 用户取消或驳回但不重试 |
+| 状态 | 含义 | 条件 | 对应进度线节点 |
+|------|------|------|--------------|
+| `pending` | 原始需求已提交，goal 已格式化，**等待用户确认** | AI 格式化 goal 后，用户还没点"确认" | 📝 🟢 → 🎯 🔵 |
+| `active` | 用户已确认，AI 正在执行 | 用户点了"确认目标" | 🎯 🟢 → ⚡ 🔵 |
+| `in_review` | AI 完成，**等待用户验收** | AI 通知"已完成" | ⚡ 🟢 → ✅ 🔵 |
+| `completed` | 验收通过，终态 | 用户点了"验收通过" | 全部 🟢 |
+| `cancelled` | 用户主动放弃，任务中断 | 用户取消或驳回但不重试 | 中断点 ❌，后续 ⚪ |
 
 ### 状态转换图
 
 ```
-                   ┌── 用户修改目标 ──┐
-                   │                  │
-pending ────────→ active ──→ in_review ──→ completed
-  │                 ↑           │
-  │                 └── 验收驳回 ─┘
-  └──→ cancelled（用户随时可放弃）
+                        ┌── 修改需求 ──┐
+                        │              │
+pending ──[确认目标]──→ active ──→ in_review ──→ completed
+  ↑                      ↑              │
+  └──── 驳回修改 ────────┘              │
+                                        │
+所有状态 ────────── [用户取消] ────────→ cancelled
 ```
 
 ### 状态转换表
 
 | 从 | 到 | 触发者 | 条件/动作 |
 |----|----|--------|----------|
-| `pending` | `active` | **用户** | 用户点击"开始执行" |
+| `pending` | `active` | **用户** | 用户点击"确认目标" |
+| `pending` | `pending` | **用户** | 用户点击"修改需求"，goal 清空重新提取 |
 | `pending` | `cancelled` | **用户** | 用户点击"取消" |
 | `active` | `in_review` | **AI** | AI 完成，通知"已完成，等待验收" |
 | `in_review` | `completed` | **用户** | 用户验收通过 |
 | `in_review` | `active` | **用户** | 用户驳回，AI 继续修改 |
 | `active` / `in_review` | `cancelled` | **用户** | 用户主动放弃 |
 
-### 涉及文件
+---
+
+### 进度线节点（对话区左侧时间线）
+
+对话区左侧的垂直进度线，用 5 个固定阶段节点展示任务进展，**所有节点始终显示**，通过颜色区分状态。
+
+#### 5 个固定阶段
+
+```
+📝 需求提交  →  🎯 目标确认  →  📋 计划  →  ⚡ 执行  →  ✅ 验收
+```
+
+| 节点 | 参与者交接 | 说明 |
+|------|-----------|------|
+| 📝 **需求提交** | 👤 → ⚙️ | 用户原始输入（起点）。以后 GitHub issue 导入也落在此节点 |
+| 🎯 **目标确认** | 🤖 → 👤 | AI 格式化 goal，用户确认/修改 |
+| 📋 **计划** | 🤖 | AI onPlan 事件（纯 AI 阶段） |
+| ⚡ **执行** | 🤖 (+ 👤 可打断) | AI 推理/读写/命令循环 |
+| ✅ **验收** | 👤 | 用户最终决策，**通过则任务结束**（终点） |
+
+设计原则：**任务从用户开始，到用户终止**。中间是 AI 工作区间。
+
+#### 节点颜色状态
+
+| 颜色 | 状态 | 含义 |
+|------|------|------|
+| 🟢 绿 | `completed` | 该阶段已完成 |
+| 🔵 蓝（脉冲动画） | `active` | 该阶段正在进行中 |
+| ⚪ 灰 | `pending` | 该阶段尚未到达 |
+| ❌ 红 | `cancelled` | 在该阶段被用户中断 |
+
+#### Status → 节点颜色映射
+
+| Task Status | 📝 需求提交 | 🎯 目标确认 | 📋 计划 | ⚡ 执行 | ✅ 验收 |
+|-------------|-----------|-----------|--------|--------|--------|
+| `pending`（初始） | 🟢 | 🔵 | ⚪ | ⚪ | ⚪ |
+| `pending`（已格式化） | 🟢 | 🔵 | ⚪ | ⚪ | ⚪ |
+| `active` | 🟢 | 🟢 | 🟢 | 🔵 | ⚪ |
+| `in_review` | 🟢 | 🟢 | 🟢 | 🟢 | 🔵 |
+| `completed` | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 |
+| `cancelled`（中断于 pending） | 🟢 | ❌ | ⚪ | ⚪ | ⚪ |
+| `cancelled`（中断于 active） | 🟢 | 🟢 | 🟢/❌ | ❌ | ⚪ |
+| `cancelled`（中断于 in_review） | 🟢 | 🟢 | 🟢 | 🟢/❌ | ❌ |
+
+> 判定规则：节点状态根据 `task.status` 推断。`completed` 之前的节点全部标记 🟢，当前节点标记 🔵 或 ❌（cancelled），之后的节点标记 ⚪。
+
+#### 涉及文件
 
 | 文件 | 改动 |
 |------|------|
-| `types/index.ts` | Task 新增 `goal: string`；`status` 为 `pending \| active \| in_review \| completed \| cancelled` |
-| `store/TaskStore.ts` | `updateTaskStatus` 不再强行重置其他任务为 pending；`addTask` 需 goal；移除 `findEmptyTask` |
-| `KCodePanel.ts` | `handleSendMessage` 分支：pending 态触发开始执行，active 态才执行；新建任务流程 |
-| `KCodeSidebarProvider.ts` | 处理开始执行/取消/验收消息 |
-| `app.ts` | 渲染 goal 确认卡片（含开始/取消按钮）；渲染 agent 完成通知卡片（含验收/驳回按钮） |
-| `sidebar.ts` | pending 态任务显示"待开始"标记；状态图标更新 |
-| `ACP/callbacks.ts` | 文件写入变更记录；AI 完成时触发 `active → in_review` |
+| `types/index.ts` | ProgressNode type 改为 5 个固定类型 `demand \| goal \| plan \| execute \| review`，status 增加 `cancelled` |
+| `KCodePanel.ts` | `deriveNodes()` 始终返回 5 个固定节点，不再动态计算 |
+| `app.ts` | `getNodeEmoji()` 更新，`handleNodePanelUpdate()` 适配 5 节点固定渲染 |
+| `KCodePanel.ts` | CSS `.tl-node.status-cancelled` 新增红色样式 |
 
 ---
 
@@ -347,11 +392,20 @@ interface ACPConfig {
 
 interface AcpMessageHandler {
     onText: (text: string) => void;
+    onReasoning?: (text: string) => void;
     onToolCall?: (toolCallId: string, title: string, kind: string, status: string) => void;
-    onToolCallUpdate?: (toolCallId: string, status: string, content?: string) => void;
+    onToolCallUpdate?: (toolCallId: string, status: string, content?: string, title?: string, kind?: string) => void;
     onPlan?: (entries: { content: string; priority: string; status: string }[]) => void;
     onError: (error: string) => void;
     onDone: (stopReason?: string) => void;
+}
+
+interface ProgressNode {
+    id: string;
+    type: 'demand' | 'goal' | 'plan' | 'execute' | 'review';  // 5 个固定阶段
+    label: string;
+    status: 'pending' | 'active' | 'completed' | 'cancelled';  // 4 种颜色状态
+    order: number;
 }
 ```
 
