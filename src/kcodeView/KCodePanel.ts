@@ -934,12 +934,12 @@ export class KCodePanel {
                     </div>
                     <div id="goal-header" class="hidden">
                         <div id="goal-header-view">
-                            <div class="goal-header-label">
-                                <span id="goal-header-icon">🎯</span>
-                                <span class="goal-label-text">目标</span>
-                                <button id="goal-edit-btn" title="修改目标">✏️</button>
+                            <span id="goal-header-icon">🎯</span>
+                            <div id="goal-header-summary">
+                                <span id="goal-header-text"></span>
+                                <span id="goal-meta-review" class="hidden"></span>
                             </div>
-                            <div id="goal-header-text"></div>
+                            <button id="goal-edit-btn" title="修改目标">✏️</button>
                         </div>
                         <div id="goal-header-edit" class="hidden">
                             <textarea id="goal-edit-input" rows="2"></textarea>
@@ -1055,14 +1055,15 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #task-info-sep{color:#444}
 
 /* === Goal Header === */
-#goal-header{padding:4px 24px 8px;background:rgba(78,201,176,.03)}
+#goal-header{padding:5px 24px;background:rgba(78,201,176,.03);display:flex;flex-direction:column}
 #goal-header.hidden{display:none}
-.goal-header-label{display:flex;align-items:center;gap:6px;margin-bottom:2px}
-#goal-header-icon{font-size:11px;flex-shrink:0}
-.goal-label-text{font-size:11px;color:#888;font-weight:500}
-#goal-edit-btn{background:none;border:none;color:#555;cursor:pointer;padding:1px 4px;border-radius:3px;font-size:11px;transition:color .2s,background .2s;margin-left:auto;flex-shrink:0;line-height:1}
-#goal-edit-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
-#goal-header-text{font-size:12.5px;color:#4ec9b0;line-height:1.5;word-wrap:break-word;padding:0 0 0 17px}
+#goal-header-view{display:flex;align-items:flex-start;gap:6px}
+#goal-header-icon{font-size:12px;flex-shrink:0;margin-top:1px}
+#goal-header-summary{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+#goal-header-text{font-size:12.5px;color:#4ec9b0;line-height:1.4;word-wrap:break-word}
+#goal-meta-review{font-size:11px;color:#888}
+#goal-meta-review.hidden{display:none}
+#goal-edit-btn{background:none;border:none;color:#555;cursor:pointer;padding:1px 4px;border-radius:3px;font-size:11px;flex-shrink:0;line-height:1;margin-top:0;transition:color .2s,background .2s}
 #goal-edit-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
 #goal-header-edit{padding:4px 0}
 #goal-header-edit.hidden{display:none}

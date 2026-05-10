@@ -689,10 +689,18 @@ function updateTaskInfo(info: any) {
 
     const goalHeader = document.getElementById('goal-header');
     const goalText = document.getElementById('goal-header-text');
+    const goalReview = document.getElementById('goal-meta-review');
     if (goalHeader && goalText) {
         const hasGoal = info.taskType === 'task' && info.goal && info.status !== 'cancelled' && info.status !== 'completed';
         goalHeader.classList.toggle('hidden', !hasGoal);
-        goalText.textContent = info.goal || '';
+        goalHeader.dataset.fullGoal = info.goal || '';
+        const summary = (info.goal || '').split('\n')[0].replace(/[*_#`>\[\]]/g, '').trim();
+        goalText.textContent = summary || '目标';
+        if (goalReview) {
+            const count = info.pendingReviewFiles || 0;
+            goalReview.textContent = '📄 ' + count + ' 个文件待验收';
+            goalReview.classList.toggle('hidden', count === 0);
+        }
         showGoalViewMode();
     }
 }
@@ -710,11 +718,11 @@ function showGoalEditMode() {
     const view = document.getElementById('goal-header-view');
     const edit = document.getElementById('goal-header-edit');
     const input = document.getElementById('goal-edit-input') as HTMLTextAreaElement;
-    const text = document.getElementById('goal-header-text');
+    const goalHeader = document.getElementById('goal-header');
     if (view) view.classList.add('hidden');
     if (edit) edit.classList.remove('hidden');
-    if (input && text) {
-        goalOriginalText = text.textContent || '';
+    if (input && goalHeader) {
+        goalOriginalText = goalHeader.dataset.fullGoal || '';
         input.value = goalOriginalText;
         input.focus();
         input.setSelectionRange(input.value.length, input.value.length);

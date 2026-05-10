@@ -133,6 +133,22 @@ declare function acquireVsCodeApi(): any;
         menu.style.left = x + 'px';
         menu.style.top = y + 'px';
 
+        const targetIds = selectedTaskIds.has(task.id) ? Array.from(selectedTaskIds) : [task.id];
+
+        const pinText = task.pinned ? '取消置顶' : '置顶';
+        const pinItem = createMenuItem(pinText, () => {
+            vscode.postMessage({ type: 'pinTasks', taskIds: targetIds, pinned: !task.pinned });
+        });
+        menu.appendChild(pinItem);
+
+        const archiveText = task.archived ? '取消归档' : '归档';
+        const archiveItem = createMenuItem(archiveText, () => {
+            vscode.postMessage({ type: 'archiveTasks', taskIds: targetIds, archived: !task.archived });
+        });
+        menu.appendChild(archiveItem);
+
+        addSeparator(menu);
+
         // --- 重命名 ---
         const renameItem = createMenuItem('重命名', () => {
             const taskItem = document.querySelector(`.task-item[data-task-id="${task.id}"]`);
@@ -148,22 +164,6 @@ declare function acquireVsCodeApi(): any;
             }
         });
         menu.appendChild(renameItem);
-
-        addSeparator(menu);
-
-        const targetIds = selectedTaskIds.has(task.id) ? Array.from(selectedTaskIds) : [task.id];
-
-        const pinText = task.pinned ? '取消置顶' : '置顶';
-        const pinItem = createMenuItem(pinText, () => {
-            vscode.postMessage({ type: 'pinTasks', taskIds: targetIds, pinned: !task.pinned });
-        });
-        menu.appendChild(pinItem);
-
-        const archiveText = task.archived ? '取消归档' : '归档';
-        const archiveItem = createMenuItem(archiveText, () => {
-            vscode.postMessage({ type: 'archiveTasks', taskIds: targetIds, archived: !task.archived });
-        });
-        menu.appendChild(archiveItem);
 
         addSeparator(menu);
 
@@ -672,6 +672,20 @@ declare function acquireVsCodeApi(): any;
         menu.style.left = x + 'px';
         menu.style.top = y + 'px';
 
+        // --- 上移 ---
+        const upItem = createMenuItem('上移', () => {
+            vscode.postMessage({ type: 'moveGroup', groupName, direction: 'up' });
+        });
+        menu.appendChild(upItem);
+
+        // --- 下移 ---
+        const downItem = createMenuItem('下移', () => {
+            vscode.postMessage({ type: 'moveGroup', groupName, direction: 'down' });
+        });
+        menu.appendChild(downItem);
+
+        addSeparator(menu);
+
         // --- 重命名 ---
         const renameItem = createMenuItem('重命名', () => {
             const header = document.querySelector(`.section-header[data-group-name="${groupName}"]`);
@@ -685,20 +699,6 @@ declare function acquireVsCodeApi(): any;
             }
         });
         menu.appendChild(renameItem);
-
-        addSeparator(menu);
-
-        // --- 上移 ---
-        const upItem = createMenuItem('上移', () => {
-            vscode.postMessage({ type: 'moveGroup', groupName, direction: 'up' });
-        });
-        menu.appendChild(upItem);
-
-        // --- 下移 ---
-        const downItem = createMenuItem('下移', () => {
-            vscode.postMessage({ type: 'moveGroup', groupName, direction: 'down' });
-        });
-        menu.appendChild(downItem);
 
         addSeparator(menu);
 
