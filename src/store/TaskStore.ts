@@ -82,10 +82,18 @@ export class TaskStore {
         this.state.update(`messages_${msg.taskId}`, messages);
     }
 
+    nextMessageId(taskId: string): string {
+        const key = `msgCounter_${taskId}`;
+        const next = (this.state.get<number>(key, 0)) + 1;
+        this.state.update(key, next);
+        return `msg_${next}`;
+    }
+
     deleteTask(taskId: string): void {
         const tasks = this.getTasks().filter(t => t.id !== taskId);
         this.state.update('tasks', tasks);
         this.state.update(`messages_${taskId}`, []);
+        this.state.update(`msgCounter_${taskId}`, undefined);
     }
 
     deleteTasks(taskIds: string[]): void {
@@ -94,6 +102,7 @@ export class TaskStore {
         this.state.update('tasks', tasks);
         for (const id of taskIds) {
             this.state.update(`messages_${id}`, []);
+            this.state.update(`msgCounter_${id}`, undefined);
         }
     }
 

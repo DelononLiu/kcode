@@ -56,21 +56,8 @@ export class KCodeClient implements acp.Client {
                 }
                 break;
             case 'tool_call': {
-                const debugData = {
-                    title: update.title,
-                    kind: update.kind,
-                    hasLocations: !!update.locations?.length,
-                    locationsPath: update.locations?.[0]?.path,
-                    rawInputType: typeof update.rawInput,
-                    rawInputKeys: typeof update.rawInput === 'object' && update.rawInput !== null ? Object.keys(update.rawInput) : null,
-                    rawInput: update.rawInput,
-                    allKeys: Object.keys(update)
-                };
-                console.log('[KCode] tool_call data:', JSON.stringify(debugData, null, 2));
-
                 const toolKind = update.kind ?? 'other';
                 const displayTitle = extractToolDisplayTitle(update);
-                console.log('[KCode] tool_call displayTitle:', displayTitle, 'kind:', toolKind);
 
                 handler.onToolCall?.(
                     update.toolCallId,

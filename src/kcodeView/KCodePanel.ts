@@ -113,7 +113,7 @@ export class KCodePanel {
 
         // Store user message
         this.store.addMessage({
-            id: `msg_${Date.now()}`,
+            id: this.store.nextMessageId(tid),
             taskId: tid,
             role: 'user',
             content: text,
@@ -195,18 +195,17 @@ export class KCodePanel {
     }
 
     private createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string) {
-        const REASONING_ID = '_reasoning';
+        const REASONING_ID_PREFIX = '_reasoning_';
         let reasoningText = '';
         let reasoningActive = false;
+        let reasoningBlockCount = 0;
+        let currentReasoningId = '';
 
         const completeReasoning = () => {
             if (!reasoningActive) return;
             reasoningActive = false;
-            const tc = this.activeToolCalls.get(REASONING_ID);
-            if (tc) {
-                tc.status = 'completed';
-                sendToolCallUpdate(REASONING_ID, '推理过程', 'thinking', 'completed', reasoningText);
-            }
+            sendToolCallUpdate(currentReasoningId, '推理过程', 'thinking', 'completed', reasoningText);
+            reasoningText = '';
         };
 
         const onError = (error: string) => {
@@ -249,15 +248,19 @@ export class KCodePanel {
             },
             onReasoning: (text: string) => {
                 if (!reasoningActive) {
+                    reasoningBlockCount++;
+                    currentReasoningId = REASONING_ID_PREFIX + reasoningBlockCount;
                     reasoningActive = true;
-                    this.activeToolCalls.set(REASONING_ID, { title: '推理', kind: 'thinking', status: 'running' });
+                    this.activeToolCalls.set(currentReasoningId, { title: '推理', kind: 'thinking', status: 'running' });
+                    sendToolCallUpdate(currentReasoningId, '推理', 'thinking', 'running', '');
                 }
                 reasoningText += text;
-                const tc = this.activeToolCalls.get(REASONING_ID);
+                const tc = this.activeToolCalls.get(currentReasoningId);
                 if (tc) tc.output = reasoningText;
-                sendToolCallUpdate(REASONING_ID, '推理', 'thinking', 'running', reasoningText);
+                sendToolCallUpdate(currentReasoningId, '推理', 'thinking', 'running', reasoningText);
             },
             onToolCall: (toolCallId: string, title: string, kind: string, status: string) => {
+                completeReasoning();
                 this.activeToolCalls.set(toolCallId, { title, kind, status });
                 sendToolCallUpdate(toolCallId, title, kind, status);
             },
@@ -299,7 +302,7 @@ export class KCodePanel {
                 if (!isGoalFormatting) {
                     for (const [toolCallId, tc] of this.activeToolCalls) {
                         this.store.addMessage({
-                            id: `msg_tool_${toolCallId}`,
+                            id: this.store.nextMessageId(tid),
                             taskId: tid,
                             role: 'tool',
                             type: 'tool_call',
@@ -387,7 +390,7 @@ export class KCodePanel {
         this.store.updateTaskGoal(tid, goalText);
         this.store.updateTaskStatus(tid, 'pending');
         this.store.addMessage({
-            id: `msg_${Date.now()}`,
+            id: this.store.nextMessageId(tid),
             taskId: tid,
             role: 'agent',
             type: 'goal_confirmation',
@@ -407,7 +410,7 @@ export class KCodePanel {
     private async handleConfirmGoal(tid: string, originalRequest: string) {
         const confirmMsg = '✅ 确认目标，开始执行';
         this.store.addMessage({
-            id: `msg_${Date.now()}`,
+            id: this.store.nextMessageId(tid),
             taskId: tid,
             role: 'user',
             content: confirmMsg,
@@ -456,7 +459,7 @@ export class KCodePanel {
     private handleReviseGoal(tid: string) {
         const reviseMsg = '↩️ 修改需求';
         this.store.addMessage({
-            id: `msg_${Date.now()}`,
+            id: this.store.nextMessageId(tid),
             taskId: tid,
             role: 'user',
             content: reviseMsg,
@@ -471,7 +474,7 @@ export class KCodePanel {
     private handleCancelTask(tid: string) {
         const cancelMsg = '✕ 已取消任务';
         this.store.addMessage({
-            id: `msg_${Date.now()}`,
+            id: this.store.nextMessageId(tid),
             taskId: tid,
             role: 'user',
             content: cancelMsg,
@@ -490,7 +493,7 @@ export class KCodePanel {
         if (oldGoal === newGoal) return;
         this.store.updateTaskGoal(tid, newGoal);
         this.store.addMessage({
-            id: `msg_${Date.now()}`,
+            id: this.store.nextMessageId(tid),
             taskId: tid,
             role: 'agent',
             type: 'goal_updated',
@@ -515,7 +518,7 @@ export class KCodePanel {
             this.openaiAgent.cancel(tid);
         }
         this.store.addMessage({
-            id: `msg_${Date.now()}`,
+            id: this.store.nextMessageId(tid),
             taskId: tid,
             role: 'agent',
             type: 'stop_message',
@@ -542,7 +545,7 @@ export class KCodePanel {
 
     private triggerReviewRequest(tid: string, content: string) {
         this.store.addMessage({
-            id: `msg_${Date.now()}`,
+            id: this.store.nextMessageId(tid),
             taskId: tid,
             role: 'agent',
             type: 'review_request',
@@ -582,7 +585,7 @@ export class KCodePanel {
     private handleApproveReview(tid: string) {
         const approveMsg = '✅ 验收通过';
         this.store.addMessage({
-            id: `msg_${Date.now()}`,
+            id: this.store.nextMessageId(tid),
             taskId: tid,
             role: 'user',
             content: approveMsg,
@@ -590,7 +593,7 @@ export class KCodePanel {
         });
         this.panel.webview.postMessage({ type: 'addUserMessage', content: approveMsg });
         this.store.addMessage({
-            id: `msg_${Date.now()}`,
+            id: this.store.nextMessageId(tid),
             taskId: tid,
             role: 'agent',
             content: '🎉 任务已完成',
@@ -614,7 +617,7 @@ export class KCodePanel {
     private async handleRejectReview(tid: string, reason?: string) {
         const rejectMsg = reason ? `↩️ 驳回: ${reason}` : '↩️ 驳回，请继续修改';
         this.store.addMessage({
-            id: `msg_${Date.now()}`,
+            id: this.store.nextMessageId(tid),
             taskId: tid,
             role: 'user',
             content: rejectMsg,
@@ -823,7 +826,7 @@ export class KCodePanel {
 
     private storeMessage(taskId: string, role: 'user' | 'agent', content: string) {
         this.store.addMessage({
-            id: `msg_${Date.now()}`,
+            id: this.store.nextMessageId(taskId),
             taskId,
             role,
             content,
