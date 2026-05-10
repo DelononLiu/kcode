@@ -687,20 +687,27 @@ function updateTaskInfo(info: any) {
         reviewEl.textContent = `待验收 ${info.pendingReviewFiles || 0} 个文件`;
     }
 
-    const goalHeader = document.getElementById('goal-header');
+    const goalRow = document.getElementById('task-info-goal');
     const goalText = document.getElementById('goal-header-text');
-    const goalReview = document.getElementById('goal-meta-review');
-    if (goalHeader && goalText) {
+    if (goalRow && goalText) {
         const hasGoal = info.taskType === 'task' && info.goal && info.status !== 'cancelled' && info.status !== 'completed';
-        goalHeader.classList.toggle('hidden', !hasGoal);
-        goalHeader.dataset.fullGoal = info.goal || '';
+        goalRow.classList.toggle('hidden', !hasGoal);
+        goalRow.dataset.fullGoal = info.goal || '';
         const summary = (info.goal || '').split('\n')[0].replace(/[*_#`>\[\]]/g, '').trim();
         goalText.textContent = summary || '目标';
-        if (goalReview) {
-            const count = info.pendingReviewFiles || 0;
-            goalReview.textContent = '📄 ' + count + ' 个文件待验收';
-            goalReview.classList.toggle('hidden', count === 0);
+
+        const pointsRow = document.getElementById('task-info-points');
+        const pointsText = document.getElementById('points-text');
+        if (pointsRow && pointsText) {
+            const lines = (info.goal || '').split('\n').filter((l: string) => /^\s*(?:\d+[\.\)]|[-*])\s/.test(l));
+            if (lines.length > 0) {
+                pointsText.textContent = lines.map((l: string) => l.trim()).join('  ');
+                pointsRow.classList.remove('hidden');
+            } else {
+                pointsRow.classList.add('hidden');
+            }
         }
+
         showGoalViewMode();
     }
 }
@@ -718,11 +725,11 @@ function showGoalEditMode() {
     const view = document.getElementById('goal-header-view');
     const edit = document.getElementById('goal-header-edit');
     const input = document.getElementById('goal-edit-input') as HTMLTextAreaElement;
-    const goalHeader = document.getElementById('goal-header');
+    const goalRow = document.getElementById('task-info-goal');
     if (view) view.classList.add('hidden');
     if (edit) edit.classList.remove('hidden');
-    if (input && goalHeader) {
-        goalOriginalText = goalHeader.dataset.fullGoal || '';
+    if (input && goalRow) {
+        goalOriginalText = goalRow.dataset.fullGoal || '';
         input.value = goalOriginalText;
         input.focus();
         input.setSelectionRange(input.value.length, input.value.length);

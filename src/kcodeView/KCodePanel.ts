@@ -931,21 +931,22 @@ export class KCodePanel {
                             <span id="task-info-sep" class="hidden">|</span>
                             <span id="task-info-review"></span>
                         </div>
-                    </div>
-                    <div id="goal-header" class="hidden">
-                        <div id="goal-header-view">
-                            <span id="goal-header-icon">🎯</span>
-                            <div id="goal-header-summary">
+                        <div id="task-info-goal" class="hidden">
+                            <div id="goal-header-view">
+                                <span class="header-label">Goal：</span>
                                 <span id="goal-header-text"></span>
-                                <span id="goal-meta-review" class="hidden"></span>
+                                <button id="goal-edit-btn" title="修改目标">✏️</button>
                             </div>
-                            <button id="goal-edit-btn" title="修改目标">✏️</button>
-                        </div>
-                        <div id="goal-header-edit" class="hidden">
-                            <textarea id="goal-edit-input" rows="2"></textarea>
-                            <div id="goal-edit-actions">
-                                <button id="goal-save-btn" class="goal-edit-btn">保存</button>
-                                <button id="goal-cancel-btn" class="goal-edit-btn cancel">取消</button>
+                            <div id="task-info-points" class="hidden">
+                                <span class="header-label">验收要点：</span>
+                                <span id="points-text"></span>
+                            </div>
+                            <div id="goal-header-edit" class="hidden">
+                                <textarea id="goal-edit-input" rows="2"></textarea>
+                                <div id="goal-edit-actions">
+                                    <button id="goal-save-btn" class="goal-edit-btn">保存</button>
+                                    <button id="goal-cancel-btn" class="goal-edit-btn cancel">取消</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1054,19 +1055,19 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #task-info-created,#task-info-review{color:#666}
 #task-info-sep{color:#444}
 
-/* === Goal Header === */
-#goal-header{padding:5px 24px;background:rgba(78,201,176,.03);display:flex;flex-direction:column}
-#goal-header.hidden{display:none}
-#goal-header-view{display:flex;align-items:flex-start;gap:6px}
-#goal-header-icon{font-size:12px;flex-shrink:0;margin-top:1px}
-#goal-header-summary{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-#goal-header-text{font-size:12.5px;color:#4ec9b0;line-height:1.4;word-wrap:break-word}
-#goal-meta-review{font-size:11px;color:#888}
-#goal-meta-review.hidden{display:none}
-#goal-edit-btn{background:none;border:none;color:#555;cursor:pointer;padding:1px 4px;border-radius:3px;font-size:11px;flex-shrink:0;line-height:1;margin-top:0;transition:color .2s,background .2s}
-#goal-edit-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
-#goal-header-edit{padding:4px 0}
-#goal-header-edit.hidden{display:none}
+/* === Task Info — Goal Row (merged into header) === */
+#task-info-goal{display:flex;flex-direction:column;gap:2px;padding:2px 24px 6px;background:rgba(78,201,176,.03)}
+#task-info-goal.hidden{display:none}
+#task-info-goal .header-label{font-size:11px;color:#888;font-weight:500;flex-shrink:0}
+#task-info-goal #goal-header-view{display:flex;align-items:center;gap:6px}
+#task-info-goal #goal-header-text{font-size:12.5px;color:#4ec9b0;line-height:1.4;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#task-info-goal #goal-edit-btn{background:none;border:none;color:#555;cursor:pointer;padding:1px 4px;border-radius:3px;font-size:11px;flex-shrink:0;line-height:1;transition:color .2s,background .2s}
+#task-info-goal #goal-edit-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
+#task-info-goal #task-info-points{display:flex;align-items:flex-start;gap:6px;padding:0 0 0 0}
+#task-info-goal #task-info-points.hidden{display:none}
+#task-info-goal #points-text{font-size:12px;color:#d2d2d4;line-height:1.4}
+#task-info-goal #goal-header-edit{padding:2px 0}
+#task-info-goal #goal-header-edit.hidden{display:none}
 #goal-edit-input{width:100%;background:#25252a;border:1px solid rgba(255,255,255,.12);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:12.5px;padding:6px 8px;resize:vertical;outline:none;min-height:36px}
 #goal-edit-input:focus{border-color:rgba(255,255,255,.25)}
 #goal-edit-actions{display:flex;gap:6px;padding:6px 0 0}
