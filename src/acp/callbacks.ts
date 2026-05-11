@@ -27,7 +27,9 @@ export class KCodeClient implements acp.Client {
 
     setCurrentSession(sessionId: string) {
         this.currentSessionId = sessionId;
-        this.sessionChanges.set(sessionId, []);
+        if (!this.sessionChanges.has(sessionId)) {
+            this.sessionChanges.set(sessionId, []);
+        }
     }
 
     getSessionChanges(sessionId: string): FileChange[] {
