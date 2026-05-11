@@ -176,6 +176,10 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             goal: '',
             type: 'chat',
             status: 'pending',
+            phase: 'demand',
+            confirmedItems: [],
+            pendingItems: [],
+            planSteps: [],
             createdAt: Date.now(),
             pinned: false
         };

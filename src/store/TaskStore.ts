@@ -11,13 +11,65 @@ export class TaskStore {
     // ===== Task CRUD =====
 
     getTasks(): Task[] {
-        return this.state.get<Task[]>('tasks', []);
+        const tasks = this.state.get<Task[]>('tasks', []);
+        return tasks.map(t => ({
+            ...t,
+            phase: t.phase || ('demand' as const),
+            confirmedItems: t.confirmedItems || [],
+            pendingItems: t.pendingItems || [],
+            planSteps: t.planSteps || [],
+        }));
     }
 
     addTask(task: Task): void {
-        const tasks = this.getTasks();
+        const tasks = this.state.get<Task[]>('tasks', []);
         tasks.unshift(task);
         this.state.update('tasks', tasks);
+    }
+
+    updateTaskPhase(taskId: string, phase: Task['phase']): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            tasks[idx].phase = phase;
+            this.state.update('tasks', tasks);
+        }
+    }
+
+    updateConfirmedItems(taskId: string, items: string[]): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            tasks[idx].confirmedItems = items;
+            this.state.update('tasks', tasks);
+        }
+    }
+
+    updatePendingItems(taskId: string, items: string[]): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            tasks[idx].pendingItems = items;
+            this.state.update('tasks', tasks);
+        }
+    }
+
+    updatePlanSteps(taskId: string, steps: Task['planSteps']): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            tasks[idx].planSteps = steps;
+            this.state.update('tasks', tasks);
+        }
+    }
+
+    updatePlanStepStatus(taskId: string, index: number, status: Task['planSteps'][0]['status']): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1 && tasks[idx].planSteps[index]) {
+            tasks[idx].planSteps[index].status = status;
+            this.state.update('tasks', tasks);
+        }
     }
 
     updateTaskStatus(taskId: string, status: Task['status']): void {

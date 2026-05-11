@@ -1,9 +1,18 @@
+export interface PlanStep {
+    content: string;
+    status: 'pending' | 'active' | 'completed';
+}
+
 export interface Task {
     id: string;
     title: string;
     goal: string;
     type: 'task' | 'chat';
     status: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
+    phase: 'demand' | 'goal' | 'plan' | 'execute' | 'review';
+    confirmedItems: string[];
+    pendingItems: string[];
+    planSteps: PlanStep[];
     createdAt: number;
     pinned?: boolean;
     archived?: boolean;

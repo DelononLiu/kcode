@@ -84,6 +84,10 @@ export function activate(context: vscode.ExtensionContext) {
             goal: '',
             type: 'chat',
             status: 'pending',
+            phase: 'demand',
+            confirmedItems: [],
+            pendingItems: [],
+            planSteps: [],
             createdAt: Date.now()
         };
         store.addTask(task);

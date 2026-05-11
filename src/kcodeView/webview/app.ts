@@ -699,6 +699,72 @@ function updateTaskInfo(info: any) {
         const summary = (info.goal || '').split('\n')[0].replace(/[*_#`>\[\]]/g, '').trim();
         goalText.textContent = summary || '目标';
     }
+
+    // Phase badge
+    const phaseRow = document.getElementById('task-info-phase');
+    const phaseBadge = document.getElementById('task-phase-badge');
+    if (phaseRow && phaseBadge) {
+        const hasPhase = info.taskType === 'task' && info.phase && info.status !== 'cancelled';
+        phaseRow.classList.toggle('hidden', !hasPhase);
+        if (hasPhase) {
+            const phaseEmojis: Record<string, string> = {
+                demand: '📝', goal: '🎯', plan: '📋', execute: '⚡', review: '✅'
+            };
+            const emoji = phaseEmojis[info.phase] || '';
+            phaseBadge.textContent = `${emoji} ${info.phaseLabel || info.phase}`;
+        }
+    }
+
+    // Confirmed items
+    const itemsRow = document.getElementById('task-info-items');
+    if (itemsRow) {
+        const confirmed = info.confirmedItems || [];
+        const pending = info.pendingItems || [];
+        const hasItems = info.taskType === 'task' && (confirmed.length > 0 || pending.length > 0);
+        itemsRow.classList.toggle('hidden', !hasItems);
+        if (hasItems) {
+            const confirmedEl = document.getElementById('confirmed-items');
+            const pendingEl = document.getElementById('pending-items');
+            if (confirmedEl) {
+                if (confirmed.length > 0) {
+                    confirmedEl.innerHTML = '<span class="items-label">共识</span>' +
+                        confirmed.map((item: string) => `<span class="confirmed-tag">${escapeHtml(item)}</span>`).join('');
+                } else {
+                    confirmedEl.innerHTML = '';
+                }
+            }
+            if (pendingEl) {
+                if (pending.length > 0) {
+                    pendingEl.innerHTML = '<span class="items-label">待定</span>' +
+                        pending.map((item: string) => `<span class="pending-tag">${escapeHtml(item)}</span>`).join('');
+                } else {
+                    pendingEl.innerHTML = '';
+                }
+            }
+            itemsRow.classList.remove('hidden');
+        }
+    }
+
+    // Plan steps
+    const planRow = document.getElementById('task-info-plan');
+    if (planRow) {
+        const steps = info.planSteps || [];
+        const hasSteps = info.taskType === 'task' && info.phase === 'execute' && steps.length > 0;
+        planRow.classList.toggle('hidden', !hasSteps);
+        if (hasSteps) {
+            const stepsEl = document.getElementById('plan-steps');
+            if (stepsEl) {
+                const statusEmoji: Record<string, string> = {
+                    pending: '○', active: '◉', completed: '✓'
+                };
+                stepsEl.innerHTML = steps.map((step: any) => {
+                    const emoji = statusEmoji[step.status] || '○';
+                    return `<div class="plan-step-item"><span class="step-status status-${step.status}">${emoji}</span><span class="step-content">${escapeHtml(step.content)}</span></div>`;
+                }).join('');
+            }
+            planRow.classList.remove('hidden');
+        }
+    }
 }
 
 

@@ -357,11 +357,11 @@ _目标：实现 `<TASK_UPDATE>` 协议驱动的 5 阶段全流程（demand → 
 
 | 任务 | 说明 | 状态 |
 |------|------|------|
-| P8-01 | 数据模型扩展 — Task 增加 phase / confirmedItems / pendingItems / planSteps | ⬜ 未开始 |
-| P8-02 | `<TASK_UPDATE>` 协议解析器 — 替换旧 [TASK_STATUS] / [FILE] 标记 | ⬜ 未开始 |
-| P8-03 | 阶段分发提示词 — buildTaskPrompt() 按 phase 分派 4 套提示词 | ⬜ 未开始 |
-| P8-04 | 对话式阶段迁移 — 移除强制卡片阻断，自然对话推进阶段 | ⬜ 未开始 |
-| P8-05 | 顶部看板增强 — 显示当前阶段 + 共识条目 | ⬜ 未开始 |
+| P8-01 | 数据模型扩展 — Task 增加 phase / confirmedItems / pendingItems / planSteps | ✅ 已完成 |
+| P8-02 | `<TASK_UPDATE>` 协议解析器 — 替换旧 `[TASK_STATUS]` / `[FILE]` 标记 | ✅ 已完成 |
+| P8-03 | 阶段分发提示词 — buildTaskPrompt() 按 phase 分派 4 套提示词 | ✅ 已完成 |
+| P8-04 | 对话式阶段迁移 — 移除强制卡片阻断，自然对话推进阶段 | ✅ 已完成 |
+| P8-05 | 顶部看板增强 — 显示当前阶段 + 共识条目 | ✅ 已完成 |
 
 ---
 
@@ -383,7 +383,7 @@ _目标：实现 `<TASK_UPDATE>` 协议驱动的 5 阶段全流程（demand → 
 - Task.planSteps: `{ content: string; status: 'pending' | 'active' | 'completed' }[]`，计划步骤
 - `buildTaskPrompt()` 和 `parseTaskUpdate()` 依赖此模型，必须先完成
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 
@@ -410,7 +410,7 @@ _目标：实现 `<TASK_UPDATE>` 协议驱动的 5 阶段全流程（demand → 
 - **非法指令**: 日志警告，不执行，不报错给用户
 - `stripTaskMarker()` + `stripFileMarkers()` 保留到下游兼容期结束再删除
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 
@@ -439,7 +439,7 @@ _目标：实现 `<TASK_UPDATE>` 协议驱动的 5 阶段全流程（demand → 
   2. **输出结构要求**（design doc §5.4 四段组织：当前阶段、已锁定共识、待处理、小结）
   3. 当前已锁定的 `confirmedItems` 作为上下文
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 
@@ -465,7 +465,7 @@ _目标：实现 `<TASK_UPDATE>` 协议驱动的 5 阶段全流程（demand → 
 - **看板自动刷新**: phase 切换后 `sendTaskInfo()` + `sendNodePanelUpdate()` 自刷新
 - 兼容现有 `handleConfirmGoal` / `handleRejectReview` / `handleAcceptReview` 等已有方法
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 
@@ -488,7 +488,7 @@ _目标：实现 `<TASK_UPDATE>` 协议驱动的 5 阶段全流程（demand → 
   - **计划步骤**: planSteps 在 execute 阶段展示带状态标记的步骤列表
 - CSS 新增 `.task-phase-badge`, `.confirmed-tag`, `.pending-tag`, `.plan-step-item`
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 
@@ -529,7 +529,7 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 - `Task` 新增 `source?: TaskSource`
 - 数据映射见设计文档 §三：`title → GH#{n}: {title}`, `body → task.goal`, `html_url → source.url`
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 
@@ -556,7 +556,7 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 - 导入失败 → `vscode.window.showErrorMessage`
 - 命令注册名：`kcode.importGitHubIssue`
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 
@@ -582,7 +582,7 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
   - 403 → 提示"API rate limit 超限，请配置 kcode.githubToken"
   - 网络错误 → 提示"网络异常，请重试"
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 
@@ -610,4 +610,4 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 - 403 响应头 `x-ratelimit-remaining` 为 0 时，显示具体提示"Rate limit 已用完，请配置 token 或等待 ${resetTime} 后重试"
 - 不暴露 token 到日志或 UI
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成

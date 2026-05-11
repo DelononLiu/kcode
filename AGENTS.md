@@ -14,8 +14,6 @@ kcode/
 ├── package.json
 ├── tsconfig.json
 ├── AGENTS.md
-├── .kilo/
-│   └── tasks.md              # 任务注册中心，每个 session 从这里开始
 ├── PROJECT.md                # 项目参考手册，包含文件索引、MVP 状态、Phase 计划
 ├── resources/kcode.png       # 扩展图标
 └── src/

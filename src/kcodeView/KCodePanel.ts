@@ -1,8 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
-import * as fs from 'fs';
-import { execSync } from 'child_process';
 import { TaskStore } from '../store/TaskStore';
 import { AcpClient } from '../acp/AcpClient';
 import { FakeAgent } from '../acp/FakeAgent';
@@ -24,7 +22,6 @@ export class KCodePanel {
     private accumulatedAgentText: string = '';
     private activeToolCalls: Map<string, { title: string; kind: string; status: string; output?: string }> = new Map();
     private planEntries: { content: string; priority: string; status: string }[] = [];
-    private taskStatusMarker: string | null = null;
     private refreshSidebarCallback?: () => void;
     private isGenerating: boolean = false;
     private hasSetPlanMessage: boolean = false;
@@ -108,7 +105,7 @@ export class KCodePanel {
 
         const isFirstMessage = this.store.getMessages(tid).length === 0;
         const intent = isFirstMessage ? classifyIntent(text) : 'task';
-        const isGoalFormatting = task.status === 'pending' && intent === 'task';
+        const isGoalFormatting = isFirstMessage && task.status === 'pending' && intent === 'task';
         let promptText: string;
 
         if (isGoalFormatting) {
@@ -252,7 +249,7 @@ export class KCodePanel {
             onText: (chunk: string) => {
                 completeReasoning();
                 this.accumulatedAgentText += chunk;
-                this.stripTaskMarker();
+                this.parseTaskUpdate();
                 sendDisplayUpdate();
             },
             onReasoning: (text: string) => {
@@ -293,7 +290,6 @@ export class KCodePanel {
                 completeReasoning();
                 this.setGenerationState(false);
                 if (stopReason === 'cancelled') {
-                    this.taskStatusMarker = null;
                     this.activeToolCalls.clear();
                     this.planEntries = [];
                     if (this.accumulatedAgentText && !isGoalFormatting) {
@@ -335,13 +331,13 @@ export class KCodePanel {
                     }
                 }
                 if (this.accumulatedAgentText) {
+                    this.parseTaskUpdate();
                     if (isGoalFormatting) {
                         this.processGoalProposal(tid, this.accumulatedAgentText, originalText);
                     } else {
-                        const cleanedText = this.stripTaskMarker();
-                        this.stripFileMarkers();
+                        const cleanedText = this.accumulatedAgentText;
                         const task = this.store.getTask(tid);
-                        if (task?.type === 'task' && this.taskStatusMarker === 'completed') {
+                        if (task?.type === 'task' && task?.phase === 'review') {
                             this.triggerReviewRequest(tid, cleanedText);
                         } else {
                             const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
@@ -360,43 +356,101 @@ export class KCodePanel {
                         }
                     }
                 }
-                this.taskStatusMarker = null;
                 this.activeToolCalls.clear();
                 this.planEntries = [];
             }
         };
     }
 
-    private stripTaskMarker(): string {
-        const match = this.accumulatedAgentText.match(/\[TASK_STATUS:\s*(completed|in_progress)\]/);
-        if (match) {
-            this.taskStatusMarker = match[1];
-            this.accumulatedAgentText = this.accumulatedAgentText.replace(match[0], '');
-        }
-        return this.accumulatedAgentText;
-    }
+    private parseTaskUpdate(): void {
+        const tid = this.currentTaskId;
+        if (!tid) return;
+        const task = this.store.getTask(tid);
+        if (!task || task.type !== 'task') return;
 
-    private parsedFileChanges: FileChange[] = [];
-
-    private stripFileMarkers(): void {
-        this.parsedFileChanges = [];
-        const lines = this.accumulatedAgentText.split('\n');
-        const kept: string[] = [];
-        for (const line of lines) {
-            const m = line.match(/^\s*\[FILE\]\s+(.+?)\s*\((\w+)\)\s*$/);
-            if (m) {
-                const filePath = m[1].trim();
-                const status = m[2];
-                this.parsedFileChanges.push({
-                    filePath,
-                    original: status === 'new' ? '' : '(see file)',
-                    modified: status === 'deleted' ? '' : '(see file)'
-                });
-            } else {
-                kept.push(line);
+        const regex = /<TASK_UPDATE>([\s\S]*?)<\/TASK_UPDATE>/g;
+        let match;
+        while ((match = regex.exec(this.accumulatedAgentText)) !== null) {
+            try {
+                const payload = JSON.parse(match[1]);
+                if (this.validatePhaseAction(task.phase, payload.action)) {
+                    this.accumulatedAgentText = this.accumulatedAgentText.replace(match[0], '');
+                    this.executePhaseAction(tid, payload);
+                    regex.lastIndex = 0;
+                }
+            } catch {
+                // malformed JSON, skip
             }
         }
-        this.accumulatedAgentText = kept.join('\n');
+    }
+
+    private validatePhaseAction(currentPhase: string, action: string): boolean {
+        const validActions: Record<string, string[]> = {
+            'demand': [],
+            'goal': ['propose_goal', 'lock_goal'],
+            'plan': ['propose_plan', 'lock_plan'],
+            'execute': ['finish_execute'],
+            'review': ['accept', 'reject']
+        };
+        const allowed = validActions[currentPhase] || [];
+        if (!allowed.includes(action)) {
+            console.warn(`[KCode] Invalid action "${action}" for phase "${currentPhase}", ignoring`);
+            return false;
+        }
+        return true;
+    }
+
+    private executePhaseAction(tid: string, payload: any): void {
+        const task = this.store.getTask(tid);
+        if (!task) return;
+
+        switch (payload.action) {
+            case 'propose_goal':
+                if (payload.confirmed_items) {
+                    this.store.updateConfirmedItems(tid, payload.confirmed_items);
+                }
+                if (payload.pending_items) {
+                    this.store.updatePendingItems(tid, payload.pending_items);
+                }
+                break;
+            case 'lock_goal':
+                this.store.updateTaskPhase(tid, 'plan');
+                if (payload.confirmed_items) {
+                    this.store.updateConfirmedItems(tid, payload.confirmed_items);
+                }
+                if (payload.pending_items) {
+                    this.store.updatePendingItems(tid, payload.pending_items);
+                }
+                break;
+            case 'propose_plan':
+                if (payload.plan_steps) {
+                    this.store.updatePlanSteps(tid, payload.plan_steps);
+                }
+                break;
+            case 'lock_plan':
+                this.store.updateTaskPhase(tid, 'execute');
+                this.store.updateTaskStatus(tid, 'active');
+                if (payload.plan_steps) {
+                    this.store.updatePlanSteps(tid, payload.plan_steps);
+                }
+                break;
+            case 'finish_execute':
+                this.store.updateTaskPhase(tid, 'review');
+                this.store.updateTaskStatus(tid, 'in_review');
+                break;
+            case 'accept':
+                this.store.updateTaskPhase(tid, 'review');
+                this.store.updateTaskStatus(tid, 'completed');
+                break;
+            case 'reject':
+                this.store.updateTaskPhase(tid, 'execute');
+                this.store.updateTaskStatus(tid, 'active');
+                break;
+        }
+
+        this.sendTaskInfo(tid);
+        this.sendNodePanelUpdate(tid);
+        this.refreshSidebarCallback?.();
     }
 
     private buildTaskPrompt(tid: string, userText: string): string {
@@ -404,12 +458,88 @@ export class KCodePanel {
         if (!task || task.type !== 'task') return userText;
 
         const goal = task.goal || '(待确认)';
-        const systemPrompt = `[System]\n任务目标：${goal}\n请按以下要求回答：\n1. 回答末尾标注任务状态标记（不显示给用户）：\n   - 已完成：[TASK_STATUS: completed]\n   - 进行中：[TASK_STATUS: in_progress]\n2. 如果你创建、修改或删除了文件，请在回答中用以下格式逐行列出行（不显示给用户）：\n   [FILE] 文件路径 (状态)\n   状态为：new / modified / deleted\n   例如：\n   [FILE] hello.py (new)\n   [FILE] src/main.py (modified)\n[/System]\n\n`;
-        return systemPrompt + userText;
+        const confirmedItems = task.confirmedItems.length > 0
+            ? task.confirmedItems.map((item, i) => `${i + 1}. ${item}`).join('\n')
+            : '（待确认）';
+        const planStepsStr = task.planSteps.length > 0
+            ? task.planSteps.map((s, i) => `   ${i + 1}. [${s.status}] ${s.content}`).join('\n')
+            : '（待制定）';
+
+        let phasePrompt: string;
+        switch (task.phase) {
+            case 'goal':
+                phasePrompt = `[System]
+当前阶段：目标确认（Goal）
+行为约束：
+1. 与用户讨论需求细节，帮助用户明确目标
+2. 只做目标归纳确认，不写代码，不执行任何工具
+3. 当用户确认目标后，输出 <TASK_UPDATE> 锁定协议
+
+回答结构：
+- 标注当前阶段
+- 列出已锁定的共识条目
+- 列出待讨论的条目
+- 小结
+
+<TASK_UPDATE>{"action":"propose_goal","confirmed_items":["条目1","条目2"],"pending_items":["待讨论条目"]}</TASK_UPDATE>
+<TASK_UPDATE>{"action":"lock_goal","confirmed_items":["条目1","条目2"],"pending_items":[]}</TASK_UPDATE>
+[/System]\n\n`;
+                break;
+            case 'plan':
+                phasePrompt = `[System]
+当前阶段：计划制定（Plan）
+行为约束：
+1. 基于已锁定的目标制定实现计划
+2. 首先输出分步骤计划，再输出 lock_plan 协议
+3. 计划锁定后可以开始实施
+
+已锁定目标：
+${confirmedItems}
+
+<TASK_UPDATE>{"action":"lock_plan","plan_steps":[{"content":"步骤1描述","status":"pending"},{"content":"步骤2描述","status":"pending"}]}</TASK_UPDATE>
+<TASK_UPDATE>{"action":"finish_execute"}</TASK_UPDATE>
+[/System]\n\n`;
+                break;
+            case 'execute':
+                phasePrompt = `[System]
+当前阶段：执行（Execute）
+行为约束：
+1. 按照已确认的目标和计划执行
+2. 可以写代码、修改文件、执行命令
+3. 执行完成后输出 finish_execute 协议
+4. 输出 <TASK_UPDATE> 协议标记推进阶段
+
+已锁定目标：
+${confirmedItems}
+
+计划步骤：
+${planStepsStr}
+
+<TASK_UPDATE>{"action":"finish_execute"}</TASK_UPDATE>
+[/System]\n\n`;
+                break;
+            case 'review':
+                phasePrompt = `[System]
+当前阶段：验收（Review）
+行为约束：
+1. 展示已完成的工作和变更
+2. 等待用户验收
+3. 用户通过后输出 accept 协议
+4. 用户提出修改意见时，按需修改
+
+<TASK_UPDATE>{"action":"accept"}</TASK_UPDATE>
+<TASK_UPDATE>{"action":"reject","reason":"修改说明"}</TASK_UPDATE>
+[/System]\n\n`;
+                break;
+            default:
+                phasePrompt = '';
+        }
+        return phasePrompt + userText;
     }
 
     private processGoalProposal(tid: string, goalText: string, originalRequest: string) {
         this.store.updateTaskGoal(tid, goalText);
+        this.store.updateTaskPhase(tid, 'goal');
         this.store.updateTaskStatus(tid, 'pending');
         const goalMsgId = this.store.nextMessageId(tid);
         this.store.addMessage({
@@ -433,7 +563,7 @@ export class KCodePanel {
     }
 
     private async handleConfirmGoal(tid: string, originalRequest: string) {
-        const confirmMsg = '✅ 确认目标，开始执行';
+        const confirmMsg = '✅ 确认目标';
         this.store.addMessage({
             id: this.store.nextMessageId(tid),
             taskId: tid,
@@ -449,6 +579,7 @@ export class KCodePanel {
             this.store.updateMessageType(tid, lastGoal.id, 'goal_confirmed');
         }
 
+        this.store.updateTaskPhase(tid, 'plan');
         this.store.updateTaskStatus(tid, 'active');
         this.sendTaskInfo(tid);
         this.refreshSidebarCallback?.();
@@ -520,10 +651,10 @@ export class KCodePanel {
             id: this.store.nextMessageId(tid),
             taskId: tid,
             role: 'user',
-            content: '✅ 确认目标，开始执行',
+            content: '✅ 确认目标',
             timestamp: Date.now()
         });
-        this.panel.webview.postMessage({ type: 'addUserMessage', content: '✅ 确认目标，开始执行' });
+        this.panel.webview.postMessage({ type: 'addUserMessage', content: '✅ 确认目标' });
 
         const msgs = this.store.getMessages(tid);
         const lastGoal = msgs.filter(m => m.type === 'goal_confirmation').pop();
@@ -531,6 +662,7 @@ export class KCodePanel {
             this.store.updateMessageType(tid, lastGoal.id, 'goal_confirmed');
         }
 
+        this.store.updateTaskPhase(tid, 'plan');
         this.store.updateTaskStatus(tid, 'active');
         this.sendTaskInfo(tid);
         this.refreshSidebarCallback?.();
@@ -628,37 +760,6 @@ export class KCodePanel {
         } else if (this.openaiAgent) {
             changes = this.openaiAgent.getReviewChanges?.(tid) || [];
         }
-        if (changes.length === 0 && this.parsedFileChanges.length > 0) {
-            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || '';
-            changes = this.parsedFileChanges.map(pc => {
-                const filePath = pc.filePath;
-                const isDeleted = pc.modified === '';
-                const isAbsolute = filePath.startsWith('/');
-                const resolvedPath = isAbsolute ? filePath : path.join(workspaceRoot, filePath);
-                let currentContent = '';
-                try {
-                    currentContent = fs.readFileSync(resolvedPath, 'utf-8');
-                } catch {}
-                let originalFromGit = '';
-                if (workspaceRoot && currentContent) {
-                    const gitPath = isAbsolute && filePath.startsWith(workspaceRoot)
-                        ? filePath.slice(workspaceRoot.length + 1)
-                        : filePath;
-                    try {
-                        originalFromGit = execSync(`git show HEAD:"${gitPath}"`, {
-                            encoding: 'utf-8',
-                            cwd: workspaceRoot,
-                            timeout: 3000,
-                            stdio: ['pipe', 'pipe', 'ignore']
-                        });
-                    } catch {}
-                }
-                if (isDeleted) {
-                    return { filePath, original: originalFromGit || currentContent || '(deleted)', modified: '' };
-                }
-                return { filePath, original: originalFromGit || '', modified: currentContent };
-            }).filter(fc => fc.modified !== '' || (fc.original !== '' && fc.original !== '(deleted)'));
-        }
         if (changes.length > 0) {
             this.panel.webview.postMessage({
                 type: 'showReviewRequest',
@@ -719,6 +820,7 @@ export class KCodePanel {
         if (lastReview) {
             this.store.updateMessageType(tid, lastReview.id, 'review_rejected');
         }
+        this.store.updateTaskPhase(tid, 'execute');
         this.store.updateTaskStatus(tid, 'active');
         this.refreshSidebarCallback?.();
         this.sendNodePanelUpdate(tid);
@@ -965,6 +1067,16 @@ export class KCodePanel {
                             <span class="header-label">Goal：</span>
                             <span id="goal-header-text"></span>
                         </div>
+                        <div id="task-info-phase" class="hidden">
+                            <span id="task-phase-badge" class="task-phase-badge"></span>
+                        </div>
+                        <div id="task-info-items" class="hidden">
+                            <div id="confirmed-items"></div>
+                            <div id="pending-items"></div>
+                        </div>
+                        <div id="task-info-plan" class="hidden">
+                            <div id="plan-steps"></div>
+                        </div>
                     </div>
                 </div>
             <div id="chat-body">
@@ -1076,6 +1188,28 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #task-info-goal.hidden{display:none}
 #task-info-goal .header-label{font-size:11px;color:#888;font-weight:500;flex-shrink:0}
 #task-info-goal #goal-header-text{font-size:12.5px;color:#4ec9b0;line-height:1.4;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* === Phase Badge & Consensus === */
+#task-info-phase{display:flex;align-items:center;padding:2px 24px 2px;gap:6px}
+#task-info-phase.hidden{display:none}
+.task-phase-badge{font-size:11px;padding:1px 8px;border-radius:3px;background:rgba(78,201,176,.1);color:#4ec9b0;font-weight:500;display:inline-flex;align-items:center;gap:4px}
+#task-info-items{display:flex;flex-direction:column;padding:2px 24px 2px;gap:2px}
+#task-info-items.hidden{display:none}
+#task-info-items .confirmed-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:1px 6px;border-radius:3px;background:rgba(78,201,176,.08);color:#7ec8a0;margin:1px 4px 1px 0;white-space:nowrap}
+#task-info-items .confirmed-tag::before{content:'✓';font-weight:700;font-size:10px}
+#task-info-items .pending-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:1px 6px;border-radius:3px;background:rgba(255,255,255,.03);color:#888;margin:1px 4px 1px 0;white-space:nowrap}
+#task-info-items .pending-tag::before{content:'○';font-size:10px}
+#task-info-items .items-label{font-size:10px;color:#666;margin-right:4px}
+#task-info-items .items-row{display:flex;flex-wrap:wrap;align-items:center;gap:0}
+#task-info-plan{display:flex;flex-direction:column;padding:2px 24px 2px}
+#task-info-plan.hidden{display:none}
+#task-info-plan .plan-step-item{display:flex;align-items:center;gap:6px;font-size:11px;padding:1px 0;color:#aaa}
+#task-info-plan .plan-step-item .step-status{font-size:10px;width:14px;text-align:center;flex-shrink:0}
+#task-info-plan .plan-step-item .step-status.status-pending{color:#666}
+#task-info-plan .plan-step-item .step-status.status-active{color:#4a8bb5}
+#task-info-plan .plan-step-item .step-status.status-completed{color:#5a9d6b}
+#task-info-plan .plan-step-item .step-content{color:#aaa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 .chat-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:14px;user-select:none}
 #working-indicator{display:flex;align-items:center;gap:8px;padding:8px 0 4px;font-size:12px;color:#888;width:100%}
 #working-indicator.hidden{display:none}
@@ -1256,15 +1390,23 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     private sendTaskInfo(taskId: string) {
         const task = this.store.getTask(taskId);
         if (!task) return;
+        const phaseLabels: Record<string, string> = {
+            demand: '需求', goal: '目标', plan: '计划', execute: '执行', review: '验收'
+        };
         this.panel.webview.postMessage({
             type: 'updateTaskInfo',
             title: task.title,
             goal: task.goal,
             goalHint: task.goal ? '🎯 ' + task.goal : '',
             status: task.status,
+            phase: task.phase,
+            phaseLabel: phaseLabels[task.phase] || task.phase,
             taskType: task.type,
             createdAt: task.createdAt,
-            pendingReviewFiles: 0
+            pendingReviewFiles: 0,
+            confirmedItems: task.confirmedItems,
+            pendingItems: task.pendingItems,
+            planSteps: task.planSteps
         });
     }
 
@@ -1284,11 +1426,12 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         if (!task || task.type === 'chat') return [];
 
         const msgs = this.store.getMessages(taskId);
-        const hasGoal = !!task.goal;
-        const hasConfirmedGoal = msgs.some(m => m.type === 'goal_confirmed');
-        const hasReviewRequest = msgs.some(m => m.type === 'review_request');
-        const hasPlan = this.planEntries.length > 0;
+        const phase = task.phase;
         const s = task.status;
+        const hasGoal = !!task.goal;
+        const hasConfirmedGoal = msgs.some(m => m.type === 'goal_confirmed') || phase === 'plan' || phase === 'execute' || phase === 'review';
+        const hasReviewRequest = msgs.some(m => m.type === 'review_request');
+        const hasPlan = this.planEntries.length > 0 || phase === 'plan' || phase === 'execute' || phase === 'review';
 
         let interruptAt = '';
         if (s === 'cancelled') {
@@ -1312,9 +1455,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         return [
             { id: 'demand', type: 'demand', label: '需求提交', status: ns('demand', demandDone, !demandDone && s !== 'cancelled'), order: 1, messageId: nm.demand },
             { id: 'goal', type: 'goal', label: '目标确认', status: ns('goal', hasConfirmedGoal, goalActive), order: 2, messageId: nm.goal },
-            { id: 'plan', type: 'plan', label: '计划', status: ns('plan', hasPlan || s === 'in_review' || s === 'completed', false), order: 3, messageId: nm.plan },
-            { id: 'execute', type: 'execute', label: '执行', status: ns('execute', s === 'in_review' || s === 'completed', s === 'active'), order: 4, messageId: nm.execute },
-            { id: 'review', type: 'review', label: '验收', status: ns('review', s === 'completed', s === 'in_review'), order: 5, messageId: nm.review },
+            { id: 'plan', type: 'plan', label: '计划', status: ns('plan', hasPlan || s === 'in_review' || s === 'completed', phase === 'plan'), order: 3, messageId: nm.plan },
+            { id: 'execute', type: 'execute', label: '执行', status: ns('execute', s === 'in_review' || s === 'completed', phase === 'execute' && s === 'active'), order: 4, messageId: nm.execute },
+            { id: 'review', type: 'review', label: '验收', status: ns('review', s === 'completed', phase === 'review' && s === 'in_review'), order: 5, messageId: nm.review },
         ];
     }
 
