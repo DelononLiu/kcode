@@ -303,6 +303,12 @@ export class TaskFlow {
     }
 
     confirmPlan(taskId: string): void {
+        const msgs = this.store.getMessages(taskId);
+        const lastPlan = msgs.filter(m => m.type === 'plan_proposal').pop();
+        if (lastPlan) {
+            this.store.updateMessageType(taskId, lastPlan.id, 'plan_confirmed');
+        }
+
         const task = this.store.getTask(taskId);
         if (task) {
             this.planProposed.set(taskId, false);

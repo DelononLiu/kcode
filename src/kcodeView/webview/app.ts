@@ -529,31 +529,56 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
     const content = msg.content;
 
     if (msg.type === 'goal_confirmation' || msg.type === 'goal_confirmed') {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = 'chat-msg agent';
-        msgDiv.dataset.msgId = msg.id;
-
-        const sender = document.createElement('div');
-        sender.className = 'msg-sender';
-        const ts = msg.timestamp ? formatTimestamp(msg.timestamp) : '';
-        sender.innerHTML = 'Agent' + (ts ? ' <span class="msg-timestamp">' + ts + '</span>' : '');
-        msgDiv.appendChild(sender);
-
+        const msgDiv = createCardMessageElement(msg.taskId);
+        const bubble = msgDiv.querySelector('.msg-bubble')!;
         const bodyText = content.replace(/^📋 任务目标确认\n\n/, '');
         const isConfirmed = msg.type === 'goal_confirmed';
 
-        const bubble = document.createElement('div');
-        bubble.className = 'msg-bubble';
-        bubble.innerHTML = renderMarkdown(bodyText);
-        msgDiv.appendChild(bubble);
+        const card = createCard({
+            headerHtml: '🎯 任务目标',
+            bodyMarkdown: bodyText,
+            defaultCollapsed: false,
+            borderColor: '#3c3c3c',
+            headerBg: '#2d2d2d',
+            headerColor: '#e0e0e0',
+        });
 
         if (isConfirmed) {
             const statusEl = document.createElement('div');
-            statusEl.className = 'goal-confirmed-label';
+            statusEl.className = 'msg-card-status';
             statusEl.textContent = '✅ 已确认';
-            msgDiv.appendChild(statusEl);
+            card.appendChild(statusEl);
         }
 
+        bubble.appendChild(card);
+        appendToChatMessages(msgDiv);
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        return;
+    }
+
+    if (msg.type === 'plan_proposal' || msg.type === 'plan_confirmed') {
+        const msgDiv = createCardMessageElement(msg.taskId);
+        const bubble = msgDiv.querySelector('.msg-bubble')!;
+        const bodyText = content.replace(/^📋 计划方案\n\n/, '');
+        const isConfirmed = msg.type === 'plan_confirmed';
+
+        const card = createCard({
+            headerHtml: '📋 计划方案',
+            bodyHtml: bodyText ? bodyText.split('\n').map((line: string) => `<div class="plan-step-line">${line}</div>`).join('') : '',
+            defaultCollapsed: false,
+            borderColor: '#4a8bb5',
+            headerBg: '#1e2d3d',
+            headerColor: '#e0e0e0',
+        });
+
+        if (isConfirmed) {
+            const statusEl = document.createElement('div');
+            statusEl.className = 'msg-card-status';
+            statusEl.textContent = '✅ 已确认';
+            card.appendChild(statusEl);
+        }
+
+        bubble.appendChild(card);
         appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
@@ -561,40 +586,36 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
 
     if (msg.type === 'review_request' || msg.type === 'review_approved' || msg.type === 'review_rejected') {
         const taskId = msg.taskId;
-        const msgDiv = document.createElement('div');
-        msgDiv.className = 'chat-msg agent';
-        msgDiv.dataset.msgId = msg.id;
+        const msgDiv = createCardMessageElement(taskId);
+        const bubble = msgDiv.querySelector('.msg-bubble')!;
 
-        const sender = document.createElement('div');
-        sender.className = 'msg-sender';
-        const ts = msg.timestamp ? formatTimestamp(msg.timestamp) : '';
-        sender.innerHTML = 'Agent' + (ts ? ' <span class="msg-timestamp">' + ts + '</span>' : '');
-        msgDiv.appendChild(sender);
-
-        const bubble = document.createElement('div');
-        bubble.className = 'msg-bubble';
-        bubble.innerHTML = renderMarkdown(content);
-        msgDiv.appendChild(bubble);
+        const card = createCard({
+            headerHtml: '✅ 验收',
+            bodyMarkdown: content,
+            defaultCollapsed: false,
+            borderColor: '#2a5a2a',
+            headerBg: '#1a3a1a',
+            headerColor: '#e0e0e0',
+        });
+        card.dataset.reviewTaskId = taskId;
 
         const isPending = msg.type === 'review_request';
-        const statusText = msg.type === 'review_approved' ? '✅ 已验收通过' :
-                           msg.type === 'review_rejected' ? '↩️ 已驳回' : '';
-
         if (isPending) {
-            const actions = document.createElement('div');
-            actions.className = 'review-inline-actions';
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'msg-card-actions';
 
             const approveBtn = document.createElement('button');
             approveBtn.className = 'msg-card-btn primary';
             approveBtn.textContent = '验收通过 ✓';
             approveBtn.addEventListener('click', () => {
-                actions.innerHTML = '';
-                const status = document.createElement('span');
-                status.className = 'review-inline-status';
+                actionsDiv.innerHTML = '';
+                const status = document.createElement('div');
+                status.className = 'msg-card-status';
                 status.textContent = '✅ 已验收通过';
-                actions.appendChild(status);
+                actionsDiv.appendChild(status);
                 vscode.postMessage({ type: 'approveReview', taskId });
             });
+            actionsDiv.appendChild(approveBtn);
 
             const rejectBtn = document.createElement('button');
             rejectBtn.className = 'msg-card-btn secondary';
@@ -602,17 +623,18 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
             rejectBtn.addEventListener('click', () => {
                 showRejectInput(rejectBtn, taskId);
             });
+            actionsDiv.appendChild(rejectBtn);
 
-            actions.appendChild(approveBtn);
-            actions.appendChild(rejectBtn);
-            msgDiv.appendChild(actions);
-        } else if (statusText) {
-            const statusBar = document.createElement('div');
-            statusBar.className = 'review-inline-status';
-            statusBar.textContent = statusText;
-            msgDiv.appendChild(statusBar);
+            card.appendChild(actionsDiv);
+        } else {
+            const statusText = msg.type === 'review_approved' ? '✅ 已验收通过' : '↩️ 已驳回';
+            const statusEl = document.createElement('div');
+            statusEl.className = 'msg-card-status';
+            statusEl.textContent = statusText;
+            card.appendChild(statusEl);
         }
 
+        bubble.appendChild(card);
         appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
@@ -1022,8 +1044,11 @@ function handleShowReviewRequest(message: any) {
         list.appendChild(item);
     }
 
-    const actionsEl = lastReviewMsg.querySelector('.review-inline-actions');
-    if (actionsEl) {
+    const cardBody = lastReviewMsg.querySelector('.msg-card-body');
+    const actionsEl = lastReviewMsg.querySelector('.msg-card-actions, .msg-card-status');
+    if (cardBody) {
+        cardBody.appendChild(list);
+    } else if (actionsEl) {
         lastReviewMsg.insertBefore(list, actionsEl);
     } else {
         lastReviewMsg.appendChild(list);
@@ -1055,7 +1080,7 @@ function showRejectInput(btn: HTMLElement, taskId: string) {
     const msgDiv = btn.closest('.chat-msg.agent') as HTMLElement;
     if (!msgDiv) return;
 
-    const actions = msgDiv.querySelector('.review-inline-actions') as HTMLElement;
+    const actions = msgDiv.querySelector('.msg-card-actions') as HTMLElement;
     if (!actions) return;
 
     const existing = actions.querySelector('.reject-input-area');
@@ -1085,15 +1110,36 @@ function showRejectInput(btn: HTMLElement, taskId: string) {
     confirmBtn.addEventListener('click', () => {
         const reason = textarea.value.trim();
         actions.innerHTML = '';
-        const statusEl = document.createElement('span');
-        statusEl.className = 'review-inline-status';
+        const statusEl = document.createElement('div');
+        statusEl.className = 'msg-card-status';
         statusEl.textContent = reason ? `↩️ 已驳回: ${reason}` : '↩️ 已驳回';
         actions.appendChild(statusEl);
         vscode.postMessage({ type: 'rejectReview', taskId, reason });
     });
 
     cancelBtn.addEventListener('click', () => {
-        vscode.postMessage({ type: 'rejectReview', taskId });
+        actions.innerHTML = '';
+        const approveBtn = document.createElement('button');
+        approveBtn.className = 'msg-card-btn primary';
+        approveBtn.textContent = '验收通过 ✓';
+        approveBtn.addEventListener('click', () => {
+            actions.innerHTML = '';
+            const status = document.createElement('div');
+            status.className = 'msg-card-status';
+            status.textContent = '✅ 已验收通过';
+            actions.appendChild(status);
+            vscode.postMessage({ type: 'approveReview', taskId });
+        });
+
+        const rejectBtn = document.createElement('button');
+        rejectBtn.className = 'msg-card-btn secondary';
+        rejectBtn.textContent = '驳回 ↩';
+        rejectBtn.addEventListener('click', () => {
+            showRejectInput(rejectBtn, taskId);
+        });
+
+        actions.appendChild(approveBtn);
+        actions.appendChild(rejectBtn);
     });
 
     btnRow.appendChild(confirmBtn);
@@ -1101,8 +1147,6 @@ function showRejectInput(btn: HTMLElement, taskId: string) {
     area.appendChild(textarea);
     area.appendChild(btnRow);
     actions.appendChild(area);
-
-    textarea.focus();
 }
 
 function updateCardToStatus(card: HTMLElement, statusText: string) {
@@ -1307,9 +1351,11 @@ function handleShowPlanProposal(message: any) {
     reviseBtn.className = 'msg-card-btn secondary';
     reviseBtn.textContent = '调整建议 ↩';
     reviseBtn.addEventListener('click', () => {
-        const card = msgDiv.querySelector('.plan-confirmation-card');
-        if (card) card.remove();
-        msgDiv.remove();
+        actionsDiv.innerHTML = '';
+        const statusEl = document.createElement('div');
+        statusEl.className = 'msg-card-status';
+        statusEl.textContent = '↩️ 已驳回调整';
+        actionsDiv.appendChild(statusEl);
         vscode.postMessage({ type: 'rejectPlan', taskId: message.taskId });
     });
 

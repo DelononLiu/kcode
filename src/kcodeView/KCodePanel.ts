@@ -545,6 +545,19 @@ export class KCodePanel {
     private showPlanConfirmation(tid: string): boolean {
         const task = this.store.getTask(tid);
         if (!task || task.planSteps.length === 0) return false;
+
+        const stepsContent = task.planSteps.map(s =>
+            `- [${s.status === 'completed' ? 'x' : ' '}] ${s.content}`
+        ).join('\n');
+        this.store.addMessage({
+            id: this.store.nextMessageId(tid),
+            taskId: tid,
+            role: 'agent',
+            type: 'plan_proposal',
+            content: `📋 计划方案\n\n${stepsContent}`,
+            timestamp: Date.now()
+        });
+
         this.panel.webview.postMessage({
             type: 'showPlanProposal',
             taskId: tid,
@@ -565,7 +578,7 @@ export class KCodePanel {
         this.panel.webview.postMessage({ type: 'addUserMessage', content: confirmMsg });
 
         this.taskFlow.confirmPlan(tid);
-        this.panel.webview.postMessage({ type: 'removePlanProposal' });
+        // 保留计划卡片不删除，用户可看到已确认的历史
         const promptText = this.taskFlow.buildPrompt(tid, '计划已确认，请开始执行。');
 
         const handler = this.createAgentResponseHandler(tid, false, '计划已确认，请开始执行。');
@@ -626,7 +639,6 @@ export class KCodePanel {
             timestamp: Date.now()
         });
         this.panel.webview.postMessage({ type: 'addUserMessage', content: reviseMsg });
-        this.panel.webview.postMessage({ type: 'removePlanProposal' });
         this.taskFlow.rejectPlan(tid);
     }
 
