@@ -647,7 +647,7 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 - `Task` 新增 `source?: TaskSource`
 - 数据映射见设计文档 §三：`title → GH#{n}: {title}`, `body → task.goal`, `html_url → source.url`
 
-**状态**: ✅ 已完成
+**状态**: ⬜ 未开始
 
 ---
 
@@ -674,7 +674,7 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 - 导入失败 → `vscode.window.showErrorMessage`
 - 命令注册名：`kcode.importGitHubIssue`
 
-**状态**: ✅ 已完成
+**状态**: ⬜ 未开始
 
 ---
 
@@ -700,7 +700,7 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
   - 403 → 提示"API rate limit 超限，请配置 kcode.githubToken"
   - 网络错误 → 提示"网络异常，请重试"
 
-**状态**: ✅ 已完成
+**状态**: ⬜ 未开始
 
 ---
 
@@ -728,4 +728,4 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 - 403 响应头 `x-ratelimit-remaining` 为 0 时，显示具体提示"Rate limit 已用完，请配置 token 或等待 ${resetTime} 后重试"
 - 不暴露 token 到日志或 UI
 
-**状态**: ✅ 已完成
+**状态**: ⬜ 未开始
