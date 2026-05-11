@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import { TaskStore } from '../store/TaskStore';
+import { TaskFlow } from '../taskflow/TaskFlow';
 import { AcpClient } from '../acp/AcpClient';
 import { FakeAgent } from '../acp/FakeAgent';
 import { OpenAIAgent } from '../acp/OpenAIAgent';
@@ -19,19 +20,38 @@ export class KCodePanel {
     private fakeAgent: FakeAgent | null = null;
     private openaiAgent: OpenAIAgent | null = null;
     private agentReady: boolean = false;
-    private accumulatedAgentText: string = '';
     private activeToolCalls: Map<string, { title: string; kind: string; status: string; output?: string }> = new Map();
-    private planEntries: { content: string; priority: string; status: string }[] = [];
     private refreshSidebarCallback?: () => void;
     private isGenerating: boolean = false;
     private hasSetPlanMessage: boolean = false;
     private hasSetExecuteMessage: boolean = false;
-    private planProposed: boolean = false;
-    private executeFinished: boolean = false;
+    private taskFlow: TaskFlow;
 
     constructor(context: vscode.ExtensionContext, store: TaskStore) {
         this.context = context;
         this.store = store;
+
+        this.taskFlow = new TaskFlow(store, {
+            onPhaseChanged: (taskId: string) => {
+                this.sendTaskInfo(taskId);
+                this.sendNodePanelUpdate(taskId);
+                this.refreshSidebarCallback?.();
+            },
+            onExecuteFinished: (taskId: string) => {
+                this.sendTaskInfo(taskId);
+            },
+            onGoalFormatted: (taskId: string, goalText: string, originalRequest: string) => {
+                this.panel.webview.postMessage({
+                    type: 'showGoalConfirmation',
+                    goal: goalText,
+                    originalRequest,
+                    taskId
+                });
+            },
+            onError: (taskId: string, error: string) => {
+                this.showAgentError(taskId, error);
+            }
+        });
 
         this.panel = vscode.window.createWebviewPanel(
             'kcode',
@@ -119,14 +139,17 @@ export class KCodePanel {
 
         const isFirstMessage = this.store.getMessages(tid).length === 0;
         const intent = isFirstMessage ? classifyIntent(text) : 'task';
-        const isGoalFormatting = isFirstMessage && task.status === 'pending' && intent === 'task';
-        let promptText: string;
 
-        if (isGoalFormatting) {
-            promptText = `请将以下需求格式化为清晰的任务目标描述：\n\n${text}`;
-        } else {
-            promptText = this.buildTaskPrompt(tid, text);
+        // Set task type early so buildPrompt can route by type
+        if (isFirstMessage) {
+            this.store.updateTaskType(tid, intent);
+            if (intent === 'chat') {
+                this.store.updateTaskStatus(tid, 'active');
+            }
         }
+
+        const isGoalFormatting = isFirstMessage && task.status === 'pending' && intent === 'task';
+        const promptText = this.taskFlow.buildPrompt(tid, text);
 
         // Store user message
         const userMsgId = this.store.nextMessageId(tid);
@@ -143,10 +166,6 @@ export class KCodePanel {
             const prefix = intent === 'task' ? 'Task: ' : 'Chat: ';
             const rawTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
             this.store.updateTaskTitle(tid, prefix + rawTitle);
-            this.store.updateTaskType(tid, intent);
-            if (intent === 'chat') {
-                this.store.updateTaskStatus(tid, 'active');
-            }
             this.refreshSidebarCallback?.();
             this.sendTaskInfo(tid);
             this.sendNodePanelUpdate(tid);
@@ -173,31 +192,22 @@ export class KCodePanel {
                 return;
             }
 
-            this.accumulatedAgentText = '';
+            this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
-            this.planEntries = [];
-            this.planProposed = false;
-            this.executeFinished = false;
             this.setGenerationState(true);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
             this.fakeAgent.setHandler(sessionId, handler);
-            this.accumulatedAgentText = '';
+            this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
-            this.planEntries = [];
-            this.planProposed = false;
-            this.executeFinished = false;
             this.setGenerationState(true);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
-            this.accumulatedAgentText = '';
+            this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
-            this.planEntries = [];
-            this.planProposed = false;
-            this.executeFinished = false;
             this.setGenerationState(true);
             await this.openaiAgent.prompt(sessionId, promptText);
         } else {
@@ -208,16 +218,6 @@ export class KCodePanel {
                 : `Agent 连接失败：无法连接到 "${agentName}"，请检查路径是否正确并确保 Agent 已启动`;
             this.showAgentError(tid, errorMsg);
         }
-    }
-
-    private buildPlanSection(): string {
-        if (this.planEntries.length === 0) return '';
-        const lines = ['', '📋 计划:'];
-        for (const e of this.planEntries) {
-            const icon = e.status === 'completed' ? '✅' : e.status === 'in_progress' ? '🔄' : '⬜';
-            lines.push(` ${icon} ${e.content}`);
-        }
-        return '\n' + lines.join('\n');
     }
 
     private createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string) {
@@ -236,6 +236,7 @@ export class KCodePanel {
 
         const onError = (error: string) => {
             this.setGenerationState(false);
+            this.taskFlow.getCleanText(tid);
             if (!isGoalFormatting) {
                 this.panel.webview.postMessage({
                     type: 'agentStreamUpdate',
@@ -247,9 +248,10 @@ export class KCodePanel {
 
         const sendDisplayUpdate = () => {
             if (isGoalFormatting) return;
+            const displayText = this.taskFlow.getCleanText(tid) + this.taskFlow.buildPlanSection(tid);
             this.panel.webview.postMessage({
                 type: 'agentStreamUpdate',
-                text: this.accumulatedAgentText + this.buildPlanSection()
+                text: displayText
             });
         };
 
@@ -268,8 +270,7 @@ export class KCodePanel {
         return {
             onText: (chunk: string) => {
                 completeReasoning();
-                this.accumulatedAgentText += chunk;
-                this.parseTaskUpdate();
+                this.taskFlow.processChunk(tid, chunk);
                 sendDisplayUpdate();
             },
             onReasoning: (text: string) => {
@@ -301,7 +302,7 @@ export class KCodePanel {
                 sendToolCallUpdate(toolCallId, tc?.title || '', tc?.kind || '', status, content);
             },
             onPlan: (entries: { content: string; priority: string; status: string }[]) => {
-                this.planEntries = entries;
+                this.taskFlow.setPlanEntries(tid, entries);
                 sendDisplayUpdate();
                 this.sendNodePanelUpdate(tid);
             },
@@ -309,13 +310,14 @@ export class KCodePanel {
             onDone: (stopReason?: string) => {
                 completeReasoning();
                 this.setGenerationState(false);
+                const cleanedText = this.taskFlow.getCleanText(tid);
+
                 if (stopReason === 'cancelled') {
                     this.activeToolCalls.clear();
-                    this.planEntries = [];
-                    if (this.accumulatedAgentText && !isGoalFormatting) {
-                        this.storeMessage(tid, 'agent', this.accumulatedAgentText);
+                    if (cleanedText && !isGoalFormatting) {
+                        this.storeMessage(tid, 'agent', cleanedText);
                     }
-                    this.accumulatedAgentText = '';
+                    this.taskFlow.resetGeneration(tid);
                     const task = this.store.getTask(tid);
                     this.panel.webview.postMessage({
                         type: 'loadMessages',
@@ -350,34 +352,33 @@ export class KCodePanel {
                         this.hasSetExecuteMessage = true;
                     }
                 }
-                if (this.accumulatedAgentText) {
-                    this.parseTaskUpdate();
+                if (cleanedText || isGoalFormatting) {
                     if (isGoalFormatting) {
-                        this.processGoalProposal(tid, this.accumulatedAgentText, originalText);
+                        this.taskFlow.processGoalProposal(tid, this.taskFlow.getCleanText(tid), originalText, originalText);
                     } else {
-                        const cleanedText = this.accumulatedAgentText;
                         const task = this.store.getTask(tid);
+                        const genResult = this.taskFlow.getGenResult(tid);
+
                         if (task?.type === 'task' && task?.phase === 'review') {
                             this.triggerReviewRequest(tid, cleanedText);
-                        } else if (this.planProposed && task?.type === 'task' && task?.phase === 'plan') {
+                        } else if (genResult.planProposed && task?.type === 'task' && task?.phase === 'plan') {
                             this.showPlanConfirmation(tid);
-                            this.planProposed = false;
                             const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
                             if (agentMsgId && !this.hasSetPlanMessage) {
                                 this.store.updateTaskNodeMessageId(tid, 'plan', agentMsgId);
                                 this.hasSetPlanMessage = true;
                             }
                             this.sendNodePanelUpdate(tid);
-                        } else if (this.executeFinished && task?.type === 'task' && task?.phase === 'execute') {
+                        } else if (genResult.executeFinished && task?.type === 'task' && task?.phase === 'execute') {
                             const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
                             this.sendTaskInfo(tid);
                             this.sendNodePanelUpdate(tid);
-                            const task = this.store.getTask(tid);
+                            const t = this.store.getTask(tid);
                             this.panel.webview.postMessage({
                                 type: 'loadMessages',
                                 messages: this.store.getMessages(tid),
                                 taskId: tid,
-                                taskStatus: task?.status
+                                taskStatus: t?.status
                             });
                         } else {
                             const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
@@ -386,242 +387,20 @@ export class KCodePanel {
                                 this.hasSetPlanMessage = true;
                             }
                             this.sendNodePanelUpdate(tid);
-                            const task = this.store.getTask(tid);
+                            const t = this.store.getTask(tid);
                             this.panel.webview.postMessage({
                                 type: 'loadMessages',
                                 messages: this.store.getMessages(tid),
                                 taskId: tid,
-                                taskStatus: task?.status
+                                taskStatus: t?.status
                             });
                         }
                     }
                 }
                 this.activeToolCalls.clear();
-                this.planEntries = [];
+                this.taskFlow.resetGeneration(tid);
             }
         };
-    }
-
-    private parseTaskUpdate(): void {
-        const tid = this.currentTaskId;
-        if (!tid) return;
-        const task = this.store.getTask(tid);
-        if (!task || task.type !== 'task') return;
-
-        const regex = /<TASK_UPDATE>([\s\S]*?)<\/TASK_UPDATE>/g;
-        let match;
-        while ((match = regex.exec(this.accumulatedAgentText)) !== null) {
-            try {
-                const payload = JSON.parse(match[1]);
-
-                // Block all phase-transitioning actions from AI — user must click confirm button
-                const blockingActions = ['lock_goal', 'lock_plan', 'accept', 'reject'];
-                if (blockingActions.includes(payload.action)) {
-                    this.accumulatedAgentText = this.accumulatedAgentText.replace(match[0], '');
-                    console.log(`[KCode] Blocked auto-transition "${payload.action}" from AI, waiting for user confirmation`);
-                    regex.lastIndex = 0;
-                    continue;
-                }
-
-                // finish_execute: don't auto-transition, just set flag for user to confirm
-                if (task.phase === 'execute' && payload.action === 'finish_execute') {
-                    this.accumulatedAgentText = this.accumulatedAgentText.replace(match[0], '');
-                    this.executeFinished = true;
-                    this.sendTaskInfo(tid);
-                    console.log('[KCode] AI signaled finish_execute, waiting for user confirm');
-                    regex.lastIndex = 0;
-                    continue;
-                }
-
-                if (this.validatePhaseAction(task.phase, payload.action)) {
-                    this.accumulatedAgentText = this.accumulatedAgentText.replace(match[0], '');
-                    this.executePhaseAction(tid, payload);
-                    regex.lastIndex = 0;
-                }
-            } catch {
-                // malformed JSON, skip
-            }
-        }
-    }
-
-    private validatePhaseAction(currentPhase: string, action: string): boolean {
-        const validActions: Record<string, string[]> = {
-            'demand': [],
-            'goal': ['propose_goal', 'lock_goal'],
-            'plan': ['propose_plan', 'lock_plan'],
-            'execute': ['finish_execute'],
-            'review': ['accept', 'reject']
-        };
-        const allowed = validActions[currentPhase] || [];
-        if (!allowed.includes(action)) {
-            console.warn(`[KCode] Invalid action "${action}" for phase "${currentPhase}", ignoring`);
-            return false;
-        }
-        return true;
-    }
-
-    private executePhaseAction(tid: string, payload: any): void {
-        const task = this.store.getTask(tid);
-        if (!task) return;
-
-        switch (payload.action) {
-            case 'propose_goal':
-                if (payload.confirmed_items) {
-                    this.store.updateConfirmedItems(tid, payload.confirmed_items);
-                }
-                if (payload.pending_items) {
-                    this.store.updatePendingItems(tid, payload.pending_items);
-                }
-                break;
-            case 'lock_goal':
-                this.store.updateTaskPhase(tid, 'plan');
-                if (payload.confirmed_items) {
-                    this.store.updateConfirmedItems(tid, payload.confirmed_items);
-                }
-                if (payload.pending_items) {
-                    this.store.updatePendingItems(tid, payload.pending_items);
-                }
-                break;
-            case 'propose_plan':
-                if (payload.plan_steps) {
-                    this.store.updatePlanSteps(tid, payload.plan_steps);
-                }
-                this.planProposed = true;
-                break;
-            case 'lock_plan':
-                this.planProposed = false;
-                this.store.updateTaskPhase(tid, 'execute');
-                this.store.updateTaskStatus(tid, 'active');
-                if (payload.plan_steps) {
-                    this.store.updatePlanSteps(tid, payload.plan_steps);
-                }
-                break;
-            case 'finish_execute':
-                this.store.updateTaskPhase(tid, 'review');
-                this.store.updateTaskStatus(tid, 'in_review');
-                break;
-            case 'accept':
-                this.store.updateTaskPhase(tid, 'review');
-                this.store.updateTaskStatus(tid, 'completed');
-                break;
-            case 'reject':
-                this.store.updateTaskPhase(tid, 'execute');
-                this.store.updateTaskStatus(tid, 'active');
-                break;
-        }
-
-        this.sendTaskInfo(tid);
-        this.sendNodePanelUpdate(tid);
-        this.refreshSidebarCallback?.();
-    }
-
-    private buildTaskPrompt(tid: string, userText: string): string {
-        const task = this.store.getTask(tid);
-        if (!task || task.type !== 'task') return userText;
-
-        const goal = task.goal || '(待确认)';
-        const confirmedItems = task.confirmedItems.length > 0
-            ? task.confirmedItems.map((item, i) => `${i + 1}. ${item}`).join('\n')
-            : '（待确认）';
-        const planStepsStr = task.planSteps.length > 0
-            ? task.planSteps.map((s, i) => `   ${i + 1}. [${s.status}] ${s.content}`).join('\n')
-            : '（待制定）';
-
-        let phasePrompt: string;
-        switch (task.phase) {
-            case 'goal':
-                phasePrompt = `[System]
-当前阶段：目标确认（Goal）
-行为约束：
-1. 与用户讨论需求细节，帮助用户明确目标
-2. 只做目标归纳确认，不写代码，不执行任何工具
-3. 当用户确认目标后，输出 <TASK_UPDATE> 锁定协议
-
-回答结构：
-- 标注当前阶段
-- 列出已锁定的共识条目
-- 列出待讨论的条目
-- 小结
-
-<TASK_UPDATE>{"action":"propose_goal","confirmed_items":["条目1","条目2"],"pending_items":["待讨论条目"]}</TASK_UPDATE>
-<TASK_UPDATE>{"action":"lock_goal","confirmed_items":["条目1","条目2"],"pending_items":[]}</TASK_UPDATE>
-[/System]\n\n`;
-                break;
-            case 'plan':
-                phasePrompt = `[System]
-当前阶段：计划制定（Plan）
-行为约束：
-1. 基于已锁定的目标制定实现计划
-2. 输出分步骤计划（propose_plan），等待用户确认
-3. 用户确认后系统自动推进到执行阶段
-4. 不要输出 lock_plan 协议，系统会自动处理
-
-已锁定目标：
-${confirmedItems}
-
-<TASK_UPDATE>{"action":"propose_plan","pending_items":["待讨论点"],"plan_steps":[{"content":"步骤1描述","status":"pending"},{"content":"步骤2描述","status":"pending"}]}</TASK_UPDATE>
-[/System]\n\n`;
-                break;
-            case 'execute':
-                phasePrompt = `[System]
-当前阶段：执行（Execute）
-行为约束：
-1. 按照已确认的目标和计划执行
-2. 可以写代码、修改文件、执行命令
-3. 执行完成后输出 finish_execute 协议
-4. 输出 <TASK_UPDATE> 协议标记推进阶段
-
-已锁定目标：
-${confirmedItems}
-
-计划步骤：
-${planStepsStr}
-
-<TASK_UPDATE>{"action":"finish_execute"}</TASK_UPDATE>
-[/System]\n\n`;
-                break;
-            case 'review':
-                phasePrompt = `[System]
-当前阶段：验收（Review）
-行为约束：
-1. 展示已完成的工作和变更
-2. 等待用户验收
-3. 用户通过后输出 accept 协议
-4. 用户提出修改意见时，按需修改
-
-<TASK_UPDATE>{"action":"accept"}</TASK_UPDATE>
-<TASK_UPDATE>{"action":"reject","reason":"修改说明"}</TASK_UPDATE>
-[/System]\n\n`;
-                break;
-            default:
-                phasePrompt = '';
-        }
-        return phasePrompt + userText;
-    }
-
-    private processGoalProposal(tid: string, goalText: string, originalRequest: string) {
-        this.store.updateTaskGoal(tid, goalText);
-        this.store.updateTaskPhase(tid, 'goal');
-        this.store.updateTaskStatus(tid, 'pending');
-        const goalMsgId = this.store.nextMessageId(tid);
-        this.store.addMessage({
-            id: goalMsgId,
-            taskId: tid,
-            role: 'agent',
-            type: 'goal_confirmation',
-            content: `📋 任务目标确认\n\n${goalText}`,
-            timestamp: Date.now()
-        });
-        this.store.updateTaskNodeMessageId(tid, 'goal', goalMsgId);
-        this.sendTaskInfo(tid);
-        this.sendNodePanelUpdate(tid);
-        this.refreshSidebarCallback?.();
-        this.panel.webview.postMessage({
-            type: 'showGoalConfirmation',
-            goal: goalText,
-            originalRequest,
-            taskId: tid
-        });
     }
 
     private async handleConfirmGoal(tid: string, originalRequest: string) {
@@ -635,41 +414,28 @@ ${planStepsStr}
         });
         this.panel.webview.postMessage({ type: 'addUserMessage', content: confirmMsg });
 
-        const msgs = this.store.getMessages(tid);
-        const lastGoal = msgs.filter(m => m.type === 'goal_confirmation').pop();
-        if (lastGoal) {
-            this.store.updateMessageType(tid, lastGoal.id, 'goal_confirmed');
-        }
+        this.taskFlow.confirmGoal(tid);
 
-        this.store.updateTaskPhase(tid, 'plan');
-        this.store.updateTaskStatus(tid, 'active');
-        this.sendTaskInfo(tid);
-        this.refreshSidebarCallback?.();
-        this.sendNodePanelUpdate(tid);
-
-        this.accumulatedAgentText = '';
-        this.activeToolCalls.clear();
-        this.planEntries = [];
-        const promptText = this.buildTaskPrompt(tid, originalRequest);
+        const promptText = this.taskFlow.buildPrompt(tid, originalRequest);
         const handler = this.createAgentResponseHandler(tid, false, originalRequest);
 
         if (this.agentReady && this.acpClient) {
+            this.taskFlow.resetGeneration(tid);
+            this.activeToolCalls.clear();
             this.setGenerationState(true);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
             this.fakeAgent.setHandler(sessionId, handler);
-            this.accumulatedAgentText = '';
+            this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
-            this.planEntries = [];
             this.setGenerationState(true);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
-            this.accumulatedAgentText = '';
+            this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
-            this.planEntries = [];
             this.setGenerationState(true);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
@@ -728,39 +494,29 @@ ${planStepsStr}
         });
         this.panel.webview.postMessage({ type: 'addUserMessage', content: confirmMsg });
 
-        const task = this.store.getTask(tid);
-        if (task) {
-            this.executePhaseAction(tid, {
-                action: 'lock_plan',
-                plan_steps: task.planSteps
-            });
-        }
-
+        this.taskFlow.confirmPlan(tid);
         this.panel.webview.postMessage({ type: 'removePlanProposal' });
+        const promptText = this.taskFlow.buildPrompt(tid, '计划已确认，请开始执行。');
 
-        const promptText = this.buildTaskPrompt(tid, '计划已确认，请开始执行。');
         const handler = this.createAgentResponseHandler(tid, false, '计划已确认，请开始执行。');
 
         if (this.agentReady && this.acpClient) {
-            this.accumulatedAgentText = '';
+            this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
-            this.planEntries = [];
             this.setGenerationState(true);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
             this.fakeAgent.setHandler(sessionId, handler);
-            this.accumulatedAgentText = '';
+            this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
-            this.planEntries = [];
             this.setGenerationState(true);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
-            this.accumulatedAgentText = '';
+            this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
-            this.planEntries = [];
             this.setGenerationState(true);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
@@ -777,17 +533,7 @@ ${planStepsStr}
         });
         this.panel.webview.postMessage({ type: 'addUserMessage', content: confirmMsg });
 
-        this.executeFinished = false;
-
-        this.store.updateTaskPhase(tid, 'review');
-        this.store.updateTaskStatus(tid, 'in_review');
-        this.sendTaskInfo(tid);
-        this.sendNodePanelUpdate(tid);
-        this.refreshSidebarCallback?.();
-
-        const msgs = this.store.getMessages(tid);
-        const lastAgentMsg = [...msgs].reverse().find(m => m.role === 'agent' && !m.type);
-        const content = lastAgentMsg?.content || '';
+        const content = this.taskFlow.confirmExecuteDone(tid);
         this.triggerReviewRequest(tid, content);
     }
 
@@ -809,6 +555,7 @@ ${planStepsStr}
         });
         this.panel.webview.postMessage({ type: 'addUserMessage', content: reviseMsg });
         this.panel.webview.postMessage({ type: 'removePlanProposal' });
+        this.taskFlow.rejectPlan(tid);
     }
 
     private async handleConfirmGoalWithEdit(tid: string, newGoal: string, originalRequest: string) {
@@ -822,41 +569,28 @@ ${planStepsStr}
         });
         this.panel.webview.postMessage({ type: 'addUserMessage', content: '✅ 确认目标' });
 
-        const msgs = this.store.getMessages(tid);
-        const lastGoal = msgs.filter(m => m.type === 'goal_confirmation').pop();
-        if (lastGoal) {
-            this.store.updateMessageType(tid, lastGoal.id, 'goal_confirmed');
-        }
+        this.taskFlow.confirmGoalWithEdit(tid, newGoal);
 
-        this.store.updateTaskPhase(tid, 'plan');
-        this.store.updateTaskStatus(tid, 'active');
-        this.sendTaskInfo(tid);
-        this.refreshSidebarCallback?.();
-        this.sendNodePanelUpdate(tid);
-
-        this.accumulatedAgentText = '';
-        this.activeToolCalls.clear();
-        this.planEntries = [];
-        const promptText = this.buildTaskPrompt(tid, originalRequest);
+        const promptText = this.taskFlow.buildPrompt(tid, originalRequest);
         const handler = this.createAgentResponseHandler(tid, false, originalRequest);
 
         if (this.agentReady && this.acpClient) {
+            this.taskFlow.resetGeneration(tid);
+            this.activeToolCalls.clear();
             this.setGenerationState(true);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
             this.fakeAgent.setHandler(sessionId, handler);
-            this.accumulatedAgentText = '';
+            this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
-            this.planEntries = [];
             this.setGenerationState(true);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
-            this.accumulatedAgentText = '';
+            this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
-            this.planEntries = [];
             this.setGenerationState(true);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
@@ -881,10 +615,12 @@ ${planStepsStr}
             content: '⏹️ 用户已停止生成',
             timestamp: Date.now()
         });
-        if (this.accumulatedAgentText) {
-            this.storeMessage(tid, 'agent', this.accumulatedAgentText);
-            this.accumulatedAgentText = '';
+        const partialText = this.taskFlow.getCleanText(tid);
+        if (partialText) {
+            this.storeMessage(tid, 'agent', partialText);
         }
+
+        this.taskFlow.resetGeneration(tid);
         const task = this.store.getTask(tid);
         this.panel.webview.postMessage({
             type: 'loadMessages',
@@ -948,6 +684,9 @@ ${planStepsStr}
             timestamp: Date.now()
         });
         this.panel.webview.postMessage({ type: 'addUserMessage', content: approveMsg });
+
+        this.taskFlow.finishReview(tid);
+
         this.store.addMessage({
             id: this.store.nextMessageId(tid),
             taskId: tid,
@@ -955,20 +694,13 @@ ${planStepsStr}
             content: '🎉 任务已完成',
             timestamp: Date.now()
         });
-        const msgs = this.store.getMessages(tid);
-        const lastReview = msgs.filter(m => m.type === 'review_request').pop();
-        if (lastReview) {
-            this.store.updateMessageType(tid, lastReview.id, 'review_approved');
-        }
-        this.store.updateTaskStatus(tid, 'completed');
+
         this.panel.webview.postMessage({
             type: 'loadMessages',
             messages: this.store.getMessages(tid),
             taskId: tid,
             taskStatus: 'completed'
         });
-        this.sendNodePanelUpdate(tid);
-        this.refreshSidebarCallback?.();
     }
 
     private async handleRejectReview(tid: string, reason?: string) {
@@ -981,39 +713,29 @@ ${planStepsStr}
             timestamp: Date.now()
         });
         this.panel.webview.postMessage({ type: 'addUserMessage', content: rejectMsg });
-        const msgs = this.store.getMessages(tid);
-        const lastReview = msgs.filter(m => m.type === 'review_request').pop();
-        if (lastReview) {
-            this.store.updateMessageType(tid, lastReview.id, 'review_rejected');
-        }
-        this.store.updateTaskPhase(tid, 'execute');
-        this.store.updateTaskStatus(tid, 'active');
-        this.refreshSidebarCallback?.();
-        this.sendNodePanelUpdate(tid);
 
-        const promptText = this.buildTaskPrompt(tid, rejectMsg);
+        this.taskFlow.rejectReview(tid);
+
+        const promptText = this.taskFlow.buildPrompt(tid, rejectMsg);
         const handler = this.createAgentResponseHandler(tid, false, rejectMsg);
 
         if (this.agentReady && this.acpClient) {
-            this.accumulatedAgentText = '';
+            this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
-            this.planEntries = [];
             this.setGenerationState(true);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
             this.fakeAgent.setHandler(sessionId, handler);
-            this.accumulatedAgentText = '';
+            this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
-            this.planEntries = [];
             this.setGenerationState(true);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
-            this.accumulatedAgentText = '';
+            this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
-            this.planEntries = [];
             this.setGenerationState(true);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
@@ -1552,16 +1274,13 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
     loadTask(taskId: string) {
         this.currentTaskId = taskId;
-        this.planEntries = [];
-        this.planProposed = false;
-        this.executeFinished = false;
+        this.taskFlow.loadTask(taskId);
         const task = this.store.getTask(taskId);
         this.hasSetPlanMessage = !!task?.nodeMessageIds?.plan;
         this.hasSetExecuteMessage = !!task?.nodeMessageIds?.execute;
         this.sendTaskMessages(taskId);
         this.sendTaskInfo(taskId);
         this.sendNodePanelUpdate(taskId);
-        // Ensure a session exists for this task (non-blocking)
         this.ensureSession(taskId);
     }
 
@@ -1585,7 +1304,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
             confirmedItems: task.confirmedItems,
             pendingItems: task.pendingItems,
             planSteps: task.planSteps,
-            executeFinished: this.executeFinished
+            executeFinished: this.taskFlow.isExecuteFinished(taskId)
         });
     }
 
@@ -1610,7 +1329,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         const hasGoal = !!task.goal;
         const hasConfirmedGoal = msgs.some(m => m.type === 'goal_confirmed') || phase === 'plan' || phase === 'execute' || phase === 'review';
         const hasReviewRequest = msgs.some(m => m.type === 'review_request');
-        const hasPlan = this.planEntries.length > 0 || phase === 'plan' || phase === 'execute' || phase === 'review';
+        const hasPlan = this.taskFlow.getPlanEntries(taskId).length > 0 || phase === 'plan' || phase === 'execute' || phase === 'review';
 
         let interruptAt = '';
         if (s === 'cancelled') {
