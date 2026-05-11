@@ -306,11 +306,6 @@ function initChat() {
         vscode.postMessage({ type: 'stopGeneration', taskId: activeTaskId });
     });
 
-    const settingsBtn = document.querySelector('.settings-btn');
-    settingsBtn?.addEventListener('click', () => {
-        vscode.postMessage({ type: 'openSettings' });
-    });
-
     const imageBtn = document.querySelector('.image-btn');
     imageBtn?.addEventListener('click', () => {
         const fileInput = document.createElement('input');
