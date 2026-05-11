@@ -1434,7 +1434,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
             { id: 'demand', type: 'demand', label: '需求提交', status: ns('demand', demandDone, !demandDone && s !== 'cancelled'), order: 1, messageId: nm.demand },
             { id: 'goal', type: 'goal', label: '目标确认', status: ns('goal', hasConfirmedGoal, goalActive), order: 2, messageId: nm.goal },
             { id: 'plan', type: 'plan', label: '计划', status: ns('plan', hasPlan || s === 'in_review' || s === 'completed', phase === 'plan'), order: 3, messageId: nm.plan },
-            { id: 'execute', type: 'execute', label: '执行', status: ns('execute', s === 'in_review' || s === 'completed', phase === 'execute' && s === 'active'), order: 4, messageId: nm.execute },
+            { id: 'execute', type: 'execute', label: '执行', status: ns('execute', s === 'in_review' || s === 'completed' || phase === 'self_verify', phase === 'execute' && s === 'active'), order: 4, messageId: nm.execute },
             { id: 'self_verify', type: 'self_verify', label: '自验', status: ns('self_verify', hasSelfVerify && s !== 'active', phase === 'self_verify'), order: 5, messageId: nm.self_verify },
             { id: 'review', type: 'review', label: '验收', status: ns('review', s === 'completed', phase === 'review' && s === 'in_review'), order: 6, messageId: nm.review },
         ];
