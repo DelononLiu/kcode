@@ -1452,7 +1452,7 @@ function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
     if (kind === 'thinking') {
         const card = createCard({
             headerHtml,
-            bodyHtml: content ? '<pre class="tool-body-content" style="white-space:pre-wrap;font-size:12.5px;color:#9aa">' + escapeHtml(content) + '</pre>' : undefined,
+            bodyHtml: content ? '<pre class="tool-body-content" style="white-space:pre-wrap">' + escapeHtml(content) + '</pre>' : undefined,
             defaultCollapsed: false,
             bodyClassName: 'tool-card-body tool-thinking'
         });

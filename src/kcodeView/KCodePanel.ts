@@ -1295,12 +1295,12 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-bubble.card-bubble{padding:0;border:none;background:transparent}
 .msg-card{border:1px solid rgba(255,255,255,.08);border-radius:6px;overflow:hidden;margin-bottom:8px}
 .msg-card:last-child{margin-bottom:0}
-.msg-card-header{display:flex;align-items:center;padding:7px 12px;font-size:12px;cursor:pointer;user-select:none;gap:6px;color:#fff;background:rgba(0,0,0,.25)}
+.msg-card-header{display:flex;align-items:center;padding:7px 12px;font-size:12px;cursor:pointer;user-select:none;gap:6px;color:#bbb;background:rgba(0,0,0,.25)}
 .msg-card-header:hover{background:rgba(255,255,255,.015)}
 .msg-card-header-text{flex:1;display:flex;align-items:center;gap:5px;min-width:0}
 .msg-card-toggle{font-size:10px;color:#666;flex-shrink:0;transition:transform .2s}
 .msg-card-body{padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05);font-size:13.5px;line-height:1.6;color:#fff;overflow-y:auto;max-height:300px}
-.msg-card-body.tool-card-body{max-height:100px}
+.msg-card-body.tool-card-body{max-height:300px}
 .msg-card-body.collapsed{display:none}
 .msg-card-actions{display:flex;gap:8px;padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05)}
 .msg-card-btn{flex:1;max-width:150px;padding:5px 10px;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .2s}
@@ -1362,7 +1362,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tool-body-bash{background:rgba(0,0,0,.3);border-radius:3px;padding:8px!important}
 .tool-bash-output{color:#5a9d6b}
 .tool-body-diff{color:#d2d2d4}
-.tool-thinking .msg-card-header{color:#888;font-style:italic}
+.tool-thinking .msg-card-header{color:#777;font-style:italic}
+.tool-thinking .tool-body-content{font-size:11.5px;font-style:italic;color:#777}
 .tool-spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.08);border-top-color:#5a9d6b;border-radius:50%;animation:tool-spin .8s linear infinite;flex-shrink:0}
 @keyframes tool-spin{to{transform:rotate(360deg)}}
 .agent-diff-summary{margin-top:10px;padding:6px 10px;background:rgba(78,201,176,.04);border-left:2px solid #4ec9b0;border-radius:3px;font-size:12px;line-height:1.6;color:#9aa}
