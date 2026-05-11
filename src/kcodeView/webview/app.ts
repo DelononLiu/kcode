@@ -82,10 +82,10 @@ function initMessageHandler() {
                 streamMessageEl = null;
                 activeTaskId = message.taskId;
                 activeTaskStatus = message.taskStatus || '';
-                renderMessages(message.messages);
                 if (message.reviewChanges && message.reviewChanges.length > 0) {
-                    attachReviewChanges(message);
+                    reviewChangesMap.set(message.taskId, message.reviewChanges);
                 }
+                renderMessages(message.messages);
                 break;
             case 'showFilePreview':
                 if ((window as any).showPreview) {
@@ -602,6 +602,13 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
         });
         card.dataset.reviewTaskId = taskId;
 
+        const changes = reviewChangesMap.get(taskId);
+        if (changes && changes.length > 0) {
+            const list = createReviewChangesElement(changes, taskId);
+            const body = card.querySelector('.msg-card-body');
+            if (body) body.appendChild(list);
+        }
+
         const isPending = msg.type === 'review_request';
         if (isPending) {
             const actionsDiv = document.createElement('div');
@@ -972,19 +979,7 @@ function getChangeSummary(original: string, modified: string): string {
     return added >= 0 ? `+${added} 行` : `${added} 行`;
 }
 
-function attachReviewChanges(message: any) {
-    selectedReviewFileIdx = null;
-    const changes = message.reviewChanges as FileChange[];
-    if (!changes || changes.length === 0) return;
-    reviewChangesMap.set(message.taskId, changes);
-
-    const allAgentMsgs = document.querySelectorAll('#chat-messages > .chat-msg.agent');
-    const lastReviewMsg = allAgentMsgs[allAgentMsgs.length - 1] as HTMLElement;
-    if (!lastReviewMsg) return;
-
-    const existing = lastReviewMsg.querySelector('.review-changes');
-    if (existing) existing.remove();
-
+function createReviewChangesElement(changes: FileChange[], taskId: string): HTMLElement {
     const list = document.createElement('div');
     list.className = 'review-changes';
 
@@ -1046,6 +1041,23 @@ function attachReviewChanges(message: any) {
 
         list.appendChild(item);
     }
+
+    return list;
+}
+
+function attachReviewChanges(message: any) {
+    selectedReviewFileIdx = null;
+    const changes = message.reviewChanges as FileChange[];
+    if (!changes || changes.length === 0) return;
+    reviewChangesMap.set(message.taskId, changes);
+
+    const lastReviewMsg = document.querySelector('#chat-messages > .chat-msg.agent:last-of-type') as HTMLElement;
+    if (!lastReviewMsg) return;
+
+    const existing = lastReviewMsg.querySelector('.review-changes');
+    if (existing) existing.remove();
+
+    const list = createReviewChangesElement(changes, message.taskId);
 
     const cardBody = lastReviewMsg.querySelector('.msg-card-body');
     const actionsEl = lastReviewMsg.querySelector('.msg-card-actions, .msg-card-status');

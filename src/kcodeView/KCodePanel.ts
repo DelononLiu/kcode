@@ -807,7 +807,8 @@ export class KCodePanel {
             type: 'loadMessages',
             messages: this.store.getMessages(tid),
             taskId: tid,
-            taskStatus: 'completed'
+            taskStatus: 'completed',
+            reviewChanges: this.store.getReviewChanges(tid)
         });
     }
 
@@ -1362,6 +1363,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tool-body-bash{background:rgba(0,0,0,.3);border-radius:3px;padding:8px!important}
 .tool-bash-output{color:#5a9d6b}
 .tool-body-diff{color:#d2d2d4}
+.tool-thinking{background:rgba(0,0,0,.25)}
 .tool-thinking .msg-card-header{color:#777;font-style:italic}
 .tool-thinking .tool-body-content{font-size:11.5px;font-style:italic;color:#777}
 .tool-spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.08);border-top-color:#5a9d6b;border-radius:50%;animation:tool-spin .8s linear infinite;flex-shrink:0}
