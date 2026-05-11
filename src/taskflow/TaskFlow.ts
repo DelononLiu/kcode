@@ -101,7 +101,7 @@ export class TaskFlow {
 
     getCleanText(taskId: string): string {
         const text = this.accumulatedText.get(taskId) || '';
-        return text.replace(/<TASK_UPDATE>[\s\S]*?<\/TASK_UPDATE>/g, '').trim();
+        return text.replace(/<task_update>[\s\S]*?<\/task_update>/gi, '').trim();
     }
 
     processChunk(taskId: string, chunk: string): string {
@@ -123,11 +123,11 @@ export class TaskFlow {
         if (!task || task.type !== 'task') return;
         let text = this.accumulatedText.get(taskId) || '';
 
-        const regex = /<TASK_UPDATE>([\s\S]*?)<\/TASK_UPDATE>/g;
+        const regex = /<task_update>([\s\S]*?)<\/task_update>/gi;
         let match;
         while ((match = regex.exec(text)) !== null) {
             try {
-                const payload = JSON.parse(match[1]);
+                const payload = this.parseSimplePayload(match[1]);
 
                 const blockingActions = ['lock_goal', 'lock_plan', 'accept', 'reject'];
                 if (blockingActions.includes(payload.action)) {
@@ -153,9 +153,48 @@ export class TaskFlow {
                     regex.lastIndex = 0;
                 }
             } catch {
-                // malformed JSON, skip
+                // malformed payload, skip
             }
         }
+    }
+
+    private parseSimplePayload(body: string): any {
+        const payload: any = {};
+        let currentKey = '';
+        for (const line of body.split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            const kvMatch = trimmed.match(/^(\w[\w_-]*):\s*(.*)$/);
+            if (kvMatch) {
+                currentKey = kvMatch[1];
+                const value = kvMatch[2].trim();
+                if (value) {
+                    payload[currentKey] = value;
+                } else {
+                    if (!payload[currentKey]) payload[currentKey] = [];
+                }
+                continue;
+            }
+            const listMatch = trimmed.match(/^-\s+(.+)$/);
+            if (listMatch && currentKey && Array.isArray(payload[currentKey])) {
+                payload[currentKey].push(listMatch[1].trim());
+            }
+        }
+        if (!payload.action) throw new Error('missing action');
+                    return payload;
+    }
+
+    private normalizeSteps(steps: any): { content: string; status: 'pending' }[] {
+        if (Array.isArray(steps)) {
+            return steps.map(s => ({
+                content: typeof s === 'string' ? s : s?.content || String(s),
+                status: 'pending' as const
+            }));
+        }
+        if (typeof steps === 'string' && steps.trim()) {
+            return [{ content: steps.trim(), status: 'pending' as const }];
+        }
+        return [];
     }
 
     validateAction(currentPhase: string, action: string): boolean {
@@ -180,21 +219,28 @@ export class TaskFlow {
 
         switch (payload.action) {
             case 'propose_goal':
-                if (payload.confirmed_items) {
-                    this.store.updateConfirmedItems(taskId, payload.confirmed_items);
+                {
+                    const confirmed = typeof payload.confirmed === 'string' ? [payload.confirmed] : payload.confirmed;
+                    if (confirmed) {
+                        this.store.updateConfirmedItems(taskId, confirmed);
+                    }
+                    const pending = typeof payload.pending === 'string' ? [payload.pending] : payload.pending;
+                    if (pending) {
+                        this.store.updatePendingItems(taskId, pending);
+                    }
+                    this.delegate.onPhaseChanged(taskId);
                 }
-                if (payload.pending_items) {
-                    this.store.updatePendingItems(taskId, payload.pending_items);
-                }
-                this.delegate.onPhaseChanged(taskId);
                 break;
 
             case 'propose_plan':
-                if (payload.plan_steps) {
-                    this.store.updatePlanSteps(taskId, payload.plan_steps);
+                {
+                    const steps = this.normalizeSteps(payload.steps);
+                    if (steps.length > 0) {
+                        this.store.updatePlanSteps(taskId, steps);
+                    }
+                    this.planProposed.set(taskId, true);
+                    this.delegate.onPhaseChanged(taskId);
                 }
-                this.planProposed.set(taskId, true);
-                this.delegate.onPhaseChanged(taskId);
                 break;
         }
     }

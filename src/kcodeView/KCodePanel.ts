@@ -223,10 +223,8 @@ export class KCodePanel {
     }
 
     private createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string) {
-        const REASONING_ID_PREFIX = '_reasoning_';
         let reasoningText = '';
         let reasoningActive = false;
-        let reasoningBlockCount = 0;
         let currentReasoningId = '';
 
         const completeReasoning = () => {
@@ -277,8 +275,7 @@ export class KCodePanel {
             },
             onReasoning: (text: string) => {
                 if (!reasoningActive) {
-                    reasoningBlockCount++;
-                    currentReasoningId = REASONING_ID_PREFIX + reasoningBlockCount;
+                    currentReasoningId = 'reasoning_' + this.store.nextMessageId(tid);
                     reasoningActive = true;
                     this.activeToolCalls.set(currentReasoningId, { title: '推理', kind: 'thinking', status: 'running' });
                     sendToolCallUpdate(currentReasoningId, '推理', 'thinking', 'running', '');
@@ -354,41 +351,25 @@ export class KCodePanel {
                         this.hasSetExecuteMessage = true;
                     }
                 }
-                if (cleanedText || isGoalFormatting) {
-                    if (isGoalFormatting) {
-                        this.taskFlow.processGoalProposal(tid, this.taskFlow.getCleanText(tid), originalText, originalText);
-                    } else {
-                        const task = this.store.getTask(tid);
-                        const genResult = this.taskFlow.getGenResult(tid);
+                if (isGoalFormatting) {
+                    this.taskFlow.processGoalProposal(tid, this.taskFlow.getCleanText(tid), originalText, originalText);
+                } else {
+                    const task = this.store.getTask(tid);
+                    const genResult = this.taskFlow.getGenResult(tid);
 
-                        if (task?.type === 'task' && task?.phase === 'review') {
-                            this.triggerReviewRequest(tid, cleanedText);
-                        } else if (genResult.planProposed && task?.type === 'task' && task?.phase === 'plan') {
-                            this.showPlanConfirmation(tid);
+                    if (task?.type === 'task' && task?.phase === 'review') {
+                        this.triggerReviewRequest(tid, cleanedText);
+                    } else if (genResult.planProposed && task?.type === 'task' && task?.phase === 'plan') {
+                        const cardShown = this.showPlanConfirmation(tid);
+                        if (cleanedText) {
                             const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
                             if (agentMsgId && !this.hasSetPlanMessage) {
                                 this.store.updateTaskNodeMessageId(tid, 'plan', agentMsgId);
                                 this.hasSetPlanMessage = true;
                             }
-                            this.sendNodePanelUpdate(tid);
-                        } else if (genResult.executeFinished && task?.type === 'task' && task?.phase === 'execute') {
-                            const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
-                            this.sendTaskInfo(tid);
-                            this.sendNodePanelUpdate(tid);
-                            const t = this.store.getTask(tid);
-                            this.panel.webview.postMessage({
-                                type: 'loadMessages',
-                                messages: this.store.getMessages(tid),
-                                taskId: tid,
-                                taskStatus: t?.status
-                            });
-                        } else {
-                            const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
-                            if (agentMsgId && !this.hasSetPlanMessage) {
-                                this.store.updateTaskNodeMessageId(tid, 'plan', agentMsgId);
-                                this.hasSetPlanMessage = true;
-                            }
-                            this.sendNodePanelUpdate(tid);
+                        }
+                        this.sendNodePanelUpdate(tid);
+                        if (!cardShown) {
                             const t = this.store.getTask(tid);
                             this.panel.webview.postMessage({
                                 type: 'loadMessages',
@@ -397,6 +378,33 @@ export class KCodePanel {
                                 taskStatus: t?.status
                             });
                         }
+                    } else if (genResult.executeFinished && task?.type === 'task' && task?.phase === 'execute') {
+                        if (cleanedText) {
+                            this.storeMessage(tid, 'agent', cleanedText);
+                        }
+                        this.sendTaskInfo(tid);
+                        this.sendNodePanelUpdate(tid);
+                        const t = this.store.getTask(tid);
+                        this.panel.webview.postMessage({
+                            type: 'loadMessages',
+                            messages: this.store.getMessages(tid),
+                            taskId: tid,
+                            taskStatus: t?.status
+                        });
+                    } else {
+                        const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
+                        if (agentMsgId && !this.hasSetPlanMessage) {
+                            this.store.updateTaskNodeMessageId(tid, 'plan', agentMsgId);
+                            this.hasSetPlanMessage = true;
+                        }
+                        this.sendNodePanelUpdate(tid);
+                        const t = this.store.getTask(tid);
+                        this.panel.webview.postMessage({
+                            type: 'loadMessages',
+                            messages: this.store.getMessages(tid),
+                            taskId: tid,
+                            taskStatus: t?.status
+                        });
                     }
                 }
                 this.activeToolCalls.clear();
@@ -475,14 +483,15 @@ export class KCodePanel {
         this.setGenerationState(false);
     }
 
-    private showPlanConfirmation(tid: string) {
+    private showPlanConfirmation(tid: string): boolean {
         const task = this.store.getTask(tid);
-        if (!task || task.planSteps.length === 0) return;
+        if (!task || task.planSteps.length === 0) return false;
         this.panel.webview.postMessage({
             type: 'showPlanProposal',
             taskId: tid,
             planSteps: task.planSteps
         });
+        return true;
     }
 
     private async handleConfirmPlan(tid: string) {
@@ -1336,7 +1345,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         const hasGoal = !!task.goal;
         const hasConfirmedGoal = msgs.some(m => m.type === 'goal_confirmed') || phase === 'plan' || phase === 'execute' || phase === 'review';
         const hasReviewRequest = msgs.some(m => m.type === 'review_request');
-        const hasPlan = this.taskFlow.getPlanEntries(taskId).length > 0 || phase === 'plan' || phase === 'execute' || phase === 'review';
+        const hasPlan = this.taskFlow.getPlanEntries(taskId).length > 0 || phase === 'execute' || phase === 'review';
 
         let interruptAt = '';
         if (s === 'cancelled') {
