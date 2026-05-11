@@ -311,6 +311,47 @@ function initChat() {
         vscode.postMessage({ type: 'openSettings' });
     });
 
+    const imageBtn = document.querySelector('.image-btn');
+    imageBtn?.addEventListener('click', () => {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.multiple = true;
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files) {
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    const file = fileInput.files[i];
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        vscode.postMessage({ type: 'addImage', file: file.name, data: e.target?.result });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        });
+        fileInput.click();
+    });
+
+    const attachBtn = document.querySelector('.attach-btn');
+    attachBtn?.addEventListener('click', () => {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.multiple = true;
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files) {
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    const file = fileInput.files[i];
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        vscode.postMessage({ type: 'addAttachment', file: file.name, data: e.target?.result });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        });
+        fileInput.click();
+    });
+
     const goalConfirmBtn = document.getElementById('goal-confirm-btn');
     goalConfirmBtn?.addEventListener('click', () => {
         vscode.postMessage({ type: 'confirmGoalFromHeader', taskId: activeTaskId });

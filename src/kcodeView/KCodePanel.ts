@@ -1115,17 +1115,24 @@ export class KCodePanel {
                     <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
                     <div class="input-footer">
                         <div class="input-footer-left">
-                            <button class="input-tool-btn attach-btn" title="附件">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M8 3v7a2 2 0 004 0V4.5a3.5 3.5 0 00-7 0V10a4.5 4.5 0 009 0V3h-1v7a3.5 3.5 0 01-7 0V4.5a2.5 2.5 0 015 0V10a1 1 0 01-2 0V3H8z" fill="currentColor"/>
-                                </svg>
-                            </button>
                             <span class="status-item">
                                 <span id="agent-status-dot" class="status-dot offline"></span>
                                 <span id="status-model">Agent</span>
                             </span>
                         </div>
                         <div class="input-footer-right">
+                            <button class="input-tool-btn image-btn" title="图片">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/>
+                                    <circle cx="5" cy="6" r="1.5" fill="currentColor"/>
+                                    <path d="M1.5 11l3.5-3 2.5 2 3-3 3.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                                </svg>
+                            </button>
+                            <button class="input-tool-btn attach-btn" title="附件">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M8 3v7a2 2 0 004 0V4.5a3.5 3.5 0 00-7 0V10a4.5 4.5 0 009 0V3h-1v7a3.5 3.5 0 01-7 0V4.5a2.5 2.5 0 015 0V10a1 1 0 01-2 0V3H8z" fill="currentColor"/>
+                                </svg>
+                            </button>
                             <button id="send-btn" class="input-tool-btn" title="发送">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                     <path d="M2 14L14 8L2 2v4.5l6 1.5-6 1.5V14z" fill="currentColor"/>
@@ -1286,6 +1293,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #send-btn{color:#4a8bb5}#send-btn:hover{color:#5a9bc8;background:rgba(74,139,181,.1)}
 #stop-btn{color:#c94a4a}#stop-btn:hover{color:#e06060;background:rgba(201,74,74,.1)}
 .input-tool-btn:hover{background:rgba(255,255,255,.05);color:#999}
+.image-btn{color:#555}.image-btn:hover{color:#999;background:rgba(255,255,255,.05)}
 .attach-btn{color:#555}.attach-btn:hover{color:#999;background:rgba(255,255,255,.05)}
 .status-item{display:flex;align-items:center;gap:4px;padding:1px 4px;white-space:nowrap;font-size:11px;color:#555;flex-shrink:0}
 .status-item svg{opacity:.4}
