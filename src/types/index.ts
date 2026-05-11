@@ -9,7 +9,7 @@ export interface Task {
     goal: string;
     type: 'task' | 'chat';
     status: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
-    phase: 'demand' | 'goal' | 'plan' | 'execute' | 'review';
+    phase: 'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
     confirmedItems: string[];
     pendingItems: string[];
     planSteps: PlanStep[];
@@ -17,7 +17,7 @@ export interface Task {
     pinned?: boolean;
     archived?: boolean;
     group?: string;
-    nodeMessageIds?: Partial<Record<'demand' | 'goal' | 'plan' | 'execute' | 'review', string>>;
+    nodeMessageIds?: Partial<Record<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string>>;
 }
 
 export interface ChatMessage {
@@ -42,7 +42,7 @@ export interface FileChange {
 
 export interface ProgressNode {
     id: string;
-    type: 'demand' | 'goal' | 'plan' | 'execute' | 'review';
+    type: 'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
     label: string;
     status: 'pending' | 'active' | 'completed' | 'cancelled';
     order: number;

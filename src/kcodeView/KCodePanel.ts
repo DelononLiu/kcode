@@ -51,6 +51,12 @@ export class KCodePanel {
             },
             onError: (taskId: string, error: string) => {
                 this.showAgentError(taskId, error);
+            },
+            onSelfVerifyNeeded: (taskId: string) => {
+                setTimeout(() => this.startAutoGeneration(taskId), 100);
+            },
+            onSelfVerifyFinished: (taskId: string) => {
+                this.sendTaskInfo(taskId);
             }
         });
 
@@ -222,6 +228,51 @@ export class KCodePanel {
         }
     }
 
+    private async startAutoGeneration(tid: string) {
+        if (!tid || this.isGenerating) return;
+        const task = this.store.getTask(tid);
+        if (!task) return;
+
+        this.panel.webview.postMessage({
+            type: 'addSystemMessage',
+            content: '🔍 AI 开始自验执行结果...',
+            taskId: tid
+        });
+
+        const promptText = this.taskFlow.buildPrompt(tid, '请自验执行结果');
+        const handler = this.createAgentResponseHandler(tid, false, '');
+
+        if (this.agentReady && this.acpClient) {
+            try {
+                if (!this.acpClient.hasSession(tid)) {
+                    const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
+                    await this.acpClient.createSession(tid, workspacePath);
+                }
+            } catch (err: any) {
+                this.showAgentError(tid, err?.message || 'Agent 连接失败');
+                return;
+            }
+            this.taskFlow.resetGeneration(tid);
+            this.activeToolCalls.clear();
+            this.setGenerationState(true);
+            await this.acpClient.prompt(tid, promptText, handler);
+        } else if (this.fakeAgent) {
+            const sessionId = this.fakeAgent.createSession(tid);
+            this.fakeAgent.setHandler(sessionId, handler);
+            this.taskFlow.resetGeneration(tid);
+            this.activeToolCalls.clear();
+            this.setGenerationState(true);
+            await this.fakeAgent.prompt(sessionId, promptText);
+        } else if (this.openaiAgent) {
+            const sessionId = this.openaiAgent.createSession(tid);
+            this.openaiAgent.setHandler(sessionId, handler);
+            this.taskFlow.resetGeneration(tid);
+            this.activeToolCalls.clear();
+            this.setGenerationState(true);
+            await this.openaiAgent.prompt(sessionId, promptText);
+        }
+    }
+
     private createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string) {
         let reasoningText = '';
         let reasoningActive = false;
@@ -382,6 +433,7 @@ export class KCodePanel {
                         if (cleanedText) {
                             this.storeMessage(tid, 'agent', cleanedText);
                         }
+                        this.taskFlow.confirmExecuteDone(tid);
                         this.sendTaskInfo(tid);
                         this.sendNodePanelUpdate(tid);
                         const t = this.store.getTask(tid);
@@ -391,6 +443,13 @@ export class KCodePanel {
                             taskId: tid,
                             taskStatus: t?.status
                         });
+                        setTimeout(() => this.startAutoGeneration(tid), 100);
+                    } else if (genResult.selfVerifyFinished && task?.type === 'task' && task?.phase === 'self_verify') {
+                        const content = this.taskFlow.confirmSelfVerifyDone(tid);
+                        if (cleanedText) {
+                            this.storeMessage(tid, 'agent', cleanedText);
+                        }
+                        this.triggerReviewRequest(tid, content);
                     } else {
                         const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
                         if (agentMsgId && !this.hasSetPlanMessage) {
@@ -534,7 +593,7 @@ export class KCodePanel {
     }
 
     private async handleConfirmExecuteDone(tid: string) {
-        const confirmMsg = '✅ 确认完成，进入验收';
+        const confirmMsg = '✅ 确认完成，进入自验';
         this.store.addMessage({
             id: this.store.nextMessageId(tid),
             taskId: tid,
@@ -544,8 +603,10 @@ export class KCodePanel {
         });
         this.panel.webview.postMessage({ type: 'addUserMessage', content: confirmMsg });
 
-        const content = this.taskFlow.confirmExecuteDone(tid);
-        this.triggerReviewRequest(tid, content);
+        this.taskFlow.confirmExecuteDone(tid);
+        this.sendTaskInfo(tid);
+        this.sendNodePanelUpdate(tid);
+        setTimeout(() => this.startAutoGeneration(tid), 100);
     }
 
     private async handleConfirmGoalFromHeader(tid: string) {
@@ -1125,6 +1186,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-row{display:flex;align-items:center;min-height:20px}
 .chat-msg.agent .msg-row{justify-content:flex-start;padding-left:2px}
 .chat-msg.user .msg-row{justify-content:flex-end}
+.chat-msg.system{padding:6px 0;text-align:center}
+.chat-msg.system .msg-bubble{display:inline-block;font-size:12px;color:#888;padding:2px 12px;background:rgba(255,255,255,.02);border-radius:4px;line-height:1.4}
 .copy-msg-btn{opacity:0;flex-shrink:0;background:none;border:none;color:#555;cursor:pointer;padding:2px 4px;border-radius:3px;line-height:1;transition:opacity .2s,color .2s,background .2s;display:inline-flex;align-items:center;gap:3px;font-size:12px;font-family:inherit}
 .chat-msg:hover .copy-msg-btn{opacity:1}
 .copy-msg-btn:hover{background:rgba(255,255,255,.04);color:#999}
@@ -1304,7 +1367,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         const task = this.store.getTask(taskId);
         if (!task) return;
         const phaseLabels: Record<string, string> = {
-            demand: '需求', goal: '目标', plan: '计划', execute: '执行', review: '验收'
+            demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收'
         };
         this.panel.webview.postMessage({
             type: 'updateTaskInfo',
@@ -1343,9 +1406,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         const phase = task.phase;
         const s = task.status;
         const hasGoal = !!task.goal;
-        const hasConfirmedGoal = msgs.some(m => m.type === 'goal_confirmed') || phase === 'plan' || phase === 'execute' || phase === 'review';
+        const hasConfirmedGoal = msgs.some(m => m.type === 'goal_confirmed') || phase === 'plan' || phase === 'execute' || phase === 'self_verify' || phase === 'review';
         const hasReviewRequest = msgs.some(m => m.type === 'review_request');
-        const hasPlan = this.taskFlow.getPlanEntries(taskId).length > 0 || phase === 'execute' || phase === 'review';
+        const hasPlan = this.taskFlow.getPlanEntries(taskId).length > 0 || phase === 'execute' || phase === 'self_verify' || phase === 'review';
+        const hasSelfVerify = phase === 'review' || phase === 'self_verify';
 
         let interruptAt = '';
         if (s === 'cancelled') {
@@ -1371,7 +1435,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
             { id: 'goal', type: 'goal', label: '目标确认', status: ns('goal', hasConfirmedGoal, goalActive), order: 2, messageId: nm.goal },
             { id: 'plan', type: 'plan', label: '计划', status: ns('plan', hasPlan || s === 'in_review' || s === 'completed', phase === 'plan'), order: 3, messageId: nm.plan },
             { id: 'execute', type: 'execute', label: '执行', status: ns('execute', s === 'in_review' || s === 'completed', phase === 'execute' && s === 'active'), order: 4, messageId: nm.execute },
-            { id: 'review', type: 'review', label: '验收', status: ns('review', s === 'completed', phase === 'review' && s === 'in_review'), order: 5, messageId: nm.review },
+            { id: 'self_verify', type: 'self_verify', label: '自验', status: ns('self_verify', hasSelfVerify && s !== 'active', phase === 'self_verify'), order: 5, messageId: nm.self_verify },
+            { id: 'review', type: 'review', label: '验收', status: ns('review', s === 'completed', phase === 'review' && s === 'in_review'), order: 6, messageId: nm.review },
         ];
     }
 

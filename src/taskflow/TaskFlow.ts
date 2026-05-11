@@ -6,6 +6,7 @@ import { GOAL_PROMPT } from './prompts/goal';
 import { PLAN_PROMPT } from './prompts/plan';
 import { EXECUTE_PROMPT } from './prompts/execute';
 import { REVIEW_PROMPT } from './prompts/review';
+import { SELF_VERIFY_PROMPT } from './prompts/self_verify';
 
 export interface ITaskStore {
     getTask(taskId: string): Task | undefined;
@@ -29,11 +30,14 @@ export interface TaskFlowDelegate {
     onExecuteFinished(taskId: string): void;
     onGoalFormatted(taskId: string, goalText: string, originalRequest: string): void;
     onError(taskId: string, error: string): void;
+    onSelfVerifyNeeded(taskId: string): void;
+    onSelfVerifyFinished(taskId: string): void;
 }
 
 export interface GenResult {
     planProposed: boolean;
     executeFinished: boolean;
+    selfVerifyFinished: boolean;
 }
 
 interface PlanEntry {
@@ -48,6 +52,7 @@ export class TaskFlow {
 
     private planProposed: Map<string, boolean> = new Map();
     private executeFinished: Map<string, boolean> = new Map();
+    private selfVerifyFinished: Map<string, boolean> = new Map();
     private accumulatedText: Map<string, string> = new Map();
     private planEntries: Map<string, PlanEntry[]> = new Map();
 
@@ -61,6 +66,7 @@ export class TaskFlow {
         if (!task) return;
         this.planProposed.set(taskId, false);
         this.executeFinished.set(taskId, false);
+        this.selfVerifyFinished.set(taskId, false);
         this.accumulatedText.set(taskId, '');
         this.planEntries.set(taskId, []);
     }
@@ -70,6 +76,7 @@ export class TaskFlow {
         this.planEntries.set(taskId, []);
         this.planProposed.set(taskId, false);
         this.executeFinished.set(taskId, false);
+        this.selfVerifyFinished.set(taskId, false);
     }
 
     setPlanEntries(taskId: string, entries: PlanEntry[]): void {
@@ -99,6 +106,10 @@ export class TaskFlow {
         return this.executeFinished.get(taskId) || false;
     }
 
+    isSelfVerifyFinished(taskId: string): boolean {
+        return this.selfVerifyFinished.get(taskId) || false;
+    }
+
     getCleanText(taskId: string): string {
         const text = this.accumulatedText.get(taskId) || '';
         return text.replace(/<task_update>[\s\S]*?<\/task_update>/gi, '').trim();
@@ -114,7 +125,8 @@ export class TaskFlow {
     getGenResult(taskId: string): GenResult {
         return {
             planProposed: this.isPlanProposed(taskId),
-            executeFinished: this.isExecuteFinished(taskId)
+            executeFinished: this.isExecuteFinished(taskId),
+            selfVerifyFinished: this.isSelfVerifyFinished(taskId)
         };
     }
 
@@ -142,6 +154,15 @@ export class TaskFlow {
                     this.accumulatedText.set(taskId, text);
                     this.executeFinished.set(taskId, true);
                     this.delegate.onExecuteFinished(taskId);
+                    regex.lastIndex = 0;
+                    continue;
+                }
+
+                if (task.phase === 'self_verify' && payload.action === 'finish_verify') {
+                    text = text.replace(match[0], '');
+                    this.accumulatedText.set(taskId, text);
+                    this.selfVerifyFinished.set(taskId, true);
+                    this.delegate.onSelfVerifyFinished(taskId);
                     regex.lastIndex = 0;
                     continue;
                 }
@@ -203,6 +224,7 @@ export class TaskFlow {
             'goal': ['propose_goal'],
             'plan': ['propose_plan'],
             'execute': [],
+            'self_verify': [],
             'review': [],
         };
         const allowed = validActions[currentPhase] || [];
@@ -294,8 +316,15 @@ export class TaskFlow {
         this.planProposed.set(taskId, false);
     }
 
-    confirmExecuteDone(taskId: string): string {
+    confirmExecuteDone(taskId: string): void {
         this.executeFinished.set(taskId, false);
+        this.store.updateTaskPhase(taskId, 'self_verify');
+        this.store.updateTaskStatus(taskId, 'active');
+        this.delegate.onPhaseChanged(taskId);
+    }
+
+    confirmSelfVerifyDone(taskId: string): string {
+        this.selfVerifyFinished.set(taskId, false);
         this.store.updateTaskPhase(taskId, 'review');
         this.store.updateTaskStatus(taskId, 'in_review');
         this.delegate.onPhaseChanged(taskId);
@@ -375,8 +404,9 @@ export class TaskFlow {
             case 'demand':  return DEMAND_PROMPT;
             case 'goal':    return GOAL_PROMPT;
             case 'plan':    return PLAN_PROMPT;
-            case 'execute': return EXECUTE_PROMPT;
-            case 'review':  return REVIEW_PROMPT;
+            case 'execute':     return EXECUTE_PROMPT;
+            case 'self_verify': return SELF_VERIFY_PROMPT;
+            case 'review':      return REVIEW_PROMPT;
             default:        return '';
         }
     }

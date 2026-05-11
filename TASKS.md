@@ -391,6 +391,7 @@ _目标：实现 `<TASK_UPDATE>` 协议驱动的 5 阶段全流程（demand → 
 | P8-07 | 验收文件列表 — 点击文件打开 diff 对比窗口 | ✅ 已完成 |
 | P8-08 | 全阶段确认按钮 — 每阶段必须用户点击确认才进入下一阶段 | ✅ 已完成 |
 | P8-09 | TaskFlow 模块抽取 — 阶段状态机与 UI 解耦 | ✅ 已完成 |
+| P8-10 | Self-Verify 自验阶段 — Execute 后 AI 自动审查代码再交人类验收 | ✅ 已完成 |
 
 ---
 
@@ -582,6 +583,28 @@ _目标：实现 `<TASK_UPDATE>` 协议驱动的 5 阶段全流程（demand → 
   - **共识条目**: confirmedItems 以标签(tag)形式展示，pendingItems 以灰色待定列表展示
   - **计划步骤**: planSteps 在 execute 阶段展示带状态标记的步骤列表
 - CSS 新增 `.task-phase-badge`, `.confirmed-tag`, `.pending-tag`, `.plan-step-item`
+
+**状态**: ✅ 已完成
+
+---
+
+### P8-10: Self-Verify 自验阶段 — Execute 后 AI 自动审查代码再交人类验收
+
+**涉及文件**:
+- `src/types/index.ts` — phase 增加 `'self_verify'`，ProgressNode type 增加 `'self_verify'`
+- `src/taskflow/prompts/self_verify.ts` — **新建**：自验阶段提示词
+- `src/taskflow/prompts/protocol.ts` — 添加 `execute → finish_execute → self_verify → finish_verify → review` 流转规则
+- `src/taskflow/TaskFlow.ts` — `confirmExecuteDone()` 改为转 `self_verify`；新增 `confirmSelfVerifyDone()` → `review`；新增 `onSelfVerifyNeeded`/`onSelfVerifyFinished` delegate；`parseTaskUpdate` 处理 `finish_verify`；`buildPhasePrompt` 加入 `SELF_VERIFY_PROMPT`
+- `src/kcodeView/KCodePanel.ts` — `onExecuteFinished` 后自动 `confirmExecuteDone` + `startAutoGeneration()` 自动发起自验；`onSelfVerifyFinished` 自动过渡到 review + triggerReviewRequest；Add `startAutoGeneration()` 方法；CSS 增加 `.chat-msg.system` 样式
+- `src/kcodeView/webview/app.ts` — `deriveNodes` 增加 `self_verify` 节点（6 阶段）；`getNodeLetter` 增加 'V' 映射；`phaseLabels` 增加自验
+
+**实现说明**:
+
+1. **自动流转**：AI 在 execute 阶段输出 `finish_execute` → `parseTaskUpdate` 标记完成 → onDone 时自动调用 `confirmExecuteDone()` 切到 `self_verify` → `startAutoGeneration()` 用新 prompt 发起下一轮生成
+2. **边界清晰**：Execute prompt 约束"只做实现"，Self-Verify prompt 约束"只做审查"，靠 phase prompt 切换实现语义分界
+3. **自验通过**：AI 输出 `finish_verify` → 自动推进到 `review` → 显示验收卡片给人的
+4. **失败兜底**：prompt 约束 AI 最多自验 3 轮，仍失败则向用户说明情况请求协助
+5. **进度节点**：看板节点从 5 个扩展为 6 个：需求(D) → 目标(T) → 计划(P) → 执行(E) → 自验(V) → 验收(C)
 
 **状态**: ✅ 已完成
 

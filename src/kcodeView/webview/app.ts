@@ -149,6 +149,9 @@ function initMessageHandler() {
             case 'removePlanProposal':
                 handleRemovePlanProposal();
                 break;
+            case 'addSystemMessage':
+                addSystemMessage(message.content);
+                break;
             case 'updateNodePanel':
                 handleNodePanelUpdate(message.nodes, message.taskType);
                 break;
@@ -411,6 +414,16 @@ function showAgentThinking() {
         container.appendChild(indicator);
     }
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
+}
+
+function addSystemMessage(content: string) {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+    const el = document.createElement('div');
+    el.className = 'chat-msg system';
+    el.innerHTML = `<div class="msg-bubble system">${content}</div>`;
+    container.appendChild(el);
+    container.scrollTop = container.scrollHeight;
 }
 
 function addMessage(role: 'user' | 'agent', content: string) {
@@ -732,7 +745,7 @@ function updateTaskInfo(info: any) {
         phaseRow.classList.toggle('hidden', !hasPhase);
         if (hasPhase) {
             const phaseLetters: Record<string, string> = {
-                demand: 'D', goal: 'T', plan: 'P', execute: 'E', review: 'C'
+                demand: 'D', goal: 'T', plan: 'P', execute: 'E', self_verify: 'V', review: 'C'
             };
             const letter = phaseLetters[info.phase] || '';
             phaseBadge.textContent = `${letter} ${info.phaseLabel || info.phase}`;
@@ -1466,6 +1479,7 @@ function getNodeLetter(type: string): string {
         case 'goal': return 'T';
         case 'plan': return 'P';
         case 'execute': return 'E';
+        case 'self_verify': return 'V';
         case 'review': return 'C';
         default: return '●';
     }

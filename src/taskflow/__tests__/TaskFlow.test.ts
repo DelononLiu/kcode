@@ -88,12 +88,15 @@ class MockTaskStore implements ITaskStore {
 class MockDelegate implements TaskFlowDelegate {
     phaseChanged: string[] = [];
     executeFinished: string[] = [];
+    selfVerifyFinished: string[] = [];
     goalFormatted: boolean = false;
 
     onPhaseChanged(taskId: string): void { this.phaseChanged.push(taskId); }
     onExecuteFinished(taskId: string): void { this.executeFinished.push(taskId); }
     onGoalFormatted(): void { this.goalFormatted = true; }
     onError(_taskId: string, _error: string): void {}
+    onSelfVerifyNeeded(_taskId: string): void {}
+    onSelfVerifyFinished(taskId: string): void { this.selfVerifyFinished.push(taskId); }
 }
 
 // ==============================
@@ -224,8 +227,17 @@ describe('完整流程', () => {
         flow.processChunk(pid, '<task_update>\naction: finish_execute\n</task_update>');
         expect(delegate.executeFinished).toContain(pid);
 
-        // confirmExecuteDone → phase = review
+        // confirmExecuteDone → phase = self_verify
         flow.confirmExecuteDone(pid);
+        expect(store.getTask(pid)!.phase).toBe('self_verify');
+        expect(store.getTask(pid)!.status).toBe('active');
+
+        // self_verify: AI 输出 finish_verify
+        flow.processChunk(pid, '<task_update>\naction: finish_verify\n</task_update>');
+        expect(delegate.selfVerifyFinished).toContain(pid);
+
+        // confirmSelfVerifyDone → phase = review
+        flow.confirmSelfVerifyDone(pid);
         expect(store.getTask(pid)!.phase).toBe('review');
         expect(store.getTask(pid)!.status).toBe('in_review');
 
