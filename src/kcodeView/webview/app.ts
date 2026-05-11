@@ -1545,7 +1545,9 @@ function handleNodePanelUpdate(nodes: any[], taskType: string) {
     }
 
     dotsEl.innerHTML = '';
-    for (const node of nodes) {
+    for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+
         const wrap = document.createElement('div');
         wrap.className = 'tl-node-wrap';
 
@@ -1562,6 +1564,29 @@ function handleNodePanelUpdate(nodes: any[], taskType: string) {
         dot.appendChild(emoji);
         wrap.appendChild(dot);
         dotsEl.appendChild(wrap);
+
+        if (i < nodes.length - 1) {
+            const seg = document.createElement('div');
+            seg.className = 'tl-line-segment';
+            const color = getNodeSegmentColor(node.status);
+            for (let d = 0; d < 7; d++) {
+                const dot = document.createElement('div');
+                dot.className = 'tl-line-dot';
+                dot.style.background = color;
+                seg.appendChild(dot);
+            }
+            dotsEl.appendChild(seg);
+        }
+    }
+}
+
+function getNodeSegmentColor(status: string): string {
+    switch (status) {
+        case 'completed': return '#2ea043';
+        case 'active': return '#1f7bc4';
+        case 'pending': return 'rgba(255,255,255,.25)';
+        case 'cancelled': return '#e06060';
+        default: return 'rgba(255,255,255,.15)';
     }
 }
 

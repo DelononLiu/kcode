@@ -1143,7 +1143,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-scroll.chat-empty{display:none}
 #chat-area:has(#chat-scroll.chat-empty){justify-content:center}
 #chat-area:has(#chat-scroll.chat-empty) #chat-header{display:none}
-#chat-area:has(#chat-scroll.chat-empty) #chat-input-area{border-top:none}
+#chat-area:has(#chat-scroll.chat-empty) #chat-body{display:none}
+#chat-area:has(#chat-scroll.chat-empty) #chat-input-area{flex:1;display:flex;flex-direction:row;align-items:center;justify-content:center;border-top:none;gap:12px}
+#chat-area:has(#chat-scroll.chat-empty) #chat-input-area .input-wrapper{width:100%;max-width:900px}
+#chat-area:has(#chat-scroll.chat-empty) #chat-statusbar{flex-shrink:0;padding:0}
 
 /* === Chat Header === */
 #chat-header{flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -1228,7 +1231,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .hljs{color:#d2d2d4}.hljs-keyword,.hljs-literal,.hljs-symbol,.hljs-name{color:#569cd6}.hljs-link{color:#569cd6;text-decoration:underline}.hljs-built_in,.hljs-type{color:#4ec9b0}.hljs-number,.hljs-class{color:#b5cea8}.hljs-string,.hljs-meta .hljs-string{color:#d69d85}.hljs-regexp,.hljs-template-tag{color:#9a5334}.hljs-subst,.hljs-function,.hljs-title,.hljs-params,.hljs-formula{color:#dcdcaa}.hljs-comment,.hljs-quote{color:#6a9955;font-style:italic}.hljs-doctag{color:#608b4e}.hljs-meta,.hljs-meta .hljs-keyword,.hljs-tag{color:#808080}.hljs-variable,.hljs-template-variable{color:#bd63c5}.hljs-attr,.hljs-attribute{color:#9cdcfe}.hljs-section{color:gold}.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}.hljs-bullet,.hljs-selector-attr,.hljs-selector-class,.hljs-selector-id,.hljs-selector-pseudo,.hljs-selector-tag{color:#d7ba7d}.hljs-addition{background:#144212;display:inline-block;width:100%}.hljs-deletion{background:#600;display:inline-block;width:100%}
 #chat-input-area{border-top:1px solid rgba(255,255,255,.06);padding:12px 24px 10px;background:var(--vscode-sideBar-background,#1e1e1e);flex-shrink:0}
 .input-wrapper{background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:10px 12px;transition:border-color .2s,box-shadow .2s}
-.input-wrapper:focus-within{border-color:rgba(255,255,255,.15);box-shadow:0 0 0 2px rgba(255,255,255,.03)}
+.input-wrapper:focus-within{border-color:var(--vscode-focusBorder,#007fd4);box-shadow:0 0 8px rgba(0,127,212,.3)}
 .input-wrapper.input-flash{animation:input-flash .8s ease-out}
 @keyframes input-flash{0%{box-shadow:0 0 0 0 rgba(90,150,200,.2)}50%{box-shadow:0 0 0 4px rgba(90,150,200,.1)}100%{box-shadow:0 0 0 0 rgba(90,150,200,0)}}
 #chat-input{width:100%;background:transparent;color:#d2d2d4;border:none;font-family:inherit;font-size:13.5px;resize:none;outline:none;min-height:52px;max-height:200px;line-height:1.5}
@@ -1347,9 +1350,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 /* === Timeline Gutter === */
 #node-timeline-gutter{position:absolute;left:2px;top:0;bottom:0;width:28px;z-index:5;display:flex;flex-direction:column;align-items:center;pointer-events:none;overflow:visible}
 #node-timeline-gutter.hidden{display:none}
-#tl-dots{flex:1;display:flex;flex-direction:column;justify-content:space-between;align-items:center;position:relative;width:100%;z-index:1}
-#tl-dots::before{content:'';position:absolute;left:50%;top:5px;bottom:5px;width:2px;background:rgba(255,255,255,.05);transform:translateX(-50%);border-radius:1px}
-.tl-node-wrap{display:flex;align-items:center;justify-content:center;width:100%;z-index:2}
+#tl-dots{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;width:100%;z-index:1;padding:4px 0}
+.tl-node-wrap{display:flex;align-items:center;justify-content:center;width:100%;z-index:2;flex-shrink:0}
+.tl-line-segment{flex:1;display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;width:4px;z-index:1}.tl-line-dot{width:3px;height:3px;border-radius:50%;flex-shrink:0}
 .tl-node{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;transition:background .3s,box-shadow .3s;pointer-events:auto;cursor:pointer;flex-shrink:0}
 .tl-node.status-completed{background:#2ea043}
 .tl-node.status-active{background:#1f7bc4;box-shadow:0 0 8px rgba(31,123,196,.6);animation:tl-pulse 2s infinite}
