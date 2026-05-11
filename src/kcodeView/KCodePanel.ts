@@ -1169,9 +1169,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-area:has(#chat-scroll.chat-empty){justify-content:center}
 #chat-area:has(#chat-scroll.chat-empty) #chat-header{display:none}
 #chat-area:has(#chat-scroll.chat-empty) #chat-body{display:none}
-#chat-area:has(#chat-scroll.chat-empty) #chat-input-area{flex:1;display:flex;flex-direction:row;align-items:center;justify-content:center;border-top:none;gap:12px}
+#chat-area:has(#chat-scroll.chat-empty) #chat-input-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-top:none;gap:8px}
 #chat-area:has(#chat-scroll.chat-empty) #chat-input-area .input-wrapper{width:100%;max-width:900px}
-#chat-area:has(#chat-scroll.chat-empty) #chat-statusbar{flex-shrink:0;padding:0}
+#chat-area:has(#chat-scroll.chat-empty) #chat-statusbar{flex-shrink:0;padding:0;width:100%;max-width:900px}
 
 /* === Chat Header === */
 #chat-header{flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06)}
