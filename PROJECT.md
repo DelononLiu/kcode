@@ -16,8 +16,20 @@ src/
 ├── extension.ts                  # 扩展入口
 ├── types/index.ts                # 类型定义
 ├── store/TaskStore.ts            # 数据持久化
+├── taskflow/
+│   ├── TaskFlow.ts               # 阶段状态机 + TASK_UPDATE 协议（纯逻辑，不依赖 UI）
+│   ├── prompts/                  # 分层提示词模块（base/protocol/goal/plan/execute/review/demand）
+│   │   ├── base.ts
+│   │   ├── protocol.ts
+│   │   ├── demand.ts
+│   │   ├── goal.ts
+│   │   ├── plan.ts
+│   │   ├── execute.ts
+│   │   └── review.ts
+│   └── __tests__/
+│       └── TaskFlow.test.ts      # 7 个测试用例，覆盖完整状态机流程
 ├── kcodeView/
-│   ├── KCodePanel.ts             # 编辑器聊天面板
+│   ├── KCodePanel.ts             # 编辑器聊天面板（使用 TaskFlow 管理阶段）
 │   ├── KCodeSidebarProvider.ts   # 侧边栏视图
 │   └── webview/
 │       ├── app.ts                # 主 WebView 逻辑
@@ -462,6 +474,61 @@ interface ProgressNode {
 | `addMessage(msg)` | 添加消息 |
 | `clearMessages(taskId)` | 清空消息 |
 
+### `src/taskflow/TaskFlow.ts`
+
+阶段状态机 + `<TASK_UPDATE>` 协议解析器。不依赖任何 UI（VS Code WebView / DOM），可 CLI 测试。
+
+| 接口 | 说明 |
+|------|------|
+| `ITaskStore` | TaskFlow 依赖的 Store 接口（与 `TaskStore` 结构兼容） |
+| `TaskFlowDelegate` | 阶段变更/执行完成/goal 格式化等事件回调 |
+| `TaskFlow` | 核心类 |
+
+**主要方法**:
+
+| 方法 | 说明 |
+|------|------|
+| `loadTask(taskId)` | 加载任务，初始化内部状态 |
+| `resetGeneration(taskId)` | 重置生成态（accumulatedText, planProposed, executeFinished） |
+| `processChunk(taskId, chunk)` | 处理流式文本 chunk，剥离 TASK_UPDATE 标记，返回清洗后文本 |
+| `getCleanText(taskId)` | 获取已剥离标记的文本 |
+| `getGenResult(taskId)` | 获取当前生成的 planProposed/executeFinished 状态 |
+| `buildPrompt(taskId, userText)` | 4 层组装：BASE_PROMPT → PROTOCOL_PROMPT → buildTaskContext → buildPhasePrompt + userText |
+| `buildTaskContext(task)` | 提取 task.goal/confirmedItems/planSteps/pendingItems 格式化输出 |
+| `buildPhasePrompt(task)` | 按 task.phase 分派对应提示词（从 prompts/ 目录加载） |
+| `validateAction(phase, action)` | 校验 AI 当前阶段可输出的动作 |
+| `executeAction(taskId, payload)` | 执行 AI 协议动作（propose_goal, propose_plan） |
+| `processGoalProposal(taskId, ...)` | AI 格式化 goal 后存储并通知 UI |
+| `confirmGoal / confirmPlan / confirmExecuteDone` | 用户确认操作，执行阶段迁移 |
+| `rejectPlan / finishReview / rejectReview` | 用户拒绝/完成操作 |
+
+**Prompt 分层架构** (`src/taskflow/prompts/`):
+
+```
+buildPrompt() 输出结构:
+
+Layer 1: base.ts     — AI 人格基线
+Layer 2: protocol.ts — TASK_UPDATE 协议全量参考
+Layer 3: 动态生成    — buildTaskContext() 输出 task 当前状态
+Layer 4: 按 phase 分 — demand|goal|plan|execute|review.ts
+```
+
+每个阶段提示词是独立文件，可直接编辑无需改动 TypeScript 代码。
+
+**测试**：
+
+```bash
+npm test               # vitest run — 7 个测试用例
+npm run test:watch     # vitest watch 模式
+```
+
+测试覆盖：
+1. `buildPrompt` — 5 个阶段分别输出正确的 System Prompt，chat 类型返回裸文本
+2. `processChunk` — propose_goal/propose_plan/finish_execute 协议解析 + TASK_UPDATE 标签剥离
+3. **完整流程** — demand → goal → plan → execute → review → completed 状态机全链路
+
+---
+
 ### `src/kcodeView/KCodePanel.ts`
 
 聊天面板，生命周期：
@@ -804,6 +871,9 @@ function appendDeviceOutput(data: string): void
 ```bash
 npm run compile       # tsc 编译
 npm run watch         # 监听模式
+npm test              # vitest 运行测试
+npm run test:watch    # vitest 监听模式
+npm run lint          # eslint 检查
 npx tsc --noEmit      # 类型检查
 ```
 
