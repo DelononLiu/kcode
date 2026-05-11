@@ -445,11 +445,11 @@ export class KCodePanel {
                         });
                         setTimeout(() => this.startAutoGeneration(tid), 100);
                     } else if (genResult.selfVerifyFinished && task?.type === 'task' && task?.phase === 'self_verify') {
-                        const content = this.taskFlow.confirmSelfVerifyDone(tid);
+                        this.taskFlow.confirmSelfVerifyDone(tid);
                         if (cleanedText) {
                             this.storeMessage(tid, 'agent', cleanedText);
                         }
-                        this.triggerReviewRequest(tid, content);
+                        this.triggerReviewRequest(tid, cleanedText || '自验完成，请验收变更');
                     } else {
                         const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
                         if (agentMsgId && !this.hasSetPlanMessage) {
