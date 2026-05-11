@@ -795,11 +795,24 @@ export class KCodePanel {
 
         this.taskFlow.finishReview(tid);
 
+        const task = this.store.getTask(tid);
+        const changes = this.store.getReviewChanges(tid);
+        let report = `🎉 任务已完成，《任务完成报告》如下：\n\n`;
+        if (task) {
+            report += `📋 **任务**：${task.title}\n`;
+        }
+        if (changes.length > 0) {
+            report += `📄 **变更文件**：${changes.length} 个\n`;
+            for (const c of changes) {
+                report += `  - \`${c.filePath}\`\n`;
+            }
+        }
+
         this.store.addMessage({
             id: this.store.nextMessageId(tid),
             taskId: tid,
             role: 'agent',
-            content: '🎉 任务已完成',
+            content: report,
             timestamp: Date.now()
         });
 
