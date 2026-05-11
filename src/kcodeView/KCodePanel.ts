@@ -731,12 +731,6 @@ export class KCodePanel {
         });
         this.store.updateTaskNodeMessageId(tid, 'review', reviewMsgId);
         this.store.updateTaskStatus(tid, 'in_review');
-        this.panel.webview.postMessage({
-            type: 'loadMessages',
-            messages: this.store.getMessages(tid),
-            taskId: tid,
-            taskStatus: 'in_review'
-        });
 
         let changes: FileChange[] = [];
         if (this.acpClient) {
@@ -746,16 +740,46 @@ export class KCodePanel {
         } else if (this.openaiAgent) {
             changes = this.openaiAgent.getReviewChanges?.(tid) || [];
         }
-        if (changes.length > 0) {
-            this.panel.webview.postMessage({
-                type: 'showReviewRequest',
-                taskId: tid,
-                changes
-            });
+
+        if (changes.length === 0) {
+            changes = this.collectToolChanges(tid);
         }
+
+        this.store.storeReviewChanges(tid, changes);
+
+        this.panel.webview.postMessage({
+            type: 'loadMessages',
+            messages: this.store.getMessages(tid),
+            taskId: tid,
+            taskStatus: 'in_review',
+            reviewChanges: changes.length > 0 ? changes : undefined
+        });
 
         this.sendNodePanelUpdate(tid);
         this.refreshSidebarCallback?.();
+    }
+
+    private collectToolChanges(tid: string): FileChange[] {
+        const msgs = this.store.getMessages(tid);
+        const touched = new Map<string, string>();
+        const results: FileChange[] = [];
+
+        for (const msg of msgs) {
+            if (msg.role !== 'tool' || msg.type !== 'tool_call') continue;
+            try {
+                const info = JSON.parse(msg.content);
+                if (info.kind === 'write' || info.kind === 'edit') {
+                    const path = info.title || '';
+                    if (path && !touched.has(path)) {
+                        touched.set(path, '');
+                        const content = info.output || '';
+                        results.push({ filePath: path, original: '', modified: content });
+                    }
+                }
+            } catch {}
+        }
+
+        return results;
     }
 
     private handleApproveReview(tid: string) {
@@ -1405,11 +1429,13 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     private sendTaskMessages(taskId: string) {
         const messages = this.store.getMessages(taskId);
         const task = this.store.getTask(taskId);
+        const reviewChanges = this.store.getReviewChanges(taskId);
         this.panel.webview.postMessage({
             type: 'loadMessages',
             messages,
             taskId,
-            taskStatus: task?.status
+            taskStatus: task?.status,
+            reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined
         });
     }
 

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Task, ChatMessage } from '../types';
+import { Task, ChatMessage, FileChange } from '../types';
 
 export class TaskStore {
     private state: vscode.Memento;
@@ -176,6 +176,14 @@ export class TaskStore {
             messages[idx].type = type;
             this.state.update(`messages_${taskId}`, messages);
         }
+    }
+
+    storeReviewChanges(taskId: string, changes: FileChange[]): void {
+        this.state.update(`reviewChanges_${taskId}`, changes);
+    }
+
+    getReviewChanges(taskId: string): FileChange[] {
+        return this.state.get<FileChange[]>(`reviewChanges_${taskId}`, []);
     }
 
     clearMessages(taskId: string): void {

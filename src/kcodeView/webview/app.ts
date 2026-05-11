@@ -83,6 +83,9 @@ function initMessageHandler() {
                 activeTaskId = message.taskId;
                 activeTaskStatus = message.taskStatus || '';
                 renderMessages(message.messages);
+                if (message.reviewChanges && message.reviewChanges.length > 0) {
+                    attachReviewChanges(message);
+                }
                 break;
             case 'showFilePreview':
                 if ((window as any).showPreview) {
@@ -969,15 +972,15 @@ function getChangeSummary(original: string, modified: string): string {
     return added >= 0 ? `+${added} 行` : `${added} 行`;
 }
 
-function handleShowReviewRequest(message: any) {
+function attachReviewChanges(message: any) {
     selectedReviewFileIdx = null;
-    reviewChangesMap.set(message.taskId, message.changes || []);
-
-    const lastReviewMsg = document.querySelector('#chat-messages > .chat-msg.agent:last-child') as HTMLElement;
-    if (!lastReviewMsg) return;
-
-    const changes = message.changes as FileChange[];
+    const changes = message.reviewChanges as FileChange[];
     if (!changes || changes.length === 0) return;
+    reviewChangesMap.set(message.taskId, changes);
+
+    const allAgentMsgs = document.querySelectorAll('#chat-messages > .chat-msg.agent');
+    const lastReviewMsg = allAgentMsgs[allAgentMsgs.length - 1] as HTMLElement;
+    if (!lastReviewMsg) return;
 
     const existing = lastReviewMsg.querySelector('.review-changes');
     if (existing) existing.remove();
@@ -1053,6 +1056,10 @@ function handleShowReviewRequest(message: any) {
     } else {
         lastReviewMsg.appendChild(list);
     }
+}
+
+function handleShowReviewRequest(message: any) {
+    attachReviewChanges({ ...message, reviewChanges: message.changes });
 }
 
 function toggleReviewFileSelection(change: FileChange, item: HTMLElement, idx: number) {
