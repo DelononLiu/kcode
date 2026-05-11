@@ -1112,33 +1112,38 @@ export class KCodePanel {
             </div>
             <div id="chat-input-area">
                 <div class="input-wrapper">
-                    <div class="input-tools">
-                    </div>
                     <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
-                    <div class="input-actions">
-                        <button id="send-btn" class="input-tool-btn" title="发送">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <path d="M2 14L14 8L2 2v4.5l6 1.5-6 1.5V14z" fill="currentColor"/>
-                            </svg>
-                        </button>
-                        <button id="stop-btn" class="input-tool-btn hidden" title="停止生成">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor"/>
-                            </svg>
-                        </button>
-                        <button class="input-tool-btn settings-btn" title="设置">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.2"/>
-                                <path d="M13.5 8c0-.3 0-.7-.1-1l1.5-1.2-.6-1.9-1.9-.4c-.4-.4-.9-.7-1.4-1L10.5.5H8.5L7.5 2c-.5.1-1 .4-1.4.7l-1.9-.4-1.5 1L2.5 5c-.3.4-.5.9-.6 1.4L.5 7.5v2l1.5 1.1c.1.5.3 1 .6 1.4l-.6 1.9 1.5 1.5 1.9-.4c.4.4.9.7 1.4 1l1 1.5h2l1-1.5c.5-.3 1-.6 1.4-1l1.9.4 1.5-1.5-.6-1.9c.3-.4.5-.9.6-1.4l1.5-1.1V8z" stroke="currentColor" stroke-width="1.2"/>
-                            </svg>
-                        </button>
+                    <div class="input-footer">
+                        <div class="input-footer-left">
+                            <button class="input-tool-btn attach-btn" title="附件">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M8 3v7a2 2 0 004 0V4.5a3.5 3.5 0 00-7 0V10a4.5 4.5 0 009 0V3h-1v7a3.5 3.5 0 01-7 0V4.5a2.5 2.5 0 015 0V10a1 1 0 01-2 0V3H8z" fill="currentColor"/>
+                                </svg>
+                            </button>
+                            <span class="status-item">
+                                <span id="agent-status-dot" class="status-dot offline"></span>
+                                <span id="status-model">Agent</span>
+                            </span>
+                        </div>
+                        <div class="input-footer-right">
+                            <button id="send-btn" class="input-tool-btn" title="发送">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M2 14L14 8L2 2v4.5l6 1.5-6 1.5V14z" fill="currentColor"/>
+                                </svg>
+                            </button>
+                            <button id="stop-btn" class="input-tool-btn hidden" title="停止生成">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor"/>
+                                </svg>
+                            </button>
+                            <button class="input-tool-btn settings-btn" title="设置">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.2"/>
+                                    <path d="M13.5 8c0-.3 0-.7-.1-1l1.5-1.2-.6-1.9-1.9-.4c-.4-.4-.9-.7-1.4-1L10.5.5H8.5L7.5 2c-.5.1-1 .4-1.4.7l-1.9-.4-1.5 1L2.5 5c-.3.4-.5.9-.6 1.4L.5 7.5v2l1.5 1.1c.1.5.3 1 .6 1.4l-.6 1.9 1.5 1.5 1.9-.4c.4.4.9.7 1.4 1l1 1.5h2l1-1.5c.5-.3 1-.6 1.4-1l1.9.4 1.5-1.5-.6-1.9c.3-.4.5-.9.6-1.4l1.5-1.1V8z" stroke="currentColor" stroke-width="1.2"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
-                </div>
-                <div id="chat-statusbar">
-                    <span class="status-item">
-                        <span id="agent-status-dot" class="status-dot offline"></span>
-                        <span id="status-model">Agent</span>
-                    </span>
                 </div>
             </div>
         </div>
@@ -1184,7 +1189,6 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-area:has(#chat-scroll.chat-empty) #chat-body{display:none}
 #chat-area:has(#chat-scroll.chat-empty) #chat-input-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-top:none;gap:8px}
 #chat-area:has(#chat-scroll.chat-empty) #chat-input-area .input-wrapper{width:100%;max-width:900px}
-#chat-area:has(#chat-scroll.chat-empty) #chat-statusbar{flex-shrink:0;padding:0;width:100%;max-width:900px}
 
 /* === Chat Header === */
 #chat-header{flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -1268,20 +1272,22 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .chat-msg .msg-bubble .code-block-wrapper code.hljs{font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12.5px;line-height:1.55;background:transparent;padding:0;display:block}
 .hljs{color:#d2d2d4}.hljs-keyword,.hljs-literal,.hljs-symbol,.hljs-name{color:#569cd6}.hljs-link{color:#569cd6;text-decoration:underline}.hljs-built_in,.hljs-type{color:#4ec9b0}.hljs-number,.hljs-class{color:#b5cea8}.hljs-string,.hljs-meta .hljs-string{color:#d69d85}.hljs-regexp,.hljs-template-tag{color:#9a5334}.hljs-subst,.hljs-function,.hljs-title,.hljs-params,.hljs-formula{color:#dcdcaa}.hljs-comment,.hljs-quote{color:#6a9955;font-style:italic}.hljs-doctag{color:#608b4e}.hljs-meta,.hljs-meta .hljs-keyword,.hljs-tag{color:#808080}.hljs-variable,.hljs-template-variable{color:#bd63c5}.hljs-attr,.hljs-attribute{color:#9cdcfe}.hljs-section{color:gold}.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}.hljs-bullet,.hljs-selector-attr,.hljs-selector-class,.hljs-selector-id,.hljs-selector-pseudo,.hljs-selector-tag{color:#d7ba7d}.hljs-addition{background:#144212;display:inline-block;width:100%}.hljs-deletion{background:#600;display:inline-block;width:100%}
 #chat-input-area{border-top:1px solid rgba(255,255,255,.06);padding:12px 24px 10px;background:var(--vscode-sideBar-background,#1e1e1e);flex-shrink:0}
-.input-wrapper{background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:10px 12px;transition:border-color .2s,box-shadow .2s}
+.input-wrapper{background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:10px 12px 6px;transition:border-color .2s,box-shadow .2s}
 .input-wrapper:focus-within{border-color:var(--vscode-focusBorder,#007fd4);box-shadow:0 0 8px rgba(0,127,212,.3)}
 .input-wrapper.input-flash{animation:input-flash .8s ease-out}
 @keyframes input-flash{0%{box-shadow:0 0 0 0 rgba(90,150,200,.2)}50%{box-shadow:0 0 0 4px rgba(90,150,200,.1)}100%{box-shadow:0 0 0 0 rgba(90,150,200,0)}}
 #chat-input{width:100%;background:transparent;color:#d2d2d4;border:none;font-family:inherit;font-size:13.5px;resize:none;outline:none;min-height:52px;max-height:200px;line-height:1.5}
 #chat-input::placeholder{color:#555}
-.input-actions{display:flex;align-items:center;gap:4px;flex-shrink:0;position:absolute;right:12px;bottom:10px}
+.input-footer{display:flex;align-items:center;justify-content:space-between;padding-top:4px;min-height:28px}
+.input-footer-left{display:flex;align-items:center;gap:2px}
+.input-footer-right{display:flex;align-items:center;gap:2px}
 .input-tool-btn{background:none;border:none;color:#666;cursor:pointer;padding:4px;border-radius:3px;display:flex;align-items:center;justify-content:center;transition:color .2s,background .2s}
 .input-tool-btn.hidden{display:none}
 #send-btn{color:#4a8bb5}#send-btn:hover{color:#5a9bc8;background:rgba(74,139,181,.1)}
 #stop-btn{color:#c94a4a}#stop-btn:hover{color:#e06060;background:rgba(201,74,74,.1)}
 .input-tool-btn:hover{background:rgba(255,255,255,.05);color:#999}
-#chat-statusbar{display:flex;align-items:center;gap:2px;padding:6px 0 0;font-size:11px;color:#555;flex-shrink:0}
-.status-item{display:flex;align-items:center;gap:4px;padding:1px 4px;white-space:nowrap}
+.attach-btn{color:#555}.attach-btn:hover{color:#999;background:rgba(255,255,255,.05)}
+.status-item{display:flex;align-items:center;gap:4px;padding:1px 4px;white-space:nowrap;font-size:11px;color:#555;flex-shrink:0}
 .status-item svg{opacity:.4}
 .status-divider{width:1px;height:10px;background:rgba(255,255,255,.06);flex-shrink:0;margin:0 4px}
 .status-dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
