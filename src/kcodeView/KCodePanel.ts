@@ -23,6 +23,7 @@ export class KCodePanel {
     private activeToolCalls: Map<string, { title: string; kind: string; status: string; output?: string }> = new Map();
     private refreshSidebarCallback?: () => void;
     private isGenerating: boolean = false;
+    private lastConnectError: string = '';
     private hasSetPlanMessage: boolean = false;
     private hasSetExecuteMessage: boolean = false;
     private taskFlow: TaskFlow;
@@ -213,9 +214,10 @@ export class KCodePanel {
         } else {
             const config = vscode.workspace.getConfiguration('kcode');
             const agentName = config.get<string>('agentName') || '';
-            const errorMsg = !agentName || agentName === 'npx'
-                ? '请配置 Agent：在 VS Code 设置中设置 `kcode.agentName`，指向 Agent 可执行文件路径'
-                : `Agent 连接失败：无法连接到 "${agentName}"，请检查路径是否正确并确保 Agent 已启动`;
+            const errorMsg = this.lastConnectError
+                || (!agentName || agentName === 'npx'
+                    ? '请配置 Agent：在 VS Code 设置中设置 `kcode.agentName`，指向 Agent 可执行文件路径'
+                    : `Agent 连接失败：无法连接到 "${agentName}"，请检查路径是否正确并确保 Agent 已启动`);
             this.showAgentError(tid, errorMsg);
         }
     }
@@ -788,11 +790,12 @@ export class KCodePanel {
                     return;
                 }
                 console.log('[KCode] OpenCode connection failed');
+                this.lastConnectError = this.acpClient?.lastError || `无法启动 opencode: ${opencodePath}`;
                 this.acpClient = null;
                 this.panel.webview.postMessage({
                     type: 'agentStatus',
                     status: 'disconnected',
-                    message: `OpenCode 连接失败: ${opencodePath}`
+                    message: this.lastConnectError
                 });
                 return;
             }
@@ -842,11 +845,12 @@ export class KCodePanel {
                     return;
                 }
                 console.log('[KCode] HTTP connection failed');
+                this.lastConnectError = this.acpClient?.lastError || `HTTP Agent 连接失败: ${agentUrl}`;
                 this.acpClient = null;
                 this.panel.webview.postMessage({
                     type: 'agentStatus',
                     status: 'disconnected',
-                    message: `HTTP Agent 连接失败: ${agentUrl}`
+                    message: this.lastConnectError
                 });
                 return;
             }
@@ -871,11 +875,12 @@ export class KCodePanel {
                 }
 
                 console.log('[KCode] Connection failed');
+                this.lastConnectError = this.acpClient?.lastError || `Agent 连接失败: ${agentName}`;
                 this.acpClient = null;
                 this.panel.webview.postMessage({
                     type: 'agentStatus',
                     status: 'disconnected',
-                    message: `Agent 连接失败: ${agentName}`
+                    message: this.lastConnectError
                 });
                 return;
             }
@@ -886,13 +891,14 @@ export class KCodePanel {
                 status: 'disconnected',
                 message: 'Agent 未连接'
             });
-        } catch (err) {
-            console.error('[KCode] ensureConnection error:', err);
+        } catch (err: any) {
+            this.lastConnectError = err?.message || 'Agent 连接失败';
+            console.error('[KCode] ensureConnection error:', this.lastConnectError);
             this.acpClient = null;
             this.panel.webview.postMessage({
                 type: 'agentStatus',
                 status: 'disconnected',
-                message: 'Agent 连接失败'
+                message: this.lastConnectError
             });
         }
     }
@@ -1176,13 +1182,13 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tab-content{display:none;height:100%;overflow-y:auto;padding:12px}
 .tab-content.active{display:block}
 .msg-bubble.card-bubble{padding:0;border:none;background:transparent}
-.msg-card{background:#1f1f23;border:1px solid rgba(255,255,255,.08);border-radius:6px;overflow:hidden}
-.msg-card-header{display:flex;align-items:center;padding:7px 12px;font-size:12px;cursor:pointer;user-select:none;gap:6px}
+.msg-card{border:1px solid rgba(255,255,255,.08);border-radius:6px;overflow:hidden;margin-bottom:8px}
+.msg-card:last-child{margin-bottom:0}
+.msg-card-header{display:flex;align-items:center;padding:7px 12px;font-size:12px;cursor:pointer;user-select:none;gap:6px;color:#fff;background:rgba(0,0,0,.25)}
 .msg-card-header:hover{background:rgba(255,255,255,.015)}
 .msg-card-header-text{flex:1;display:flex;align-items:center;gap:5px;min-width:0}
 .msg-card-toggle{font-size:10px;color:#666;flex-shrink:0;transition:transform .2s}
-.msg-card{background:rgba(0,0,0,.15)}
-.msg-card-body{padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05);font-size:13.5px;line-height:1.6;color:#d2d2d4;overflow-y:auto;max-height:300px}
+.msg-card-body{padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05);font-size:13.5px;line-height:1.6;color:#fff;overflow-y:auto;max-height:300px}
 .msg-card-body.tool-card-body{max-height:100px}
 .msg-card-body.collapsed{display:none}
 .msg-card-actions{display:flex;gap:8px;padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05)}
@@ -1238,7 +1244,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .reject-btn-row{display:flex;gap:6px;padding:6px 0 0;justify-content:flex-end}
 .msg-sender{display:flex;align-items:center;gap:4px}
 .msg-timestamp{font-size:10px;color:#555;font-weight:400}
-.chat-msg.tool{padding:2px 0}
+.chat-msg.tool{padding:6px 0}
 .chat-msg.tool .msg-bubble{font-size:13px;line-height:1.5;color:#b5c9a8}
 .tool-kind-icon{font-size:12px;flex-shrink:0;opacity:.45;display:inline-flex;vertical-align:middle}
 .tool-body-content{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px;color:#9aa;background:transparent;padding:0}
@@ -1255,17 +1261,18 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .chat-msg.stop-message .msg-bubble{text-align:center;font-size:12px;color:#666;padding:4px 0}
 
 /* === Timeline Gutter === */
-#node-timeline-gutter{position:absolute;left:2px;top:0;bottom:0;width:20px;z-index:5;display:flex;flex-direction:column;align-items:center;pointer-events:none;overflow:visible}
+#node-timeline-gutter{position:absolute;left:2px;top:0;bottom:0;width:28px;z-index:5;display:flex;flex-direction:column;align-items:center;pointer-events:none;overflow:visible}
 #node-timeline-gutter.hidden{display:none}
 #tl-dots{flex:1;display:flex;flex-direction:column;justify-content:space-between;align-items:center;position:relative;width:100%;z-index:1}
 #tl-dots::before{content:'';position:absolute;left:50%;top:5px;bottom:5px;width:2px;background:rgba(255,255,255,.05);transform:translateX(-50%);border-radius:1px}
 .tl-node-wrap{display:flex;align-items:center;justify-content:center;width:100%;z-index:2}
-.tl-node{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.08);position:relative;transition:background .3s,box-shadow .3s;pointer-events:auto;cursor:pointer;flex-shrink:0}
-.tl-node.status-completed{background:#4ec9b0}
-.tl-node.status-active{background:#4a8bb5;box-shadow:0 0 6px rgba(74,139,181,.5);animation:tl-pulse 2s infinite}
+.tl-node{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;transition:background .3s,box-shadow .3s;pointer-events:auto;cursor:pointer;flex-shrink:0}
+.tl-node.status-completed{background:#2ea043}
+.tl-node.status-active{background:#1f7bc4;box-shadow:0 0 8px rgba(31,123,196,.6);animation:tl-pulse 2s infinite}
 .tl-node.status-pending{background:rgba(255,255,255,.12)}
+.tl-node.status-pending .tl-emoji{color:rgba(255,255,255,.45)}
 .tl-node.status-cancelled{background:#e06060;box-shadow:0 0 6px rgba(224,96,96,.5)}
-.tl-emoji{position:absolute;left:-16px;top:-3px;font-size:9px;pointer-events:none;line-height:1}
+.tl-emoji{font-size:9px;font-weight:700;pointer-events:none;line-height:1;font-family:inherit;color:#fff}
 @keyframes tl-pulse{0%{box-shadow:0 0 0 0 rgba(74,139,181,.4)}70%{box-shadow:0 0 0 6px rgba(74,139,181,0)}100%{box-shadow:0 0 0 0 rgba(74,139,181,0)}}
 .msg-highlight{animation:msg-highlight-fade 1.5s ease-out}
 @keyframes msg-highlight-fade{0%{background:rgba(78,201,176,.1);border-left:2px solid #4ec9b0}100%{background:transparent;border-left:2px solid transparent}}

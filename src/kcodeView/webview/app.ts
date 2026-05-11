@@ -731,11 +731,11 @@ function updateTaskInfo(info: any) {
         const hasPhase = info.taskType === 'task' && info.phase && info.status !== 'cancelled' && info.status !== 'completed';
         phaseRow.classList.toggle('hidden', !hasPhase);
         if (hasPhase) {
-            const phaseEmojis: Record<string, string> = {
-                demand: '📝', goal: '🎯', plan: '📋', execute: '⚡', review: '✅'
+            const phaseLetters: Record<string, string> = {
+                demand: 'D', goal: 'T', plan: 'P', execute: 'E', review: 'C'
             };
-            const emoji = phaseEmojis[info.phase] || '';
-            phaseBadge.textContent = `${emoji} ${info.phaseLabel || info.phase}`;
+            const letter = phaseLetters[info.phase] || '';
+            phaseBadge.textContent = `${letter} ${info.phaseLabel || info.phase}`;
         }
         if (goalConfirmBtn) {
             const isGoalPhase = info.taskType === 'task' && info.phase === 'goal' && info.status !== 'cancelled' && info.status !== 'completed';
@@ -1460,13 +1460,13 @@ function hideWorkingIndicator() {
     if (indicator) indicator.classList.add('hidden');
 }
 
-function getNodeEmoji(type: string): string {
+function getNodeLetter(type: string): string {
     switch (type) {
-        case 'demand': return '📝';
-        case 'goal': return '🎯';
-        case 'plan': return '📋';
-        case 'execute': return '⚡';
-        case 'review': return '✅';
+        case 'demand': return 'D';
+        case 'goal': return 'T';
+        case 'plan': return 'P';
+        case 'execute': return 'E';
+        case 'review': return 'C';
         default: return '●';
     }
 }
@@ -1491,14 +1491,14 @@ function handleNodePanelUpdate(nodes: any[], taskType: string) {
 
         const dot = document.createElement('div');
         dot.className = `tl-node status-${node.status}`;
-        dot.title = `${getNodeEmoji(node.type)} ${node.label}`;
+        dot.title = `${node.label}`;
         if (node.messageId) {
             dot.dataset.msgId = node.messageId;
         }
 
         const emoji = document.createElement('span');
         emoji.className = 'tl-emoji';
-        emoji.textContent = getNodeEmoji(node.type);
+        emoji.textContent = getNodeLetter(node.type);
         dot.appendChild(emoji);
         wrap.appendChild(dot);
         dotsEl.appendChild(wrap);

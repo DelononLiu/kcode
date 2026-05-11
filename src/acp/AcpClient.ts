@@ -11,6 +11,9 @@ export class AcpClient {
     private kcodeClient: KCodeClient | null = null;
     private workspaceRoot: string;
     private httpMode: boolean = false;
+    private _lastError: string = '';
+
+    get lastError(): string { return this._lastError; }
 
     constructor(workspaceRoot: string) {
         this.workspaceRoot = workspaceRoot;
@@ -29,7 +32,8 @@ export class AcpClient {
 
             return this.initConnection(sdk, stream);
         } catch (err) {
-            console.error('ACP connection failed:', err);
+            this._lastError = (err as Error)?.message || String(err);
+            console.error('ACP connection failed:', this._lastError);
             return false;
         }
     }
@@ -44,7 +48,8 @@ export class AcpClient {
             this.httpMode = true;
             return this.initConnection(sdk, stream);
         } catch (err) {
-            console.error('ACP HTTP connection failed:', err);
+            this._lastError = (err as Error)?.message || String(err);
+            console.error('ACP HTTP connection failed:', this._lastError);
             return false;
         }
     }
