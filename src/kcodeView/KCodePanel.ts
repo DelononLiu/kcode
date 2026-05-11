@@ -26,6 +26,8 @@ export class KCodePanel {
     private isGenerating: boolean = false;
     private hasSetPlanMessage: boolean = false;
     private hasSetExecuteMessage: boolean = false;
+    private planProposed: boolean = false;
+    private executeFinished: boolean = false;
 
     constructor(context: vscode.ExtensionContext, store: TaskStore) {
         this.context = context;
@@ -87,6 +89,18 @@ export class KCodePanel {
                     break;
                 case 'confirmGoalWithEdit':
                     await this.handleConfirmGoalWithEdit(message.taskId, message.goal, message.originalRequest);
+                    break;
+                case 'confirmGoalFromHeader':
+                    await this.handleConfirmGoalFromHeader(message.taskId);
+                    break;
+                case 'confirmPlan':
+                    await this.handleConfirmPlan(message.taskId);
+                    break;
+                case 'rejectPlan':
+                    this.handleRejectPlan(message.taskId);
+                    break;
+                case 'confirmExecuteDone':
+                    await this.handleConfirmExecuteDone(message.taskId);
                     break;
                 case 'collapseTimeline':
                     break;
@@ -162,6 +176,8 @@ export class KCodePanel {
             this.accumulatedAgentText = '';
             this.activeToolCalls.clear();
             this.planEntries = [];
+            this.planProposed = false;
+            this.executeFinished = false;
             this.setGenerationState(true);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
@@ -170,6 +186,8 @@ export class KCodePanel {
             this.accumulatedAgentText = '';
             this.activeToolCalls.clear();
             this.planEntries = [];
+            this.planProposed = false;
+            this.executeFinished = false;
             this.setGenerationState(true);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
@@ -178,6 +196,8 @@ export class KCodePanel {
             this.accumulatedAgentText = '';
             this.activeToolCalls.clear();
             this.planEntries = [];
+            this.planProposed = false;
+            this.executeFinished = false;
             this.setGenerationState(true);
             await this.openaiAgent.prompt(sessionId, promptText);
         } else {
@@ -339,6 +359,26 @@ export class KCodePanel {
                         const task = this.store.getTask(tid);
                         if (task?.type === 'task' && task?.phase === 'review') {
                             this.triggerReviewRequest(tid, cleanedText);
+                        } else if (this.planProposed && task?.type === 'task' && task?.phase === 'plan') {
+                            this.showPlanConfirmation(tid);
+                            this.planProposed = false;
+                            const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
+                            if (agentMsgId && !this.hasSetPlanMessage) {
+                                this.store.updateTaskNodeMessageId(tid, 'plan', agentMsgId);
+                                this.hasSetPlanMessage = true;
+                            }
+                            this.sendNodePanelUpdate(tid);
+                        } else if (this.executeFinished && task?.type === 'task' && task?.phase === 'execute') {
+                            const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
+                            this.sendTaskInfo(tid);
+                            this.sendNodePanelUpdate(tid);
+                            const task = this.store.getTask(tid);
+                            this.panel.webview.postMessage({
+                                type: 'loadMessages',
+                                messages: this.store.getMessages(tid),
+                                taskId: tid,
+                                taskStatus: task?.status
+                            });
                         } else {
                             const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
                             if (agentMsgId && !this.hasSetPlanMessage) {
@@ -373,6 +413,26 @@ export class KCodePanel {
         while ((match = regex.exec(this.accumulatedAgentText)) !== null) {
             try {
                 const payload = JSON.parse(match[1]);
+
+                // Block all phase-transitioning actions from AI — user must click confirm button
+                const blockingActions = ['lock_goal', 'lock_plan', 'accept', 'reject'];
+                if (blockingActions.includes(payload.action)) {
+                    this.accumulatedAgentText = this.accumulatedAgentText.replace(match[0], '');
+                    console.log(`[KCode] Blocked auto-transition "${payload.action}" from AI, waiting for user confirmation`);
+                    regex.lastIndex = 0;
+                    continue;
+                }
+
+                // finish_execute: don't auto-transition, just set flag for user to confirm
+                if (task.phase === 'execute' && payload.action === 'finish_execute') {
+                    this.accumulatedAgentText = this.accumulatedAgentText.replace(match[0], '');
+                    this.executeFinished = true;
+                    this.sendTaskInfo(tid);
+                    console.log('[KCode] AI signaled finish_execute, waiting for user confirm');
+                    regex.lastIndex = 0;
+                    continue;
+                }
+
                 if (this.validatePhaseAction(task.phase, payload.action)) {
                     this.accumulatedAgentText = this.accumulatedAgentText.replace(match[0], '');
                     this.executePhaseAction(tid, payload);
@@ -426,8 +486,10 @@ export class KCodePanel {
                 if (payload.plan_steps) {
                     this.store.updatePlanSteps(tid, payload.plan_steps);
                 }
+                this.planProposed = true;
                 break;
             case 'lock_plan':
+                this.planProposed = false;
                 this.store.updateTaskPhase(tid, 'execute');
                 this.store.updateTaskStatus(tid, 'active');
                 if (payload.plan_steps) {
@@ -490,14 +552,14 @@ export class KCodePanel {
 当前阶段：计划制定（Plan）
 行为约束：
 1. 基于已锁定的目标制定实现计划
-2. 首先输出分步骤计划，再输出 lock_plan 协议
-3. 计划锁定后可以开始实施
+2. 输出分步骤计划（propose_plan），等待用户确认
+3. 用户确认后系统自动推进到执行阶段
+4. 不要输出 lock_plan 协议，系统会自动处理
 
 已锁定目标：
 ${confirmedItems}
 
-<TASK_UPDATE>{"action":"lock_plan","plan_steps":[{"content":"步骤1描述","status":"pending"},{"content":"步骤2描述","status":"pending"}]}</TASK_UPDATE>
-<TASK_UPDATE>{"action":"finish_execute"}</TASK_UPDATE>
+<TASK_UPDATE>{"action":"propose_plan","pending_items":["待讨论点"],"plan_steps":[{"content":"步骤1描述","status":"pending"},{"content":"步骤2描述","status":"pending"}]}</TASK_UPDATE>
 [/System]\n\n`;
                 break;
             case 'execute':
@@ -643,6 +705,110 @@ ${planStepsStr}
         this.refreshSidebarCallback?.();
         this.sendNodePanelUpdate(tid);
         this.setGenerationState(false);
+    }
+
+    private showPlanConfirmation(tid: string) {
+        const task = this.store.getTask(tid);
+        if (!task || task.planSteps.length === 0) return;
+        this.panel.webview.postMessage({
+            type: 'showPlanProposal',
+            taskId: tid,
+            planSteps: task.planSteps
+        });
+    }
+
+    private async handleConfirmPlan(tid: string) {
+        const confirmMsg = '✅ 确认计划';
+        this.store.addMessage({
+            id: this.store.nextMessageId(tid),
+            taskId: tid,
+            role: 'user',
+            content: confirmMsg,
+            timestamp: Date.now()
+        });
+        this.panel.webview.postMessage({ type: 'addUserMessage', content: confirmMsg });
+
+        const task = this.store.getTask(tid);
+        if (task) {
+            this.executePhaseAction(tid, {
+                action: 'lock_plan',
+                plan_steps: task.planSteps
+            });
+        }
+
+        this.panel.webview.postMessage({ type: 'removePlanProposal' });
+
+        const promptText = this.buildTaskPrompt(tid, '计划已确认，请开始执行。');
+        const handler = this.createAgentResponseHandler(tid, false, '计划已确认，请开始执行。');
+
+        if (this.agentReady && this.acpClient) {
+            this.accumulatedAgentText = '';
+            this.activeToolCalls.clear();
+            this.planEntries = [];
+            this.setGenerationState(true);
+            await this.acpClient.prompt(tid, promptText, handler);
+        } else if (this.fakeAgent) {
+            const sessionId = this.fakeAgent.createSession(tid);
+            this.fakeAgent.setHandler(sessionId, handler);
+            this.accumulatedAgentText = '';
+            this.activeToolCalls.clear();
+            this.planEntries = [];
+            this.setGenerationState(true);
+            await this.fakeAgent.prompt(sessionId, promptText);
+        } else if (this.openaiAgent) {
+            const sessionId = this.openaiAgent.createSession(tid);
+            this.openaiAgent.setHandler(sessionId, handler);
+            this.accumulatedAgentText = '';
+            this.activeToolCalls.clear();
+            this.planEntries = [];
+            this.setGenerationState(true);
+            await this.openaiAgent.prompt(sessionId, promptText);
+        }
+    }
+
+    private async handleConfirmExecuteDone(tid: string) {
+        const confirmMsg = '✅ 确认完成，进入验收';
+        this.store.addMessage({
+            id: this.store.nextMessageId(tid),
+            taskId: tid,
+            role: 'user',
+            content: confirmMsg,
+            timestamp: Date.now()
+        });
+        this.panel.webview.postMessage({ type: 'addUserMessage', content: confirmMsg });
+
+        this.executeFinished = false;
+
+        this.store.updateTaskPhase(tid, 'review');
+        this.store.updateTaskStatus(tid, 'in_review');
+        this.sendTaskInfo(tid);
+        this.sendNodePanelUpdate(tid);
+        this.refreshSidebarCallback?.();
+
+        const msgs = this.store.getMessages(tid);
+        const lastAgentMsg = [...msgs].reverse().find(m => m.role === 'agent' && !m.type);
+        const content = lastAgentMsg?.content || '';
+        this.triggerReviewRequest(tid, content);
+    }
+
+    private async handleConfirmGoalFromHeader(tid: string) {
+        const msgs = this.store.getMessages(tid);
+        const firstUserMsg = msgs.find(m => m.role === 'user');
+        const originalRequest = firstUserMsg?.content || '';
+        await this.handleConfirmGoal(tid, originalRequest);
+    }
+
+    private handleRejectPlan(tid: string) {
+        const reviseMsg = '↩️ 调整计划';
+        this.store.addMessage({
+            id: this.store.nextMessageId(tid),
+            taskId: tid,
+            role: 'user',
+            content: reviseMsg,
+            timestamp: Date.now()
+        });
+        this.panel.webview.postMessage({ type: 'addUserMessage', content: reviseMsg });
+        this.panel.webview.postMessage({ type: 'removePlanProposal' });
     }
 
     private async handleConfirmGoalWithEdit(tid: string, newGoal: string, originalRequest: string) {
@@ -1069,6 +1235,9 @@ ${planStepsStr}
                         </div>
                         <div id="task-info-phase" class="hidden">
                             <span id="task-phase-badge" class="task-phase-badge"></span>
+                            <button id="goal-confirm-btn" class="plan-confirm-btn hidden">确认目标 ✓</button>
+                            <button id="plan-confirm-btn" class="plan-confirm-btn hidden">确认计划</button>
+                            <button id="execute-confirm-btn" class="plan-confirm-btn hidden">确认完成 ✓</button>
                         </div>
                         <div id="task-info-items" class="hidden">
                             <div id="confirmed-items"></div>
@@ -1334,6 +1503,13 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .diff-open-native:hover{background:rgba(74,139,181,.08);border-color:rgba(74,139,181,.3)}
 .goal-edit-textarea{width:100%;background:#25252a;border:1px solid rgba(255,255,255,.12);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:13px;padding:8px;resize:vertical;outline:none;min-height:120px;line-height:1.5}
 .goal-edit-textarea:focus{border-color:rgba(78,201,176,.4)}
+.plan-confirm-btn{background:#4a8bb5;color:#fff;border:none;border-radius:4px;padding:1px 8px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;white-space:nowrap;margin-left:8px;transition:background .2s}
+.plan-confirm-btn:hover{background:#5a9bc8}
+.plan-confirm-btn.hidden{display:none}
+.plan-confirmation-card{margin:8px 0}
+.plan-steps-body{padding:4px 0}
+.plan-step-line{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:#d2d2d4}
+.plan-step-status{font-size:12px;width:16px;text-align:center;flex-shrink:0;color:#888}
 .reject-input-area{padding:4px 0;width:100%}
 .reject-input{width:100%;background:#25252a;border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:12px;padding:5px 7px;resize:vertical;outline:none;min-height:32px}
 .reject-input:focus{border-color:rgba(255,255,255,.2)}
@@ -1377,6 +1553,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     loadTask(taskId: string) {
         this.currentTaskId = taskId;
         this.planEntries = [];
+        this.planProposed = false;
+        this.executeFinished = false;
         const task = this.store.getTask(taskId);
         this.hasSetPlanMessage = !!task?.nodeMessageIds?.plan;
         this.hasSetExecuteMessage = !!task?.nodeMessageIds?.execute;
@@ -1406,7 +1584,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
             pendingReviewFiles: 0,
             confirmedItems: task.confirmedItems,
             pendingItems: task.pendingItems,
-            planSteps: task.planSteps
+            planSteps: task.planSteps,
+            executeFinished: this.executeFinished
         });
     }
 

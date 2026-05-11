@@ -362,6 +362,9 @@ _目标：实现 `<TASK_UPDATE>` 协议驱动的 5 阶段全流程（demand → 
 | P8-03 | 阶段分发提示词 — buildTaskPrompt() 按 phase 分派 4 套提示词 | ✅ 已完成 |
 | P8-04 | 对话式阶段迁移 — 移除强制卡片阻断，自然对话推进阶段 | ✅ 已完成 |
 | P8-05 | 顶部看板增强 — 显示当前阶段 + 共识条目 | ✅ 已完成 |
+| P8-06 | 计划确认按钮 — 计划方案卡片 + 确认/调整按钮 | ✅ 已完成 |
+| P8-07 | 验收文件列表 — 点击文件打开 diff 对比窗口 | ✅ 已完成 |
+| P8-08 | 全阶段确认按钮 — 每阶段必须用户点击确认才进入下一阶段 | ✅ 已完成 |
 
 ---
 
@@ -438,6 +441,61 @@ _目标：实现 `<TASK_UPDATE>` 协议驱动的 5 阶段全流程（demand → 
   1. **行为约束**（该阶段能做什么 / 不能做什么）
   2. **输出结构要求**（design doc §5.4 四段组织：当前阶段、已锁定共识、待处理、小结）
   3. 当前已锁定的 `confirmedItems` 作为上下文
+
+**状态**: ✅ 已完成
+
+---
+
+### P8-06: 计划确认按钮
+
+**涉及文件**:
+- `src/kcodeView/KCodePanel.ts` — `planProposed` 状态跟踪、`showPlanConfirmation()`、`handleConfirmPlan()`、`handleRejectPlan()`、计划阶段提示词移除自动 lock_plan；HTML 新增 `#plan-confirm-btn`；CSS 新增 `.plan-confirm-btn` 样式
+- `src/kcodeView/webview/app.ts` — `updateTaskInfo()` 在 phase='plan' 时显示确认按钮；`initChat()` 绑定按钮点击事件；`handleShowPlanProposal()` 渲染计划卡片（带确认/调整按钮）
+
+**实现说明**:
+- **持久按钮（主要路径）**: 顶部看板阶段标识旁新增「确认计划」按钮，当 `task.phase === 'plan'` 时始终可见，不依赖 AI 输出 TASK_UPDATE 协议
+- **AI 提案卡片（辅助路径）**: AI 输出 `propose_plan` 时仍在对话区渲染计划方案卡片，提供相同的确认/调整按钮
+- 两路均调用 `handleConfirmPlan()` → `executePhaseAction('lock_plan')` → 推进到执行阶段并重新提示 AI
+- 兼容对话模式：用户也可直接输入文字确认，AI 输出 `lock_plan` 仍会正确处理
+
+**状态**: ✅ 已完成
+
+### P8-07: 验收文件列表 — 点击打开 diff
+
+**涉及文件**:
+- `src/kcodeView/KCodePanel.ts` — `triggerReviewRequest()` 已有变更收集 + `showReviewRequest` 消息发送
+- `src/kcodeView/webview/app.ts` — `handleShowReviewRequest()` 渲染文件列表，每项点击触发 `toggleReviewFileSelection()` → 右侧面板 diff + 原生 diff 按钮
+- `src/kcodeView/webview/preview.ts` — `showDiffWithFile()` 全局注册，支持在 diff tab 显示文件名头 + 内联 diff + "打开原生对比" 按钮
+
+**功能说明**:
+- `triggerReviewRequest()` 从 agent 收集 `FileChange[]`（含 filePath/original/modified），发送 `showReviewRequest` 到 WebView
+- WebView 在验收消息底部渲染文件变更列表（带类型图标 📄新建/📝修改/🗑️删除 + 行数摘要）
+- 点击文件 → 右侧面板 Diff tab 显示内联 diff + 文件名头
+- 点击"⇱ 打开原生对比" → VS Code `vscode.diff` 命令打开原生 diff 编辑器
+- 各 agent 实现 `getReviewChanges()` 返回当前会话的变更文件列表
+
+**状态**: ✅ 已完成
+
+---
+
+### P8-08: 全阶段确认按钮 — 每阶段必须用户点击确认才进入下一阶段
+
+**涉及文件**:
+- `src/kcodeView/KCodePanel.ts` — 添加 `executeFinished` 状态追踪、`parseTaskUpdate()` 拦截 AI 自动迁移、`handleConfirmExecuteDone()` / `handleConfirmGoalFromHeader()` 处理器、HTML header 新增 goal/execute 确认按钮
+- `src/kcodeView/webview/app.ts` — `updateTaskInfo()` 新增 goal/execute 阶段 header 按钮显隐逻辑、`initChat()` 绑定按钮事件
+
+**实现说明**:
+- **拦截 AI 自动迁移**: `parseTaskUpdate()` 禁止 AI 输出的 `lock_goal`, `lock_plan`, `accept`, `reject` 自动触发阶段迁移，必须用户点击确认按钮
+- **execute → review**: AI 输出 `finish_execute` 时不再自动迁移，仅设置 `executeFinished` 标志 → header 显示"确认完成 ✓"按钮 → 用户点击后调用 `handleConfirmExecuteDone()` 完成迁移
+- **goal 阶段**: header 新增"确认目标 ✓"按钮，与 goal 卡片确认按钮功能一致（`handleConfirmGoalFromHeader()` → `handleConfirmGoal()`）
+- **所有阶段按钮**:
+  | 阶段 | 按钮 | 位置 |
+  |------|------|------|
+  | 🎯 goal | 确认目标 ✓ | header + 目标卡片 |
+  | 📋 plan | 确认计划 | header + 计划卡片 |
+  | ⚡ execute | 确认完成 ✓ | header |
+  | ✅ review | 验收通过 ✓ / 驳回 ↩ | 验收卡片 |
+- 即使 AI 未输出协议标记，用户仍可通过 header 按钮手动推进阶段
 
 **状态**: ✅ 已完成
 

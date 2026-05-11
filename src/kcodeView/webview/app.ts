@@ -143,6 +143,12 @@ function initMessageHandler() {
             case 'generationState':
                 handleGenerationState(message.isGenerating);
                 break;
+            case 'showPlanProposal':
+                handleShowPlanProposal(message);
+                break;
+            case 'removePlanProposal':
+                handleRemovePlanProposal();
+                break;
             case 'updateNodePanel':
                 handleNodePanelUpdate(message.nodes, message.taskType);
                 break;
@@ -297,6 +303,21 @@ function initChat() {
     const settingsBtn = document.querySelector('.settings-btn');
     settingsBtn?.addEventListener('click', () => {
         vscode.postMessage({ type: 'openSettings' });
+    });
+
+    const goalConfirmBtn = document.getElementById('goal-confirm-btn');
+    goalConfirmBtn?.addEventListener('click', () => {
+        vscode.postMessage({ type: 'confirmGoalFromHeader', taskId: activeTaskId });
+    });
+
+    const planConfirmBtn = document.getElementById('plan-confirm-btn');
+    planConfirmBtn?.addEventListener('click', () => {
+        vscode.postMessage({ type: 'confirmPlan', taskId: activeTaskId });
+    });
+
+    const executeConfirmBtn = document.getElementById('execute-confirm-btn');
+    executeConfirmBtn?.addEventListener('click', () => {
+        vscode.postMessage({ type: 'confirmExecuteDone', taskId: activeTaskId });
     });
 }
 
@@ -700,11 +721,14 @@ function updateTaskInfo(info: any) {
         goalText.textContent = summary || '目标';
     }
 
-    // Phase badge
+    // Phase badge + phase confirm buttons
     const phaseRow = document.getElementById('task-info-phase');
     const phaseBadge = document.getElementById('task-phase-badge');
+    const goalConfirmBtn = document.getElementById('goal-confirm-btn');
+    const planConfirmBtn = document.getElementById('plan-confirm-btn');
+    const executeConfirmBtn = document.getElementById('execute-confirm-btn');
     if (phaseRow && phaseBadge) {
-        const hasPhase = info.taskType === 'task' && info.phase && info.status !== 'cancelled';
+        const hasPhase = info.taskType === 'task' && info.phase && info.status !== 'cancelled' && info.status !== 'completed';
         phaseRow.classList.toggle('hidden', !hasPhase);
         if (hasPhase) {
             const phaseEmojis: Record<string, string> = {
@@ -712,6 +736,18 @@ function updateTaskInfo(info: any) {
             };
             const emoji = phaseEmojis[info.phase] || '';
             phaseBadge.textContent = `${emoji} ${info.phaseLabel || info.phase}`;
+        }
+        if (goalConfirmBtn) {
+            const isGoalPhase = info.taskType === 'task' && info.phase === 'goal' && info.status !== 'cancelled' && info.status !== 'completed';
+            goalConfirmBtn.classList.toggle('hidden', !isGoalPhase);
+        }
+        if (planConfirmBtn) {
+            const isPlanPhase = info.taskType === 'task' && info.phase === 'plan' && info.status !== 'cancelled' && info.status !== 'completed';
+            planConfirmBtn.classList.toggle('hidden', !isPlanPhase);
+        }
+        if (executeConfirmBtn) {
+            const isExecutePhase = info.taskType === 'task' && info.phase === 'execute' && info.status !== 'cancelled' && info.status !== 'completed';
+            executeConfirmBtn.classList.toggle('hidden', !isExecutePhase);
         }
     }
 
@@ -1207,6 +1243,77 @@ function showGoalConfirmationCard(info: any) {
 
 function removeGoalConfirmationCard() {
     document.querySelectorAll('.msg-card').forEach(el => el.remove());
+}
+
+function handleShowPlanProposal(message: any) {
+    const planSteps = message.planSteps || [];
+    if (planSteps.length === 0) return;
+
+    hideWorkingIndicator();
+
+    const container = document.getElementById('chat-messages')!;
+    const scrollContainer = document.getElementById('chat-scroll')!;
+
+    const existing = container.querySelector('.plan-confirmation-card');
+    if (existing) return;
+
+    const msgDiv = createCardMessageElement(message.taskId);
+    const bubble = msgDiv.querySelector('.msg-bubble')!;
+
+    const stepsHtml = planSteps.map((step: any, i: number) => {
+        const statusIcon = step.status === 'completed' ? '✅' : step.status === 'active' ? '🔄' : '○';
+        return `<div class="plan-step-line"><span class="plan-step-status">${statusIcon}</span><span>${escapeHtml(step.content)}</span></div>`;
+    }).join('');
+
+    const card = createCard({
+        headerHtml: '📋 计划方案',
+        bodyHtml: `<div class="plan-steps-body">${stepsHtml}</div>`,
+        defaultCollapsed: false,
+        borderColor: '#4a8bb5',
+        headerBg: '#1e2d3d',
+        headerColor: '#e0e0e0',
+    });
+    card.classList.add('plan-confirmation-card');
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'msg-card-actions';
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'msg-card-btn primary';
+    confirmBtn.textContent = '确认计划 ✓';
+    confirmBtn.addEventListener('click', () => {
+        actionsDiv.innerHTML = '';
+        const statusEl = document.createElement('div');
+        statusEl.className = 'msg-card-status';
+        statusEl.textContent = '✅ 已确认，开始执行...';
+        actionsDiv.appendChild(statusEl);
+        vscode.postMessage({ type: 'confirmPlan', taskId: message.taskId });
+    });
+
+    const reviseBtn = document.createElement('button');
+    reviseBtn.className = 'msg-card-btn secondary';
+    reviseBtn.textContent = '调整建议 ↩';
+    reviseBtn.addEventListener('click', () => {
+        const card = msgDiv.querySelector('.plan-confirmation-card');
+        if (card) card.remove();
+        msgDiv.remove();
+        vscode.postMessage({ type: 'rejectPlan', taskId: message.taskId });
+    });
+
+    actionsDiv.appendChild(confirmBtn);
+    actionsDiv.appendChild(reviseBtn);
+    card.appendChild(actionsDiv);
+
+    bubble.appendChild(card);
+    appendToChatMessages(msgDiv);
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+}
+
+function handleRemovePlanProposal() {
+    document.querySelectorAll('.plan-confirmation-card').forEach(el => {
+        const msgDiv = el.closest('.chat-msg');
+        if (msgDiv) msgDiv.remove();
+    });
 }
 
 function handleToolCallUpdate(msg: any) {
