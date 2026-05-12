@@ -900,6 +900,12 @@ function updateTaskInfo(info: any) {
         goalRow.classList.toggle('hidden', !hasGoal);
         const summary = (info.goal || '').split('\n')[0].replace(/[*_#`>\[\]]/g, '').trim();
         goalText.textContent = summary || '目标';
+        if (hasGoal) {
+            const scrollContainer = document.getElementById('chat-scroll');
+            if (scrollContainer) {
+                scrollContainer.classList.remove('chat-empty');
+            }
+        }
     }
 
     // Phase badge + phase confirm buttons
