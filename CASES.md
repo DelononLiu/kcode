@@ -262,3 +262,52 @@ const agentUrl = config.get<string>('agentUrl') || '';
 - **嵌套 flex 的交叉轴尺寸在首帧不稳定**：`flex-basis: 0%` → 元素从 0 开始增长 → 交叉轴对齐基于当前（未收敛）宽度计算。若需确定宽度，应使用 `width: 100%` + `min-height: 100%` 而非 `flex: 1`
 - **滚动容器子元素分类**：内容区（允许滚动）和输入区（固定底部）必须分属不同父级子节点，不能共用一个可滚动容器
 - **`text-align` vs `flex` 对齐**：简单水平对齐用 `text-align` 即可，无需引入 flex 布局，减少首帧不确定性
+
+---
+
+## case004 — ACP 流式响应尾部数据丢失
+
+**分类**: `case:acp-protocol` `case:race-condition` `case:streaming`
+
+**严重程度**: 高
+
+### 问题描述
+
+`[TASK_UPDATE]` 块尾部数据丢失——ACP 日志中 CONFIRMED 最后一项、PENDING 段和 `[/TASK_UPDATE]` 闭合标签完全消失，但 opencode agent 实际输出了完整内容。
+
+### 根因
+
+两条独立 async 路径的竞态：Agent 侧 `sdk.session.prompt()` 和 `sdk.global.event()` 事件循环无同步机制。`prompt()` resolve 时事件循环可能尚未处理完最后几条 `message.part.delta`。同时 SDK 的 `sendMessage` 用 Promise 链写队列：
+
+```
+async sendMessage(message) {
+    this.writeQueue = this.writeQueue
+        .then(async () => { await writer.write(message) })
+        .catch(...)   // 返回 undefined，不等 then 完成
+}
+```
+
+`.then()` 排入微任务即 resolve，不等实际写入 stdio 完成。导致最后几条 `agent_message_chunk` 在 `session/prompt` 响应之后才实际发出。
+
+客户端 `AcpClient.prompt()` 在 `connection.prompt()` resolve 后立即 `removeSessionHandler()`，后续到达的 `sessionUpdate` 通知因 handler 已空被丢弃。
+
+### 解决方案
+
+在 `removeSessionHandler` 前加 200ms 缓冲窗口：
+
+```typescript
+const result = await this.connection.prompt({...});
+// 200ms 缓冲：让 straggler agent_message_chunk 通知有时间到达
+await new Promise(resolve => setTimeout(resolve, 200));
+this.kcodeClient?.removeSessionHandler(sessionId);
+handler.onDone(result.stopReason || 'end_turn');
+```
+
+为什么 200ms：Agent 写队列排空通常在亚毫秒级；流式渲染已在 WebView 实时展示，不影响体验。
+
+### 教训
+
+- ACP SDK 的 `sendMessage` Promise 链不等实际写入完成就 resolve——`session/prompt` 响应不保证所有前置 `session/update` 通知已处理完毕
+- 客户端不应假设 `prompt()` resolve 时流式数据已全部到达，需额外缓冲窗口
+- ACP 日志中 `[TASK_UPDATE]` 块不完整（缺尾部闭合标签）是流式尾部丢数据的典型信号
+- 理想修复在 Agent 侧（await 写队列排空再返回 prompt），但 KCode 无法控制 Agent 代码，客户端缓冲是务实的防御方案

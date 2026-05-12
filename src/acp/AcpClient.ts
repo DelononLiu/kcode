@@ -140,6 +140,12 @@ export class AcpClient {
                 ],
             });
 
+            // Grace period: 等待 straggler sessionUpdate 通知到达后再回调
+            // opencode ACP agent 的事件循环可能在 prompt() resolve 后才
+            // 处理完最后几条 message.part.delta，导致最后几个 agent_message_chunk
+            // 通知在 prompt 响应之后到达。200ms 缓冲确保它们不被丢弃。
+            await new Promise(resolve => setTimeout(resolve, 200));
+
             this.kcodeClient?.removeSessionHandler(sessionId);
 
             handler.onDone(result.stopReason || 'end_turn');
