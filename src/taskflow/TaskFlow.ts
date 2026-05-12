@@ -8,6 +8,8 @@ import { EXECUTE_PROMPT } from './prompts/execute';
 import { REVIEW_PROMPT } from './prompts/review';
 import { SELF_VERIFY_PROMPT } from './prompts/self_verify';
 
+import { getTemplate } from './templates';
+
 export interface ITaskStore {
     getTask(taskId: string): Task | undefined;
     updateTaskPhase(taskId: string, phase: Task['phase']): void;
@@ -435,14 +437,34 @@ export class TaskFlow {
     }
 
     private buildPhasePrompt(task: Task): string {
-        switch (task.phase) {
-            case 'demand':  return DEMAND_PROMPT;
-            case 'goal':    return GOAL_PROMPT;
-            case 'plan':    return PLAN_PROMPT;
-            case 'execute':     return EXECUTE_PROMPT;
-            case 'self_verify': return SELF_VERIFY_PROMPT;
-            case 'review':      return REVIEW_PROMPT;
-            default:        return '';
+        const basePrompt = (() => {
+            switch (task.phase) {
+                case 'demand':  return DEMAND_PROMPT;
+                case 'goal':    return GOAL_PROMPT;
+                case 'plan':    return PLAN_PROMPT;
+                case 'execute':     return EXECUTE_PROMPT;
+                case 'self_verify': return SELF_VERIFY_PROMPT;
+                case 'review':      return REVIEW_PROMPT;
+                default:        return '';
+            }
+        })();
+
+        if (task.category && task.subType) {
+            const template = getTemplate(task.category, task.subType);
+            if (template) {
+                const extraParts: string[] = [];
+                if (task.phase === 'plan' && template.analysisFramework) {
+                    extraParts.push(`【分析框架】\n${template.analysisFramework}`);
+                }
+                if (task.phase === 'execute' && template.executionHints.length > 0) {
+                    extraParts.push(`【执行约束】\n${template.executionHints.map((h, i) => `${i + 1}. ${h}`).join('\n')}`);
+                }
+                if (extraParts.length > 0) {
+                    return basePrompt + '\n\n' + extraParts.join('\n\n');
+                }
+            }
         }
+
+        return basePrompt;
     }
 }

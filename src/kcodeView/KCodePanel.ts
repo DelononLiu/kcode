@@ -7,6 +7,7 @@ import { AcpClient } from '../acp/AcpClient';
 import { FakeAgent } from '../acp/FakeAgent';
 import { OpenAIAgent } from '../acp/OpenAIAgent';
 import { classifyIntent } from '../acp/intentUtils';
+import { getCategories, getTemplate } from '../taskflow/templates';
 import type { Task, FileChange, ProgressNode } from '../types';
 
 export class KCodePanel {
@@ -86,6 +87,11 @@ export class KCodePanel {
             maxTask: config.get<number>('acpLogMaxTask', 2000),
         });
 
+        this.panel.webview.postMessage({
+            type: 'updateCategoryDefs',
+            categories: getCategories()
+        });
+
         this.ensureConnection();
 
         this.panel.onDidDispose(() => {
@@ -97,7 +103,7 @@ export class KCodePanel {
         this.panel.webview.onDidReceiveMessage(async (message: any) => {
             switch (message.type) {
                 case 'sendMessage':
-                    await this.handleSendMessage(message.text, message.taskId);
+                    await this.handleSendMessage(message.text, message.taskId, message.category, message.subType);
                     break;
                 case 'confirmGoal':
                     await this.handleConfirmGoal(message.taskId, message.originalRequest);
@@ -146,7 +152,7 @@ export class KCodePanel {
         }, null, this.context.subscriptions);
     }
 
-    private async handleSendMessage(text: string, taskId?: string) {
+    private async handleSendMessage(text: string, taskId?: string, category?: string, subType?: string) {
         const tid = taskId || this.currentTaskId;
         console.log('[KCode] handleSendMessage called, text:', text, 'tid:', tid, 'agentReady:', this.agentReady, 'acpClient:', !!this.acpClient, 'fakeAgent:', !!this.fakeAgent);
         if (!tid) return;
@@ -155,8 +161,14 @@ export class KCodePanel {
         const task = this.store.getTask(tid);
         if (!task) return;
 
+        // Store category/subType if provided (from template-based task creation)
+        if (category && subType) {
+            this.store.updateTaskCategory(tid, category as any);
+            this.store.updateTaskSubType(tid, subType);
+        }
+
         const isFirstMessage = this.store.getMessages(tid).length === 0;
-        const intent = isFirstMessage ? classifyIntent(text) : 'task';
+        const intent = category ? 'task' : (isFirstMessage ? classifyIntent(text) : 'task');
         const hasGoal = !!task.goal;
 
         // Set task type early so buildPrompt can route by type
@@ -184,11 +196,17 @@ export class KCodePanel {
 
         if (isFirstMessage) {
             this.store.updateTaskNodeMessageId(tid, 'demand', userMsgId);
-            // Only override default title for fresh tasks (imported tasks already have proper title)
             if (task.title === 'New Task') {
-                const prefix = intent === 'task' ? 'Task: ' : 'Chat: ';
-                const rawTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
-                this.store.updateTaskTitle(tid, prefix + rawTitle);
+                if (category && subType) {
+                    const template = getTemplate(category as any, subType);
+                    const label = template?.label || subType;
+                    const rawTitle = text.length > 27 ? text.substring(0, 27) + '...' : text;
+                    this.store.updateTaskTitle(tid, `${label}: ${rawTitle}`);
+                } else {
+                    const prefix = intent === 'task' ? 'Task: ' : 'Chat: ';
+                    const rawTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
+                    this.store.updateTaskTitle(tid, prefix + rawTitle);
+                }
             }
             this.refreshSidebarCallback?.();
             this.sendTaskInfo(tid);
@@ -819,12 +837,20 @@ export class KCodePanel {
 
         this.store.storeReviewChanges(tid, changes);
 
+        const task = this.store.getTask(tid);
+        let acceptanceCriteria: string[] | undefined;
+        if (task?.category && task?.subType) {
+            const template = getTemplate(task.category, task.subType);
+            acceptanceCriteria = template?.acceptanceCriteria;
+        }
+
         this.panel.webview.postMessage({
             type: 'loadMessages',
             messages: this.store.getMessages(tid),
             taskId: tid,
             taskStatus: 'in_review',
-            reviewChanges: changes.length > 0 ? changes : undefined
+            reviewChanges: changes.length > 0 ? changes : undefined,
+            acceptanceCriteria
         });
 
         this.sendNodePanelUpdate(tid);
@@ -1285,6 +1311,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-area:has(#chat-scroll.chat-empty) #chat-body{display:none}
 #chat-area:has(#chat-scroll.chat-empty) #chat-input-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-top:none;gap:8px}
 #chat-area:has(#chat-scroll.chat-empty) #chat-input-area .input-wrapper{width:100%;max-width:900px}
+#chat-body.showing-categories #chat-scroll{display:flex;align-items:center;justify-content:center}
+#chat-body.showing-categories #chat-messages{padding:0;width:100%;max-width:480px;min-height:auto}
 
 /* === Chat Header === */
 #chat-header{flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -1530,6 +1558,40 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 @keyframes tl-pulse{0%{box-shadow:0 0 0 0 rgba(74,139,181,.4)}70%{box-shadow:0 0 0 6px rgba(74,139,181,0)}100%{box-shadow:0 0 0 0 rgba(74,139,181,0)}}
 .msg-highlight{animation:msg-highlight-fade 1.5s ease-out}
 @keyframes msg-highlight-fade{0%{background:rgba(78,201,176,.1);border-left:2px solid #4ec9b0}100%{background:transparent;border-left:2px solid transparent}}
+
+/* === Category Selection === */
+.category-hint{text-align:center;font-size:13px;color:#666;padding:16px 0 12px}
+.category-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 16px;max-width:460px;margin:0 auto}
+.category-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px 12px;background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:8px;cursor:pointer;transition:border-color .2s,background .2s}
+.category-card:hover{background:#2a2a30;border-color:rgba(255,255,255,.12)}
+.category-card .cat-icon{font-size:28px;line-height:1}
+.category-card .cat-label{font-size:13px;color:#d2d2d4;font-weight:500}
+.category-header{display:flex;align-items:center;gap:8px;padding:8px 16px;font-size:13px;color:#d2d2d4;flex-shrink:0}
+.category-back-btn{background:none;border:1px solid rgba(255,255,255,.08);color:#888;cursor:pointer;font-size:12px;padding:2px 8px;border-radius:4px;font-family:inherit;transition:color .2s,border-color .2s}
+.category-back-btn:hover{color:#ddd;border-color:rgba(255,255,255,.2)}
+.category-title{font-weight:500;font-size:13px}
+.subtype-list{display:flex;flex-direction:column;gap:6px;padding:0 16px 16px;max-width:460px;margin:0 auto}
+.subtype-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;cursor:pointer;transition:border-color .2s,background .2s}
+.subtype-item:hover{background:#2a2a30;border-color:rgba(78,201,176,.2)}
+.subtype-item .st-icon{font-size:18px;line-height:1;flex-shrink:0}
+.subtype-item .st-label{font-size:13px;color:#d2d2d4}
+.template-form{display:flex;flex-direction:column;gap:10px;padding:8px 16px 4px;max-width:460px;margin:0 auto}
+.form-field-group{display:flex;flex-direction:column;gap:4px}
+.form-field-label{font-size:12px;color:#aaa;font-weight:500}
+.form-field-required{color:#e06060}
+.form-field-input,.form-field-textarea{width:100%;background:#1e1e22;border:1px solid rgba(255,255,255,.08);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:13px;padding:7px 10px;outline:none;resize:vertical;transition:border-color .15s}
+.form-field-input:focus,.form-field-textarea:focus{border-color:rgba(78,201,176,.3)}
+.form-field-textarea{min-height:52px;line-height:1.4}
+.form-btn-row{display:flex;justify-content:center;padding:8px 16px 16px;max-width:460px;margin:0 auto}
+.start-task-btn{background:#4a8bb5;color:#fff;border:none;border-radius:6px;padding:8px 28px;font-size:14px;cursor:pointer;font-family:inherit;font-weight:500;transition:background .2s}
+.start-task-btn:hover{background:#5a9bc8}
+
+/* === Review Acceptance Criteria === */
+.review-criteria{padding:8px 0 0;margin-top:8px;border-top:1px solid rgba(255,255,255,.06)}
+.review-criteria-label{font-size:11px;color:#888;padding:2px 0 6px}
+.review-criteria-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#aaa;padding:2px 0;cursor:pointer}
+.review-criteria-item:hover{color:#ddd}
+.criteria-checkbox{accent-color:#4a9eff;cursor:pointer;flex-shrink:0}
 `;
     }
 
@@ -1577,12 +1639,18 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         const messages = this.store.getMessages(taskId);
         const task = this.store.getTask(taskId);
         const reviewChanges = this.store.getReviewChanges(taskId);
+        let acceptanceCriteria: string[] | undefined;
+        if (task?.category && task?.subType && task?.status === 'in_review') {
+            const template = getTemplate(task.category, task.subType);
+            acceptanceCriteria = template?.acceptanceCriteria;
+        }
         this.panel.webview.postMessage({
             type: 'loadMessages',
             messages,
             taskId,
             taskStatus: task?.status,
-            reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined
+            reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined,
+            acceptanceCriteria
         });
     }
 

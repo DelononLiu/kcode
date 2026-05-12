@@ -751,3 +751,33 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 - 不暴露 token 到日志或 UI
 
 **状态**: ✅ 已完成
+
+---
+
+## Phase 10 — 五阶段流程之上
+
+### P10-01: 任务类型分类 + 模板系统
+
+**涉及文件**: _待调研_
+**调研步骤**:
+1. 读 PROJECT.md 确认现有 Task 类型定义和 5 阶段流程
+2. 读 types/index.ts 确认 Task interface
+3. 读 KCodePanel.ts 确认空闲态渲染逻辑和消息处理
+4. 读 app.ts 确认 WebView 侧交互
+5. 读 TaskFlow.ts 确认 buildPrompt 和 review 流程
+
+**调研结果**:
+1. **分类层级**: Task 新增 `category?: TaskCategory` + `subType?: string`，4 大类 × 5 子类，存量 task 不受影响
+2. **新建页布局**: 复用电 `#chat-area:has(#chat-scroll.chat-empty)` CSS 规则，在空闲态展示分类选择卡片 + 模板输入表单，新增 `selectTaskType` 消息
+3. **模板系统**: 纯数据文件 `src/taskflow/templates.ts`，每个子类型定义 `inputFields`/`analysisFramework`/`executionHints`/`acceptanceCriteria` 4 个注入点，不改 5 阶段引擎
+4. 3 个需求全部可行，实现顺序：分类层级 + 模板数据（无依赖）→ UI 改造
+
+**涉及文件**:
+- `src/types/index.ts` — 新增 `TaskCategory`、`InputField`、`TaskTemplate`、`CategoryDef` 类型 + Task 加 category/subType
+- `src/taskflow/templates.ts` — **新建**，定义全部 20 个子类型模板，导出 `getCategories()` / `getTemplate()`
+- `src/store/TaskStore.ts` — 新增 `updateTaskCategory()` / `updateTaskSubType()`
+- `src/kcodeView/KCodePanel.ts` — 空闲态 HTML 渲染分类卡片 + 表单；消息处理 `selectTaskType`；`buildPrompt` 注入模板的 analysisFramework/executionHints；`triggerReviewRequest` 带上 acceptanceCriteria
+- `src/kcodeView/webview/app.ts` — 空闲态渲染分类选择 + 输入表单；新增 `selectTaskType` 消息发送
+- `src/taskflow/TaskFlow.ts` — `buildPrompt` / `buildPhasePrompt` 根据 subType 读取模板内容注入
+
+**状态**: ✅ 已完成

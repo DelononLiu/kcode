@@ -108,6 +108,24 @@ export class TaskStore {
         }
     }
 
+    updateTaskCategory(taskId: string, category: Task['category']): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            tasks[idx].category = category;
+            this.state.update('tasks', tasks);
+        }
+    }
+
+    updateTaskSubType(taskId: string, subType: Task['subType']): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            tasks[idx].subType = subType;
+            this.state.update('tasks', tasks);
+        }
+    }
+
     updateTaskPin(taskId: string, pinned: boolean): void {
         const tasks = this.getTasks();
         const idx = tasks.findIndex(t => t.id === taskId);

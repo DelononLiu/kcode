@@ -1,3 +1,31 @@
+export type TaskCategory = 'requirement_dev' | 'problem_analysis' | 'performance_opt' | 'precision_issue';
+
+export interface InputField {
+    key: string;
+    label: string;
+    type: 'input' | 'textarea';
+    placeholder: string;
+    required: boolean;
+}
+
+export interface TaskTemplate {
+    label: string;
+    icon: string;
+    inputPlaceholder: string;
+    inputFields: InputField[];
+    analysisFramework: string;
+    executionHints: string[];
+    acceptanceCriteria: string[];
+    flowOverride?: Array<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review'>;
+}
+
+export interface CategoryDef {
+    key: TaskCategory;
+    label: string;
+    icon: string;
+    subTypes: Record<string, TaskTemplate>;
+}
+
 export interface PlanStep {
     content: string;
     status: 'pending' | 'active' | 'completed';
@@ -8,6 +36,8 @@ export interface Task {
     title: string;
     goal: string;
     type: 'task' | 'chat';
+    category?: TaskCategory;
+    subType?: string;
     status: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
     phase: 'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
     confirmedItems: string[];

@@ -86,6 +86,7 @@ function initMessageHandler() {
                 if (message.reviewChanges && message.reviewChanges.length > 0) {
                     reviewChangesMap.set(message.taskId, message.reviewChanges);
                 }
+                lastAcceptanceCriteria = message.acceptanceCriteria || null;
                 renderMessages(message.messages);
                 break;
             case 'showFilePreview':
@@ -171,6 +172,13 @@ function initMessageHandler() {
                 if (!message.enabled) {
                     acpLogEntries = [];
                     renderAcpLog();
+                }
+                break;
+            case 'updateCategoryDefs':
+                categoryDefs = message.categories;
+                const scrollContainer = document.getElementById('chat-scroll');
+                if (scrollContainer?.classList.contains('chat-empty')) {
+                    renderCategorySelection();
                 }
                 break;
         }
@@ -302,6 +310,10 @@ const activeToolCallElements: Map<string, HTMLElement> = new Map();
 
 let activeTaskId: string | null = null;
 let activeTaskStatus: string = '';
+let categoryDefs: any[] = [];
+let selectedCategory: string | null = null;
+let selectedSubType: string | null = null;
+let lastAcceptanceCriteria: string[] | null = null;
 
 function initLayout() {
     const rightPanel = document.getElementById('right-panel')!;
@@ -621,15 +633,24 @@ function renderMessages(messages: any[]) {
 
     const inputEl = document.getElementById('chat-input') as HTMLTextAreaElement;
     if (!messages || messages.length === 0) {
-        scrollContainer.classList.add('chat-empty');
-        container.innerHTML = '<div class="chat-placeholder">输入需求，开始与 AI 对话</div>';
-        if (existingIndicator) container.appendChild(existingIndicator);
-        if (inputEl) inputEl.placeholder = '输入需求，开始与 AI 对话';
+        if (categoryDefs.length > 0) {
+            scrollContainer.classList.remove('chat-empty');
+            container.innerHTML = '';
+            renderCategorySelection();
+        } else {
+            scrollContainer.classList.add('chat-empty');
+            container.innerHTML = '<div class="chat-placeholder">输入需求，开始与 AI 对话</div>';
+            if (existingIndicator) container.appendChild(existingIndicator);
+            if (inputEl) inputEl.placeholder = '输入需求，开始与 AI 对话';
+        }
         focusChatInput();
         return;
     }
 
     scrollContainer.classList.remove('chat-empty');
+    document.getElementById('chat-body')?.classList.remove('showing-categories');
+    const chatHeader = document.getElementById('chat-header');
+    if (chatHeader) chatHeader.style.display = '';
     if (inputEl) inputEl.placeholder = '提出后续修改要求';
 
     const changedFilesMap = new Map<number, string[]>();
@@ -648,6 +669,218 @@ function renderMessages(messages: any[]) {
     }
     if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
     focusChatInput();
+}
+
+function getCategoryDef(catKey: string): any {
+    return categoryDefs.find((c: any) => c.key === catKey);
+}
+
+function getTemplateDef(catKey: string, subKey: string): any {
+    const cat = getCategoryDef(catKey);
+    return cat?.subTypes?.[subKey];
+}
+
+function renderCategorySelection() {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+    container.innerHTML = '';
+    const chatHeader = document.getElementById('chat-header');
+    if (chatHeader) chatHeader.style.display = 'none';
+    document.getElementById('chat-body')?.classList.add('showing-categories');
+
+    if (!selectedCategory) {
+        const grid = document.createElement('div');
+        grid.className = 'category-grid';
+
+        for (const cat of categoryDefs) {
+            const card = document.createElement('div');
+            card.className = 'category-card';
+            card.innerHTML = `<span class="cat-icon">${cat.icon}</span><span class="cat-label">${cat.label}</span>`;
+            card.addEventListener('click', () => {
+                selectedCategory = cat.key;
+                renderCategorySelection();
+            });
+            grid.appendChild(card);
+        }
+
+        const hint = document.createElement('div');
+        hint.className = 'category-hint';
+        hint.textContent = '请选择任务类型';
+
+        container.appendChild(hint);
+        container.appendChild(grid);
+        return;
+    }
+
+    if (!selectedSubType) {
+        const cat = getCategoryDef(selectedCategory);
+        if (!cat) return;
+
+        const header = document.createElement('div');
+        header.className = 'category-header';
+
+        const backBtn = document.createElement('button');
+        backBtn.className = 'category-back-btn';
+        backBtn.textContent = '← 返回';
+        backBtn.addEventListener('click', () => {
+            selectedCategory = null;
+            renderCategorySelection();
+        });
+
+        const title = document.createElement('span');
+        title.className = 'category-title';
+        title.textContent = cat.icon + ' ' + cat.label;
+
+        header.appendChild(backBtn);
+        header.appendChild(title);
+        container.appendChild(header);
+
+        const list = document.createElement('div');
+        list.className = 'subtype-list';
+
+        for (const [key, st] of Object.entries(cat.subTypes)) {
+            const t = st as any;
+            const item = document.createElement('div');
+            item.className = 'subtype-item';
+            item.innerHTML = `<span class="st-icon">${t.icon}</span><span class="st-label">${t.label}</span>`;
+            item.addEventListener('click', () => {
+                selectedSubType = key;
+                renderCategorySelection();
+            });
+            list.appendChild(item);
+        }
+
+        container.appendChild(list);
+        return;
+    }
+
+    const cat = getCategoryDef(selectedCategory);
+    const template = cat?.subTypes?.[selectedSubType];
+    if (!template) return;
+
+    const scrollContainer = document.getElementById('chat-scroll');
+    if (scrollContainer) scrollContainer.classList.remove('chat-empty');
+
+    const header = document.createElement('div');
+    header.className = 'category-header';
+
+    const backBtn = document.createElement('button');
+    backBtn.className = 'category-back-btn';
+    backBtn.textContent = '← 返回';
+    backBtn.addEventListener('click', () => {
+        selectedSubType = null;
+        renderCategorySelection();
+    });
+
+    const title = document.createElement('span');
+    title.className = 'category-title';
+    title.textContent = `${cat.icon} ${cat.label} › ${template.icon} ${template.label}`;
+
+    header.appendChild(backBtn);
+    header.appendChild(title);
+    container.appendChild(header);
+
+    const form = document.createElement('div');
+    form.className = 'template-form';
+
+    const formFields: Record<string, string> = {};
+
+    for (const field of (template.inputFields || [])) {
+        const fieldGroup = document.createElement('div');
+        fieldGroup.className = 'form-field-group';
+
+        const label = document.createElement('label');
+        label.className = 'form-field-label';
+        label.textContent = field.label;
+        if (field.required) {
+            const req = document.createElement('span');
+            req.className = 'form-field-required';
+            req.textContent = ' *';
+            label.appendChild(req);
+        }
+        fieldGroup.appendChild(label);
+
+        let input: HTMLInputElement | HTMLTextAreaElement;
+        if (field.type === 'textarea') {
+            input = document.createElement('textarea');
+            input.className = 'form-field-textarea';
+            input.rows = 3;
+        } else {
+            input = document.createElement('input');
+            input.className = 'form-field-input';
+            input.type = 'text';
+        }
+        input.placeholder = field.placeholder;
+        input.dataset.fieldKey = field.key;
+        input.addEventListener('input', () => {
+            formFields[field.key] = input.value;
+        });
+
+        fieldGroup.appendChild(input);
+        form.appendChild(fieldGroup);
+    }
+
+    const notesField = document.createElement('div');
+    notesField.className = 'form-field-group';
+    const notesLabel = document.createElement('label');
+    notesLabel.className = 'form-field-label';
+    notesLabel.textContent = '补充说明（可选）';
+    notesField.appendChild(notesLabel);
+    const notesInput = document.createElement('textarea');
+    notesInput.className = 'form-field-textarea';
+    notesInput.rows = 2;
+    notesInput.placeholder = '额外的说明和上下文...';
+    notesField.appendChild(notesInput);
+    form.appendChild(notesField);
+
+    container.appendChild(form);
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'form-btn-row';
+
+    const startBtn = document.createElement('button');
+    startBtn.className = 'start-task-btn';
+    startBtn.textContent = '开始任务';
+    startBtn.addEventListener('click', () => {
+        startTaskFromForm(template, formFields, notesInput.value);
+    });
+
+    btnRow.appendChild(startBtn);
+    container.appendChild(btnRow);
+
+    const inputHint = document.getElementById('chat-input') as HTMLTextAreaElement;
+    if (inputHint) {
+        inputHint.placeholder = template.inputPlaceholder || '描述需求...';
+    }
+}
+
+function startTaskFromForm(template: any, formFields: Record<string, string>, notes: string) {
+    const parts: string[] = [];
+    for (const field of (template.inputFields || [])) {
+        const val = formFields[field.key] || '';
+        if (val.trim()) {
+            parts.push(`${field.label}：${val.trim()}`);
+        }
+    }
+    if (notes.trim()) {
+        parts.push(`补充说明：${notes.trim()}`);
+    }
+    const text = parts.join('\n\n');
+
+    vscode.postMessage({
+        type: 'sendMessage',
+        text,
+        taskId: activeTaskId,
+        category: selectedCategory,
+        subType: selectedSubType
+    });
+
+    selectedCategory = null;
+    selectedSubType = null;
+    categoryDefs = [];
+
+    const input = document.getElementById('chat-input') as HTMLTextAreaElement;
+    if (input) input.placeholder = '提出后续修改要求';
 }
 
 function focusChatInput() {
@@ -743,6 +976,25 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
             const list = createReviewChangesElement(changes, taskId);
             const body = card.querySelector('.msg-card-body');
             if (body) body.appendChild(list);
+        }
+
+        if (lastAcceptanceCriteria && lastAcceptanceCriteria.length > 0) {
+            const body = card.querySelector('.msg-card-body');
+            if (body) {
+                const criteriaEl = document.createElement('div');
+                criteriaEl.className = 'review-criteria';
+                const label = document.createElement('div');
+                label.className = 'review-criteria-label';
+                label.textContent = '📋 验收清单';
+                criteriaEl.appendChild(label);
+                for (const c of lastAcceptanceCriteria) {
+                    const item = document.createElement('label');
+                    item.className = 'review-criteria-item';
+                    item.innerHTML = `<input type="checkbox" class="criteria-checkbox"> ${escapeHtml(c)}`;
+                    criteriaEl.appendChild(item);
+                }
+                body.appendChild(criteriaEl);
+            }
         }
 
         const isPending = msg.type === 'review_request';
