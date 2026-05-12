@@ -1345,6 +1345,11 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .chat-msg .msg-bubble ul,.chat-msg .msg-bubble ol{margin:.3em 0;padding-left:1.5em}
 .chat-msg .msg-bubble li{margin:.1em 0}
 .chat-msg .msg-bubble hr{margin:.6em 0;border:none;border-top:1px solid rgba(255,255,255,.06)}
+.chat-msg .msg-bubble table{border-collapse:collapse;margin:8px 0;font-size:13px}
+.chat-msg .msg-bubble th,.chat-msg .msg-bubble td{text-align:left;padding:5px 10px;line-height:1.5}
+.chat-msg .msg-bubble thead th{font-weight:600;color:#e0e0e0;border-bottom:2px solid rgba(255,255,255,.1)}
+.chat-msg .msg-bubble tbody tr{border-bottom:1px solid rgba(255,255,255,.06)}
+.chat-msg .msg-bubble tbody tr:last-child{border-bottom:none}
 .chat-msg.user .msg-bubble{display:inline-block;text-align:left;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px 14px;background:rgba(255,255,255,.02);max-width:80%;line-height:1.5}
 .chat-msg .msg-bubble code{font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12.5px;color:#d69d85;background:rgba(255,255,255,.04);padding:1px 5px;border-radius:3px}
 .chat-msg .msg-bubble pre code{color:inherit;background:transparent;padding:0;border-radius:0;font-size:12.5px}
