@@ -157,16 +157,17 @@ export class KCodePanel {
 
         const isFirstMessage = this.store.getMessages(tid).length === 0;
         const intent = isFirstMessage ? classifyIntent(text) : 'task';
+        const hasGoal = !!task.goal;
 
         // Set task type early so buildPrompt can route by type
-        if (isFirstMessage) {
+        if (isFirstMessage && !hasGoal) {
             this.store.updateTaskType(tid, intent);
             if (intent === 'chat') {
                 this.store.updateTaskStatus(tid, 'active');
             }
         }
 
-        const isGoalFormatting = isFirstMessage && task.status === 'pending' && intent === 'task';
+        const isGoalFormatting = isFirstMessage && task.status === 'pending' && intent === 'task' && !hasGoal;
         const promptText = isFirstMessage
             ? this.taskFlow.buildInitialPrompt(tid, text)
             : this.taskFlow.buildPhaseTransitionPrompt(tid, text);
@@ -183,9 +184,12 @@ export class KCodePanel {
 
         if (isFirstMessage) {
             this.store.updateTaskNodeMessageId(tid, 'demand', userMsgId);
-            const prefix = intent === 'task' ? 'Task: ' : 'Chat: ';
-            const rawTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
-            this.store.updateTaskTitle(tid, prefix + rawTitle);
+            // Only override default title for fresh tasks (imported tasks already have proper title)
+            if (task.title === 'New Task') {
+                const prefix = intent === 'task' ? 'Task: ' : 'Chat: ';
+                const rawTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
+                this.store.updateTaskTitle(tid, prefix + rawTitle);
+            }
             this.refreshSidebarCallback?.();
             this.sendTaskInfo(tid);
             this.sendNodePanelUpdate(tid);
@@ -1537,6 +1541,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         this.sendTaskInfo(taskId);
         this.sendNodePanelUpdate(taskId);
         this.ensureSession(taskId);
+    }
+
+    autoSendGoal(taskId: string, text: string) {
+        this.handleSendMessage(text, taskId);
     }
 
     private sendTaskInfo(taskId: string) {

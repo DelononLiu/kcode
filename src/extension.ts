@@ -9,7 +9,7 @@ let panel: KCodePanel | undefined;
 let store: TaskStore | undefined;
 let sidebarProvider: KCodeSidebarProvider | undefined;
 
-function openTaskInPanel(context: vscode.ExtensionContext, taskId: string) {
+function openTaskInPanel(context: vscode.ExtensionContext, taskId: string, autoSendGoal?: string) {
     if (panel) {
         panel.reveal();
         panel.loadTask(taskId);
@@ -22,6 +22,9 @@ function openTaskInPanel(context: vscode.ExtensionContext, taskId: string) {
         panel.focusInput();
     }
     refreshSidebar();
+    if (autoSendGoal) {
+        panel.autoSendGoal(taskId, autoSendGoal);
+    }
 }
 
 function refreshSidebar() {
@@ -98,7 +101,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const importGitHubCmd = vscode.commands.registerCommand('kcode.importGitHubIssue', async () => {
         if (!store) return;
-        await importGitHubIssue(store, (taskId) => openTaskInPanel(context, taskId), refreshSidebar);
+        await importGitHubIssue(store, (taskId, goal) => openTaskInPanel(context, taskId, goal), refreshSidebar);
     });
 
     context.subscriptions.push(openCmd, newTaskCmd, importGitHubCmd);

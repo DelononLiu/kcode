@@ -211,7 +211,7 @@ async function fetchGitHubIssue(
 
 export async function importGitHubIssue(
     store: TaskStore,
-    openTask: (taskId: string) => void,
+    openTask: (taskId: string, autoSendGoal?: string) => void,
     refreshSidebar: () => void
 ): Promise<void> {
     output.appendLine('--- importGitHubIssue started ---');
@@ -254,6 +254,27 @@ export async function importGitHubIssue(
     output.appendLine(`Body length: ${issue.body.length}`);
     output.appendLine(`Body preview: ${JSON.stringify(issue.body.slice(0, 300))}`);
 
+    const bodyPreview = issue.body.length > 500 ? issue.body.slice(0, 500) + '\n...' : issue.body;
+    const confirmAction = await vscode.window.showInformationMessage(
+        `确认导入 Issue`,
+        {
+            modal: true,
+            detail: [
+                `标题: ${issue.title}`,
+                `来源: ${parsed.owner}/${parsed.repo}#${parsed.issueNumber}`,
+                `链接: ${issue.html_url}`,
+                ``,
+                bodyPreview
+            ].join('\n')
+        },
+        '确认导入',
+        '取消'
+    );
+    if (confirmAction !== '确认导入') {
+        output.appendLine('User cancelled import confirmation');
+        return;
+    }
+
     const source: TaskSource = {
         type: 'github_issue',
         url: issue.html_url,
@@ -278,5 +299,6 @@ export async function importGitHubIssue(
     store.addTask(task);
     output.appendLine(`Task created: ${task.id}`);
     refreshSidebar();
-    openTask(task.id);
+    const initialMsg = `GH#${parsed.issueNumber}: ${issue.title}\n\n${issue.body}`;
+    openTask(task.id, initialMsg);
 }
