@@ -279,6 +279,8 @@ function initLayout() {
     const closeBtn = document.getElementById('right-panel-close')!;
     closeBtn.addEventListener('click', () => {
         rightPanel.classList.toggle('hidden');
+        const acpLogBtn = document.getElementById('acp-log-btn');
+        acpLogBtn?.classList.remove('active');
     });
 }
 
@@ -302,6 +304,11 @@ function initTabs() {
             btn.classList.add('active');
             const content = document.getElementById(`tab-${tabName}`);
             if (content) content.classList.add('active');
+
+            const acpLogBtn = document.getElementById('acp-log-btn');
+            if (tabName !== 'acplog') {
+                acpLogBtn?.classList.remove('active');
+            }
         });
     });
 }
@@ -379,9 +386,15 @@ function initChat() {
     const acpLogBtn = document.getElementById('acp-log-btn');
     acpLogBtn?.addEventListener('click', () => {
         const rp = document.getElementById('right-panel');
-        if (rp) {
+        if (!rp) return;
+        const acpTab = document.querySelector('.tab[data-tab="acplog"]');
+        if (!rp.classList.contains('hidden') && acpTab?.classList.contains('active')) {
+            rp.classList.add('hidden');
+            acpLogBtn.classList.remove('active');
+        } else {
             rp.classList.remove('hidden');
             activateTab('acplog');
+            acpLogBtn.classList.add('active');
         }
     });
 
