@@ -304,7 +304,7 @@ export class KCodePanel {
             reasoningText = '';
             this.flushAcpRecvBuffer();
             if (full) {
-                this.sendAcpLog(tid, 'recv', `[REASONING]\n${full}`);
+                this.sendAcpLog(tid, 'recv', full);
                 this.flushAcpRecvBuffer();
             }
             sendToolCallUpdate(currentReasoningId, '推理过程', 'thinking', 'completed', full);
