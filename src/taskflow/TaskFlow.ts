@@ -51,6 +51,7 @@ export class TaskFlow {
     private delegate: TaskFlowDelegate;
 
     private planProposed: Map<string, boolean> = new Map();
+    private goalProposed: Map<string, boolean> = new Map();
     private executeFinished: Map<string, boolean> = new Map();
     private selfVerifyFinished: Map<string, boolean> = new Map();
     private accumulatedText: Map<string, string> = new Map();
@@ -65,6 +66,7 @@ export class TaskFlow {
         const task = this.store.getTask(taskId);
         if (!task) return;
         this.planProposed.set(taskId, false);
+        this.goalProposed.set(taskId, false);
         this.executeFinished.set(taskId, false);
         this.selfVerifyFinished.set(taskId, false);
         this.accumulatedText.set(taskId, '');
@@ -75,6 +77,7 @@ export class TaskFlow {
         this.accumulatedText.set(taskId, '');
         this.planEntries.set(taskId, []);
         this.planProposed.set(taskId, false);
+        this.goalProposed.set(taskId, false);
         this.executeFinished.set(taskId, false);
         this.selfVerifyFinished.set(taskId, false);
     }
@@ -100,6 +103,10 @@ export class TaskFlow {
 
     isPlanProposed(taskId: string): boolean {
         return this.planProposed.get(taskId) || false;
+    }
+
+    isGoalProposed(taskId: string): boolean {
+        return this.goalProposed.get(taskId) || false;
     }
 
     isExecuteFinished(taskId: string): boolean {
@@ -254,6 +261,7 @@ export class TaskFlow {
                     if (pending) {
                         this.store.updatePendingItems(taskId, pending);
                     }
+                    this.goalProposed.set(taskId, true);
                     this.delegate.onPhaseChanged(taskId);
                 }
                 break;

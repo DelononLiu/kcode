@@ -439,7 +439,9 @@ export class KCodePanel {
                     const task = this.store.getTask(tid);
                     const genResult = this.taskFlow.getGenResult(tid);
 
-                    if (task?.type === 'task' && task?.phase === 'review') {
+                    if (task?.type === 'task' && this.taskFlow.isGoalProposed(tid) && task.phase === 'demand') {
+                        this.taskFlow.processGoalProposal(tid, cleanedText, '', '');
+                    } else if (task?.type === 'task' && task?.phase === 'review') {
                         this.triggerReviewRequest(tid, cleanedText);
                     } else if (genResult.planProposed && task?.type === 'task' && task?.phase === 'plan') {
                         const cardShown = this.showPlanConfirmation(tid);
