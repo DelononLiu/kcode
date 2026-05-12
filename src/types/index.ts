@@ -17,6 +17,7 @@ export interface Task {
     pinned?: boolean;
     archived?: boolean;
     group?: string;
+    source?: TaskSource;
     nodeMessageIds?: Partial<Record<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string>>;
 }
 
@@ -27,6 +28,14 @@ export interface ChatMessage {
     type?: 'text' | 'goal_confirmation' | 'goal_confirmed' | 'goal_updated' | 'plan_proposal' | 'plan_confirmed' | 'review_request' | 'review_approved' | 'review_rejected' | 'tool_call' | 'stop_message';
     content: string;
     timestamp: number;
+}
+
+export interface TaskSource {
+    type: 'github_issue';
+    url: string;
+    owner: string;
+    repo: string;
+    issueNumber: number;
 }
 
 export interface ACPConfig {

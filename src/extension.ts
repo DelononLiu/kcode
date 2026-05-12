@@ -3,6 +3,7 @@ import { KCodePanel } from './kcodeView/KCodePanel';
 import { KCodeSidebarProvider } from './kcodeView/KCodeSidebarProvider';
 import { TaskStore } from './store/TaskStore';
 import { Task } from './types';
+import { importGitHubIssue } from './commands/importGitHubIssue';
 
 let panel: KCodePanel | undefined;
 let store: TaskStore | undefined;
@@ -95,7 +96,12 @@ export function activate(context: vscode.ExtensionContext) {
         openTaskInPanel(context, task.id);
     });
 
-    context.subscriptions.push(openCmd, newTaskCmd);
+    const importGitHubCmd = vscode.commands.registerCommand('kcode.importGitHubIssue', async () => {
+        if (!store) return;
+        await importGitHubIssue(store, (taskId) => openTaskInPanel(context, taskId), refreshSidebar);
+    });
+
+    context.subscriptions.push(openCmd, newTaskCmd, importGitHubCmd);
 }
 
 export function deactivate() {

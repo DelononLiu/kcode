@@ -38,6 +38,13 @@ declare function acquireVsCodeApi(): any;
             });
         }
 
+        const importBtn = document.getElementById('btn-import-issue');
+        if (importBtn) {
+            importBtn.addEventListener('click', () => {
+                vscode.postMessage({ type: 'importGitHubIssue' });
+            });
+        }
+
         const batchClearBtn = document.getElementById('btn-batch-clear');
         if (batchClearBtn) {
             batchClearBtn.addEventListener('click', () => {

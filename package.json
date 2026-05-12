@@ -43,6 +43,10 @@
       {
         "command": "kcode.newTask",
         "title": "Kcode: New Task"
+      },
+      {
+        "command": "kcode.importGitHubIssue",
+        "title": "Kcode: Import GitHub Issue"
       }
     ],
     "configuration": {
@@ -97,6 +101,11 @@
           "type": "number",
           "default": 2000,
           "description": "Maximum ACP log entries per single task."
+        },
+        "kcode.githubToken": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub Personal Access Token, used to increase API rate limit when importing issues."
         }
       }
     }

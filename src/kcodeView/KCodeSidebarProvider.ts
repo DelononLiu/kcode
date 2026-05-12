@@ -124,6 +124,9 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                 case 'toggleRightPanel':
                     this._onToggleRightPanel?.();
                     break;
+                case 'importGitHubIssue':
+                    vscode.commands.executeCommand('kcode.importGitHubIssue');
+                    break;
             }
         });
     }
@@ -563,6 +566,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     <div id="sidebar-content">
         <div class="action-bar">
             <button id="btn-new-task" class="sidebar-btn"><span class="plus-icon">+</span> 新建任务</button>
+            <button id="btn-import-issue" class="sidebar-btn"><span style="font-size:17px;font-weight:700;line-height:1">⤓</span> 导入 Issue</button>
             <button id="btn-toggle-panel" class="sidebar-btn" style="font-size:12px;">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
                     <rect x="1" y="2" width="14" height="10" rx="1"/>

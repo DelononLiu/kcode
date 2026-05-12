@@ -634,12 +634,14 @@ _目标：实现 `<TASK_UPDATE>` 协议驱动的 5 阶段全流程（demand → 
 
 _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完成导入 GitHub Issue 的独立功能，从设计到发布的全流程。_
 
+> **来源 Issue**: [DelononLiu/kcode#1 — 调整 markdown 渲染表格简洁](https://github.com/DelononLiu/kcode/issues/1)
+
 | 任务 | 说明 | 状态 |
 |------|------|------|
-| P9-01 | 导入 GitHub Issue — Task 模型增加 source 字段 | ⬜ 未开始 |
-| P9-02 | 导入 GitHub Issue — 命令 + 侧边栏按钮 + 输入框 | ⬜ 未开始 |
-| P9-03 | 导入 GitHub Issue — GitHub API fetch 实现 | ⬜ 未开始 |
-| P9-04 | 导入 GitHub Issue — rate limit 处理 + token 配置 | ⬜ 未开始 |
+| P9-01 | 导入 GitHub Issue — Task 模型增加 source 字段 | ✅ 已完成 |
+| P9-02 | 导入 GitHub Issue — 命令 + 侧边栏按钮 + 输入框 | ✅ 已完成 |
+| P9-03 | 导入 GitHub Issue — GitHub API fetch 实现 | ✅ 已完成 |
+| P9-04 | 导入 GitHub Issue — rate limit 处理 + token 配置 | ✅ 已完成 |
 
 ---
 
