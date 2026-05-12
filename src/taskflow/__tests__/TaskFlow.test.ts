@@ -200,9 +200,9 @@ describe('完整流程', () => {
     it('走通 demand → goal → plan → execute → review → completed', () => {
         const { flow, store, delegate, pid } = makeFlow();
 
-        // demand: AI 输出 propose_goal
+        // demand: AI 输出 propose_goal（带尾部换行模拟末尾流式）
         flow.processChunk(pid,
-            '[TASK_UPDATE]\nACTION: propose_goal\nCONFIRMED:\n  - 用户登录\n[/TASK_UPDATE]'
+            '[TASK_UPDATE]\nACTION: propose_goal\nCONFIRMED:\n  - 用户登录\n[/TASK_UPDATE]\n'
         );
         expect(store.getTask(pid)!.confirmedItems).toEqual(['用户登录']);
 
