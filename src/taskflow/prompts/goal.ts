@@ -11,10 +11,10 @@ export const GOAL_PROMPT = `当前阶段：目标确认（Goal）
 - 以 [TASK_UPDATE] 标签输出协议（不要放在代码块中）：
 
 [TASK_UPDATE]
-action: propose_goal
-confirmed:
+ACTION: propose_goal
+CONFIRMED:
   - 已锁定的条目1
   - 已锁定的条目2
-pending:
+PENDING:
   - 待讨论的条目
 [/TASK_UPDATE]`;

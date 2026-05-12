@@ -2,8 +2,8 @@ export const PROTOCOL_PROMPT = `[TASK_UPDATE] 协议参考
 
 格式示例：
 [TASK_UPDATE]
-action: propose_plan
-steps:
+ACTION: propose_plan
+STEPS:
   - 步骤1描述
   - 步骤2描述
 [/TASK_UPDATE]

@@ -156,7 +156,7 @@ describe('processChunk', () => {
     it('解析 propose_goal 并更新 store', () => {
         const { flow, store, delegate, pid } = makeFlow({ phase: 'goal' });
         flow.processChunk(pid,
-            '[TASK_UPDATE]\naction: propose_goal\nconfirmed:\n  - 登录\n  - 注册\npending:\n  - 邮箱验证\n[/TASK_UPDATE]'
+            '[TASK_UPDATE]\nACTION: propose_goal\nCONFIRMED:\n  - 登录\n  - 注册\nPENDING:\n  - 邮箱验证\n[/TASK_UPDATE]'
         );
         const t = store.getTask(pid)!;
         expect(t.confirmedItems).toEqual(['登录', '注册']);
@@ -167,7 +167,7 @@ describe('processChunk', () => {
     it('解析 propose_plan 并更新 store', () => {
         const { flow, store, delegate, pid } = makeFlow({ phase: 'plan' });
         flow.processChunk(pid,
-            '[TASK_UPDATE]\naction: propose_plan\nsteps:\n  - 步骤1\n[/TASK_UPDATE]'
+            '[TASK_UPDATE]\nACTION: propose_plan\nSTEPS:\n  - 步骤1\n[/TASK_UPDATE]'
         );
         expect(store.getTask(pid)!.planSteps).toEqual([{ content: '步骤1', status: 'pending' }]);
         expect(delegate.phaseChanged).toContain(pid);
@@ -176,18 +176,19 @@ describe('processChunk', () => {
 
     it('解析 finish_execute 并触发回调', () => {
         const { flow, delegate, pid } = makeFlow({ phase: 'execute' });
-        flow.processChunk(pid, '[TASK_UPDATE]\naction: finish_execute\n[/TASK_UPDATE]');
+        flow.processChunk(pid, '[TASK_UPDATE]\nACTION: finish_execute\n[/TASK_UPDATE]');
         expect(delegate.executeFinished).toContain(pid);
         expect(flow.isExecuteFinished(pid)).toBe(true);
     });
 
-    it('剥离 TASK_UPDATE 标签', () => {
+    it('嵌入文本的 TASK_UPDATE 块不被剥离（独立块约束）', () => {
         const { flow, pid } = makeFlow({ phase: 'goal' });
         const result = flow.processChunk(pid,
-            '文本[TASK_UPDATE]\naction: propose_goal\nconfirmed:\n  - A\n[/TASK_UPDATE]继续'
+            '文本[TASK_UPDATE]\nACTION: propose_goal\nCONFIRMED:\n  - A\n[/TASK_UPDATE]继续'
         );
-        expect(result).not.toContain('[TASK_UPDATE]');
-        expect(result).toBe('文本继续');
+        // 块嵌入句中，不符合独立段落约束，保持原样
+        expect(result).toContain('[TASK_UPDATE]');
+        expect(result).toContain('ACTION: propose_goal');
     });
 });
 
@@ -201,7 +202,7 @@ describe('完整流程', () => {
 
         // demand: AI 输出 propose_goal
         flow.processChunk(pid,
-            '[TASK_UPDATE]\naction: propose_goal\nconfirmed:\n  - 用户登录\n[/TASK_UPDATE]'
+            '[TASK_UPDATE]\nACTION: propose_goal\nCONFIRMED:\n  - 用户登录\n[/TASK_UPDATE]'
         );
         expect(store.getTask(pid)!.confirmedItems).toEqual(['用户登录']);
 
@@ -215,7 +216,7 @@ describe('完整流程', () => {
 
         // plan: AI 输出 propose_plan
         flow.processChunk(pid,
-            '[TASK_UPDATE]\naction: propose_plan\nsteps:\n  - 设计 API\n[/TASK_UPDATE]'
+            '[TASK_UPDATE]\nACTION: propose_plan\nSTEPS:\n  - 设计 API\n[/TASK_UPDATE]'
         );
         expect(flow.isPlanProposed(pid)).toBe(true);
 
@@ -224,7 +225,7 @@ describe('完整流程', () => {
         expect(store.getTask(pid)!.phase).toBe('execute');
 
         // execute: AI 输出 finish_execute
-        flow.processChunk(pid, '[TASK_UPDATE]\naction: finish_execute\n[/TASK_UPDATE]');
+        flow.processChunk(pid, '[TASK_UPDATE]\nACTION: finish_execute\n[/TASK_UPDATE]');
         expect(delegate.executeFinished).toContain(pid);
 
         // confirmExecuteDone → phase = self_verify
@@ -233,7 +234,7 @@ describe('完整流程', () => {
         expect(store.getTask(pid)!.status).toBe('active');
 
         // self_verify: AI 输出 finish_verify
-        flow.processChunk(pid, '[TASK_UPDATE]\naction: finish_verify\n[/TASK_UPDATE]');
+        flow.processChunk(pid, '[TASK_UPDATE]\nACTION: finish_verify\n[/TASK_UPDATE]');
         expect(delegate.selfVerifyFinished).toContain(pid);
 
         // confirmSelfVerifyDone → phase = review

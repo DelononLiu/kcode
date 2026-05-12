@@ -7,7 +7,7 @@ export const SELF_VERIFY_PROMPT = `当前阶段：自验（Self-Verify）
 4. 确认所有产出无误后，输出以下协议标记：
 
 [TASK_UPDATE]
-action: finish_verify
+ACTION: finish_verify
 [/TASK_UPDATE]
 
 注意事项：

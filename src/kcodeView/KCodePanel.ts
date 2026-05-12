@@ -156,7 +156,9 @@ export class KCodePanel {
         }
 
         const isGoalFormatting = isFirstMessage && task.status === 'pending' && intent === 'task';
-        const promptText = this.taskFlow.buildPrompt(tid, text);
+        const promptText = isFirstMessage
+            ? this.taskFlow.buildInitialPrompt(tid, text)
+            : this.taskFlow.buildPhaseTransitionPrompt(tid, text);
 
         // Store user message
         const userMsgId = this.store.nextMessageId(tid);
@@ -239,7 +241,7 @@ export class KCodePanel {
             taskId: tid
         });
 
-        const promptText = this.taskFlow.buildPrompt(tid, '请自验执行结果');
+        const promptText = this.taskFlow.buildPhaseTransitionPrompt(tid, '请自验执行结果');
         const handler = this.createAgentResponseHandler(tid, false, '');
 
         if (this.agentReady && this.acpClient) {
@@ -485,7 +487,7 @@ export class KCodePanel {
 
         this.taskFlow.confirmGoal(tid);
 
-        const promptText = this.taskFlow.buildPrompt(tid, originalRequest);
+        const promptText = this.taskFlow.buildPhaseTransitionPrompt(tid, originalRequest);
         const handler = this.createAgentResponseHandler(tid, false, originalRequest);
 
         if (this.agentReady && this.acpClient) {
@@ -579,7 +581,7 @@ export class KCodePanel {
 
         this.taskFlow.confirmPlan(tid);
         // 保留计划卡片不删除，用户可看到已确认的历史
-        const promptText = this.taskFlow.buildPrompt(tid, '计划已确认，请开始执行。');
+        const promptText = this.taskFlow.buildPhaseTransitionPrompt(tid, '计划已确认，请开始执行。');
 
         const handler = this.createAgentResponseHandler(tid, false, '计划已确认，请开始执行。');
 
@@ -655,7 +657,7 @@ export class KCodePanel {
 
         this.taskFlow.confirmGoalWithEdit(tid, newGoal);
 
-        const promptText = this.taskFlow.buildPrompt(tid, originalRequest);
+        const promptText = this.taskFlow.buildPhaseTransitionPrompt(tid, originalRequest);
         const handler = this.createAgentResponseHandler(tid, false, originalRequest);
 
         if (this.agentReady && this.acpClient) {
@@ -838,7 +840,7 @@ export class KCodePanel {
 
         this.taskFlow.rejectReview(tid);
 
-        const promptText = this.taskFlow.buildPrompt(tid, rejectMsg);
+        const promptText = this.taskFlow.buildPhaseTransitionPrompt(tid, rejectMsg);
         const handler = this.createAgentResponseHandler(tid, false, rejectMsg);
 
         if (this.agentReady && this.acpClient) {

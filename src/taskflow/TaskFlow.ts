@@ -112,7 +112,8 @@ export class TaskFlow {
 
     getCleanText(taskId: string): string {
         const text = this.accumulatedText.get(taskId) || '';
-        return text.replace(/\[TASK_UPDATE\][\s\S]*?\[\/TASK_UPDATE\]/gi, '').trim();
+        // 只剥离独立成段的 [TASK_UPDATE] 块
+        return text.replace(/(?:^|\n\n)\[TASK_UPDATE\][\s\S]*?\[\/TASK_UPDATE\](?:\n\n|$)/gi, '').trim();
     }
 
     processChunk(taskId: string, chunk: string): string {
@@ -135,21 +136,22 @@ export class TaskFlow {
         if (!task || task.type !== 'task') return;
         let text = this.accumulatedText.get(taskId) || '';
 
-        const regex = /\[TASK_UPDATE\]([\s\S]*?)\[\/TASK_UPDATE\]/gi;
+        // 只匹配独立成段的 [TASK_UPDATE] 块（前后空行或字符串边界）
+        const regex = /(?:^|\n\n)\[TASK_UPDATE\]([\s\S]*?)\[\/TASK_UPDATE\](?:\n\n|$)/gi;
         let match;
         while ((match = regex.exec(text)) !== null) {
             try {
                 const payload = this.parseSimplePayload(match[1]);
 
                 const blockingActions = ['lock_goal', 'lock_plan', 'accept', 'reject'];
-                if (blockingActions.includes(payload.action)) {
+                if (blockingActions.includes(payload.ACTION)) {
                     text = text.replace(match[0], '');
                     this.accumulatedText.set(taskId, text);
                     regex.lastIndex = 0;
                     continue;
                 }
 
-                if (task.phase === 'execute' && payload.action === 'finish_execute') {
+                if (task.phase === 'execute' && payload.ACTION === 'finish_execute') {
                     text = text.replace(match[0], '');
                     this.accumulatedText.set(taskId, text);
                     this.executeFinished.set(taskId, true);
@@ -158,7 +160,7 @@ export class TaskFlow {
                     continue;
                 }
 
-                if (task.phase === 'self_verify' && payload.action === 'finish_verify') {
+                if (task.phase === 'self_verify' && payload.ACTION === 'finish_verify') {
                     text = text.replace(match[0], '');
                     this.accumulatedText.set(taskId, text);
                     this.selfVerifyFinished.set(taskId, true);
@@ -167,7 +169,7 @@ export class TaskFlow {
                     continue;
                 }
 
-                if (this.validateAction(task.phase, payload.action)) {
+                if (this.validateAction(task.phase, payload.ACTION)) {
                     text = text.replace(match[0], '');
                     this.accumulatedText.set(taskId, text);
                     this.executeAction(taskId, payload);
@@ -179,7 +181,7 @@ export class TaskFlow {
         }
     }
 
-    private static readonly PROTOCOL_KEYS = new Set(['action', 'confirmed', 'pending', 'steps']);
+    private static readonly PROTOCOL_KEYS = new Set(['ACTION', 'CONFIRMED', 'PENDING', 'STEPS']);
 
     private parseSimplePayload(body: string): any {
         const payload: any = {};
@@ -203,7 +205,7 @@ export class TaskFlow {
                 payload[currentKey].push(listMatch[1].trim());
             }
         }
-        if (!payload.action) throw new Error('missing action');
+        if (!payload.ACTION) throw new Error('missing action');
         return payload;
     }
 
@@ -241,14 +243,14 @@ export class TaskFlow {
         const task = this.store.getTask(taskId);
         if (!task) return;
 
-        switch (payload.action) {
+        switch (payload.ACTION) {
             case 'propose_goal':
                 {
-                    const confirmed = typeof payload.confirmed === 'string' ? [payload.confirmed] : payload.confirmed;
+                    const confirmed = typeof payload.CONFIRMED === 'string' ? [payload.CONFIRMED] : payload.CONFIRMED;
                     if (confirmed) {
                         this.store.updateConfirmedItems(taskId, confirmed);
                     }
-                    const pending = typeof payload.pending === 'string' ? [payload.pending] : payload.pending;
+                    const pending = typeof payload.PENDING === 'string' ? [payload.PENDING] : payload.PENDING;
                     if (pending) {
                         this.store.updatePendingItems(taskId, pending);
                     }
@@ -258,7 +260,7 @@ export class TaskFlow {
 
             case 'propose_plan':
                 {
-                    const steps = this.normalizeSteps(payload.steps);
+                    const steps = this.normalizeSteps(payload.STEPS);
                     if (steps.length > 0) {
                         this.store.updatePlanSteps(taskId, steps);
                     }
@@ -365,7 +367,7 @@ export class TaskFlow {
         this.delegate.onPhaseChanged(taskId);
     }
 
-    buildPrompt(taskId: string, userText: string): string {
+    buildInitialPrompt(taskId: string, userText: string): string {
         const task = this.store.getTask(taskId);
         if (!task || task.type !== 'task') return userText;
 
@@ -377,6 +379,23 @@ export class TaskFlow {
         ];
 
         return layers.filter(Boolean).join('\n\n---\n\n') + '\n\n' + userText;
+    }
+
+    buildPhaseTransitionPrompt(taskId: string, userText: string): string {
+        const task = this.store.getTask(taskId);
+        if (!task || task.type !== 'task') return userText;
+
+        const layers = [
+            this.buildTaskContext(task),
+            this.buildPhasePrompt(task),
+        ];
+
+        return layers.filter(Boolean).join('\n\n---\n\n') + '\n\n' + userText;
+    }
+
+    /** @deprecated 使用 buildInitialPrompt 或 buildPhaseTransitionPrompt */
+    buildPrompt(taskId: string, userText: string): string {
+        return this.buildInitialPrompt(taskId, userText);
     }
 
     private buildTaskContext(task: Task): string {

@@ -7,5 +7,5 @@ export const EXECUTE_PROMPT = `当前阶段：执行（Execute）
 4. 执行完成后输出以下协议标记：
 
 [TASK_UPDATE]
-action: finish_execute
+ACTION: finish_execute
 [/TASK_UPDATE]`;

@@ -8,8 +8,8 @@ export const PLAN_PROMPT = `当前阶段：计划制定（Plan）
 完成后必须输出以下协议标记（不要放在代码块中，不要转义）：
 
 [TASK_UPDATE]
-action: propose_plan
-steps:
+ACTION: propose_plan
+STEPS:
   - 步骤1描述
   - 步骤2描述
 [/TASK_UPDATE]`;
