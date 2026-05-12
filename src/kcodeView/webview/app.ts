@@ -576,6 +576,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
         const card = createCard({
             headerHtml: '🎯 任务目标',
             bodyMarkdown: bodyText,
+            rawData: content,
             defaultCollapsed: false,
             borderColor: '#3c3c3c',
             headerBg: '#2d2d2d',
@@ -604,6 +605,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
         const card = createCard({
             headerHtml: '📋 计划方案',
             bodyHtml: bodyText ? bodyText.split('\n').map((line: string) => `<div class="plan-step-line">${line}</div>`).join('') : '',
+            rawData: content,
             defaultCollapsed: false,
             borderColor: '#4a8bb5',
             headerBg: '#1e2d3d',
@@ -631,6 +633,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
         const card = createCard({
             headerHtml: '✅ 验收',
             bodyMarkdown: content,
+            rawData: content,
             defaultCollapsed: false,
             borderColor: '#2a5a2a',
             headerBg: '#1a3a1a',
