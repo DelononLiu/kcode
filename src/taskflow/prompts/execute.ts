@@ -6,6 +6,6 @@ export const EXECUTE_PROMPT = `当前阶段：执行（Execute）
 3. 如需执行命令，使用命令行执行
 4. 执行完成后输出以下协议标记：
 
-<task_update>
+[TASK_UPDATE]
 action: finish_execute
-</task_update>`;
+[/TASK_UPDATE]`;

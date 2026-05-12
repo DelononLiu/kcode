@@ -1,12 +1,12 @@
-export const PROTOCOL_PROMPT = `<task_update> 协议参考
+export const PROTOCOL_PROMPT = `[TASK_UPDATE] 协议参考
 
 格式示例：
-<task_update>
+[TASK_UPDATE]
 action: propose_plan
 steps:
   - 步骤1描述
   - 步骤2描述
-</task_update>
+[/TASK_UPDATE]
 
 可用动作（按阶段）：
   demand / goal → propose_goal：提出目标确认

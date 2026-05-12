@@ -7,13 +7,13 @@ export const DEMAND_PROMPT = `当前阶段：需求收集（Demand）
 
 回答结构：
 - 复述用户需求，说明理解
-- 最后以 <task_update> 标签输出协议（不要放在代码块中）：
+- 最后以 [TASK_UPDATE] 标签输出协议（不要放在代码块中）：
 
-<task_update>
+[TASK_UPDATE]
 action: propose_goal
 confirmed:
   - 已确认的条目1
   - 已确认的条目2
 pending:
   - 待讨论的条目
-</task_update>`;
+[/TASK_UPDATE]`;

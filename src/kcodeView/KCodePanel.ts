@@ -1321,6 +1321,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-card-header{display:flex;align-items:center;padding:7px 12px;font-size:12px;cursor:pointer;user-select:none;gap:6px;color:#bbb;background:rgba(0,0,0,.25)}
 .msg-card-header:hover{background:rgba(255,255,255,.015)}
 .msg-card-header-text{flex:1;display:flex;align-items:center;gap:5px;min-width:0}
+.card-copy-raw-btn{background:none;border:none;color:#555;cursor:pointer;font-size:11px;padding:0 4px;border-radius:3px;flex-shrink:0;line-height:1;transition:color .2s,background .2s;margin-left:auto;margin-right:4px}
+.card-copy-raw-btn:hover{color:#ddd;background:rgba(255,255,255,.05)}
 .msg-card-toggle{font-size:10px;color:#666;flex-shrink:0;transition:transform .2s}
 .msg-card-body{padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05);font-size:13.5px;line-height:1.6;color:#fff;overflow-y:auto;max-height:300px}
 .msg-card-body.tool-card-body{max-height:300px}

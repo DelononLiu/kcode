@@ -6,9 +6,9 @@ export const SELF_VERIFY_PROMPT = `当前阶段：自验（Self-Verify）
 3. 如果发现问题，修复代码或文件后继续验证
 4. 确认所有产出无误后，输出以下协议标记：
 
-<task_update>
+[TASK_UPDATE]
 action: finish_verify
-</task_update>
+[/TASK_UPDATE]
 
 注意事项：
 - 每次发现问题并修复后，重新验证

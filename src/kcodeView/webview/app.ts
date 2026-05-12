@@ -910,6 +910,7 @@ function createCard(config: {
     headerBg?: string;
     headerColor?: string;
     bodyClassName?: string;
+    rawData?: any;
 }): HTMLElement {
     const card = document.createElement('div');
     card.className = 'msg-card';
@@ -924,6 +925,23 @@ function createCard(config: {
     headerSpan.className = 'msg-card-header-text';
     headerSpan.innerHTML = config.headerHtml;
     header.appendChild(headerSpan);
+
+    if (config.rawData !== undefined) {
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'card-copy-raw-btn';
+        copyBtn.title = '复制原始内容';
+        copyBtn.textContent = '📋';
+        copyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const raw = typeof config.rawData === 'string' ? config.rawData : JSON.stringify(config.rawData, null, 2);
+            navigator.clipboard.writeText(raw).then(() => {
+                const orig = copyBtn.textContent;
+                copyBtn.textContent = '✅';
+                setTimeout(() => { copyBtn.textContent = orig; }, 1500);
+            });
+        });
+        header.appendChild(copyBtn);
+    }
 
     const toggle = document.createElement('span');
     toggle.className = 'msg-card-toggle';
@@ -1472,6 +1490,11 @@ function updateToolMessageElement(el: HTMLElement, msg: any) {
     renderToolBubbleContent(bubble as HTMLElement, msg);
 }
 
+function extractContentFromXml(output: string): string {
+    const m = output.match(/<content>([\s\S]*?)<\/content>/);
+    return m ? m[1].trim() : output;
+}
+
 function formatToolTitle(kind: string, title: string): string {
     switch (kind) {
         case 'read': return '读取 ' + title;
@@ -1502,18 +1525,20 @@ function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
             headerHtml,
             bodyHtml: content ? '<pre class="tool-body-content" style="white-space:pre-wrap">' + escapeHtml(content) + '</pre>' : undefined,
             defaultCollapsed: false,
-            bodyClassName: 'tool-card-body tool-thinking'
+            bodyClassName: 'tool-card-body tool-thinking',
+            rawData: msg
         });
         bubble.appendChild(card);
         return;
     }
 
+    const displayContent = (kind === 'read' || kind === 'write' || kind === 'edit') ? extractContentFromXml(content) : content;
     let bodyHtml = '';
-    if (content) {
+    if (displayContent) {
         let preClass = 'tool-body-content';
         if (kind === 'bash' || kind === 'command' || kind === 'terminal') preClass += ' tool-bash-output';
         else if (kind === 'write' || kind === 'edit') preClass += ' tool-body-diff';
-        bodyHtml = '<pre class="' + preClass + '">' + escapeHtml(content) + '</pre>';
+        bodyHtml = '<pre class="' + preClass + '">' + escapeHtml(displayContent) + '</pre>';
     }
 
     let bodyClassName = 'tool-card-body';
@@ -1523,7 +1548,8 @@ function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
         headerHtml,
         bodyHtml: bodyHtml || undefined,
         defaultCollapsed: false,
-        bodyClassName: bodyClassName || undefined
+        bodyClassName: bodyClassName || undefined,
+        rawData: msg
     });
     bubble.appendChild(card);
 }

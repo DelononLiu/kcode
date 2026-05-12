@@ -112,7 +112,7 @@ export class TaskFlow {
 
     getCleanText(taskId: string): string {
         const text = this.accumulatedText.get(taskId) || '';
-        return text.replace(/<task_update>[\s\S]*?<\/task_update>/gi, '').trim();
+        return text.replace(/\[TASK_UPDATE\][\s\S]*?\[\/TASK_UPDATE\]/gi, '').trim();
     }
 
     processChunk(taskId: string, chunk: string): string {
@@ -135,7 +135,7 @@ export class TaskFlow {
         if (!task || task.type !== 'task') return;
         let text = this.accumulatedText.get(taskId) || '';
 
-        const regex = /<task_update>([\s\S]*?)<\/task_update>/gi;
+        const regex = /\[TASK_UPDATE\]([\s\S]*?)\[\/TASK_UPDATE\]/gi;
         let match;
         while ((match = regex.exec(text)) !== null) {
             try {
@@ -179,6 +179,8 @@ export class TaskFlow {
         }
     }
 
+    private static readonly PROTOCOL_KEYS = new Set(['action', 'confirmed', 'pending', 'steps']);
+
     private parseSimplePayload(body: string): any {
         const payload: any = {};
         let currentKey = '';
@@ -186,13 +188,13 @@ export class TaskFlow {
             const trimmed = line.trim();
             if (!trimmed) continue;
             const kvMatch = trimmed.match(/^(\w[\w_-]*):\s*(.*)$/);
-            if (kvMatch) {
+            if (kvMatch && TaskFlow.PROTOCOL_KEYS.has(kvMatch[1])) {
                 currentKey = kvMatch[1];
                 const value = kvMatch[2].trim();
                 if (value) {
                     payload[currentKey] = value;
-                } else {
-                    if (!payload[currentKey]) payload[currentKey] = [];
+                } else if (!payload[currentKey]) {
+                    payload[currentKey] = [];
                 }
                 continue;
             }
@@ -202,7 +204,7 @@ export class TaskFlow {
             }
         }
         if (!payload.action) throw new Error('missing action');
-                    return payload;
+        return payload;
     }
 
     private normalizeSteps(steps: any): { content: string; status: 'pending' }[] {
