@@ -296,6 +296,7 @@ export class KCodePanel {
 
         const onError = (error: string) => {
             this.setGenerationState(false);
+            this.flushAcpRecvBuffer();
             this.taskFlow.getCleanText(tid);
             if (!isGoalFormatting) {
                 this.panel.webview.postMessage({
@@ -370,6 +371,7 @@ export class KCodePanel {
             onDone: (stopReason?: string) => {
                 completeReasoning();
                 this.setGenerationState(false);
+                this.flushAcpRecvBuffer();
                 const cleanedText = this.taskFlow.getCleanText(tid);
 
                 if (stopReason === 'cancelled') {
@@ -735,10 +737,28 @@ export class KCodePanel {
 
     private acpLogs: { direction: 'send' | 'recv'; text: string; timestamp: number }[] = [];
     private acpLogEnabled = false;
+    private acpRecvBuffer = '';
 
     private sendAcpLog(direction: 'send' | 'recv', text: string) {
         if (!this.acpLogEnabled) return;
-        this.panel.webview.postMessage({ type: 'acpLogEntry', direction, text, timestamp: Date.now() });
+        if (direction === 'recv') {
+            this.acpRecvBuffer += text;
+            const lines = this.acpRecvBuffer.split('\n');
+            this.acpRecvBuffer = lines.pop() || '';
+            for (const line of lines) {
+                if (line.trim()) {
+                    this.panel.webview.postMessage({ type: 'acpLogEntry', direction, text: line, timestamp: Date.now() });
+                }
+            }
+        } else {
+            this.panel.webview.postMessage({ type: 'acpLogEntry', direction, text, timestamp: Date.now() });
+        }
+    }
+
+    private flushAcpRecvBuffer() {
+        if (!this.acpLogEnabled || !this.acpRecvBuffer.trim()) return;
+        this.panel.webview.postMessage({ type: 'acpLogEntry', direction: 'recv', text: this.acpRecvBuffer, timestamp: Date.now() });
+        this.acpRecvBuffer = '';
     }
 
     private setGenerationState(generating: boolean) {
