@@ -136,8 +136,8 @@ export class TaskFlow {
         if (!task || task.type !== 'task') return;
         let text = this.accumulatedText.get(taskId) || '';
 
-        // 只匹配独立成段的 [TASK_UPDATE] 块（前后空行或字符串边界）
-        const regex = /(?:^|\n\n)\[TASK_UPDATE\]([\s\S]*?)\[\/TASK_UPDATE\](?:\n\n|$)/gi;
+        // 匹配换行或字符串边界后的 [TASK_UPDATE] 块
+        const regex = /(?:^|\n)\[TASK_UPDATE\]([\s\S]*?)\[\/TASK_UPDATE\](?:\n|$)/gi;
         let match;
         while ((match = regex.exec(text)) !== null) {
             try {
