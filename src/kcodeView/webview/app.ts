@@ -158,8 +158,37 @@ function initMessageHandler() {
             case 'updateNodePanel':
                 handleNodePanelUpdate(message.nodes, message.taskType);
                 break;
+            case 'acpLogEntry':
+                handleAcpLogEntry(message);
+                break;
         }
     });
+}
+
+let acpLogEnabled = false;
+let acpLogEntries: { direction: string; text: string; timestamp: number }[] = [];
+const MAX_ACP_LOG = 500;
+
+function handleAcpLogEntry(msg: any) {
+    if (!acpLogEnabled) return;
+    acpLogEntries.push({ direction: msg.direction, text: msg.text, timestamp: msg.timestamp });
+    if (acpLogEntries.length > MAX_ACP_LOG) {
+        acpLogEntries = acpLogEntries.slice(-MAX_ACP_LOG);
+    }
+    renderAcpLog();
+}
+
+function renderAcpLog() {
+    const content = document.getElementById('acp-log-content');
+    if (!content) return;
+    const html = acpLogEntries.map(e => {
+        const dir = e.direction === 'send' ? '→' : '←';
+        const cls = e.direction === 'send' ? 'send' : 'recv';
+        const time = new Date(e.timestamp).toLocaleTimeString();
+        return `<div class="acp-log-entry ${cls}"><span class="acp-log-time">${time}</span><span class="acp-log-dir">${dir}</span><span class="acp-log-text">${escapeHtml(e.text)}</span></div>`;
+    }).join('');
+    content.innerHTML = html;
+    content.scrollTop = content.scrollHeight;
 }
 
 let streamMessageEl: HTMLElement | null = null;
@@ -345,6 +374,31 @@ function initChat() {
             }
         });
         fileInput.click();
+    });
+
+    const acpLogBtn = document.getElementById('acp-log-btn');
+    acpLogBtn?.addEventListener('click', () => {
+        const rp = document.getElementById('right-panel');
+        if (rp) {
+            rp.classList.remove('hidden');
+            activateTab('acplog');
+        }
+    });
+
+    const acpLogEnable = document.getElementById('acp-log-enable') as HTMLInputElement;
+    acpLogEnable?.addEventListener('change', () => {
+        acpLogEnabled = acpLogEnable.checked;
+        vscode.postMessage({ type: 'toggleAcpLog', enabled: acpLogEnabled });
+        if (!acpLogEnabled) {
+            acpLogEntries = [];
+            renderAcpLog();
+        }
+    });
+
+    const acpLogClear = document.getElementById('acp-log-clear');
+    acpLogClear?.addEventListener('click', () => {
+        acpLogEntries = [];
+        renderAcpLog();
     });
 
     const goalConfirmBtn = document.getElementById('goal-confirm-btn');
@@ -576,7 +630,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
         const card = createCard({
             headerHtml: '🎯 任务目标',
             bodyMarkdown: bodyText,
-            rawData: content,
+            rawData: msg,
             defaultCollapsed: false,
             borderColor: '#3c3c3c',
             headerBg: '#2d2d2d',
@@ -605,7 +659,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
         const card = createCard({
             headerHtml: '📋 计划方案',
             bodyHtml: bodyText ? bodyText.split('\n').map((line: string) => `<div class="plan-step-line">${line}</div>`).join('') : '',
-            rawData: content,
+            rawData: msg,
             defaultCollapsed: false,
             borderColor: '#4a8bb5',
             headerBg: '#1e2d3d',
@@ -633,7 +687,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
         const card = createCard({
             headerHtml: '✅ 验收',
             bodyMarkdown: content,
-            rawData: content,
+            rawData: msg,
             defaultCollapsed: false,
             borderColor: '#2a5a2a',
             headerBg: '#1a3a1a',
@@ -914,6 +968,7 @@ function createCard(config: {
     headerColor?: string;
     bodyClassName?: string;
     rawData?: any;
+    copyable?: boolean;
 }): HTMLElement {
     const card = document.createElement('div');
     card.className = 'msg-card';
@@ -941,6 +996,25 @@ function createCard(config: {
                 const orig = copyBtn.textContent;
                 copyBtn.textContent = '✅';
                 setTimeout(() => { copyBtn.textContent = orig; }, 1500);
+            });
+        });
+        header.appendChild(copyBtn);
+    }
+
+    if (config.copyable) {
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'card-copy-btn';
+        copyBtn.title = '复制内容';
+        const copySvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+        copyBtn.innerHTML = copySvg;
+        copyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const body = card.querySelector('.msg-card-body');
+            const text = body?.textContent || '';
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = copyBtn.innerHTML;
+                copyBtn.innerHTML = '✅';
+                setTimeout(() => { copyBtn.innerHTML = orig; }, 1500);
             });
         });
         header.appendChild(copyBtn);
@@ -1361,7 +1435,8 @@ function showGoalConfirmationCard(info: any) {
         borderColor: '#3c3c3c',
         headerBg: '#2d2d2d',
         headerColor: '#e0e0e0',
-        actions: undefined
+        actions: undefined,
+        rawData: info
     });
 
     const actionsDiv = document.createElement('div');
@@ -1405,6 +1480,7 @@ function handleShowPlanProposal(message: any) {
         borderColor: '#4a8bb5',
         headerBg: '#1e2d3d',
         headerColor: '#e0e0e0',
+        rawData: message
     });
     card.classList.add('plan-confirmation-card');
 

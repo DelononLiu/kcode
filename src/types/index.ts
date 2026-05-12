@@ -49,6 +49,12 @@ export interface ProgressNode {
     messageId?: string;
 }
 
+export interface AcpLogEntry {
+    direction: 'send' | 'recv';
+    text: string;
+    timestamp: number;
+}
+
 export interface AcpMessageHandler {
     onText: (text: string) => void;
     onReasoning?: (text: string) => void;

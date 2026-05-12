@@ -129,7 +129,8 @@ export class KCodePanel {
                 case 'confirmExecuteDone':
                     await this.handleConfirmExecuteDone(message.taskId);
                     break;
-                case 'collapseTimeline':
+                case 'toggleAcpLog':
+                    this.acpLogEnabled = message.enabled;
                     break;
             }
         }, null, this.context.subscriptions);
@@ -204,6 +205,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -211,6 +213,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -218,6 +221,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.openaiAgent.prompt(sessionId, promptText);
         } else {
             const config = vscode.workspace.getConfiguration('kcode');
@@ -257,6 +261,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -264,6 +269,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -271,6 +277,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
@@ -323,6 +330,7 @@ export class KCodePanel {
         return {
             onText: (chunk: string) => {
                 completeReasoning();
+                this.sendAcpLog('recv', chunk);
                 this.taskFlow.processChunk(tid, chunk);
                 sendDisplayUpdate();
             },
@@ -494,6 +502,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -501,6 +510,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -508,6 +518,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
@@ -589,6 +600,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -596,6 +608,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -603,6 +616,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
@@ -664,6 +678,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -671,6 +686,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -678,6 +694,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
@@ -714,6 +731,14 @@ export class KCodePanel {
             taskId: tid,
             taskStatus: task?.status
         });
+    }
+
+    private acpLogs: { direction: 'send' | 'recv'; text: string; timestamp: number }[] = [];
+    private acpLogEnabled = false;
+
+    private sendAcpLog(direction: 'send' | 'recv', text: string) {
+        if (!this.acpLogEnabled) return;
+        this.panel.webview.postMessage({ type: 'acpLogEntry', direction, text, timestamp: Date.now() });
     }
 
     private setGenerationState(generating: boolean) {
@@ -847,6 +872,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -854,6 +880,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -861,6 +888,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
+            this.sendAcpLog('send', promptText);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
@@ -1112,6 +1140,9 @@ export class KCodePanel {
                 </div>
             </div>
             </div>
+            <div id="chat-toolbar">
+                <button id="acp-log-btn" class="toolbar-btn" title="ACP 协议日志">📄 ACP Log</button>
+            </div>
             <div id="chat-input-area">
                 <div class="input-wrapper">
                     <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
@@ -1159,6 +1190,7 @@ export class KCodePanel {
                 <div class="tabs">
                     <button class="tab active" data-tab="preview">Preview</button>
                     <button class="tab" data-tab="diff">Diff</button>
+                    <button class="tab" data-tab="acplog">ACP Log</button>
                     <button class="tab disabled" data-tab="device" title="即将推出">Device</button>
                 </div>
                 <button id="right-panel-close" class="close-btn" title="关闭右侧面板">✕</button>
@@ -1166,6 +1198,13 @@ export class KCodePanel {
             <div id="right-panel-content">
                 <div id="tab-preview" class="tab-content active">Preview</div>
                 <div id="tab-diff" class="tab-content">Diff</div>
+                <div id="tab-acplog" class="tab-content">
+                    <div id="acp-log-toolbar">
+                        <label><input type="checkbox" id="acp-log-enable"> 采集日志</label>
+                        <button id="acp-log-clear" class="toolbar-btn">清空</button>
+                    </div>
+                    <div id="acp-log-content"></div>
+                </div>
                 <div id="tab-device" class="tab-content">Device</div>
             </div>
         </div>
@@ -1275,6 +1314,21 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .chat-msg .msg-bubble .code-block-wrapper pre::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.12)}
 .chat-msg .msg-bubble .code-block-wrapper code.hljs{font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12.5px;line-height:1.55;background:transparent;padding:0;display:block}
 .hljs{color:#d2d2d4}.hljs-keyword,.hljs-literal,.hljs-symbol,.hljs-name{color:#569cd6}.hljs-link{color:#569cd6;text-decoration:underline}.hljs-built_in,.hljs-type{color:#4ec9b0}.hljs-number,.hljs-class{color:#b5cea8}.hljs-string,.hljs-meta .hljs-string{color:#d69d85}.hljs-regexp,.hljs-template-tag{color:#9a5334}.hljs-subst,.hljs-function,.hljs-title,.hljs-params,.hljs-formula{color:#dcdcaa}.hljs-comment,.hljs-quote{color:#6a9955;font-style:italic}.hljs-doctag{color:#608b4e}.hljs-meta,.hljs-meta .hljs-keyword,.hljs-tag{color:#808080}.hljs-variable,.hljs-template-variable{color:#bd63c5}.hljs-attr,.hljs-attribute{color:#9cdcfe}.hljs-section{color:gold}.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}.hljs-bullet,.hljs-selector-attr,.hljs-selector-class,.hljs-selector-id,.hljs-selector-pseudo,.hljs-selector-tag{color:#d7ba7d}.hljs-addition{background:#144212;display:inline-block;width:100%}.hljs-deletion{background:#600;display:inline-block;width:100%}
+#chat-toolbar{display:flex;gap:4px;padding:4px 12px;background:var(--vscode-sideBar-background,#1e1e1e);border-top:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.toolbar-btn{background:transparent;border:1px solid rgba(255,255,255,.1);color:#aaa;cursor:pointer;font-size:11px;padding:2px 8px;border-radius:3px;white-space:nowrap}
+.toolbar-btn:hover{color:#ddd;border-color:rgba(255,255,255,.25)}
+.toolbar-btn.active{background:rgba(70,130,200,.25);border-color:rgba(70,130,200,.5);color:#7ab8f5}
+#tab-acplog{display:flex;flex-direction:column;height:100%;font-size:11px}
+#acp-log-toolbar{display:flex;align-items:center;gap:8px;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
+#acp-log-toolbar label{display:flex;align-items:center;gap:4px;cursor:pointer;color:#aaa;font-size:11px}
+#acp-log-toolbar input[type=checkbox]{accent-color:#4a9eff;cursor:pointer}
+#acp-log-content{flex:1;overflow-y:auto;padding:4px 6px;font-family:monospace;white-space:pre-wrap;word-break:break-all;line-height:1.4;background:var(--vscode-editor-background,#1e1e1e)}
+.acp-log-entry{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.acp-log-entry.send{border-left:2px solid #4a9eff;padding-left:6px;margin:2px 0}
+.acp-log-entry.recv{border-left:2px solid #6fcf97;padding-left:6px;margin:2px 0}
+.acp-log-dir{display:inline-block;width:28px;font-weight:700;color:#888}
+.acp-log-time{color:#666;font-size:10px;margin-right:6px}
+.acp-log-text{color:#d4d4d4}
 #chat-input-area{border-top:1px solid rgba(255,255,255,.06);padding:12px 24px 10px;background:var(--vscode-sideBar-background,#1e1e1e);flex-shrink:0}
 .input-wrapper{background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:10px 12px 6px;transition:border-color .2s,box-shadow .2s}
 .input-wrapper:focus-within{border-color:var(--vscode-focusBorder,#007fd4);box-shadow:0 0 8px rgba(0,127,212,.3)}
