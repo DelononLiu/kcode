@@ -77,6 +77,10 @@ export class KCodePanel {
         this.panel.webview.html = this.getWebviewContent();
         this.setupMessageHandler();
 
+        const config = vscode.workspace.getConfiguration('kcode');
+        this.acpLogEnabled = config.get<boolean>('acpLogEnabled', false);
+        this.panel.webview.postMessage({ type: 'acpLogState', enabled: this.acpLogEnabled });
+
         this.ensureConnection();
 
         this.panel.onDidDispose(() => {
@@ -131,6 +135,7 @@ export class KCodePanel {
                     break;
                 case 'toggleAcpLog':
                     this.acpLogEnabled = message.enabled;
+                    vscode.workspace.getConfiguration('kcode').update('acpLogEnabled', message.enabled, true);
                     break;
             }
         }, null, this.context.subscriptions);

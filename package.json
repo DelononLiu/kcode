@@ -82,6 +82,11 @@
           "type": "string",
           "default": "https://api.deepseek.com",
           "description": "OpenAI API base URL for the built-in OpenAI agent. Falls back to OPENAI_BASE_URL environment variable."
+        },
+        "kcode.acpLogEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable ACP protocol log collection (default: off). Toggle via the ACP Log button in the chat toolbar."
         }
       }
     }

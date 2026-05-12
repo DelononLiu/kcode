@@ -161,6 +161,15 @@ function initMessageHandler() {
             case 'acpLogEntry':
                 handleAcpLogEntry(message);
                 break;
+            case 'acpLogState':
+                acpLogEnabled = message.enabled;
+                const cb = document.getElementById('acp-log-enable') as HTMLInputElement;
+                if (cb) cb.checked = message.enabled;
+                if (!message.enabled) {
+                    acpLogEntries = [];
+                    renderAcpLog();
+                }
+                break;
         }
     });
 }
