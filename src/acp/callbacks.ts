@@ -85,6 +85,19 @@ export class KCodeClient implements acp.Client {
                 if (!textContent && update.rawOutput != null) {
                     textContent = String(update.rawOutput);
                 }
+                if (update.rawInput != null) {
+                    const input = typeof update.rawInput === 'string' ? update.rawInput : JSON.stringify(update.rawInput);
+                    if (input) log(input);
+                }
+                if (update.locations?.length) {
+                    for (const loc of update.locations) {
+                        const line = loc.line != null ? `:${loc.line}` : '';
+                        log(`<path>${loc.path}${line}</path>`);
+                    }
+                }
+                if (update.title && update.title !== update.kind) {
+                    log(`<title>${update.title}</title>`);
+                }
                 if (textContent && (status === 'completed' || status === 'in_progress')) {
                     log(textContent);
                 }
