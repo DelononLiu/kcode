@@ -12,8 +12,16 @@ export class AcpClient {
     private workspaceRoot: string;
     private httpMode: boolean = false;
     private _lastError: string = '';
+    private pendingLogCallback: ((direction: 'send' | 'recv', text: string) => void) | null = null;
 
     get lastError(): string { return this._lastError; }
+
+    setLogCallback(cb: (direction: 'send' | 'recv', text: string) => void): void {
+        this.pendingLogCallback = cb;
+        if (this.kcodeClient) {
+            this.kcodeClient.logCallback = cb;
+        }
+    }
 
     constructor(workspaceRoot: string) {
         this.workspaceRoot = workspaceRoot;
@@ -56,6 +64,9 @@ export class AcpClient {
 
     private async initConnection(sdk: typeof acp, stream: acp.Stream): Promise<boolean> {
         this.kcodeClient = new KCodeClient(this.workspaceRoot);
+        if (this.pendingLogCallback) {
+            this.kcodeClient.logCallback = this.pendingLogCallback;
+        }
         this.connection = new sdk.ClientSideConnection(
             () => this.kcodeClient!,
             stream

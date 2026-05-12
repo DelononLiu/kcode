@@ -82,6 +82,7 @@ function initMessageHandler() {
                 streamMessageEl = null;
                 activeTaskId = message.taskId;
                 activeTaskStatus = message.taskStatus || '';
+                renderAcpLog();
                 if (message.reviewChanges && message.reviewChanges.length > 0) {
                     reviewChangesMap.set(message.taskId, message.reviewChanges);
                 }
@@ -163,6 +164,8 @@ function initMessageHandler() {
                 break;
             case 'acpLogState':
                 acpLogEnabled = message.enabled;
+                acpLogMaxGlobal = message.maxGlobal ?? 5000;
+                acpLogMaxTask = message.maxTask ?? 2000;
                 const cb = document.getElementById('acp-log-enable') as HTMLInputElement;
                 if (cb) cb.checked = message.enabled;
                 if (!message.enabled) {
@@ -175,14 +178,31 @@ function initMessageHandler() {
 }
 
 let acpLogEnabled = false;
-let acpLogEntries: { direction: string; text: string; timestamp: number }[] = [];
-const MAX_ACP_LOG = 500;
+let acpLogEntries: { direction: string; text: string; timestamp: number; taskId: string }[] = [];
+let acpLogMaxGlobal = 5000;
+let acpLogMaxTask = 2000;
+
+function getAcpLogEntries() {
+    return activeTaskId ? acpLogEntries.filter(e => e.taskId === activeTaskId) : [];
+}
 
 function handleAcpLogEntry(msg: any) {
     if (!acpLogEnabled) return;
-    acpLogEntries.push({ direction: msg.direction, text: msg.text, timestamp: msg.timestamp });
-    if (acpLogEntries.length > MAX_ACP_LOG) {
-        acpLogEntries = acpLogEntries.slice(-MAX_ACP_LOG);
+    const taskId = msg.taskId || activeTaskId || '';
+    acpLogEntries.push({ direction: msg.direction, text: msg.text, timestamp: msg.timestamp, taskId });
+    if (acpLogEntries.length > acpLogMaxGlobal) {
+        acpLogEntries = acpLogEntries.slice(-acpLogMaxGlobal);
+    }
+    const taskEntries = acpLogEntries.filter(e => e.taskId === taskId);
+    if (taskEntries.length > acpLogMaxTask) {
+        const toDelete = taskEntries.length - acpLogMaxTask;
+        let deleted = 0;
+        acpLogEntries = acpLogEntries.filter(e => {
+            if (deleted >= toDelete) return true;
+            if (e.taskId !== taskId) return true;
+            deleted++;
+            return false;
+        });
     }
     renderAcpLog();
 }
@@ -190,7 +210,8 @@ function handleAcpLogEntry(msg: any) {
 function renderAcpLog() {
     const content = document.getElementById('acp-log-content');
     if (!content) return;
-    const html = acpLogEntries.map(e => {
+    const entries = getAcpLogEntries();
+    const html = entries.map(e => {
         const dir = e.direction === 'send' ? '→' : '←';
         const cls = e.direction === 'send' ? 'send' : 'recv';
         const time = new Date(e.timestamp).toLocaleTimeString();

@@ -79,7 +79,12 @@ export class KCodePanel {
 
         const config = vscode.workspace.getConfiguration('kcode');
         this.acpLogEnabled = config.get<boolean>('acpLogEnabled', false);
-        this.panel.webview.postMessage({ type: 'acpLogState', enabled: this.acpLogEnabled });
+        this.panel.webview.postMessage({
+            type: 'acpLogState',
+            enabled: this.acpLogEnabled,
+            maxGlobal: config.get<number>('acpLogMaxGlobal', 5000),
+            maxTask: config.get<number>('acpLogMaxTask', 2000),
+        });
 
         this.ensureConnection();
 
@@ -210,7 +215,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -218,7 +223,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -226,7 +231,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.openaiAgent.prompt(sessionId, promptText);
         } else {
             const config = vscode.workspace.getConfiguration('kcode');
@@ -266,7 +271,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -274,7 +279,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -282,7 +287,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
@@ -295,8 +300,14 @@ export class KCodePanel {
         const completeReasoning = () => {
             if (!reasoningActive) return;
             reasoningActive = false;
-            sendToolCallUpdate(currentReasoningId, '推理过程', 'thinking', 'completed', reasoningText);
+            const full = reasoningText;
             reasoningText = '';
+            this.flushAcpRecvBuffer();
+            if (full) {
+                this.sendAcpLog(tid, 'recv', `[REASONING]\n${full}`);
+                this.flushAcpRecvBuffer();
+            }
+            sendToolCallUpdate(currentReasoningId, '推理过程', 'thinking', 'completed', full);
         };
 
         const onError = (error: string) => {
@@ -335,7 +346,7 @@ export class KCodePanel {
         return {
             onText: (chunk: string) => {
                 completeReasoning();
-                this.sendAcpLog('recv', chunk);
+                this.sendAcpLog(tid, 'recv', chunk);
                 this.taskFlow.processChunk(tid, chunk);
                 sendDisplayUpdate();
             },
@@ -505,7 +516,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -513,7 +524,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -521,7 +532,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
@@ -603,7 +614,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -611,7 +622,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -619,7 +630,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
@@ -681,7 +692,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -689,7 +700,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -697,7 +708,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
@@ -740,24 +751,24 @@ export class KCodePanel {
     private acpRecvBuffer = '';
     private recvFlushTimer: any = null;
 
-    private sendAcpLog(direction: 'send' | 'recv', text: string) {
+    private sendAcpLog(taskId: string, direction: 'send' | 'recv', text: string) {
         if (!this.acpLogEnabled) return;
         if (direction === 'recv') {
             this.acpRecvBuffer += text;
             const lines = this.acpRecvBuffer.split('\n');
             this.acpRecvBuffer = lines.pop() || '';
             for (const line of lines) {
-                this.panel.webview.postMessage({ type: 'acpLogEntry', direction, text: line, timestamp: Date.now() });
+                this.panel.webview.postMessage({ type: 'acpLogEntry', direction, text: line, timestamp: Date.now(), taskId });
             }
             clearTimeout(this.recvFlushTimer);
             this.recvFlushTimer = setTimeout(() => {
                 if (this.acpRecvBuffer.trim()) {
-                    this.panel.webview.postMessage({ type: 'acpLogEntry', direction, text: this.acpRecvBuffer, timestamp: Date.now() });
+                    this.panel.webview.postMessage({ type: 'acpLogEntry', direction, text: this.acpRecvBuffer, timestamp: Date.now(), taskId });
                     this.acpRecvBuffer = '';
                 }
             }, 300);
         } else {
-            this.panel.webview.postMessage({ type: 'acpLogEntry', direction, text, timestamp: Date.now() });
+            this.panel.webview.postMessage({ type: 'acpLogEntry', direction, text, timestamp: Date.now(), taskId });
         }
     }
 
@@ -900,7 +911,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
         } else if (this.fakeAgent) {
             const sessionId = this.fakeAgent.createSession(tid);
@@ -908,7 +919,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
@@ -916,7 +927,7 @@ export class KCodePanel {
             this.taskFlow.resetGeneration(tid);
             this.activeToolCalls.clear();
             this.setGenerationState(true);
-            this.sendAcpLog('send', promptText);
+            this.sendAcpLog(tid, 'send', promptText);
             await this.openaiAgent.prompt(sessionId, promptText);
         }
     }
@@ -953,6 +964,10 @@ export class KCodePanel {
                 console.log('[KCode] Using OpenCode agent');
                 const opencodePath = config.get<string>('opencodePath') || 'opencode';
                 this.acpClient = new AcpClient(workspacePath);
+                this.acpClient.setLogCallback((dir, text) => {
+                    const t = this.currentTaskId || '';
+                    if (t) this.sendAcpLog(t, dir, text);
+                });
                 const connectPromise = this.acpClient.connect(opencodePath, [
                     'acp', '--port', '0', '--cwd', workspacePath
                 ]);
@@ -1008,6 +1023,10 @@ export class KCodePanel {
             }
 
             this.acpClient = new AcpClient(workspacePath);
+            this.acpClient.setLogCallback((dir, text) => {
+                const t = this.currentTaskId || '';
+                if (t) this.sendAcpLog(t, dir, text);
+            });
 
             // Priority 1: HTTP mode (when URL is configured)
             if (agentUrl) {

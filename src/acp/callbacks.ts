@@ -12,6 +12,7 @@ export class KCodeClient implements acp.Client {
     private sessionChanges: Map<string, FileChange[]> = new Map();
     private currentSessionId: string = '';
     private workspaceRoot: string;
+    logCallback: ((direction: 'send' | 'recv', text: string) => void) | null = null;
 
     constructor(workspaceRoot: string) {
         this.workspaceRoot = workspaceRoot;
@@ -51,6 +52,8 @@ export class KCodeClient implements acp.Client {
         const handler = this.sessionHandlers.get(params.sessionId);
         if (!handler) return;
 
+        const log = (text: string) => this.logCallback?.('recv', text);
+
         switch (update.sessionUpdate) {
             case 'agent_message_chunk':
                 if (update.content.type === 'text') {
@@ -60,7 +63,7 @@ export class KCodeClient implements acp.Client {
             case 'tool_call': {
                 const toolKind = update.kind ?? 'other';
                 const displayTitle = extractToolDisplayTitle(update);
-
+                log(`[TOOL_CALL] ${toolKind}: ${displayTitle}`);
                 handler.onToolCall?.(
                     update.toolCallId,
                     displayTitle,
@@ -70,17 +73,27 @@ export class KCodeClient implements acp.Client {
                 break;
             }
             case 'tool_call_update': {
+                const status = update.status ?? 'pending';
+                const kind = update.kind ?? '';
+                const title = extractToolDisplayTitle(update);
                 const item = update.content?.[0];
                 let textContent: string | undefined;
+                let diffPath = '';
                 if (item) {
                     if (item.type === 'content' && (item as any).content?.type === 'text') {
                         textContent = (item as any).content.text;
                     } else if (item.type === 'diff') {
                         textContent = (item as any).newText;
+                        diffPath = (item as any).path || '';
                     }
                 }
                 if (!textContent && update.rawOutput != null) {
                     textContent = String(update.rawOutput);
+                }
+                const summary = diffPath ? ` (diff: ${diffPath})` : '';
+                log(`[TOOL_UPDATE] ${kind} ${title} — ${status}${summary}`);
+                if (textContent && (status === 'completed' || status === 'in_progress')) {
+                    log(`[TOOL_OUTPUT]\n${textContent}`);
                 }
 
                 const titleFromUpdate = update.title ?? undefined;
@@ -88,7 +101,7 @@ export class KCodeClient implements acp.Client {
 
                 handler.onToolCallUpdate?.(
                     update.toolCallId,
-                    update.status ?? 'pending',
+                    status,
                     textContent,
                     titleFromUpdate,
                     kindFromUpdate
@@ -96,6 +109,7 @@ export class KCodeClient implements acp.Client {
                 break;
             }
             case 'plan':
+                log(`[PLAN] ${update.entries.length} entries`);
                 handler.onPlan?.(update.entries);
                 break;
             case 'agent_thought_chunk':

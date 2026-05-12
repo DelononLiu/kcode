@@ -87,6 +87,16 @@
           "type": "boolean",
           "default": false,
           "description": "Enable ACP protocol log collection (default: off). Toggle via the ACP Log button in the chat toolbar."
+        },
+        "kcode.acpLogMaxGlobal": {
+          "type": "number",
+          "default": 5000,
+          "description": "Maximum ACP log entries to keep across all tasks."
+        },
+        "kcode.acpLogMaxTask": {
+          "type": "number",
+          "default": 2000,
+          "description": "Maximum ACP log entries per single task."
         }
       }
     }
