@@ -168,6 +168,9 @@ function initMessageHandler() {
             case 'generationState':
                 handleGenerationState(message.isGenerating);
                 break;
+            case 'pendingQueueUpdate':
+                handlePendingQueueUpdate(message.count, message.items || []);
+                break;
             case 'showPlanProposal':
                 handleShowPlanProposal(message);
                 break;
@@ -659,6 +662,63 @@ function handleGenerationState(isGenerating: boolean) {
     } else {
         sendBtn.classList.remove('hidden');
         stopBtn.classList.add('hidden');
+    }
+}
+
+function handlePendingQueueUpdate(count: number, items: { text: string }[]) {
+    const bar = document.getElementById('queue-bar');
+    const summary = document.getElementById('queue-summary');
+    const toggle = document.getElementById('queue-toggle');
+    const clearBtn = document.getElementById('queue-clear-all');
+    const list = document.getElementById('queue-list');
+    if (!bar || !summary || !toggle || !clearBtn || !list) return;
+
+    if (count === 0) {
+        bar.classList.add('hidden');
+        return;
+    }
+
+    bar.classList.remove('hidden');
+    summary.textContent = `⏳ 排队中 (${count} 条)`;
+
+    let expanded = false;
+    toggle.textContent = '展开';
+    toggle.onclick = () => {
+        expanded = !expanded;
+        toggle.textContent = expanded ? '收起' : '展开';
+        list.classList.toggle('hidden', !expanded);
+    };
+
+    clearBtn.onclick = () => {
+        vscode.postMessage({ type: 'clearPendingQueue' });
+    };
+
+    list.classList.add('hidden');
+    list.innerHTML = '';
+    for (let i = 0; i < items.length; i++) {
+        const item = document.createElement('div');
+        item.className = 'queue-item';
+
+        const num = document.createElement('span');
+        num.className = 'queue-item-num';
+        num.textContent = String(i + 1) + '.';
+        item.appendChild(num);
+
+        const text = document.createElement('span');
+        text.className = 'queue-item-text';
+        text.textContent = items[i].text;
+        item.appendChild(text);
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'queue-item-cancel';
+        cancelBtn.textContent = '✕';
+        cancelBtn.onclick = (e) => {
+            e.stopPropagation();
+            vscode.postMessage({ type: 'cancelQueuedMessage', index: i });
+        };
+        item.appendChild(cancelBtn);
+
+        list.appendChild(item);
     }
 }
 

@@ -23,6 +23,7 @@ export class KCodePanel {
     private activeToolCalls: Map<string, { title: string; kind: string; status: string; output?: string }> = new Map();
     private refreshSidebarCallback?: () => void;
     private isGenerating: boolean = false;
+    private pendingMessages: { text: string; taskId: string; category?: string; subType?: string }[] = [];
     private lastConnectError: string = '';
     private hasSetPlanMessage: boolean = false;
     private hasSetExecuteMessage: boolean = false;
@@ -168,6 +169,16 @@ export class KCodePanel {
                     this.panel.webview.postMessage({ type: 'showDashboard', allTasks: tasks });
                     break;
                 }
+                case 'cancelQueuedMessage':
+                    if (message.index >= 0 && message.index < this.pendingMessages.length) {
+                        this.pendingMessages.splice(message.index, 1);
+                        this.sendPendingQueueUpdate();
+                    }
+                    break;
+                case 'clearPendingQueue':
+                    this.pendingMessages = [];
+                    this.sendPendingQueueUpdate();
+                    break;
                 case 'openTerminal':
                     vscode.commands.executeCommand('workbench.action.terminal.new');
                     break;
@@ -276,7 +287,11 @@ export class KCodePanel {
         const tid = taskId || this.currentTaskId;
         console.log('[KCode] handleSendMessage called, text:', text, 'tid:', tid, 'agentReady:', this.agentReady, 'acpClient:', !!this.acpClient);
         if (!tid) return;
-        if (this.isGenerating) return;
+        if (this.isGenerating) {
+            this.pendingMessages.push({ text, taskId: tid, category, subType });
+            this.sendPendingQueueUpdate();
+            return;
+        }
 
         const task = this.store.getTask(tid);
         if (!task) return;
@@ -907,6 +922,24 @@ export class KCodePanel {
     private setGenerationState(generating: boolean) {
         this.isGenerating = generating;
         this.panel.webview.postMessage({ type: 'generationState', isGenerating: generating });
+        if (!generating) {
+            this.flushPendingMessages();
+        }
+    }
+
+    private flushPendingMessages() {
+        if (this.pendingMessages.length === 0) return;
+        const next = this.pendingMessages.shift()!;
+        this.sendPendingQueueUpdate();
+        this.handleSendMessage(next.text, next.taskId, next.category, next.subType);
+    }
+
+    private sendPendingQueueUpdate() {
+        this.panel.webview.postMessage({
+            type: 'pendingQueueUpdate',
+            count: this.pendingMessages.length,
+            items: this.pendingMessages.map(p => ({ text: p.text.substring(0, 60) }))
+        });
     }
 
     private triggerReviewRequest(tid: string, content: string) {
@@ -1379,6 +1412,14 @@ export class KCodePanel {
                     <button id="btn-terminal" class="toolbar-btn" title="打开终端">打开终端</button>
                 </div>
                 <div id="chat-input-area">
+                    <div id="queue-bar" class="hidden">
+                        <div class="queue-header" id="queue-header">
+                            <span id="queue-summary"></span>
+                            <button id="queue-toggle" class="queue-action-btn"></button>
+                            <button id="queue-clear-all" class="queue-action-btn queue-clear" title="全部取消">全部取消</button>
+                        </div>
+                        <div id="queue-list" class="hidden"></div>
+                    </div>
                     <div class="input-wrapper">
                         <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
                         <div class="input-footer">
@@ -1617,6 +1658,21 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .input-tool-btn.hidden{display:none}
 #send-btn{color:#4a8bb5}#send-btn:hover{color:#5a9bc8;background:rgba(74,139,181,.1)}
 #stop-btn{color:#c94a4a}#stop-btn:hover{color:#e06060;background:rgba(201,74,74,.1)}
+#queue-bar{margin-bottom:6px;border:1px solid rgba(255,255,255,.08);border-radius:6px;overflow:hidden}
+#queue-bar.hidden{display:none}
+.queue-header{display:flex;align-items:center;padding:6px 10px;font-size:12px;gap:8px;background:rgba(255,255,255,.02);cursor:pointer}
+.queue-header:hover{background:rgba(255,255,255,.04)}
+#queue-summary{color:#888;flex:1}
+.queue-action-btn{background:none;border:none;color:#666;cursor:pointer;font-size:11px;padding:2px 6px;border-radius:3px;font-family:inherit}
+.queue-action-btn:hover{color:#aaa;background:rgba(255,255,255,.05)}
+.queue-clear{color:#c94a4a}.queue-clear:hover{color:#e06060}
+#queue-list{border-top:1px solid rgba(255,255,255,.04);padding:4px 0;max-height:120px;overflow-y:auto}
+#queue-list.hidden{display:none}
+.queue-item{display:flex;align-items:center;padding:4px 10px;font-size:12px;gap:6px}
+.queue-item-num{color:#555;flex-shrink:0;min-width:18px}
+.queue-item-text{color:#999;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.queue-item-cancel{background:none;border:none;color:#555;cursor:pointer;font-size:12px;padding:1px 4px;border-radius:2px;font-family:inherit;flex-shrink:0}
+.queue-item-cancel:hover{color:#c94a4a;background:rgba(255,255,255,.04)}
 .input-tool-btn:hover{background:rgba(255,255,255,.05);color:#999}
 .image-btn{color:#555}.image-btn:hover{color:#999;background:rgba(255,255,255,.05)}
 .attach-btn{color:#555}.attach-btn:hover{color:#999;background:rgba(255,255,255,.05)}
@@ -1831,6 +1887,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
     loadTask(taskId: string) {
         this.currentTaskId = taskId;
+        this.pendingMessages = [];
         this.taskFlow.loadTask(taskId);
         const task = this.store.getTask(taskId);
         this.hasSetPlanMessage = !!task?.nodeMessageIds?.plan;
