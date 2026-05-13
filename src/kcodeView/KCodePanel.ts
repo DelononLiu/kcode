@@ -60,6 +60,9 @@ export class KCodePanel {
             },
             onPlanStepUpdate: (taskId: string) => {
                 this.sendTaskInfo(taskId);
+            },
+            onTaskDelegated: (taskId: string, payload) => {
+                this.handleTaskDelegated(taskId, payload);
             }
         });
 
@@ -172,6 +175,10 @@ export class KCodePanel {
                         this.sendTaskInfo(message.taskId);
                     }
                     break;
+                case 'selectTask':
+                    this.loadTask(message.taskId);
+                    this.refreshSidebarCallback?.();
+                    break;
             }
         }, null, this.context.subscriptions);
     }
@@ -213,6 +220,50 @@ export class KCodePanel {
         }
 
         this.loadTask(newId);
+        this.refreshSidebarCallback?.();
+    }
+
+    private handleTaskDelegated(parentTaskId: string, payload: { title: string; goal: string; relatedFiles?: string[]; confirmedItems?: string[]; relevantSnippets?: string }) {
+        const parentTask = this.store.getTask(parentTaskId);
+        if (!parentTask) return;
+
+        const fullGoal = payload.relevantSnippets
+            ? `${payload.goal}\n\n技术上下文：${payload.relevantSnippets}`
+            : payload.goal;
+
+        const newTask: Task = {
+            id: `task_${Date.now()}`,
+            title: payload.title,
+            goal: fullGoal,
+            type: 'task',
+            status: 'pending',
+            phase: 'demand',
+            confirmedItems: payload.confirmedItems || [],
+            pendingItems: [],
+            planSteps: [],
+            createdAt: Date.now(),
+            pinned: false,
+            source: parentTask.source,
+            containerId: parentTask.containerId,
+            group: parentTask.group,
+        };
+        this.store.addTask(newTask);
+
+        const sysMsgId = this.store.nextMessageId(parentTaskId);
+        this.store.addMessage({
+            id: sysMsgId,
+            taskId: parentTaskId,
+            role: 'agent',
+            type: 'stop_message',
+            content: `📤 已委派新任务「${payload.title}」`,
+            timestamp: Date.now()
+        });
+        this.panel.webview.postMessage({
+            type: 'addSystemMessage',
+            content: `📤 已委派新任务「${payload.title}」`,
+            taskId: parentTaskId
+        });
+
         this.refreshSidebarCallback?.();
     }
 
@@ -1289,6 +1340,30 @@ export class KCodePanel {
                     </div>
                 </div>
             </div>
+            <div id="dashboard-panel" class="hidden">
+                <div class="dashboard-title">📊 KCode 工作台</div>
+                <div id="dashboard-review-section" class="dp-section" style="display:none">
+                    <div class="dp-section-header">⚠️ 待验收</div>
+                    <div id="dashboard-review-list" class="dp-list"></div>
+                </div>
+                <div id="dashboard-active-section" class="dp-section" style="display:none">
+                    <div class="dp-section-header dp-collapsible" data-target="dashboard-active-body">
+                        <span class="dp-arrow collapsed">▶</span> 进行中
+                    </div>
+                    <div id="dashboard-active-body" class="dp-body hidden">
+                        <div id="dashboard-active-list" class="dp-list"></div>
+                    </div>
+                </div>
+                <div id="dashboard-completed-section" class="dp-section" style="display:none">
+                    <div class="dp-section-header dp-collapsible" data-target="dashboard-completed-body">
+                        <span class="dp-arrow collapsed">▶</span> 最近完成
+                    </div>
+                    <div id="dashboard-completed-body" class="dp-body hidden">
+                        <div id="dashboard-completed-list" class="dp-list"></div>
+                    </div>
+                </div>
+                <div id="dashboard-empty-msg" class="dp-empty" style="display:none">暂无任务，点击下方按钮创建</div>
+            </div>
             </div>
             <div id="chat-bottom">
                 <div id="chat-toolbar">
@@ -1386,8 +1461,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-scroll.chat-empty{display:none}
 #chat-area:has(#chat-scroll.chat-empty) #chat-header{display:none}
 #chat-area:has(#chat-scroll.chat-empty) #chat-body{display:none}
-#chat-area:has(#chat-scroll.chat-empty) #chat-bottom{margin-top:auto}
-#chat-area:has(#chat-scroll.chat-empty) #chat-input-area .input-wrapper{width:100%;max-width:900px}
+#chat-area:has(#dashboard-panel:not(.hidden)) #chat-body{display:flex!important;align-items:flex-start;justify-content:center;flex-direction:column}
+#chat-area:has(#dashboard-panel:not(.hidden)) #chat-header{display:none}
+#chat-area:has(#dashboard-panel:not(.hidden)) #chat-bottom{margin-top:auto}
+#chat-area:has(#dashboard-panel:not(.hidden)) #chat-input-area .input-wrapper{width:100%;max-width:900px}
 /* Categories rendered as full-screen flow for template mode */
 #chat-body.showing-categories{display:flex!important}
 #chat-body.showing-categories #chat-scroll{display:flex;flex-direction:column;align-items:center}
@@ -1444,6 +1521,27 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .plan-progress-label{font-size:10px;color:#666;margin-bottom:2px}
 
 .chat-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:14px;user-select:none}
+
+/* Dashboard Panel */
+#dashboard-panel{padding:24px 32px;max-width:900px;margin:0 auto;width:100%;box-sizing:border-box}
+#dashboard-panel.hidden{display:none}
+.dashboard-title{font-size:18px;font-weight:600;color:#ccc;margin-bottom:20px}
+.dp-section{margin-bottom:16px}
+.dp-section-header{font-size:13px;font-weight:600;color:#999;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:8px}
+.dp-section-header.dp-collapsible{cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
+.dp-section-header.dp-collapsible:hover{color:#ccc}
+.dp-arrow{font-size:10px;transition:transform .15s ease;flex-shrink:0}
+.dp-arrow:not(.collapsed){transform:rotate(90deg)}
+.dp-body.hidden{display:none}
+.dp-list{display:flex;flex-direction:column;gap:2px}
+.dp-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;cursor:pointer;color:#aaa;font-size:13px;transition:background .1s}
+.dp-item:hover{background:rgba(255,255,255,.04)}
+.dp-item-icon{font-size:10px;flex-shrink:0;width:16px;text-align:center}
+.dp-item-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#ccc}
+.dp-item-type{font-size:11px;color:#666;flex-shrink:0}
+.dp-item-time{font-size:11px;color:#555;flex-shrink:0;min-width:48px;text-align:right}
+.dp-item-files{font-size:11px;color:#555;flex-shrink:0}
+.dp-empty{text-align:center;color:#555;font-size:13px;padding:32px 0}
 #working-indicator{display:flex;align-items:center;gap:8px;padding:8px 0 4px;font-size:12px;color:#888;width:100%}
 #working-indicator.hidden{display:none}
 .working-spinner{width:12px;height:12px;border:2px solid rgba(255,255,255,.08);border-top-color:#5a9d6b;border-radius:50%;animation:tool-spin .8s linear infinite;flex-shrink:0}
@@ -1799,6 +1897,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
             const cat = getCategory(task.category);
             acceptanceCriteria = cat?.acceptanceCriteria;
         }
+
+        const isFirstMessage = this.currentTaskId === taskId && (!task || messages.length === 0);
+
         this.panel.webview.postMessage({
             type: 'loadMessages',
             messages,
@@ -1806,7 +1907,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
             taskType: task?.type,
             taskStatus: task?.status,
             reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined,
-            acceptanceCriteria
+            acceptanceCriteria,
+            isFirstMessage: isFirstMessage || undefined,
+            allTasks: isFirstMessage ? this.store.getTasks().filter(t => !t.archived) : undefined,
         });
     }
 

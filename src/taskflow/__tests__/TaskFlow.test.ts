@@ -108,6 +108,7 @@ class MockDelegate implements TaskFlowDelegate {
     onSelfVerifyNeeded(_taskId: string): void {}
     onSelfVerifyFinished(taskId: string): void { this.selfVerifyFinished.push(taskId); }
     onPlanStepUpdate(taskId: string): void { this.planStepUpdated.push(taskId); }
+    onTaskDelegated(_taskId: string, _payload: any): void {}
 }
 
 // ==============================

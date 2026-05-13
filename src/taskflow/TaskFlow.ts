@@ -33,6 +33,14 @@ export interface ITaskStore {
     updateTaskHooks(taskId: string, phase: string, commands: string[]): void;
 }
 
+export interface DelegatePayload {
+    title: string;
+    goal: string;
+    relatedFiles?: string[];
+    confirmedItems?: string[];
+    relevantSnippets?: string;
+}
+
 export interface TaskFlowDelegate {
     onPhaseChanged(taskId: string): void;
     onExecuteFinished(taskId: string): void;
@@ -41,6 +49,7 @@ export interface TaskFlowDelegate {
     onSelfVerifyNeeded(taskId: string): void;
     onSelfVerifyFinished(taskId: string): void;
     onPlanStepUpdate(taskId: string): void;
+    onTaskDelegated(taskId: string, payload: DelegatePayload): void;
 }
 
 export interface GenResult {
@@ -141,7 +150,52 @@ export class TaskFlow {
         const current = this.accumulatedText.get(taskId) || '';
         this.accumulatedText.set(taskId, current + chunk);
         this.parseTaskUpdate(taskId);
+        this.parseTaskDelegate(taskId);
         return this.getCleanText(taskId);
+    }
+
+    private parseTaskDelegate(taskId: string): void {
+        let text = this.accumulatedText.get(taskId) || '';
+        const regex = /(?:^|\n+)\[TASK_DELEGATE\]([\s\S]*?)\[\/TASK_DELEGATE\](?:\n+|$)/gi;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            try {
+                const payload = this.parseDelegatePayload(match[1]);
+                text = text.replace(match[0], '');
+                this.accumulatedText.set(taskId, text);
+                regex.lastIndex = 0;
+                this.delegate.onTaskDelegated(taskId, payload);
+            } catch {
+                // malformed payload, skip
+            }
+        }
+    }
+
+    private static readonly DELEGATE_KEYS = new Set(['TITLE', 'GOAL', 'RELATED', 'CONFIRMED', 'CONTEXT']);
+
+    private parseDelegatePayload(body: string): DelegatePayload {
+        const payload: any = {};
+        let currentKey = '';
+        for (const line of body.split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            const kvMatch = trimmed.match(/^(\w+):\s*(.*)$/);
+            if (kvMatch && TaskFlow.DELEGATE_KEYS.has(kvMatch[1])) {
+                currentKey = kvMatch[1];
+                const value = kvMatch[2].trim();
+                if (value) {
+                    payload[currentKey] = value;
+                }
+            }
+        }
+        if (!payload.TITLE || !payload.GOAL) throw new Error('missing title or goal');
+        return {
+            title: payload.TITLE,
+            goal: payload.GOAL,
+            relatedFiles: payload.RELATED ? payload.RELATED.split(',').map((s: string) => s.trim()).filter(Boolean) : undefined,
+            confirmedItems: payload.CONFIRMED ? payload.CONFIRMED.split(',').map((s: string) => s.trim()).filter(Boolean) : undefined,
+            relevantSnippets: payload.CONTEXT || undefined,
+        };
     }
 
     getGenResult(taskId: string): GenResult {

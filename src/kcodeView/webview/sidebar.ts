@@ -90,6 +90,30 @@ declare function acquireVsCodeApi(): any;
             });
         }
 
+        // Tab switching
+        document.querySelectorAll('.sidebar-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = (tab as HTMLElement).dataset.tab;
+                document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.getElementById('tab-' + tabName + '-content')?.classList.add('active');
+            });
+        });
+
+        // Dashboard section collapse/expand
+        document.querySelectorAll('.dashboard-section-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const section = header.parentElement;
+                const body = section?.querySelector('.dashboard-section-body') as HTMLElement;
+                const arrow = header.querySelector('.arrow') as HTMLElement;
+                if (body && arrow) {
+                    body.classList.toggle('hidden');
+                    arrow.classList.toggle('collapsed');
+                }
+            });
+        });
+
         document.addEventListener('click', (e) => {
             hideContextMenu();
             const batchBar = document.getElementById('batch-bar');
@@ -109,6 +133,7 @@ declare function acquireVsCodeApi(): any;
             switch (message.type) {
                 case 'updateTaskList':
                     renderSidebar(message.tasks, message.groups || [], message.containers || [], message.activeTaskId, message.editingGroupName);
+                    renderDashboard(message.tasks);
                     break;
                 case 'expandContainer':
                     _collapsed.delete(message.containerId);
@@ -124,6 +149,7 @@ declare function acquireVsCodeApi(): any;
         const containers = JSON.parse(dataEl.dataset.containers || '[]');
         const activeTaskId = dataEl.dataset.activeTaskId || undefined;
         renderSidebar(tasks, groups, containers, activeTaskId);
+        renderDashboard(tasks);
     }
 
     function renderSidebar(tasks: any[], groups: string[], containers: any[], activeTaskId?: string, editingGroupName?: string) {
@@ -208,6 +234,92 @@ declare function acquireVsCodeApi(): any;
         }
 
         updateSelectionVisual();
+    }
+
+    function renderDashboard(tasks: any[]) {
+        const visible = tasks.filter((t: any) => !t.archived);
+        const inReview = visible.filter((t: any) => t.status === 'in_review');
+        const active = visible.filter((t: any) => t.status === 'active');
+        const completed = visible.filter((t: any) => t.status === 'completed').slice(0, 10);
+
+        // Review section
+        const reviewSection = document.getElementById('dashboard-review');
+        const reviewList = document.getElementById('dashboard-review-list');
+        if (reviewSection && reviewList) {
+            reviewSection.style.display = inReview.length > 0 ? '' : 'none';
+            reviewList.innerHTML = '';
+            for (const task of inReview) {
+                reviewList.appendChild(createDashboardItem(task));
+            }
+        }
+
+        // Active section
+        const activeSection = document.getElementById('dashboard-active');
+        const activeList = document.getElementById('dashboard-active-list');
+        if (activeSection && activeList) {
+            activeSection.style.display = active.length > 0 ? '' : 'none';
+            activeList.innerHTML = '';
+            for (const task of active) {
+                activeList.appendChild(createDashboardItem(task));
+            }
+        }
+
+        // Completed section
+        const completedSection = document.getElementById('dashboard-completed');
+        const completedList = document.getElementById('dashboard-completed-list');
+        if (completedSection && completedList) {
+            completedSection.style.display = completed.length > 0 ? '' : 'none';
+            completedList.innerHTML = '';
+            for (const task of completed) {
+                completedList.appendChild(createDashboardItem(task));
+            }
+        }
+
+        // Empty state
+        const emptyEl = document.getElementById('dashboard-empty');
+        if (emptyEl) {
+            emptyEl.style.display = visible.length === 0 ? '' : 'none';
+        }
+    }
+
+    function createDashboardItem(task: any): HTMLElement {
+        const item = document.createElement('div');
+        item.className = 'dashboard-item';
+        item.dataset.taskId = task.id;
+        item.addEventListener('click', () => {
+            vscode.postMessage({ type: 'selectTask', taskId: task.id });
+        });
+
+        const statusIcon = document.createElement('span');
+        switch (task.status) {
+            case 'in_review': statusIcon.textContent = '🟡'; break;
+            case 'active': statusIcon.textContent = '🟢'; break;
+            case 'completed': statusIcon.textContent = '✅'; break;
+            default: statusIcon.textContent = '⚪'; break;
+        }
+        statusIcon.style.cssText = 'font-size:11px;flex-shrink:0;';
+        item.appendChild(statusIcon);
+
+        const title = document.createElement('span');
+        title.className = 'dash-title';
+        title.textContent = task.title || '未命名任务';
+        item.appendChild(title);
+
+        const meta = document.createElement('span');
+        meta.className = 'dash-meta';
+        const now = Date.now();
+        const created = task.createdAt;
+        const diff = now - created;
+        if (diff < 3600000) {
+            meta.textContent = Math.round(diff / 60000) + 'm ago';
+        } else if (diff < 86400000) {
+            meta.textContent = Math.round(diff / 3600000) + 'h ago';
+        } else {
+            meta.textContent = Math.round(diff / 86400000) + 'd ago';
+        }
+        item.appendChild(meta);
+
+        return item;
     }
 
     function createProjectSection(project: any, containers: any[], tasks: any[], activeTaskId?: string): HTMLElement {

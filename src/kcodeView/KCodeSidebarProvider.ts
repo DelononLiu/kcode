@@ -711,10 +711,126 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         .task-item.selected.active {
             background: #0E364B;
         }
+
+        /* --- Sidebar Tabs --- */
+        .sidebar-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--vscode-sideBar-border, #3c3c3c);
+            flex-shrink: 0;
+        }
+        .sidebar-tab {
+            flex: 1;
+            padding: 8px 4px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--vscode-sideBar-foreground, #888);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: color 0.15s, border-color 0.15s;
+            white-space: nowrap;
+        }
+        .sidebar-tab:hover {
+            color: var(--vscode-sideBar-foreground, #ccc);
+            background: var(--vscode-list-hoverBackground, #252526);
+        }
+        .sidebar-tab.active {
+            color: var(--vscode-sideBar-foreground, #d4d4d4);
+            border-bottom-color: var(--vscode-button-background, #0e639c);
+        }
+
+        /* --- Tab Content --- */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* --- Dashboard --- */
+        .dashboard-section { margin-bottom: 2px; }
+        .dashboard-section-header {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px 6px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--vscode-sideBarSectionHeader-foreground, #888);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .dashboard-section-header .arrow {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-right: 1.5px solid var(--vscode-sideBar-foreground, #888);
+            border-bottom: 1.5px solid var(--vscode-sideBar-foreground, #888);
+            margin-right: 6px;
+            flex-shrink: 0;
+            transition: transform 0.1s ease;
+        }
+        .dashboard-section-header .arrow.collapsed { transform: rotate(-45deg); }
+        .dashboard-section-header .arrow:not(.collapsed) { transform: rotate(45deg); }
+        .dashboard-section-body { }
+        .dashboard-section-body.hidden { display: none; }
+        .dashboard-item {
+            padding: 6px 8px 6px 16px;
+            cursor: pointer;
+            border-radius: 3px;
+            color: #a0a0a0;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 1px 4px;
+        }
+        .dashboard-item:hover { background: #252526; }
+        .dashboard-item .dash-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .dashboard-item .dash-meta {
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground, #666);
+            flex-shrink: 0;
+        }
     </style>
     <title>KCode</title>
 </head>
 <body>
+    <div class="sidebar-tabs">
+        <button id="tab-dashboard" class="sidebar-tab active" data-tab="dashboard">📋 工作台</button>
+        <button id="tab-project" class="sidebar-tab" data-tab="project">📦 项目</button>
+    </div>
+    <div id="tab-dashboard-content" class="tab-content active">
+        <div id="dashboard-content">
+            <div id="dashboard-review" class="dashboard-section" style="display:none">
+                <div class="dashboard-section-header">
+                    <span class="arrow"></span>
+                    <span>⚠️ 待验收</span>
+                </div>
+                <div class="dashboard-section-body" id="dashboard-review-list"></div>
+            </div>
+            <div id="dashboard-active" class="dashboard-section" style="display:none">
+                <div class="dashboard-section-header">
+                    <span class="arrow collapsed"></span>
+                    <span>▶ 进行中</span>
+                </div>
+                <div class="dashboard-section-body hidden" id="dashboard-active-list"></div>
+            </div>
+            <div id="dashboard-completed" class="dashboard-section" style="display:none">
+                <div class="dashboard-section-header">
+                    <span class="arrow collapsed"></span>
+                    <span>✓ 最近完成</span>
+                </div>
+                <div class="dashboard-section-body hidden" id="dashboard-completed-list"></div>
+            </div>
+            <div id="dashboard-empty" class="placeholder-text" style="display:none">暂无任务</div>
+        </div>
+    </div>
+    <div id="tab-project-content" class="tab-content">
     <div id="sidebar-content">
         <div class="action-bar">
             <button id="btn-new-task" class="sidebar-btn"><span class="sidebar-btn-icon">+</span> 新建任务</button>
@@ -766,6 +882,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         </div>
         <button id="btn-settings" class="footer-btn" title="Settings">&#x2699;</button>
     </div>
+    </div><!-- /tab-project-content -->
 
     <div id="__sidebarData"
          data-tasks="${this.escapeAttr(JSON.stringify(this._store.getTasks()))}"

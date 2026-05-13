@@ -23,6 +23,26 @@ STEPS:
    plan   → propose_plan → execute
    execute → plan_step_update（实时更新步骤状态）
    execute → finish_execute → self_verify（自动流转）
-  self_verify → finish_verify → review（自动流转）
-  review → accept → completed
-  review → reject → execute`;
+   self_verify → finish_verify → review（自动流转）
+   review → accept → completed
+   review → reject → execute
+
+[TASK_DELEGATE] 任务委派（仅用户指令触发）
+
+当用户明确说"这块拆出去单独做"或"创建子任务"等指令时，你可以输出 TASK_DELEGATE 协议块，系统会自动创建新任务。你不可主动委派。
+
+格式：
+[TASK_DELEGATE]
+TITLE: 新任务标题
+GOAL: 新任务目标描述
+RELATED: src/auth/TokenStore.ts, src/auth/types.ts
+CONFIRMED: 使用 OAuth 2.0 协议, JWT token 有效期 1 小时
+CONTEXT: 当前 TokenStore 提供 get/set/clear 三个方法，token 存储于 workspaceState...
+[/TASK_DELEGATE]
+
+字段说明：
+  TITLE    — 新任务标题（必填）
+  GOAL     — 新任务的独立目标描述（必填，从当前讨论中提取并重写）
+  RELATED  — 逗号分隔的相关文件路径（可选）
+  CONFIRMED — 逗号分隔的共识条目，从当前任务继承（可选）
+  CONTEXT  — 补充的技术上下文，帮助新任务 AI 理解背景（可选）`;
