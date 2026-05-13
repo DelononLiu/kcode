@@ -645,6 +645,7 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 | P9-03 | 导入 GitHub Issue — GitHub API fetch 实现 | ✅ 已完成 |
 | P9-04 | 导入 GitHub Issue — rate limit 处理 + token 配置 | ✅ 已完成 |
 | P9-05 | 输入队列 — 生成中消息不会丢失，生成结束后自动发送 | ⏸️ 延后（非 Phase 9 核心目标） |
+| P9-06 | 阶段钩子 — 每个节点可指定自定义命令（注入到 phase prompt） | 🔍 调研中 |
 
 ---
 
@@ -789,7 +790,202 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 
 ---
 
-## Phase 10 — 五阶段流程之上
+### P9-06: 阶段钩子 — 每个节点可指定自定义命令
+
+**涉及文件**:
+- `src/types/index.ts` — Task 增加 `hooks` 字段
+- `src/store/TaskStore.ts` — 新增 `updateTaskHooks()` 方法
+- `src/taskflow/TaskFlow.ts` — `buildPhasePrompt()` 中注入当前阶段钩子
+- `src/kcodeView/KCodePanel.ts` — `sendTaskInfo()` 携带 hooks 数据；HTML 新增钩子配置 UI；消息处理 `updateHooks`
+- `src/kcodeView/webview/app.ts` — `updateTaskInfo()` 渲染钩子编辑区；绑定编辑保存事件
+
+**调研结果**:
+- `src/types/index.ts:37-55` — Task 接口，当前无 hooks 字段，phase 类型为 `'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review'`
+- `src/taskflow/TaskFlow.ts:462-502` — `buildPhasePrompt()` 按 phase switch 加载对应提示词，plan/execute 阶段已有 category template 的 analysisFramework/executionHints 注入逻辑。钩子可以复用相同模式：在 basePrompt + extraParts 之后追加 `【阶段命令】` 区块
+- `src/kcodeView/KCodePanel.ts:1690-1713` — `sendTaskInfo()` 发送 title/phase/status/confirmedItems 等，可新增 hooks 字段
+- `src/kcodeView/webview/app.ts:1208-1350` — `updateTaskInfo()` 更新 DOM 各区域。可在 phase badge 行之后新增 hooks 编辑区
+
+**设计思路**:
+- **Data**: `Task.hooks: Partial<Record<'demand'|'goal'|'plan'|'execute'|'self_verify'|'review', string[]>>`，每个阶段对应一组命令字符串
+- **Prompt 注入**: `buildPhasePrompt()` 在组装完 base + extra 后，检测 `task.hooks[task.phase]` 是否存在且非空，有则追加 `## 阶段命令\n在此阶段你必须依次执行以下命令：\n1. xxx\n2. yyy`
+- **UI**: 在 task-info-phase 区域或下方新增 hooks 配置入口。简洁做法：点击 ⚙️ 图标 → 弹出多行输入框编辑当前阶段的命令（每行一条），或更简洁：直接在 phase badge 行加一个小齿轮图标，hover 显示当前钩子，点击进入编辑
+- **Store**: `updateTaskHooks(taskId, phase, commands: string[])` 更新指定阶段的钩子列表
+- **空值处理**: 无钩子时不注入任何内容，不影响现有流程
+
+**状态**: 🔍 调研中
+
+---
+
+## Phase 9.9: 代码重构 — 模块拆分 + 测试覆盖
+
+_目标：在进入 Phase 10 核心功能之前，重构代码结构，让逻辑层可测试、UI 层变薄、模块边界清晰。_
+
+**当前问题**:
+
+| 文件 | 行数 | 问题 |
+|------|------|------|
+| `KCodePanel.ts` | 1858 | 职责过重：Panel 生命周期 + HTML/CSS 生成 + Agent 通信 + 任务编排 + 消息路由 |
+| `app.ts` | 2213 | 职责过重：消息处理 + DOM 渲染 + UI 状态管理 + 工具调用渲染 |
+| `sidebar.ts` | 781 | 渲染 + 事件处理 + 右键菜单逻辑混合 |
+| 测试覆盖 | 仅 taskflow | 260 行 7 个用例，核心 UI 模块无测试 |
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P9.9-01 | Core interfaces 定义 — IAgentService / IMessageBus / IPhaseFlow | 🔍 调研中 |
+| P9.9-02 | AgentService 抽取 — 从 KCodePanel 拆出 agent 通信层 | 🔍 调研中 |
+| P9.9-03 | KCodePanel 瘦身 — HTML/CSS 外置 + 消息路由委托 | 🔍 调研中 |
+| P9.9-04 | app.ts 拆分 — 消息处理与 DOM 渲染解耦 | 🔍 调研中 |
+| P9.9-05 | 测试用例补齐 — 覆盖核心逻辑分支 | 🔍 调研中 |
+
+---
+
+### P9.9-01: 定义 Core interfaces
+
+**涉及文件**: _待调研_
+**调研步骤**:
+1. 读 `KCodePanel.ts` 全部 public 方法 + 消息处理 handler，梳理它跟哪些模块交互
+2. 读 `TaskFlow.ts` 现有的 `ITaskStore` / `TaskFlowDelegate` 接口
+3. 读 `AcpClient.ts` 的 public API
+4. 读 `app.ts` 中 `initMessageHandler` 的消息类型映射
+
+**设计思路**:
+
+定义三个核心接口，让 KCodePanel 从"啥都干"变成"只协调"：
+
+1. **IAgentService** — 封装 ACP 通信
+   - `sendPrompt(taskId, text, callbacks) → void`
+   - `cancel(taskId) → void`
+   - `closeSession(taskId) → void`
+   - `getReviewChanges(taskId) → FileChange[]`
+   - 可 mock，可替换 agent 实现
+
+2. **IMessageBus** — Extension ↔ WebView 消息总线
+   - `postMessage(msg) → void`
+   - `onMessage(type, handler) → void`
+   - 消息类型集中定义，一方发送一方消费，双向类型安全
+
+3. **IPhaseFlow** — 已存在（TaskFlow），但需清理接口边界
+   - 明确 TaskFlow 不依赖 VS Code API（已满足）
+   - 明确 KCodePanel 通过 delegate 接收 TaskFlow 事件
+
+**产出**: `src/core/interfaces.ts`（或分散在各模块），现有 TaskFlow 的 `ITaskStore` 和 `TaskFlowDelegate` 归入此文件
+
+**状态**: 🔍 调研中
+
+---
+
+### P9.9-02: 抽取 AgentService
+
+**涉及文件**:
+- `src/core/AgentService.ts` — **新建**，从 KCodePanel 抽取 agent 通信逻辑
+- `src/kcodeView/KCodePanel.ts` — 移除 agent 通信代码，改为委托 AgentService
+- `src/acp/AcpClient.ts` — 可能需调整接口以适配 AgentService
+
+**调研结果**:
+- `KCodePanel.ts` 中 agent 相关字段: `agentConnected: boolean`, `acpClient: AcpClient`, `sessions: Map`
+- `KCodePanel.ts` 中 agent 相关方法: `connectToAgent()`, `handleSendMessage()` 中调 `acpClient.prompt()`, `handleStopGeneration()` 中调 `acpClient.cancel()`, `handleClearMessages()` 中调 `closeTaskSession()`
+- `KCodePanel.ts:68-75` — 消息处理 `stopGeneration` → `handleStopGeneration()`
+- 目前每个 task 一个 session，session 生命周期由 KCodePanel 管理
+
+**实现说明**:
+
+`AgentService` 职责：
+- 管理 ACP 连接生命周期（connect/dispose）
+- 管理 session 池（taskId → sessionId 映射）
+- 发送 prompt、cancel、close session
+- 回调转发（onText → KCodePanel 流式更新）
+- session 断开自动重连逻辑
+
+KCodePanel 改为一句话: `this.agentService.sendPrompt(taskId, text, callbacks)`
+
+**状态**: 🔍 调研中
+
+---
+
+### P9.9-03: KCodePanel 瘦身
+
+**涉及文件**:
+- `src/kcodeView/KCodePanel.ts` — 移除 HTML/CSS 内联、消息路由逻辑
+- `src/kcodeView/templates/chatPanel.html.ts` — **新建**，HTML 模板
+- `src/kcodeView/templates/chatPanel.css.ts` — **新建**，CSS 样式（保留内联或改引外部文件）
+
+**调研结果**:
+- `KCodePanel.ts:582-1245` — `getWebviewContent()` 返回完整 HTML 字符串，含大量内联 CSS（约 660 行）
+- `KCodePanel.ts:26-75` — `initMessageHandler()` 注册约 20+ 个消息处理
+- 每个消息处理 handler 直接操作 store / acpClient / taskFlow
+
+**实现说明**:
+
+拆分方向：
+1. **HTML/CSS 外置** — 移入 `src/kcodeView/templates/`，以 .ts 文件导出的方式保持类型安全，不引入新构建工具
+2. **消息路由委托** — 定义 `MessageRouter` 作为中介，KCodePanel 只做注册和转发，不包含处理逻辑
+3. **KCodePanel 保留职责**：
+   - WebviewPanel 创建/销毁
+   - 消息注册（委托给 MessageRouter）
+   - 事件到 WebView 的推送（委托给 IMessageBus 封装）
+
+**状态**: 🔍 调研中
+
+---
+
+### P9.9-04: app.ts 拆分
+
+**涉及文件**:
+- `src/kcodeView/webview/app.ts` — 拆分，保留消息初始化 + DOM 渲染
+- `src/kcodeView/webview/messageHandler.ts` — **新建**，消息处理逻辑
+- `src/kcodeView/webview/state.ts` — **新建**，UI 状态管理
+
+**调研结果**:
+- `app.ts` 全局变量（约 20+）：`activeTaskId`, `activeTaskStatus`, `isGenerating`, `streamTextBuffer` 等
+- `app.ts` 中 `initMessageHandler()` switch 分支约 20 个消息类型
+- `app.ts` 中 `handleAgentStreamUpdate()` 既处理文本又更新 DOM
+- `app.ts` 中 `renderMessages()` 既解析数据又构建 DOM
+
+**实现说明**:
+
+拆分方向：
+1. **`state.ts`** — 集中管理 WebView 侧全局状态（activeTaskId, isGenerating, generationTimer, acceptanceCheckedState 等），暴露 get/set/onChange
+2. **`messageHandler.ts`** — 消息分派逻辑，dispatch 到对应的 DOM 渲染函数
+3. **`app.ts`** — 只保留 `initMessageHandler()` 注册 + 初始化 DOM 引用，渲染函数内联保留（纯 DOM 操作）
+
+**状态**: 🔍 调研中
+
+---
+
+### P9.9-05: 测试用例补齐
+
+**调研结果**:
+- 当前测试: `src/taskflow/__tests__/TaskFlow.test.ts`（260 行），覆盖 buildPrompt 5 阶段 + processChunk 协议解析 + 完整流程
+- vitest 已配置，可直接 `npm test` 运行
+- 无接口 mock 工具依赖（vitest 自带 vi.mock）
+
+**实现说明**:
+
+| 模块 | 类型 | 测试重点 |
+|------|------|---------|
+| `AgentService` | 单元测试 | 消息发送/取消、session 管理、回调转发、重连（mock AcpClient） |
+| `MessageRouter` | 单元测试 | 消息注册/派发、类型校验 |
+| `TaskFlow` | 已有 | 补充边界（含空 goal、自验失败兜底、驳回再执行） |
+| `sidebar.ts` | 不直接测 | 逻辑太薄，集成到 app.ts 中覆盖 |
+| `state.ts` | 单元测试 | 状态变更通知、多状态原子更新 |
+
+**工具**:
+- 所有测试用 vitest + 无头模式（已有配置）
+- AcpClient mock: `vi.mock('../acp/AcpClient')`
+- VS Code API mock: 外层已有的 `vscode` mock 或 `interface` 抽象后直接 mock
+
+**状态**: 🔍 调研中
+
+_目标：从"AI 对话工具"转向"AI 驱动的开发流程管理器"。将产品线、任务委派、工作台串联为完整的 PM 工作流。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P10-01 | 任务类型分类 + 模板系统 | ✅ 已完成 |
+| P10-02 | 产品线 — 只读顶层分类 + 分组共存 | 🔍 调研中 |
+| P10-03 | 任务委派 — 执行中按对话触发委派子任务 | 🔍 设计讨论中 |
+| P10-04 | 工作台 — PM 模式首页重构 | 🔍 设计讨论中 |
+
+---
 
 ### P10-01: 任务类型分类 + 模板系统
 
@@ -819,7 +1015,145 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 
 ---
 
-## 阶段流程增强（基于已有功能补全）
+### P10-02: 产品线 — 只读顶层分类 + 分组共存
+
+**涉及文件**: _待调研_
+**调研步骤**:
+1. 读 `src/types/index.ts` 确认 Task 现有 source 字段和 group 字段
+2. 读 `src/store/TaskStore.ts` 确认 group 相关方法
+3. 读 `src/kcodeView/KCodeSidebarProvider.ts` 和 `sidebar.ts` 确认侧边栏分组渲染和消息处理
+4. 读 `PROJECT.md` 确认 UI 布局设计
+
+**问题背景**:
+- 当前"分组"是用户自定义的个人组织方式，可自由创建/重命名/删除
+- 产品线是公司级只读分类，从 PM 工具/配置导入，用户不可新增
+- 两个维度需要共存：产品（来源维度，只读）+ 分组（组织维度，用户自定义多层级）
+- Task 已通过 `source` 字段关联外部需求来源，产品线可基于此扩展
+
+**设计思路**:
+- **只读产品线**: 不新增独立数据结构，复用 TaskSource 衍生出的业务线概念——相同 owner/repo 或来源属于同一产品
+- **配置方式**: 项目配置或 workspaceState 中预定义产品列表，非用户 UI 创建
+- **侧边栏视图**: 增加"按产品"视图模式切换（与当前分组视图并列），产品为只读顶层头，内部任务可按分组继续组织
+- **产品进度条**: 每个产品头自动计算 `completed / total` 百分比（只统计非 cancelled 任务），以进度条 + 分数显示。这是侧边栏最核心的聚合信息——用户一眼知道产品进度
+- **分组不变**: 当前 group 机制维持原样，支持用户创建/嵌套/拖拽
+- **两个维度关系**: 一个任务必属于一个产品（或"未分类"），同时可以属于一个用户分组。产品管来源，分组管整理
+- **导入增强**: 从 GitHub Issue 导入时，自动关联对应产品线；从 Jira/Linear 导入同理
+
+**状态**: 🔍 调研中
+
+---
+
+### P10-03: 任务委派 — 执行中按对话触发委派子任务
+
+**涉及文件**: _待调研_
+**调研步骤**:
+1. 读 `src/kcodeView/KCodePanel.ts` 确认 `handleSendMessage` 和 `onDone`，确定委派的触发时机
+2. 读 `src/store/TaskStore.ts` 确认 `addTask` 接口，判断能否传入完整初始字段
+3. 读 `src/kcodeView/KCodeSidebarProvider.ts` 和 `sidebar.ts` 确认侧边栏刷新机制
+
+**模型定义**:
+
+用户 = 项目经理，AI = 开发者。拆分（实为委派）的场景是：
+
+> 用户在 Task A 中对话 → AI 表示"这部分搞不定/太复杂"
+> → 用户说"这块拆出去单独做" → AI 打包当前上下文
+> → 侧边栏多了一个新 Task B（继承 goal 片段 + 关联文件）
+> → Task A 和 Task B 独立执行，都向用户（PM）报告
+
+核心关系：
+- **不是父子** — Task A 不知道 Task B 存在，无状态关联
+- **用户是中心** — 用户侧边栏看到所有任务，谁完成了谁没完成一目了然
+- **无需自动报告** — 用户看到 completed 就够了，PM 想告诉 Task A 的 AI 一声就告诉，不告诉也行
+
+**设计思路**:
+
+1. **触发方式**: 纯对话。用户说"这部分拆出去单独做" → AI 输出 `TASK_DELEGATE` 协议
+2. **协议格式**:
+   ```
+   <TASK_DELEGATE>
+   {
+     "title": "实现 OAuth 登录",
+     "goal": "基于当前 TokenStore 框架实现 OAuth 登录功能...",
+     "context": { "relatedFiles": [...], "confirmedItems": [...] }
+   }
+   </TASK_DELEGATE>
+   ```
+3. **执行流程**: KCodePanel 解析 `TASK_DELEGATE` → `store.addTask()` 创建新任务（继承 product/group/source，但不设 parentId）→ 刷新侧边栏 → 新任务出现在列表中
+4. **上下文继承**: 新任务 AI 自动填充 goal、关联文件、confirmedItems。用户打开即可继续，不再需要重述
+5. **侧边栏**: 无特殊展示，就是另一个平级任务。不缩进、不展开、不关联
+6. **原任务**: 完全不变，继续对话。scope 在 AI 下一轮回复中自然缩小（因为"拆出去"的信息在对话历史里）
+7. **产品进度**: 两个任务都在同产品下，各自独立计入完成率
+
+**状态**: 🔍 设计讨论中
+
+---
+
+### P10-04: 工作台 — PM 模式首页重构
+
+**涉及文件**: _待调研_
+**调研步骤**:
+1. 读 `KCodePanel.ts` 中 `getWebviewContent()` 空闲态 HTML 和 CSS
+2. 读 `app.ts` 中 `loadMessages` / `handleLoadMessages` 确认无任务时的渲染逻辑
+3. 读 `KCodeSidebarProvider.ts` 侧边栏 HTML 结构，设计 tab 切换
+
+**设计思路**:
+
+**核心转变**: 从"新建任务"入口 → "工作台"首页。用户打开 KCode 不是为了新建任务，是为了推进工作。
+
+**主区域（无任务选中时 → Dashboard）**:
+
+```
+┌─ KCode 工作台 ─────────────────────────────────────────┐
+│                                                         │
+│  📊 总览                                                │
+│  产品: 2 | 任务: 12 | 进行中: 3 | 待验收: 2 | 今日完成: 1│
+│                                                         │
+│  ⚠️ 待处理                                              │
+│  ┌────────────────────────────────────────────────────┐ │
+│  │ KCode 进度条      3/8 任务完成                      │ │
+│  │   └─ [待验收] 重构登录页  改动 3 个文件            │ │
+│  │ Server 进度条      1/4 任务完成                      │ │
+│  │   └─ [待验收] 数据库优化 改动 5 个文件             │ │
+│  └────────────────────────────────────────────────────┘ │
+│                                                         │
+│  ▶ 进行中任务                                           │
+│  ┌────────────────────────────────────────────────────┐ │
+│  │ 数据库优化    Agent A   ████████░░ 80%             │ │
+│  │ OAuth 实现    Agent B   ████░░░░░░ 35%             │ │
+│  └────────────────────────────────────────────────────┘ │
+│                                                         │
+│  [+ 新建任务]  [导入需求]                               │
+└─────────────────────────────────────────────────────────┘
+```
+
+- 无任务选中时输入框隐藏（任务没选你跟 AI 说什么）
+- "[+ 新建任务]" 降级为 Dashboard 的操作按钮，不占主输入区
+
+**侧边栏（双 tab）**:
+
+```
+[📋 工作台] [📦 产品]    ← tab 切换
+```
+
+| Tab | 内容 | 适用场景 |
+|-----|------|---------|
+| 📋 工作台 | 按状态聚合：⚠️待验收 → ▶进行中 → ▼最近完成 | "我现在要处理什么" |
+| 📦 产品 | 按产品聚合：产品头（进度条+完成数）→ 分组/任务 | "产品 X 进度怎么样了" |
+
+- 侧边栏"工作台"tab 任务按状态分组而非创建时间
+- ⚠️ 待验收（`in_review`）始终置顶，这是 PM 每天首要关注的
+- ▶ 进行中（`active`）默认折叠，用户知道在跑就行
+- ▼ 最近完成默认隐藏，可展开查看
+- "新建任务"按钮从显眼位置移到底部或角落，从"第一件事"降级为"偶尔需要的操作"
+- "产品"tab 保留当前的分组(group)内嵌展示
+
+**数据流变化**:
+- KCodeSidebarProvider.refresh() → 根据当前 tab（工作台/产品）发送不同结构的数据
+- app.ts 侧边栏渲染 → 根据数据是"状态分组"还是"产品分组"切换渲染模式
+- KCodePanel 无任务选中时 → 展示 Dashboard（替代当前的空白占位符）
+- Dashboard 数据从 store 聚合：统计各产品/各状态的任务数
+
+**状态**: 🔍 设计讨论中
 
 _目标：在 P7/P8 已实现的基础上，补全三个功能群的缺失环节。_
 
