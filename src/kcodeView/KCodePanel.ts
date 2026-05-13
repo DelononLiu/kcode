@@ -1326,6 +1326,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-body.showing-categories{display:flex!important}
 #chat-body.showing-categories #chat-scroll{display:flex;flex-direction:column;align-items:center}
 #chat-body.showing-categories #chat-messages{padding:0;width:100%;max-width:480px;min-height:auto}
+#chat-body.showing-categories ~ #chat-toolbar,
+#chat-body.showing-categories ~ #chat-input-area{display:none}
 
 /* === Chat Header === */
 #chat-header{flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -1579,23 +1581,13 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-highlight{animation:msg-highlight-fade 1.5s ease-out}
 @keyframes msg-highlight-fade{0%{background:rgba(78,201,176,.1);border-left:2px solid #4ec9b0}100%{background:transparent;border-left:2px solid transparent}}
 
-/* === Category Selection === */
-.category-hint{text-align:center;font-size:13px;color:#666;padding:16px 0 12px}
-.category-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 16px;max-width:460px;margin:0 auto}
-.category-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px 12px;background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:8px;cursor:pointer;transition:border-color .2s,background .2s}
-.category-card:hover{background:#2a2a30;border-color:rgba(255,255,255,.12)}
-.category-card .cat-icon{font-size:28px;line-height:1}
-.category-card .cat-label{font-size:13px;color:#d2d2d4;font-weight:500}
-.category-header{display:flex;align-items:center;gap:8px;padding:8px 16px;font-size:13px;color:#d2d2d4;flex-shrink:0}
-.category-back-btn{background:none;border:1px solid rgba(255,255,255,.08);color:#888;cursor:pointer;font-size:12px;padding:2px 8px;border-radius:4px;font-family:inherit;transition:color .2s,border-color .2s}
-.category-back-btn:hover{color:#ddd;border-color:rgba(255,255,255,.2)}
-.category-title{font-weight:500;font-size:13px}
-.subtype-list{display:flex;flex-direction:column;gap:6px;padding:0 16px 16px;max-width:460px;margin:0 auto}
-.subtype-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;cursor:pointer;transition:border-color .2s,background .2s}
-.subtype-item:hover{background:#2a2a30;border-color:rgba(78,201,176,.2)}
-.subtype-item .st-icon{font-size:18px;line-height:1;flex-shrink:0}
-.subtype-item .st-label{font-size:13px;color:#d2d2d4}
-.template-form{display:flex;flex-direction:column;gap:10px;padding:8px 16px 4px;max-width:460px;margin:0 auto}
+/* === Template Flow (Dropdowns + Form) === */
+.template-flow-wrapper{max-width:480px;margin:0 auto;padding:16px 16px 0}
+.template-flow-title{font-size:15px;font-weight:600;color:#e0e0e0;text-align:center;margin-bottom:16px}
+.template-flow-select{width:100%;padding:8px 10px;margin-bottom:8px;background:#1e1e22;color:#d2d2d4;border:1px solid rgba(255,255,255,.08);border-radius:5px;font-family:inherit;font-size:13px;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' fill='%23888' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.template-flow-select:focus{border-color:rgba(78,201,176,.3)}
+.template-flow-select:disabled{opacity:.4;cursor:default}
+.template-flow-desc{font-size:12px;color:#777;padding:0 0 8px;line-height:1.4}
 .form-field-group{display:flex;flex-direction:column;gap:4px}
 .form-field-label{font-size:12px;color:#aaa;font-weight:500}
 .form-field-required{color:#e06060}

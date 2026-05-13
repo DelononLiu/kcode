@@ -692,98 +692,79 @@ function renderCategorySelection() {
     if (chatHeader) chatHeader.style.display = 'none';
     document.getElementById('chat-body')?.classList.add('showing-categories');
 
-    if (!selectedCategory) {
-        const grid = document.createElement('div');
-        grid.className = 'category-grid';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'template-flow-wrapper';
 
-        for (const cat of categoryDefs) {
-            const card = document.createElement('div');
-            card.className = 'category-card';
-            card.innerHTML = `<span class="cat-icon">${cat.icon}</span><span class="cat-label">${cat.label}</span>`;
-            card.addEventListener('click', () => {
-                selectedCategory = cat.key;
-                renderCategorySelection();
-            });
-            grid.appendChild(card);
-        }
+    const titleLine = document.createElement('div');
+    titleLine.className = 'template-flow-title';
+    titleLine.textContent = '📋 按模板新建任务';
+    wrapper.appendChild(titleLine);
 
-        const hint = document.createElement('div');
-        hint.className = 'category-hint';
-        hint.textContent = '请选择任务类型';
-
-        container.appendChild(hint);
-        container.appendChild(grid);
-        return;
+    const selCat = document.createElement('select');
+    selCat.className = 'template-flow-select';
+    const opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = '— 选择任务大类 —';
+    opt0.disabled = true;
+    selCat.appendChild(opt0);
+    for (const cat of categoryDefs) {
+        const opt = document.createElement('option');
+        opt.value = cat.key;
+        opt.textContent = `${cat.icon} ${cat.label}`;
+        selCat.appendChild(opt);
     }
+    if (selectedCategory) selCat.value = selectedCategory;
+    wrapper.appendChild(selCat);
 
-    if (!selectedSubType) {
-        const cat = getCategoryDef(selectedCategory);
-        if (!cat) return;
-
-        const header = document.createElement('div');
-        header.className = 'category-header';
-
-        const backBtn = document.createElement('button');
-        backBtn.className = 'category-back-btn';
-        backBtn.textContent = '← 返回';
-        backBtn.addEventListener('click', () => {
-            selectedCategory = null;
-            renderCategorySelection();
-        });
-
-        const title = document.createElement('span');
-        title.className = 'category-title';
-        title.textContent = cat.icon + ' ' + cat.label;
-
-        header.appendChild(backBtn);
-        header.appendChild(title);
-        container.appendChild(header);
-
-        const list = document.createElement('div');
-        list.className = 'subtype-list';
-
-        for (const [key, st] of Object.entries(cat.subTypes)) {
+    const selSub = document.createElement('select');
+    selSub.className = 'template-flow-select';
+    const subOpt0 = document.createElement('option');
+    subOpt0.value = '';
+    subOpt0.textContent = selectedCategory ? '— 选择任务子类 —' : '— 请先选择大类 —';
+    subOpt0.disabled = true;
+    selSub.appendChild(subOpt0);
+    if (selectedCategory) {
+        selSub.disabled = false;
+        for (const [key, st] of Object.entries(getCategoryDef(selectedCategory)?.subTypes || {})) {
             const t = st as any;
-            const item = document.createElement('div');
-            item.className = 'subtype-item';
-            item.innerHTML = `<span class="st-icon">${t.icon}</span><span class="st-label">${t.label}</span>`;
-            item.addEventListener('click', () => {
-                selectedSubType = key;
-                renderCategorySelection();
-            });
-            list.appendChild(item);
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = `${t.icon} ${t.label}`;
+            selSub.appendChild(opt);
         }
-
-        container.appendChild(list);
-        return;
+        if (selectedSubType) selSub.value = selectedSubType;
+    } else {
+        selSub.disabled = true;
     }
+    wrapper.appendChild(selSub);
+
+    const selectorChanged = () => {
+        selectedCategory = selCat.value || null;
+        selectedSubType = selSub.value || null;
+        renderCategorySelection();
+    };
+    selCat.addEventListener('change', () => {
+        selectedSubType = null;
+        selSub.value = '';
+        selectorChanged();
+    });
+    selSub.addEventListener('change', selectorChanged);
+
+    container.appendChild(wrapper);
+
+    if (!selectedCategory || !selectedSubType) return;
 
     const cat = getCategoryDef(selectedCategory);
-    if (!cat) return;
-    const template = cat.subTypes[selectedSubType];
+    const template = cat?.subTypes?.[selectedSubType];
     if (!template) return;
-
-    const header = document.createElement('div');
-    header.className = 'category-header';
-
-    const backBtn = document.createElement('button');
-    backBtn.className = 'category-back-btn';
-    backBtn.textContent = '← 返回';
-    backBtn.addEventListener('click', () => {
-        selectedSubType = null;
-        renderCategorySelection();
-    });
-
-    const title = document.createElement('span');
-    title.className = 'category-title';
-    title.textContent = `${cat.icon} ${cat.label} › ${template.icon} ${template.label}`;
-
-    header.appendChild(backBtn);
-    header.appendChild(title);
-    container.appendChild(header);
 
     const form = document.createElement('div');
     form.className = 'template-form';
+
+    const templateDesc = document.createElement('div');
+    templateDesc.className = 'template-flow-desc';
+    templateDesc.textContent = template.inputPlaceholder || '';
+    form.appendChild(templateDesc);
 
     const formFields: Record<string, string> = {};
 
@@ -849,11 +830,6 @@ function renderCategorySelection() {
 
     btnRow.appendChild(startBtn);
     container.appendChild(btnRow);
-
-    const inputHint = document.getElementById('chat-input') as HTMLTextAreaElement;
-    if (inputHint) {
-        inputHint.placeholder = '提出后续修改要求';
-    }
 }
 
 function startTaskFromForm(template: any, formFields: Record<string, string>, notes: string) {
