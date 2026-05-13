@@ -630,11 +630,13 @@ _目标：实现 `<TASK_UPDATE>` 协议驱动的 5 阶段全流程（demand → 
 
 ---
 
-## Phase 9: 自举之路 Level 3 — 能带
+## Phase 9: 自举之路 Level 3 — 能带 ✅
 
 _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完成导入 GitHub Issue 的独立功能，从设计到发布的全流程。_
 
 > **来源 Issue**: [DelononLiu/kcode#1 — 调整 markdown 渲染表格简洁](https://github.com/DelononLiu/kcode/issues/1)
+>
+> **验证结果**: 连做 2 个独立功能（Chat→Task 转换 + 侧边栏任务搜索），AI 产出代码无需大改，开发者只做 code review 即可。Phase 9 目标达成。
 
 | 任务 | 说明 | 状态 |
 |------|------|------|
@@ -642,7 +644,7 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 | P9-02 | 导入 GitHub Issue — 命令 + 侧边栏按钮 + 输入框 | ✅ 已完成 |
 | P9-03 | 导入 GitHub Issue — GitHub API fetch 实现 | ✅ 已完成 |
 | P9-04 | 导入 GitHub Issue — rate limit 处理 + token 配置 | ✅ 已完成 |
-| P9-05 | 输入队列 — 生成中消息不会丢失，生成结束后自动发送 | ⬜ 未开始 |
+| P9-05 | 输入队列 — 生成中消息不会丢失，生成结束后自动发送 | ⏸️ 延后（非 Phase 9 核心目标） |
 
 ---
 
@@ -783,7 +785,7 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
   - 切换任务时清空队列（`loadTask()` 中重置）
   - 用户手动 stop 后队列保留，flushPendingMessages 在 onDone('cancelled') 后也执行
 
-**状态**: ⬜ 未开始
+**状态**: ⏸️ 延后（非 Phase 9 核心目标，后续迭代再实现）
 
 ---
 

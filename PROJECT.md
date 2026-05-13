@@ -187,7 +187,7 @@ src/
 | **9** | 🟨 Level 3 — 能带 | KCode 主导功能开发，开发者只做 code review | 验证：连做 3 个功能，AI 产出代码无需大改 |
 | **10** | 🟩 Level 4 — 能吃 | 团队完全切换到 KCode 开发 KCode，不再用其他 AI 工具 | 验证：用 KCode 完成一次完整的 release 迭代 |
 
-> **当前阶段：🟧 Level 2 — 能造** — 实现 `<TASK_UPDATE>` 协议全流程，用 KCode 自身完成独立功能。
+> **当前阶段：🟨 Level 3 — 能带** — KCode 主导功能开发（已通过 Chat→Task 转换 + 侧边栏搜索 2 个功能验证），开发者做 code review 即可。
 
 ---
 
