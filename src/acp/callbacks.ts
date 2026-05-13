@@ -12,6 +12,7 @@ export class KCodeClient implements acp.Client {
     private sessionChanges: Map<string, FileChange[]> = new Map();
     private currentSessionId: string = '';
     private workspaceRoot: string;
+    private lastUpdateTime: Map<string, number> = new Map();
     logCallback: ((direction: 'send' | 'recv', text: string) => void) | null = null;
 
     constructor(workspaceRoot: string) {
@@ -24,6 +25,7 @@ export class KCodeClient implements acp.Client {
 
     removeSessionHandler(sessionId: string) {
         this.sessionHandlers.delete(sessionId);
+        this.lastUpdateTime.delete(sessionId);
     }
 
     setCurrentSession(sessionId: string) {
@@ -37,6 +39,16 @@ export class KCodeClient implements acp.Client {
         return this.sessionChanges.get(sessionId) || [];
     }
 
+    /** 等待 session 的流式更新结束。每 100ms 检查一次，连续 idleMs 无更新则返回。 */
+    async awaitSessionIdle(sessionId: string, idleMs: number = 300, maxMs: number = 5000): Promise<void> {
+        const start = Date.now();
+        while (Date.now() - start < maxMs) {
+            const last = this.lastUpdateTime.get(sessionId) || 0;
+            if (Date.now() - last >= idleMs) break;
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+    }
+
     async requestPermission(params: acp.RequestPermissionRequest): Promise<acp.RequestPermissionResponse> {
         // MVP: auto-accept all permissions
         return {
@@ -48,6 +60,7 @@ export class KCodeClient implements acp.Client {
     }
 
     async sessionUpdate(params: acp.SessionNotification): Promise<void> {
+        this.lastUpdateTime.set(params.sessionId, Date.now());
         const update = params.update;
         const handler = this.sessionHandlers.get(params.sessionId);
         if (!handler) return;

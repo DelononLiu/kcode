@@ -10,6 +10,7 @@ export class OpenAIAgent {
     private handlers: Map<string, AcpMessageHandler> = new Map();
     private abortControllers: Map<string, AbortController> = new Map();
     private sessionChanges: Map<string, FileChange[]> = new Map();
+    private messages: Map<string, { role: string; content: string }[]> = new Map();
     private config: OpenAIConfig;
 
     constructor(overrides?: Partial<OpenAIConfig>) {
@@ -54,6 +55,10 @@ export class OpenAIAgent {
             this.abortControllers.set(sessionId, controller);
             const timeoutId = setTimeout(() => controller.abort(), 10000);
 
+            const history = this.messages.get(sessionId) || [];
+            history.push({ role: 'user', content: text });
+            this.messages.set(sessionId, history);
+
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -62,7 +67,7 @@ export class OpenAIAgent {
                 },
                 body: JSON.stringify({
                     model: this.config.model,
-                    messages: [{ role: 'user', content: text }],
+                    messages: history,
                     stream: true,
                 }),
                 signal: controller.signal,
@@ -84,6 +89,7 @@ export class OpenAIAgent {
 
             const decoder = new TextDecoder();
             let buffer = '';
+            let reply = '';
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -110,12 +116,18 @@ export class OpenAIAgent {
                         }
                         const content = delta?.content || '';
                         if (content) {
+                            reply += content;
                             handler.onText(content);
                         }
                     } catch {
                         // skip malformed SSE lines
                     }
                 }
+            }
+
+            if (reply) {
+                history.push({ role: 'assistant', content: reply });
+                this.messages.set(sessionId, history);
             }
 
             handler.onDone('end_turn');
@@ -139,6 +151,7 @@ export class OpenAIAgent {
 
     createSession(taskId: string): string {
         this.sessionChanges.set(taskId, []);
+        this.messages.set(taskId, []);
         return `openai-session-${taskId}`;
     }
 

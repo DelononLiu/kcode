@@ -142,9 +142,11 @@ describe('buildPrompt', () => {
         }
     });
 
-    it('chat 类型返回原始文本', () => {
+    it('chat 类型带有系统提示词', () => {
         const { flow, pid } = makeFlow({ type: 'chat' });
-        expect(flow.buildPrompt(pid, 'hello')).toBe('hello');
+        const result = flow.buildPrompt(pid, 'hello');
+        expect(result).toContain('AI 编程助手');
+        expect(result).toContain('hello');
     });
 });
 

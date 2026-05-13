@@ -10,6 +10,10 @@ import { SELF_VERIFY_PROMPT } from './prompts/self_verify';
 
 import { getTemplate, getCategory } from './templates';
 
+const CHAT_PROMPT = `你是一个 AI 编程助手。请直接回答用户的问题，使用中文回复。
+你可以使用 markdown 格式（代码块、列表、表格等）来组织回答。
+如果需要读取文件或执行命令，请先说明你的计划再执行。`;
+
 export interface ITaskStore {
     getTask(taskId: string): Task | undefined;
     updateTaskPhase(taskId: string, phase: Task['phase']): void;
@@ -379,7 +383,10 @@ export class TaskFlow {
 
     buildInitialPrompt(taskId: string, userText: string): string {
         const task = this.store.getTask(taskId);
-        if (!task || task.type !== 'task') return userText;
+        if (!task) return userText;
+        if (task.type !== 'task') {
+            return `${CHAT_PROMPT}\n\n${userText}`;
+        }
 
         const layers = [
             BASE_PROMPT,
@@ -393,7 +400,10 @@ export class TaskFlow {
 
     buildPhaseTransitionPrompt(taskId: string, userText: string): string {
         const task = this.store.getTask(taskId);
-        if (!task || task.type !== 'task') return userText;
+        if (!task) return userText;
+        if (task.type !== 'task') {
+            return userText;
+        }
 
         const layers = [
             this.buildTaskContext(task),
