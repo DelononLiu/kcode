@@ -4,7 +4,6 @@ import * as os from 'os';
 import { TaskStore } from '../store/TaskStore';
 import { TaskFlow } from '../taskflow/TaskFlow';
 import { AcpClient } from '../acp/AcpClient';
-import { FakeAgent } from '../acp/FakeAgent';
 import { OpenAIAgent } from '../acp/OpenAIAgent';
 import { classifyIntent } from '../acp/intentUtils';
 import { getCategories, getTemplate, getCategory } from '../taskflow/templates';
@@ -18,7 +17,6 @@ export class KCodePanel {
     private onDisposeCallback?: () => void;
     private currentTaskId: string | null = null;
     private acpClient: AcpClient | null = null;
-    private fakeAgent: FakeAgent | null = null;
     private openaiAgent: OpenAIAgent | null = null;
     private agentReady: boolean = false;
     private activeToolCalls: Map<string, { title: string; kind: string; status: string; output?: string }> = new Map();
@@ -166,7 +164,7 @@ export class KCodePanel {
 
     private async handleSendMessage(text: string, taskId?: string, category?: string, subType?: string) {
         const tid = taskId || this.currentTaskId;
-        console.log('[KCode] handleSendMessage called, text:', text, 'tid:', tid, 'agentReady:', this.agentReady, 'acpClient:', !!this.acpClient, 'fakeAgent:', !!this.fakeAgent);
+        console.log('[KCode] handleSendMessage called, text:', text, 'tid:', tid, 'agentReady:', this.agentReady, 'acpClient:', !!this.acpClient);
         if (!tid) return;
         if (this.isGenerating) return;
 
@@ -258,14 +256,6 @@ export class KCodePanel {
             this.setGenerationState(true);
             this.sendAcpLog(tid, 'send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
-        } else if (this.fakeAgent) {
-            const sessionId = this.fakeAgent.createSession(tid);
-            this.fakeAgent.setHandler(sessionId, handler);
-            this.taskFlow.resetGeneration(tid);
-            this.activeToolCalls.clear();
-            this.setGenerationState(true);
-            this.sendAcpLog(tid, 'send', promptText);
-            await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
@@ -324,14 +314,6 @@ export class KCodePanel {
             this.setGenerationState(true);
             this.sendAcpLog(tid, 'send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
-        } else if (this.fakeAgent) {
-            const sessionId = this.fakeAgent.createSession(tid);
-            this.fakeAgent.setHandler(sessionId, handler);
-            this.taskFlow.resetGeneration(tid);
-            this.activeToolCalls.clear();
-            this.setGenerationState(true);
-            this.sendAcpLog(tid, 'send', promptText);
-            await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
@@ -571,14 +553,6 @@ export class KCodePanel {
             this.setGenerationState(true);
             this.sendAcpLog(tid, 'send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
-        } else if (this.fakeAgent) {
-            const sessionId = this.fakeAgent.createSession(tid);
-            this.fakeAgent.setHandler(sessionId, handler);
-            this.taskFlow.resetGeneration(tid);
-            this.activeToolCalls.clear();
-            this.setGenerationState(true);
-            this.sendAcpLog(tid, 'send', promptText);
-            await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
@@ -669,14 +643,6 @@ export class KCodePanel {
             this.setGenerationState(true);
             this.sendAcpLog(tid, 'send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
-        } else if (this.fakeAgent) {
-            const sessionId = this.fakeAgent.createSession(tid);
-            this.fakeAgent.setHandler(sessionId, handler);
-            this.taskFlow.resetGeneration(tid);
-            this.activeToolCalls.clear();
-            this.setGenerationState(true);
-            this.sendAcpLog(tid, 'send', promptText);
-            await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
@@ -747,14 +713,6 @@ export class KCodePanel {
             this.setGenerationState(true);
             this.sendAcpLog(tid, 'send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
-        } else if (this.fakeAgent) {
-            const sessionId = this.fakeAgent.createSession(tid);
-            this.fakeAgent.setHandler(sessionId, handler);
-            this.taskFlow.resetGeneration(tid);
-            this.activeToolCalls.clear();
-            this.setGenerationState(true);
-            this.sendAcpLog(tid, 'send', promptText);
-            await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
@@ -772,8 +730,6 @@ export class KCodePanel {
         this.setGenerationState(false);
         if (this.acpClient) {
             this.acpClient.cancel(tid);
-        } else if (this.fakeAgent) {
-            this.fakeAgent.cancel(tid);
         } else if (this.openaiAgent) {
             this.openaiAgent.cancel(tid);
         }
@@ -854,8 +810,6 @@ export class KCodePanel {
         let changes: FileChange[] = [];
         if (this.acpClient) {
             changes = this.acpClient.getReviewChanges(tid);
-        } else if (this.fakeAgent) {
-            changes = this.fakeAgent.getReviewChanges(tid);
         } else if (this.openaiAgent) {
             changes = this.openaiAgent.getReviewChanges?.(tid) || [];
         }
@@ -1001,16 +955,8 @@ export class KCodePanel {
                 this.activeToolCalls.clear();
                 this.setGenerationState(true);
                 this.sendAcpLog(tid, 'send', promptText);
-                await this.acpClient.prompt(tid, promptText, handler);
-            } else if (this.fakeAgent) {
-                const sessionId = this.fakeAgent.createSession(tid);
-                this.fakeAgent.setHandler(sessionId, handler);
-                this.taskFlow.resetGeneration(tid);
-                this.activeToolCalls.clear();
-                this.setGenerationState(true);
-                this.sendAcpLog(tid, 'send', promptText);
-                await this.fakeAgent.prompt(sessionId, promptText);
-            } else if (this.openaiAgent) {
+            await this.acpClient.prompt(tid, promptText, handler);
+        } else if (this.openaiAgent) {
                 const sessionId = this.openaiAgent.createSession(tid);
                 this.openaiAgent.setHandler(sessionId, handler);
                 this.taskFlow.resetGeneration(tid);
@@ -1044,14 +990,6 @@ export class KCodePanel {
             this.setGenerationState(true);
             this.sendAcpLog(tid, 'send', promptText);
             await this.acpClient.prompt(tid, promptText, handler);
-        } else if (this.fakeAgent) {
-            const sessionId = this.fakeAgent.createSession(tid);
-            this.fakeAgent.setHandler(sessionId, handler);
-            this.taskFlow.resetGeneration(tid);
-            this.activeToolCalls.clear();
-            this.setGenerationState(true);
-            this.sendAcpLog(tid, 'send', promptText);
-            await this.fakeAgent.prompt(sessionId, promptText);
         } else if (this.openaiAgent) {
             const sessionId = this.openaiAgent.createSession(tid);
             this.openaiAgent.setHandler(sessionId, handler);
@@ -1080,7 +1018,7 @@ export class KCodePanel {
 
     private async ensureConnection() {
         console.log('[KCode] ensureConnection called');
-        if (this.agentReady || this.fakeAgent || this.openaiAgent) return;
+        if (this.agentReady || this.openaiAgent) return;
 
         try {
             const config = vscode.workspace.getConfiguration('kcode');
@@ -1120,18 +1058,6 @@ export class KCodePanel {
                     type: 'agentStatus',
                     status: 'disconnected',
                     message: this.lastConnectError
-                });
-                return;
-            }
-
-            // FakeAgent for debugging
-            if (agentName === 'fake') {
-                console.log('[KCode] Using FakeAgent for debugging');
-                this.fakeAgent = new FakeAgent();
-                this.panel.webview.postMessage({
-                    type: 'agentStatus',
-                    status: 'connected',
-                    message: 'Fake Agent (调试模式)'
                 });
                 return;
             }
