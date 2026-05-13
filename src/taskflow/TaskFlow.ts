@@ -22,6 +22,7 @@ export interface ITaskStore {
     updatePendingItems(taskId: string, items: string[]): void;
     updatePlanSteps(taskId: string, steps: PlanStep[]): void;
     updateTaskGoal(taskId: string, goal: string): void;
+    updatePlanStepStatus(taskId: string, index: number, status: PlanStep['status']): void;
     updateTaskNodeMessageId(taskId: string, nodeType: string, messageId: string): void;
     getMessages(taskId: string): ChatMessage[];
     addMessage(msg: ChatMessage): void;
@@ -38,6 +39,7 @@ export interface TaskFlowDelegate {
     onError(taskId: string, error: string): void;
     onSelfVerifyNeeded(taskId: string): void;
     onSelfVerifyFinished(taskId: string): void;
+    onPlanStepUpdate(taskId: string): void;
 }
 
 export interface GenResult {
@@ -194,7 +196,7 @@ export class TaskFlow {
         }
     }
 
-    private static readonly PROTOCOL_KEYS = new Set(['ACTION', 'CONFIRMED', 'PENDING', 'STEPS']);
+    private static readonly PROTOCOL_KEYS = new Set(['ACTION', 'CONFIRMED', 'PENDING', 'STEPS', 'INDEX', 'STATUS']);
 
     private parseSimplePayload(body: string): any {
         const payload: any = {};
@@ -240,7 +242,7 @@ export class TaskFlow {
             'demand': ['propose_goal'],
             'goal': ['propose_goal'],
             'plan': ['propose_plan'],
-            'execute': [],
+            'execute': ['plan_step_update'],
             'self_verify': [],
             'review': [],
         };
@@ -280,6 +282,17 @@ export class TaskFlow {
                     }
                     this.planProposed.set(taskId, true);
                     this.delegate.onPhaseChanged(taskId);
+                }
+                break;
+
+            case 'plan_step_update':
+                {
+                    const idx = parseInt(payload.INDEX, 10);
+                    const status = payload.STATUS as 'active' | 'completed';
+                    if (!isNaN(idx) && (status === 'active' || status === 'completed')) {
+                        this.store.updatePlanStepStatus(taskId, idx, status);
+                        this.delegate.onPlanStepUpdate(taskId);
+                    }
                 }
                 break;
         }

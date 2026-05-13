@@ -781,3 +781,66 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 - `src/taskflow/TaskFlow.ts` — `buildPrompt` / `buildPhasePrompt` 根据 subType 读取模板内容注入
 
 **状态**: ✅ 已完成
+
+---
+
+## 阶段流程增强（基于已有功能补全）
+
+_目标：在 P7/P8 已实现的基础上，补全三个功能群的缺失环节。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P1-P6 | 计划逐步执行跟踪 — AI 通过 `plan_step_update` 协议实时标记步骤进度 | ✅ 已完成 |
+| N1-N7 | 进度节点面板增强 — 折叠/展开 + 节点 label 显示 + 点击跳转补全 | ✅ 已完成 |
+| R1-R6 | 结构化逐条验收 — 交互式勾选清单 + 部分通过（逐条通过/驳回） | ✅ 已完成 |
+
+---
+
+### Plan-before-Execute (P1-P6): 逐步执行跟踪
+
+**涉及文件**:
+- `src/taskflow/TaskFlow.ts` — 新增 `plan_step_update` 协议动作、`onPlanStepUpdate` delegate
+- `src/taskflow/prompts/protocol.ts` — 文档 `plan_step_update` 用法
+- `src/kcodeView/KCodePanel.ts` — 注册 `onPlanStepUpdate` 回调 → `sendTaskInfo`
+- `src/kcodeView/webview/app.ts` — 步骤进度条、活跃步骤高亮
+
+**实现说明**:
+1. `TaskFlow.ts`: `plan_step_update` 加入 `validateAction`(execute 阶段可用), `executeAction` 中解析 `INDEX` + `STATUS` 调用 `updatePlanStepStatus`
+2. `app.ts`: `updateTaskInfo` 中的 plan steps 渲染增加进度条 (`.plan-progress-bar`)、完成比例显示、活跃步骤蓝色高亮 (`.step-active`)
+3. AI 通过 `[TASK_UPDATE]ACTION: plan_step_update\nINDEX: 0\nSTATUS: active[/TASK_UPDATE]` 标记步骤状态
+4. `ITaskStore` + `MockTaskStore` + `MockDelegate` 均新增对应接口
+
+**状态**: ✅ 已完成
+
+---
+
+### 进度节点面板增强 (N1-N7): 折叠/展开 + 点击跳转
+
+**涉及文件**:
+- `src/kcodeView/KCodePanel.ts` — HTML 新增 `#tl-collapse-btn`；CSS 新增 collapse button 样式 + collapsed 态样式
+- `src/kcodeView/webview/app.ts` — `initNodePanel()` 新增 collapse 逻辑（sessionStorage 持久化）；`loadMessages` 清除 acceptanceCheckedState
+
+**实现说明**:
+1. **折叠/展开**: `#tl-collapse-btn` 按钮在 gutter 顶部，点击切换 `.collapsed` 类（宽度 28px → 12px，隐藏 dots），状态存 `sessionStorage`
+2. **节点 label**: 每个 `.tl-node` 已有 `title` 属性显示中文标签，hover 时浏览器原生 tooltip 展示
+3. **self_verify 节点 messageId**: `startAutoGeneration()` 中新增 `updateTaskNodeMessageId(tid, 'self_verify', ...)` 确保自验阶段可点击跳转
+
+**状态**: ✅ 已完成
+
+---
+
+### 结构化验收 (R1-R6): 逐条验收标准
+
+**涉及文件**:
+- `src/kcodeView/webview/app.ts` — `lastAcceptanceCriteria` checkboxes 改为交互式勾选 + 跟踪 `acceptanceCheckedState`；新增 `updateAcceptanceButtons()` + `#partial-approve-btn` 逐条通过按钮
+- `src/kcodeView/KCodePanel.ts` — `handlePartialApproveReview()` 方法；`partialApproveReview` 消息处理；CSS 新增 `#partial-approve-btn` 样式
+
+**实现说明**:
+1. **交互式勾选**: `addMessageElement` 中 review_request 的验收清单 checkbox 改为受控组件，跟踪 `acceptanceCheckedState` Map
+2. **逐条通过**: 勾选部分项后显示「逐条通过」按钮（`.secondary` 样式），点击发送 `partialApproveReview` 消息
+3. **处理逻辑**:
+   - 全部通过 → `finishReview` 完成
+   - 部分未通过 → 回退到 `execute` 阶段，将通过的/未通过的逐条告知 AI，自动重新生成
+4. **UI 清空**: `loadMessages` 消息中检测到新的 reviewChanges 或 acceptanceCriteria 时清除之前的勾选状态
+
+**状态**: ✅ 已完成

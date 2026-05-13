@@ -45,6 +45,13 @@ class MockTaskStore implements ITaskStore {
         if (t) t.planSteps = steps;
     }
 
+    updatePlanStepStatus(taskId: string, index: number, status: PlanStep['status']): void {
+        const t = this.tasks.get(taskId);
+        if (t && t.planSteps[index]) {
+            t.planSteps[index].status = status;
+        }
+    }
+
     updateTaskGoal(taskId: string, goal: string): void {
         const t = this.tasks.get(taskId);
         if (t) t.goal = goal;
@@ -89,6 +96,7 @@ class MockDelegate implements TaskFlowDelegate {
     phaseChanged: string[] = [];
     executeFinished: string[] = [];
     selfVerifyFinished: string[] = [];
+    planStepUpdated: string[] = [];
     goalFormatted: boolean = false;
 
     onPhaseChanged(taskId: string): void { this.phaseChanged.push(taskId); }
@@ -97,6 +105,7 @@ class MockDelegate implements TaskFlowDelegate {
     onError(_taskId: string, _error: string): void {}
     onSelfVerifyNeeded(_taskId: string): void {}
     onSelfVerifyFinished(taskId: string): void { this.selfVerifyFinished.push(taskId); }
+    onPlanStepUpdate(taskId: string): void { this.planStepUpdated.push(taskId); }
 }
 
 // ==============================

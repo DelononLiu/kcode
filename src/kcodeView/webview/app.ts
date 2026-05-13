@@ -86,8 +86,11 @@ function initMessageHandler() {
                 if (message.reviewChanges && message.reviewChanges.length > 0) {
                     reviewChangesMap.set(message.taskId, message.reviewChanges);
                 }
-                lastAcceptanceCriteria = message.acceptanceCriteria || null;
-                renderMessages(message.messages);
+    lastAcceptanceCriteria = message.acceptanceCriteria || null;
+    if (message.reviewChanges || message.acceptanceCriteria) {
+        acceptanceCheckedState.delete(message.taskId);
+    }
+    renderMessages(message.messages);
                 break;
             case 'showFilePreview':
                 if ((window as any).showPreview) {
@@ -314,6 +317,7 @@ let categoryDefs: any[] = [];
 let selectedCategory: string | null = null;
 let selectedSubType: string | null = null;
 let lastAcceptanceCriteria: string[] | null = null;
+const acceptanceCheckedState: Map<string, boolean[]> = new Map();
 
 function initLayout() {
     const rightPanel = document.getElementById('right-panel')!;
@@ -995,12 +999,29 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
                 criteriaEl.className = 'review-criteria';
                 const label = document.createElement('div');
                 label.className = 'review-criteria-label';
-                label.textContent = '📋 验收清单';
+                label.textContent = '📋 验收清单（勾选通过的项）';
                 criteriaEl.appendChild(label);
-                for (const c of lastAcceptanceCriteria) {
+
+                if (!acceptanceCheckedState.has(taskId)) {
+                    acceptanceCheckedState.set(taskId, lastAcceptanceCriteria.map(() => false));
+                }
+                const checkedState = acceptanceCheckedState.get(taskId)!;
+
+                for (let ci = 0; ci < lastAcceptanceCriteria.length; ci++) {
+                    const c = lastAcceptanceCriteria[ci];
                     const item = document.createElement('label');
                     item.className = 'review-criteria-item';
-                    item.innerHTML = `<input type="checkbox" class="criteria-checkbox"> ${escapeHtml(c)}`;
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.className = 'criteria-checkbox';
+                    cb.checked = checkedState[ci];
+                    cb.addEventListener('change', () => {
+                        checkedState[ci] = cb.checked;
+                        acceptanceCheckedState.set(taskId, checkedState);
+                        updateAcceptanceButtons(taskId);
+                    });
+                    item.appendChild(cb);
+                    item.append(document.createTextNode(' ' + c));
                     criteriaEl.appendChild(item);
                 }
                 body.appendChild(criteriaEl);
@@ -1025,6 +1046,25 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
             });
             actionsDiv.appendChild(approveBtn);
 
+            const partialBtn = document.createElement('button');
+            partialBtn.className = 'msg-card-btn secondary';
+            partialBtn.textContent = '逐条通过';
+            partialBtn.id = 'partial-approve-btn';
+            partialBtn.style.display = 'none';
+            partialBtn.addEventListener('click', () => {
+                const checkedArr = acceptanceCheckedState.get(taskId);
+                if (!checkedArr) return;
+                const passed = lastAcceptanceCriteria?.filter((_, i) => checkedArr[i]) || [];
+                const failed = lastAcceptanceCriteria?.filter((_, i) => !checkedArr[i]) || [];
+                actionsDiv.innerHTML = '';
+                const status = document.createElement('div');
+                status.className = 'msg-card-status';
+                status.textContent = `✅ 部分通过（${passed.length}/${(lastAcceptanceCriteria || []).length}）`;
+                actionsDiv.appendChild(status);
+                vscode.postMessage({ type: 'partialApproveReview', taskId, passed, failed });
+            });
+            actionsDiv.appendChild(partialBtn);
+
             const rejectBtn = document.createElement('button');
             rejectBtn.className = 'msg-card-btn secondary';
             rejectBtn.textContent = '驳回 ↩';
@@ -1032,6 +1072,14 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
                 showRejectInput(rejectBtn, taskId);
             });
             actionsDiv.appendChild(rejectBtn);
+
+            (card as any).__updateAcceptanceButtons = () => {
+                const checkedArr = acceptanceCheckedState.get(taskId);
+                if (!checkedArr) return;
+                const hasChecked = checkedArr.some(Boolean);
+                partialBtn.style.display = hasChecked ? '' : 'none';
+            };
+            (card as any).__updateAcceptanceButtons();
 
             card.appendChild(actionsDiv);
         } else {
@@ -1230,7 +1278,7 @@ function updateTaskInfo(info: any) {
         }
     }
 
-    // Plan steps
+    // Plan steps + execution progress
     const planRow = document.getElementById('task-info-plan');
     if (planRow) {
         const steps = info.planSteps || [];
@@ -1242,10 +1290,18 @@ function updateTaskInfo(info: any) {
                 const statusEmoji: Record<string, string> = {
                     pending: '○', active: '◉', completed: '✓'
                 };
-                stepsEl.innerHTML = steps.map((step: any) => {
-                    const emoji = statusEmoji[step.status] || '○';
-                    return `<div class="plan-step-item"><span class="step-status status-${step.status}">${emoji}</span><span class="step-content">${escapeHtml(step.content)}</span></div>`;
-                }).join('');
+                const total = steps.length;
+                const done = steps.filter((s: any) => s.status === 'completed').length;
+                const activeIdx = steps.findIndex((s: any) => s.status === 'active');
+                const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
+                stepsEl.innerHTML =
+                    `<div class="plan-progress-bar"><div class="plan-progress-fill" style="width:${progressPct}%"></div></div>` +
+                    `<div class="plan-progress-label">${done}/${total} 步骤完成</div>` +
+                    steps.map((step: any, i: number) => {
+                        const emoji = statusEmoji[step.status] || '○';
+                        const activeClass = i === activeIdx ? ' step-active' : '';
+                        return `<div class="plan-step-item${activeClass}"><span class="step-status status-${step.status}">${emoji}</span><span class="step-content">${escapeHtml(step.content)}</span></div>`;
+                    }).join('');
             }
             planRow.classList.remove('hidden');
         }
@@ -1608,6 +1664,13 @@ function showRejectInput(btn: HTMLElement, taskId: string) {
     area.appendChild(textarea);
     area.appendChild(btnRow);
     actions.appendChild(area);
+}
+
+function updateAcceptanceButtons(taskId: string) {
+    const card = document.querySelector(`.msg-card[data-review-task-id="${taskId}"]`) as any;
+    if (card?.__updateAcceptanceButtons) {
+        card.__updateAcceptanceButtons();
+    }
 }
 
 function updateCardToStatus(card: HTMLElement, statusText: string) {
@@ -2085,6 +2148,23 @@ function initNodePanel() {
             scrollToMessage(msgId);
         }
     });
+
+    const gutter = document.getElementById('node-timeline-gutter');
+    const collapseBtn = document.getElementById('tl-collapse-btn');
+    if (gutter && collapseBtn) {
+        const stored = sessionStorage.getItem('kcode_tl_collapsed');
+        if (stored === '1') {
+            gutter.classList.add('collapsed');
+            collapseBtn.textContent = '▶';
+        }
+        collapseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            gutter.classList.toggle('collapsed');
+            const isCollapsed = gutter.classList.contains('collapsed');
+            collapseBtn.textContent = isCollapsed ? '▶' : '◀';
+            sessionStorage.setItem('kcode_tl_collapsed', isCollapsed ? '1' : '0');
+        });
+    }
 }
 
 (window as any).addMessage = addMessage;

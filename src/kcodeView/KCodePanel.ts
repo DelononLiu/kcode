@@ -58,6 +58,9 @@ export class KCodePanel {
             },
             onSelfVerifyFinished: (taskId: string) => {
                 this.sendTaskInfo(taskId);
+            },
+            onPlanStepUpdate: (taskId: string) => {
+                this.sendTaskInfo(taskId);
             }
         });
 
@@ -143,6 +146,9 @@ export class KCodePanel {
                     break;
                 case 'confirmExecuteDone':
                     await this.handleConfirmExecuteDone(message.taskId);
+                    break;
+                case 'partialApproveReview':
+                    this.handlePartialApproveReview(message.taskId, message.passed, message.failed);
                     break;
                 case 'toggleAcpLog':
                     this.acpLogEnabled = message.enabled;
@@ -284,6 +290,16 @@ export class KCodePanel {
         const task = this.store.getTask(tid);
         if (!task) return;
 
+        const sysMsgId = this.store.nextMessageId(tid);
+        this.store.addMessage({
+            id: sysMsgId,
+            taskId: tid,
+            role: 'agent',
+            type: 'stop_message',
+            content: '🔍 AI 开始自验执行结果...',
+            timestamp: Date.now()
+        });
+        this.store.updateTaskNodeMessageId(tid, 'self_verify', sysMsgId);
         this.panel.webview.postMessage({
             type: 'addSystemMessage',
             content: '🔍 AI 开始自验执行结果...',
@@ -939,6 +955,73 @@ export class KCodePanel {
         });
     }
 
+    private async handlePartialApproveReview(tid: string, passed: string[], failed: string[]) {
+        const passedStr = passed.length > 0 ? `\n✅ 通过：${passed.map(s => `- ${s}`).join('\n')}` : '';
+        const failedStr = failed.length > 0 ? `\n↩️ 未通过：${failed.map(s => `- ${s}`).join('\n')}` : '';
+        const approveMsg = `📋 逐条验收结果：${passed.length}/${passed.length + failed.length} 项通过${passedStr}${failedStr}`;
+
+        this.store.addMessage({
+            id: this.store.nextMessageId(tid),
+            taskId: tid,
+            role: 'user',
+            content: approveMsg,
+            timestamp: Date.now()
+        });
+        this.panel.webview.postMessage({ type: 'addUserMessage', content: approveMsg });
+
+        this.store.addMessage({
+            id: this.store.nextMessageId(tid),
+            taskId: tid,
+            role: 'agent',
+            content: `✅ 部分验收通过（${passed.length}/${passed.length + failed.length}）`,
+            timestamp: Date.now()
+        });
+
+        if (failed.length === 0) {
+            // 全部通过
+            this.taskFlow.finishReview(tid);
+            const task = this.store.getTask(tid);
+            this.panel.webview.postMessage({
+                type: 'loadMessages',
+                messages: this.store.getMessages(tid),
+                taskId: tid,
+                taskStatus: 'completed'
+            });
+        } else {
+            // 部分未通过 → 回到 execute 继续修改
+            this.store.updateTaskPhase(tid, 'execute');
+            this.store.updateTaskStatus(tid, 'active');
+            this.sendNodePanelUpdate(tid);
+            this.refreshSidebarCallback?.();
+
+            const promptText = this.taskFlow.buildPhaseTransitionPrompt(tid, approveMsg);
+            const handler = this.createAgentResponseHandler(tid, false, approveMsg);
+            if (this.agentReady && this.acpClient) {
+                this.taskFlow.resetGeneration(tid);
+                this.activeToolCalls.clear();
+                this.setGenerationState(true);
+                this.sendAcpLog(tid, 'send', promptText);
+                await this.acpClient.prompt(tid, promptText, handler);
+            } else if (this.fakeAgent) {
+                const sessionId = this.fakeAgent.createSession(tid);
+                this.fakeAgent.setHandler(sessionId, handler);
+                this.taskFlow.resetGeneration(tid);
+                this.activeToolCalls.clear();
+                this.setGenerationState(true);
+                this.sendAcpLog(tid, 'send', promptText);
+                await this.fakeAgent.prompt(sessionId, promptText);
+            } else if (this.openaiAgent) {
+                const sessionId = this.openaiAgent.createSession(tid);
+                this.openaiAgent.setHandler(sessionId, handler);
+                this.taskFlow.resetGeneration(tid);
+                this.activeToolCalls.clear();
+                this.setGenerationState(true);
+                this.sendAcpLog(tid, 'send', promptText);
+                await this.openaiAgent.prompt(sessionId, promptText);
+            }
+        }
+    }
+
     private async handleRejectReview(tid: string, reason?: string) {
         const rejectMsg = reason ? `↩️ 驳回: ${reason}` : '↩️ 驳回，请继续修改';
         this.store.addMessage({
@@ -1223,6 +1306,7 @@ export class KCodePanel {
                 </div>
             <div id="chat-body">
                 <div id="node-timeline-gutter" class="hidden">
+                    <button id="tl-collapse-btn" title="折叠节点面板">◀</button>
                     <div id="tl-dots"></div>
                 </div>
                 <div id="chat-scroll" class="chat-empty">
@@ -1381,6 +1465,11 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #task-info-plan .plan-step-item .step-status.status-active{color:#4a8bb5}
 #task-info-plan .plan-step-item .step-status.status-completed{color:#5a9d6b}
 #task-info-plan .plan-step-item .step-content{color:#aaa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#task-info-plan .plan-step-item.step-active{background:rgba(74,139,181,.1);border-radius:3px;padding:1px 4px;margin:0 -4px}
+#task-info-plan .plan-step-item.step-active .step-content{color:#5a9bc8;font-weight:500}
+.plan-progress-bar{height:3px;background:rgba(255,255,255,.06);border-radius:2px;margin:2px 0 4px;overflow:hidden}
+.plan-progress-fill{height:100%;background:#4a8bb5;border-radius:2px;transition:width .4s ease}
+.plan-progress-label{font-size:10px;color:#666;margin-bottom:2px}
 
 .chat-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:14px;user-select:none}
 #working-indicator{display:flex;align-items:center;gap:8px;padding:8px 0 4px;font-size:12px;color:#888;width:100%}
@@ -1546,6 +1635,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .plan-step-line{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:#d2d2d4}
 .plan-step-status{font-size:12px;width:16px;text-align:center;flex-shrink:0;color:#888}
 .reject-input-area{padding:4px 0;width:100%}
+#partial-approve-btn{background:rgba(78,201,176,.12);color:#4ec9b0;border:1px solid rgba(78,201,176,.25)}
+#partial-approve-btn:hover{background:rgba(78,201,176,.2);border-color:rgba(78,201,176,.4)}
 .reject-input{width:100%;background:#25252a;border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:12px;padding:5px 7px;resize:vertical;outline:none;min-height:32px}
 .reject-input:focus{border-color:rgba(255,255,255,.2)}
 .reject-btn-row{display:flex;gap:6px;padding:6px 0 0;justify-content:flex-end}
@@ -1570,9 +1661,14 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .chat-msg.stop-message .msg-bubble{text-align:center;font-size:12px;color:#666;padding:4px 0}
 
 /* === Timeline Gutter === */
-#node-timeline-gutter{position:absolute;left:2px;top:0;bottom:0;width:28px;z-index:5;display:flex;flex-direction:column;align-items:center;pointer-events:none;overflow:visible}
+#node-timeline-gutter{position:absolute;left:2px;top:0;bottom:0;width:28px;z-index:5;display:flex;flex-direction:column;align-items:center;pointer-events:none;overflow:visible;transition:width .2s}
 #node-timeline-gutter.hidden{display:none}
-#tl-dots{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;width:100%;z-index:1;padding:4px 0}
+#node-timeline-gutter.collapsed{width:12px}
+#node-timeline-gutter.collapsed #tl-dots{opacity:0;pointer-events:none}
+#tl-collapse-btn{position:absolute;top:2px;z-index:10;pointer-events:auto;background:none;border:none;color:#555;font-size:8px;cursor:pointer;padding:2px;line-height:1;transition:color .2s;width:16px;text-align:center}
+#tl-collapse-btn:hover{color:#aaa}
+#node-timeline-gutter.collapsed #tl-collapse-btn{font-size:10px}
+#tl-dots{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;width:100%;z-index:1;padding:16px 0 4px}
 .tl-node-wrap{display:flex;align-items:center;justify-content:center;width:100%;z-index:2;flex-shrink:0}
 .tl-line-segment{flex:1;display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;width:4px;z-index:1}.tl-line-dot{width:3px;height:3px;border-radius:50%;flex-shrink:0}
 .tl-node{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;transition:background .3s,box-shadow .3s;pointer-events:auto;cursor:pointer;flex-shrink:0}
