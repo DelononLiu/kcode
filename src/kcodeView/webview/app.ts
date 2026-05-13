@@ -447,6 +447,16 @@ function initChat() {
         }
     });
 
+    const btnNewTask = document.getElementById('btn-new-task');
+    btnNewTask?.addEventListener('click', () => {
+        vscode.postMessage({ type: 'newTask' });
+    });
+
+    const btnTerminal = document.getElementById('btn-terminal');
+    btnTerminal?.addEventListener('click', () => {
+        vscode.postMessage({ type: 'openTerminal' });
+    });
+
     const acpLogEnable = document.getElementById('acp-log-enable') as HTMLInputElement;
     acpLogEnable?.addEventListener('change', () => {
         acpLogEnabled = acpLogEnable.checked;

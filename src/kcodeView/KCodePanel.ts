@@ -148,6 +148,12 @@ export class KCodePanel {
                     this.acpLogEnabled = message.enabled;
                     vscode.workspace.getConfiguration('kcode').update('acpLogEnabled', message.enabled, true);
                     break;
+                case 'newTask':
+                    vscode.commands.executeCommand('kcode.newTask');
+                    break;
+                case 'openTerminal':
+                    vscode.commands.executeCommand('workbench.action.terminal.new');
+                    break;
             }
         }, null, this.context.subscriptions);
     }
@@ -1230,7 +1236,9 @@ export class KCodePanel {
             </div>
             </div>
             <div id="chat-toolbar">
-                <button id="acp-log-btn" class="toolbar-btn" title="ACP 协议日志">📄 ACP Log</button>
+                <button id="btn-new-task" class="toolbar-btn" title="新建任务">新任务</button>
+                <button id="acp-log-btn" class="toolbar-btn" title="查看 ACP 协议日志">查看日志</button>
+                <button id="btn-terminal" class="toolbar-btn" title="打开终端">打开终端</button>
             </div>
             <div id="chat-input-area">
                 <div class="input-wrapper">
@@ -1417,11 +1425,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .chat-msg .msg-bubble .code-block-wrapper code.hljs{font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12.5px;line-height:1.55;background:transparent;padding:0;display:block}
 .hljs{color:#d2d2d4}.hljs-keyword,.hljs-literal,.hljs-symbol,.hljs-name{color:#569cd6}.hljs-link{color:#569cd6;text-decoration:underline}.hljs-built_in,.hljs-type{color:#4ec9b0}.hljs-number,.hljs-class{color:#b5cea8}.hljs-string,.hljs-meta .hljs-string{color:#d69d85}.hljs-regexp,.hljs-template-tag{color:#9a5334}.hljs-subst,.hljs-function,.hljs-title,.hljs-params,.hljs-formula{color:#dcdcaa}.hljs-comment,.hljs-quote{color:#6a9955;font-style:italic}.hljs-doctag{color:#608b4e}.hljs-meta,.hljs-meta .hljs-keyword,.hljs-tag{color:#808080}.hljs-variable,.hljs-template-variable{color:#bd63c5}.hljs-attr,.hljs-attribute{color:#9cdcfe}.hljs-section{color:gold}.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}.hljs-bullet,.hljs-selector-attr,.hljs-selector-class,.hljs-selector-id,.hljs-selector-pseudo,.hljs-selector-tag{color:#d7ba7d}.hljs-addition{background:#144212;display:inline-block;width:100%}.hljs-deletion{background:#600;display:inline-block;width:100%}
 #chat-toolbar{display:flex;gap:4px;padding:8px 12px;background:var(--vscode-sideBar-background,#1e1e1e);border-top:1px solid rgba(255,255,255,.06);flex-shrink:0;justify-content:center}
-.toolbar-btn{background:transparent;border:1px solid rgba(255,255,255,.1);color:#aaa;cursor:pointer;font-size:11px;padding:2px 8px;border-radius:3px;white-space:nowrap}
-.toolbar-btn:hover{color:#ddd;border-color:rgba(255,255,255,.25)}
-.toolbar-btn.active{background:rgba(70,130,200,.25);border-color:rgba(70,130,200,.5);color:#7ab8f5}
-#acp-log-btn{border:none;padding:3px 10px}
-#acp-log-btn:hover{background:rgba(255,255,255,.04)}
+.toolbar-btn{background:transparent;border:none;color:#aaa;cursor:pointer;font-size:11px;padding:3px 10px;border-radius:3px;white-space:nowrap}
+.toolbar-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
 #tab-acplog{display:flex;flex-direction:column;height:100%;font-size:11px}
 #acp-log-toolbar{display:flex;align-items:center;gap:8px;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
 #acp-log-toolbar label{display:flex;align-items:center;gap:4px;cursor:pointer;color:#aaa;font-size:11px}
