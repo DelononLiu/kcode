@@ -52,6 +52,36 @@ declare function acquireVsCodeApi(): any;
             });
         }
 
+        const searchToggle = document.getElementById('btn-task-search');
+        const searchWrap = document.getElementById('task-search-wrap');
+        const searchInput = document.getElementById('task-search') as HTMLInputElement;
+        if (searchToggle && searchWrap && searchInput) {
+            searchToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const hidden = searchWrap.classList.toggle('hidden');
+                if (!hidden) {
+                    searchInput.focus();
+                } else {
+                    searchInput.value = '';
+                    searchInput.dispatchEvent(new Event('input'));
+                }
+            });
+            searchInput.addEventListener('input', () => {
+                const q = searchInput.value.toLowerCase().trim();
+                document.querySelectorAll('.task-item').forEach(el => {
+                    const title = (el.querySelector('.task-title') as HTMLElement)?.textContent || '';
+                    (el as HTMLElement).style.display = !q || title.toLowerCase().includes(q) ? '' : 'none';
+                });
+            });
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    searchWrap.classList.add('hidden');
+                    searchInput.value = '';
+                    searchInput.dispatchEvent(new Event('input'));
+                }
+            });
+        }
+
         const batchClearBtn = document.getElementById('btn-batch-clear');
         if (batchClearBtn) {
             batchClearBtn.addEventListener('click', () => {

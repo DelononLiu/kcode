@@ -642,6 +642,7 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 | P9-02 | 导入 GitHub Issue — 命令 + 侧边栏按钮 + 输入框 | ✅ 已完成 |
 | P9-03 | 导入 GitHub Issue — GitHub API fetch 实现 | ✅ 已完成 |
 | P9-04 | 导入 GitHub Issue — rate limit 处理 + token 配置 | ✅ 已完成 |
+| P9-05 | 输入队列 — 生成中消息不会丢失，生成结束后自动发送 | ⬜ 未开始 |
 
 ---
 
@@ -751,6 +752,38 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 - 不暴露 token 到日志或 UI
 
 **状态**: ✅ 已完成
+
+---
+
+### P9-05: 输入队列 — 生成中消息不会丢失，生成结束后自动发送
+
+**涉及文件**: _待调研_
+**调研步骤**:
+1. 读 PROJECT.md 确认当前消息发送流程
+2. 读 `KCodePanel.ts` 中 `handleSendMessage` 和 `setGenerationState` 确认生成中拦截逻辑
+3. 读 `app.ts` 中 `handleGenerationState` 和 `sendMessage` 确认 WebView 侧 send 按钮切换
+
+**调研结果**:
+- `KCodePanel.ts:212` — `if (this.isGenerating) return;` 生成中消息被静默丢弃
+- `KCodePanel.ts:835-838` — `setGenerationState()` 只做 isGenerating 状态切换 + 通知 WebView 切换 send/stop 按钮
+- `app.ts:502-514` — `handleGenerationState()` 只是 send 按钮 / stop 按钮显隐切换，无队列指示
+
+**实现说明**:
+- **KCodePanel.ts**:
+  - 新增 `private pendingMessages: { text: string; taskId: string }[] = []`
+  - `handleSendMessage()` 中 `if (this.isGenerating) return;` → 改为入队并通知 WebView
+  - `setGenerationState(false)` 末尾调用 `flushPendingMessages()`
+  - `flushPendingMessages()` 出队调用 `handleSendMessage()` 发送，逐条发送（上一条完成再取下一条）
+  - 新增消息类型 `pendingQueueUpdate { count: number }` 通知 WebView 队列状态
+- **app.ts**:
+  - `handleGenerationState(isGenerating)` 当 `isGenerating=false` 时，检查是否有 pending 标记，显示 "已发送 x 条待发消息" 的 toast 或 badge
+  - input area 增加队列数 badge（`#queue-badge`），有排队时显示红色圆点 + 数字
+- **边界情况**：
+  - Flush 过程中再次遇到 `isGenerating`（AI 又开始生成了）→ 剩余消息继续排队
+  - 切换任务时清空队列（`loadTask()` 中重置）
+  - 用户手动 stop 后队列保留，flushPendingMessages 在 onDone('cancelled') 后也执行
+
+**状态**: ⬜ 未开始
 
 ---
 

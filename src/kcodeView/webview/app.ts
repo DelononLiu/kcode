@@ -82,6 +82,7 @@ function initMessageHandler() {
                 streamMessageEl = null;
                 activeTaskId = message.taskId;
                 activeTaskStatus = message.taskStatus || '';
+                activeTaskType = message.taskType || '';
                 renderAcpLog();
                 if (message.reviewChanges && message.reviewChanges.length > 0) {
                     reviewChangesMap.set(message.taskId, message.reviewChanges);
@@ -242,6 +243,7 @@ function appendToChatMessages(el: Element) {
     } else {
         container.appendChild(el);
     }
+    updateLastMsgConvertBtn();
 }
 
 function handleAgentStreamUpdate(text: string) {
@@ -313,6 +315,7 @@ const activeToolCallElements: Map<string, HTMLElement> = new Map();
 
 let activeTaskId: string | null = null;
 let activeTaskStatus: string = '';
+let activeTaskType: string = '';
 let categoryDefs: any[] = [];
 let selectedCategory: string | null = null;
 let selectedSubType: string | null = null;
@@ -491,6 +494,7 @@ function initChat() {
     executeConfirmBtn?.addEventListener('click', () => {
         vscode.postMessage({ type: 'confirmExecuteDone', taskId: activeTaskId });
     });
+
 }
 
 function handleGenerationState(isGenerating: boolean) {
@@ -592,6 +596,7 @@ function addSystemMessage(content: string) {
     el.className = 'chat-msg system';
     el.innerHTML = `<div class="msg-bubble system">${content}</div>`;
     container.appendChild(el);
+    updateLastMsgConvertBtn();
     container.scrollTop = container.scrollHeight;
 }
 
@@ -682,7 +687,43 @@ function renderMessages(messages: any[]) {
     for (let i = 0; i < messages.length; i++) {
         addMessageElement(messages[i], changedFilesMap.get(i));
     }
+
+    updateLastMsgConvertBtn();
+
     if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
+}
+
+function updateLastMsgConvertBtn() {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+    const existingBtn = document.getElementById('chat-convert-btn');
+    if (activeTaskType !== 'chat') {
+        existingBtn?.remove();
+        return;
+    }
+    const msgs = container.querySelectorAll('.chat-msg');
+    if (msgs.length === 0) {
+        existingBtn?.remove();
+        return;
+    }
+    const lastMsg = msgs[msgs.length - 1];
+    const row = lastMsg.querySelector('.msg-row');
+    if (!row) {
+        existingBtn?.remove();
+        return;
+    }
+    if (existingBtn && row.contains(existingBtn)) return;
+    existingBtn?.remove();
+    const btn = document.createElement('button');
+    btn.id = 'chat-convert-btn';
+    btn.className = 'convert-msg-btn';
+    btn.textContent = '转为任务';
+    btn.title = '将对话转为正式任务';
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        vscode.postMessage({ type: 'convertToTask', taskId: activeTaskId });
+    });
+    row.appendChild(btn);
 }
 
 function getCategoryDef(catKey: string): any {

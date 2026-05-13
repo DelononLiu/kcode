@@ -158,8 +158,51 @@ export class KCodePanel {
                 case 'openTerminal':
                     vscode.commands.executeCommand('workbench.action.terminal.new');
                     break;
+                case 'convertToTask':
+                    this.handleConvertToTask(message.taskId);
+                    break;
             }
         }, null, this.context.subscriptions);
+    }
+
+    private handleConvertToTask(taskId: string) {
+        const chatTask = this.store.getTask(taskId);
+        if (!chatTask || chatTask.type !== 'chat') return;
+
+        const messages = this.store.getMessages(taskId);
+        const firstUserMsg = messages.find(m => m.role === 'user');
+
+        const newTask: Task = {
+            id: `task_${Date.now()}`,
+            title: firstUserMsg
+                ? firstUserMsg.content.substring(0, 50).replace(/\n/g, ' ')
+                : '从对话创建的任务',
+            goal: '',
+            type: 'task',
+            status: 'pending',
+            phase: 'demand',
+            confirmedItems: [],
+            pendingItems: [],
+            planSteps: [],
+            createdAt: Date.now(),
+            pinned: false
+        };
+        this.store.addTask(newTask);
+
+        const newId = newTask.id;
+        for (const msg of messages) {
+            this.store.addMessage({
+                id: this.store.nextMessageId(newId),
+                taskId: newId,
+                role: msg.role,
+                content: msg.content,
+                type: msg.type,
+                timestamp: msg.timestamp
+            });
+        }
+
+        this.loadTask(newId);
+        this.refreshSidebarCallback?.();
     }
 
     private async handleSendMessage(text: string, taskId?: string, category?: string, subType?: string) {
@@ -1525,6 +1568,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .plan-confirm-btn{background:#4a8bb5;color:#fff;border:none;border-radius:4px;padding:1px 8px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;white-space:nowrap;margin-left:8px;transition:background .2s}
 .plan-confirm-btn:hover{background:#5a9bc8}
 .plan-confirm-btn.hidden{display:none}
+.convert-msg-btn{opacity:0;flex-shrink:0;background:none;border:none;color:#4a8bb5;cursor:pointer;padding:2px 6px;border-radius:3px;line-height:1;font-size:12px;font-family:inherit;transition:opacity .2s,color .2s,background .2s}
+.chat-msg:hover .convert-msg-btn{opacity:1}
+.convert-msg-btn:hover{background:rgba(74,139,181,.12);color:#5a9bc8}
 
 /* === Category Chips in Input Bar === */
 #input-category-bar{display:inline-flex;align-items:center;gap:4px}
@@ -1661,6 +1707,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
             confirmedItems: task.confirmedItems,
             pendingItems: task.pendingItems,
             planSteps: task.planSteps,
+            messageCount: this.store.getMessages(taskId).length,
             executeFinished: this.taskFlow.isExecuteFinished(taskId)
         });
     }
@@ -1681,6 +1728,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
             type: 'loadMessages',
             messages,
             taskId,
+            taskType: task?.type,
             taskStatus: task?.status,
             reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined,
             acceptanceCriteria

@@ -284,6 +284,21 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             line-height: 1;
         }
         .sidebar-btn:hover { background: #252526; }
+        #task-search-wrap { padding: 2px 8px 6px; }
+        #task-search-wrap.hidden { display: none; }
+        #task-search {
+            width: 100%;
+            background: #3c3c3c;
+            color: #d4d4d4;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 5px 8px;
+            font-size: 12px;
+            font-family: inherit;
+            outline: none;
+            box-sizing: border-box;
+        }
+        #task-search:focus { border-color: #0e639c; }
         /* --- Section --- */
         .section { margin-bottom: 8px; }
         .section-header {
@@ -593,7 +608,13 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         <div id="section-tasks" class="section">
             <div class="section-header" id="tasks-header">
                 <span>任务</span>
-                <button id="btn-new-group" class="section-header-btn" title="新建分组">+</button>
+                <div style="display:flex;gap:2px;margin-left:auto">
+                    <button id="btn-task-search" class="section-header-btn" title="搜索任务" style="margin-left:0">🔍</button>
+                    <button id="btn-new-group" class="section-header-btn" title="新建分组" style="margin-left:0">+</button>
+                </div>
+            </div>
+            <div id="task-search-wrap" class="hidden">
+                <input id="task-search" type="text" placeholder="搜索任务名称..." />
             </div>
             <div class="section-body" id="task-list">
                 <div class="placeholder-text">No tasks yet</div>
