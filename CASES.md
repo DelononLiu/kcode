@@ -112,20 +112,6 @@ Webview 侧 `activeTaskId` 决定消息路由到哪个 Task，若切换到空 Ta
 
 ---
 
-**根因 4 — agentUrl 默认值短路 agentName 逻辑**
-
-| commit | 说明 |
-|--------|------|
-| `af50737` | `kcode.agentUrl` 默认为 `http://127.0.0.1:8080`，导致 `agentName` 判断逻辑被跳过 |
-
-```ts
-// 修复前
-const agentUrl = config.get<string>('agentUrl') || '';
-// 默认值导致 agentUrl 真值，优先走 HTTP 模式，跳过了 stdio agentName 判断
-```
-
----
-
 **根因 5 — createSession 异常未捕获，用户看不到错误**
 
 | commit | 说明 |
@@ -152,8 +138,7 @@ const agentUrl = config.get<string>('agentUrl') || '';
 1. **Session per Task**：`AcpClient.sessions: Map<taskId, sessionId>`，每次 `loadTask` 调用 `createSession(taskId)`
 2. **activeTaskId 始终更新**：无论消息是否为空，`loadMessages` 都更新 `activeTaskId`
 3. **面板打开即建连**：`constructor` 中调用 `ensureConnection()`
-4. **配置优先级修正**：明确 `agentName > agentUrl`，避免默认值干扰
-5. **异常可视化**：`createSession` 异常捕获后 `showAgentError()` 展示到聊天区域
+4. **异常可视化**：`createSession` 异常捕获后 `showAgentError()` 展示到聊天区域
 
 ### 教训
 

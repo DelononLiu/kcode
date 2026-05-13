@@ -62,11 +62,6 @@
           "default": [],
           "description": "Additional arguments passed to the agent"
         },
-        "kcode.agentUrl": {
-          "type": "string",
-          "default": "http://127.0.0.1:8080",
-          "description": "HTTP URL of a remote ACP agent (e.g. http://127.0.0.1:8080). When set, connects via HTTP instead of spawning a subprocess."
-        },
         "kcode.openaiApiKey": {
           "type": "string",
           "default": "",

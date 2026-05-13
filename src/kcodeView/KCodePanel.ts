@@ -1024,7 +1024,6 @@ export class KCodePanel {
             const config = vscode.workspace.getConfiguration('kcode');
             const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
 
-            const agentUrl = config.get<string>('agentUrl') || '';
             const agentName = config.get<string>('agentName') || '';
             const agentArgs = config.get<string[]>('agentArgs') || [];
 
@@ -1085,31 +1084,7 @@ export class KCodePanel {
                 if (t) this.sendAcpLog(t, dir, text);
             });
 
-            // Priority 1: HTTP mode (when URL is configured)
-            if (agentUrl) {
-                console.log('[KCode] Trying to connect via HTTP:', agentUrl);
-                const connected = await this.acpClient.connectHttp(agentUrl);
-                if (connected) {
-                    this.agentReady = true;
-                    this.panel.webview.postMessage({
-                        type: 'agentStatus',
-                        status: 'connected',
-                        message: 'Agent 已连接 (HTTP)'
-                    });
-                    return;
-                }
-                console.log('[KCode] HTTP connection failed');
-                this.lastConnectError = this.acpClient?.lastError || `HTTP Agent 连接失败: ${agentUrl}`;
-                this.acpClient = null;
-                this.panel.webview.postMessage({
-                    type: 'agentStatus',
-                    status: 'disconnected',
-                    message: this.lastConnectError
-                });
-                return;
-            }
-
-            // Priority 2: stdio subprocess
+            // stdio subprocess
             if (agentName && agentName !== 'npx') {
                 console.log('[KCode] Trying to connect to agent:', agentName);
 

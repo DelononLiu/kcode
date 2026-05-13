@@ -1,7 +1,6 @@
 import type * as acp from '@agentclientprotocol/sdk';
 import { AgentManager } from './AgentManager';
 import { KCodeClient } from './callbacks';
-import { createHttpStream } from './HttpStream';
 import type { AcpMessageHandler, FileChange } from '../types';
 
 export class AcpClient {
@@ -10,7 +9,6 @@ export class AcpClient {
     private sessions: Map<string, string> = new Map(); // taskId → sessionId
     private kcodeClient: KCodeClient | null = null;
     private workspaceRoot: string;
-    private httpMode: boolean = false;
     private _lastError: string = '';
     private pendingLogCallback: ((direction: 'send' | 'recv', text: string) => void) | null = null;
 
@@ -42,22 +40,6 @@ export class AcpClient {
         } catch (err) {
             this._lastError = (err as Error)?.message || String(err);
             console.error('ACP connection failed:', this._lastError);
-            return false;
-        }
-    }
-
-    /**
-     * Connect to a remote ACP agent via HTTP.
-     */
-    async connectHttp(agentUrl: string): Promise<boolean> {
-        try {
-            const sdk = await this.loadSDK();
-            const stream = createHttpStream(agentUrl);
-            this.httpMode = true;
-            return this.initConnection(sdk, stream);
-        } catch (err) {
-            this._lastError = (err as Error)?.message || String(err);
-            console.error('ACP HTTP connection failed:', this._lastError);
             return false;
         }
     }
@@ -204,9 +186,7 @@ export class AcpClient {
         }
         this.sessions.clear();
         this.kcodeClient = null;
-        if (!this.httpMode) {
-            this.agentManager.stopAgent();
-        }
+        this.agentManager.stopAgent();
         this.connection = null;
     }
 

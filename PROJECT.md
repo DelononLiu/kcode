@@ -601,7 +601,6 @@ function appendDeviceOutput(data: string): void
 | 方法 | 说明 |
 |---|---|
 | `connect(agentPath, args)` | 连接 Agent（共享一个连接） |
-| `connectHttp(agentUrl)` | 通过 HTTP 连接远程 Agent |
 | `createSession(taskId, cwd)` | 为指定 task 创建会话 |
 | `getSessionId(taskId)` | 获取 task 的 sessionId |
 | `hasSession(taskId)` | 检查 task 是否有会话 |
