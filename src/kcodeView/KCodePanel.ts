@@ -1235,13 +1235,14 @@ export class KCodePanel {
             <div id="chat-input-area">
                 <div class="input-wrapper">
                     <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
-                    <div id="input-category-bar"></div>
                     <div class="input-footer">
                         <div class="input-footer-left">
                             <span class="status-item">
                                 <span id="agent-status-dot" class="status-dot offline"></span>
                                 <span id="status-model">Agent</span>
                             </span>
+                            <span class="status-divider"></span>
+                            <div id="input-category-bar"></div>
                         </div>
                         <div class="input-footer-right">
                             <button class="input-tool-btn image-btn" title="图片">
@@ -1531,11 +1532,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .plan-confirm-btn.hidden{display:none}
 
 /* === Category Chips in Input Bar === */
-#input-category-bar{display:flex;align-items:center;gap:6px;padding:4px 0 0;flex-wrap:wrap}
-#chat-area:has(#chat-scroll.chat-empty) #input-category-bar{justify-content:center;padding:4px 0 0}
-.category-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;font-size:11.5px;color:#888;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:10px;cursor:pointer;user-select:none;transition:all .15s;font-family:inherit;line-height:1.5}
-.category-chip:hover{color:#ccc;border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.05)}
-.category-chip.active{color:#4ec9b0;border-color:rgba(78,201,176,.35);background:rgba(78,201,176,.07)}
+#input-category-bar{display:inline-flex;align-items:center;gap:4px}
+.category-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;font-size:11.5px;color:#888;background:rgba(255,255,255,.04);border-radius:10px;cursor:pointer;user-select:none;transition:all .15s;font-family:inherit;line-height:1.5}
+.category-chip:hover{color:#ccc;background:rgba(255,255,255,.08)}
+.category-chip.active{color:#4ec9b0;background:rgba(78,201,176,.12)}
 .plan-confirmation-card{margin:8px 0}
 .plan-steps-body{padding:4px 0}
 .plan-step-line{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:#d2d2d4}
