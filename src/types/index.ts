@@ -1,3 +1,13 @@
+export type ContainerType = 'group' | 'project';
+
+export interface ContainerEntity {
+    id: string;
+    name: string;
+    type: ContainerType;
+    parentId?: string;
+    createdAt: number;
+}
+
 export type TaskCategory = 'requirement_dev' | 'problem_analysis' | 'performance_opt' | 'precision_issue';
 
 export interface InputField {
@@ -50,6 +60,7 @@ export interface Task {
     pinned?: boolean;
     archived?: boolean;
     group?: string;
+    containerId?: string;
     source?: TaskSource;
     nodeMessageIds?: Partial<Record<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string>>;
     hooks?: Partial<Record<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string[]>>;

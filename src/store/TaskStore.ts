@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Task, ChatMessage, FileChange } from '../types';
+import { Task, ChatMessage, FileChange, ContainerEntity } from '../types';
 
 export class TaskStore {
     private state: vscode.Memento;
@@ -320,6 +320,139 @@ export class TaskStore {
 
     reorderGroups(groupNames: string[]): void {
         this.state.update('groups', groupNames);
+    }
+
+    // ===== Container CRUD (Group/Project tree) =====
+
+    getContainers(): ContainerEntity[] {
+        return this.state.get<ContainerEntity[]>('containers', []);
+    }
+
+    getContainer(id: string): ContainerEntity | undefined {
+        return this.getContainers().find(c => c.id === id);
+    }
+
+    getContainerByName(name: string): ContainerEntity | undefined {
+        return this.getContainers().find(c => c.name === name);
+    }
+
+    addContainer(name: string, type: ContainerEntity['type'], parentId?: string): ContainerEntity {
+        const containers = this.getContainers();
+        const container: ContainerEntity = {
+            id: `cnt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            name,
+            type,
+            parentId,
+            createdAt: Date.now(),
+        };
+        containers.push(container);
+        this.state.update('containers', containers);
+        return container;
+    }
+
+    updateContainer(id: string, updates: Partial<Pick<ContainerEntity, 'name' | 'parentId'>>): void {
+        const containers = this.getContainers();
+        const idx = containers.findIndex(c => c.id === id);
+        if (idx !== -1) {
+            Object.assign(containers[idx], updates);
+            this.state.update('containers', containers);
+        }
+    }
+
+    deleteContainer(id: string): void {
+        const containers = this.getContainers();
+        const idsToRemove = new Set<string>();
+        const collectChildren = (parentId: string) => {
+            idsToRemove.add(parentId);
+            for (const c of containers) {
+                if (c.parentId === parentId) collectChildren(c.id);
+            }
+        };
+        collectChildren(id);
+        const remaining = containers.filter(c => !idsToRemove.has(c.id));
+        this.state.update('containers', remaining);
+        const tasks = this.getTasks();
+        for (const task of tasks) {
+            if (task.containerId && idsToRemove.has(task.containerId)) {
+                task.containerId = undefined;
+            }
+        }
+        this.state.update('tasks', tasks);
+    }
+
+    getChildren(parentId: string): ContainerEntity[] {
+        return this.getContainers().filter(c => c.parentId === parentId);
+    }
+
+    getAncestors(id: string): ContainerEntity[] {
+        const containers = this.getContainers();
+        const result: ContainerEntity[] = [];
+        let current = containers.find(c => c.id === id);
+        while (current?.parentId) {
+            const parent = containers.find(c => c.id === current!.parentId);
+            if (parent) {
+                result.unshift(parent);
+                current = parent;
+            } else {
+                break;
+            }
+        }
+        return result;
+    }
+
+    getRootContainers(): ContainerEntity[] {
+        return this.getContainers().filter(c => !c.parentId);
+    }
+
+    moveContainer(id: string, direction: 'up' | 'down'): void {
+        const containers = this.getContainers();
+        const idx = containers.findIndex(c => c.id === id);
+        if (idx === -1) return;
+        if (direction === 'up' && idx > 0) {
+            [containers[idx - 1], containers[idx]] = [containers[idx], containers[idx - 1]];
+        } else if (direction === 'down' && idx < containers.length - 1) {
+            [containers[idx], containers[idx + 1]] = [containers[idx + 1], containers[idx]];
+        } else {
+            return;
+        }
+        this.state.update('containers', containers);
+    }
+
+    getProjectContainers(): ContainerEntity[] {
+        return this.getContainers().filter(c => c.type === 'project');
+    }
+
+    getProjectTasks(projectId: string): Task[] {
+        const containers = this.getContainers();
+        const containerIds = new Set<string>();
+        const collectDescendants = (parentId: string) => {
+            containerIds.add(parentId);
+            for (const c of containers) {
+                if (c.parentId === parentId) collectDescendants(c.id);
+            }
+        };
+        collectDescendants(projectId);
+        return this.getTasks().filter(t => t.containerId && containerIds.has(t.containerId));
+    }
+
+    getProjectProgress(projectId: string): { completed: number; total: number } {
+        const tasks = this.getProjectTasks(projectId).filter(t => t.status !== 'cancelled');
+        const total = tasks.length;
+        const completed = tasks.filter(t => t.status === 'completed').length;
+        return { completed, total };
+    }
+
+    getContainerTasks(containerId: string): Task[] {
+        return this.getTasks().filter(t => t.containerId === containerId);
+    }
+
+    updateTaskContainer(taskId: string, containerId: string | undefined): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            tasks[idx].containerId = containerId;
+            this.state.update('tasks', tasks);
+        }
     }
 
     moveTask(taskId: string, targetTaskId: string | null, position: 'before' | 'after' | null, group: string | null): void {

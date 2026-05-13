@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { TaskStore } from '../store/TaskStore';
-import { Task } from '../types';
+import { Task, ContainerEntity } from '../types';
 
 const _output = vscode.window.createOutputChannel('KCode Sidebar');
 
@@ -130,6 +130,35 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                 case 'importGitHubIssue':
                     vscode.commands.executeCommand('kcode.importGitHubIssue');
                     break;
+                case 'newProject':
+                    this.createNewProject();
+                    break;
+                case 'newGroupInProject':
+                    this.createNewGroupInProject(message.projectId);
+                    break;
+                case 'addContainer':
+                    this.createNewContainer(message.name, message.containerType, message.parentId);
+                    break;
+                case 'deleteContainer':
+                    this._store.deleteContainer(message.containerId);
+                    this.refresh();
+                    break;
+                case 'updateTaskContainer':
+                    this._store.updateTaskContainer(message.taskId, message.containerId);
+                    this.refresh();
+                    break;
+                case 'renameContainer':
+                    this._store.updateContainer(message.containerId, { name: message.name });
+                    this.refresh();
+                    break;
+                case 'moveContainer':
+                    this._store.moveContainer(message.containerId, message.direction);
+                    this.refresh();
+                    break;
+                case 'updateContainer':
+                    this._store.updateContainer(message.containerId, message.updates);
+                    this.refresh();
+                    break;
             }
         });
     }
@@ -144,6 +173,33 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         }
         this._store.addGroup(name);
         this.refresh(undefined, name);
+    }
+
+    private createNewContainer(name: string, type: ContainerEntity['type'], parentId?: string): void {
+        this._store.addContainer(name, type, parentId);
+        this.refresh();
+        // Auto-expand parent project after adding child
+        if (parentId) {
+            this._view?.webview.postMessage({ type: 'expandContainer', containerId: parentId });
+        }
+    }
+
+    private createNewProject(): void {
+        vscode.window.showInputBox({ prompt: '项目名称', placeHolder: '输入项目名称...' }).then(name => {
+            if (name && name.trim()) {
+                this.createNewContainer(name.trim(), 'project');
+            }
+        });
+    }
+
+    private createNewGroupInProject(projectId: string): void {
+        const project = this._store.getContainer(projectId);
+        const hint = project ? `在「${project.name}」中新建分组` : '分组名称';
+        vscode.window.showInputBox({ prompt: hint, placeHolder: '输入分组名称...' }).then(name => {
+            if (name && name.trim()) {
+                this.createNewContainer(name.trim(), 'group', projectId);
+            }
+        });
     }
 
     private renameTask(taskId: string, newTitle: string): void {
@@ -205,14 +261,16 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         }
         const tasks = this._store.getTasks();
         const groups = this._store.getGroups();
+        const containers = this._store.getContainers();
         this._activeTaskId = activeTaskId ?? this._activeTaskId;
-        _output.appendLine('[KCodeSidebarProvider] refresh — tasks=' + tasks.length + ' groups=' + groups.length + ' active=' + this._activeTaskId);
+        _output.appendLine('[KCodeSidebarProvider] refresh — tasks=' + tasks.length + ' groups=' + groups.length + ' containers=' + containers.length + ' active=' + this._activeTaskId);
         this._view.webview.postMessage({
             type: 'updateTaskList',
             tasks,
             groups,
+            containers,
             activeTaskId: this._activeTaskId,
-            editingGroupName
+            editingGroupName,
         });
     }
 
@@ -252,6 +310,80 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             padding: 4px 0;
         }
         #sidebar-content{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
+
+        /* --- Project Section --- */
+        .project-section { margin-bottom: 4px; }
+        .project-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 8px 6px 16px;
+            cursor: pointer;
+            user-select: none;
+            border-radius: 3px;
+            margin: 1px 4px;
+        }
+        .project-header:hover { background: #252526; }
+        .project-header.dragging { opacity: 0.5; }
+        .project-header.group-drop-before { border-top: 2px solid var(--vscode-button-background, #0e639c); }
+        .project-header.group-drop-after { border-bottom: 2px solid var(--vscode-button-background, #0e639c); }
+        .project-header .arrow {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-right: 1.5px solid var(--vscode-sideBar-foreground, #888);
+            border-bottom: 1.5px solid var(--vscode-sideBar-foreground, #888);
+            flex-shrink: 0;
+            transition: transform 0.1s ease;
+        }
+        .project-header .arrow.collapsed { transform: rotate(-45deg); }
+        .project-header .arrow:not(.collapsed) { transform: rotate(45deg); }
+        .project-name {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--vscode-sideBar-foreground, #d4d4d4);
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .project-progress-text {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground, #888);
+            flex-shrink: 0;
+        }
+        .project-progress-bar {
+            height: 2px;
+            background: var(--vscode-sideBar-border, #3c3c3c);
+            border-radius: 2px;
+            margin: 0 16px 4px;
+            overflow: hidden;
+        }
+        .project-progress-fill {
+            height: 100%;
+            background: var(--vscode-button-background, #0e639c);
+            border-radius: 2px;
+            transition: width 0.2s ease;
+        }
+        .project-body { padding: 0 4px 4px 12px; }
+        .project-body.hidden { display: none; }
+        .project-body .section-body { padding: 0; }
+        .project-add-btn {
+            background: none;
+            border: none;
+            color: var(--vscode-sideBar-foreground, #888);
+            cursor: pointer;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 18px;
+            line-height: 1;
+            font-family: inherit;
+            margin-left: auto;
+        }
+        .project-add-btn:hover {
+            background: var(--vscode-list-hoverBackground, #2a2d2e);
+            color: var(--vscode-sideBar-foreground, #ccc);
+        }
 
         /* --- Action Bar --- */
         .action-bar {
@@ -588,6 +720,8 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             <button id="btn-new-task" class="sidebar-btn"><span class="sidebar-btn-icon">+</span> 新建任务</button>
             <button id="btn-template-task" class="sidebar-btn"><span class="sidebar-btn-icon">📋</span> 按模板新建任务</button>
             <button id="btn-import-issue" class="sidebar-btn"><span class="sidebar-btn-icon">⤓</span> 导入 Issue</button>
+            <button id="btn-new-project" class="sidebar-btn"><span class="sidebar-btn-icon">📦</span> 新建项目</button>
+            <button id="btn-task-search" class="sidebar-btn" style="font-size:12px;"><span class="sidebar-btn-icon">🔍</span> 搜索任务</button>
             <button id="btn-toggle-panel" class="sidebar-btn" style="font-size:12px;">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
                     <rect x="1" y="2" width="14" height="10" rx="1"/>
@@ -605,21 +739,20 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             <div class="section-body" id="pinned-list"></div>
         </div>
 
-        <div id="section-tasks" class="section">
-            <div class="section-header" id="tasks-header">
-                <span>任务</span>
-                <div style="display:flex;gap:2px;margin-left:auto">
-                    <button id="btn-task-search" class="section-header-btn" title="搜索任务" style="margin-left:0">🔍</button>
-                    <button id="btn-new-group" class="section-header-btn" title="新建分组" style="margin-left:0">+</button>
-                </div>
+        <div id="section-ungrouped" class="section" style="display:none">
+            <div class="section-header" id="ungrouped-header">
+                <span>未分配</span>
             </div>
-            <div id="task-search-wrap" class="hidden">
-                <input id="task-search" type="text" placeholder="搜索任务名称..." />
-            </div>
-            <div class="section-body" id="task-list">
-                <div class="placeholder-text">No tasks yet</div>
-            </div>
+            <div class="section-body drop-zone" id="ungrouped-list" data-container=""></div>
         </div>
+
+        <div id="project-list"></div>
+
+        <div id="section-old-groups" class="section" style="display:none"></div>
+    </div>
+
+    <div id="task-search-wrap" class="hidden">
+        <input id="task-search" type="text" placeholder="搜索任务名称..." />
     </div>
 
     <div id="batch-bar" class="batch-bar" style="display:none">
@@ -637,6 +770,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     <div id="__sidebarData"
          data-tasks="${this.escapeAttr(JSON.stringify(this._store.getTasks()))}"
          data-groups="${this.escapeAttr(JSON.stringify(this._store.getGroups()))}"
+         data-containers="${this.escapeAttr(JSON.stringify(this._store.getContainers()))}"
          data-active-task-id="${this._activeTaskId || ''}"
          style="display:none"></div>
     <script src="${scriptUri}"></script>

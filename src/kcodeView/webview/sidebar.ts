@@ -6,7 +6,7 @@ declare function acquireVsCodeApi(): any;
     let draggedTaskId: string | null = null;
     let selectedTaskIds: Set<string> = new Set();
     let anchorTaskId: string | null = null;
-    const _groupCollapsed = new Map<string, boolean>();
+    const _collapsed = new Map<string, boolean>();
 
     (function () {
         const btn = document.getElementById('btn-new-task');
@@ -20,14 +20,6 @@ declare function acquireVsCodeApi(): any;
         if (templateBtn) {
             templateBtn.addEventListener('click', () => {
                 vscode.postMessage({ type: 'newTaskFromTemplate' });
-            });
-        }
-
-        const groupBtn = document.getElementById('btn-new-group');
-        if (groupBtn) {
-            groupBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                vscode.postMessage({ type: 'newGroup' });
             });
         }
 
@@ -49,6 +41,13 @@ declare function acquireVsCodeApi(): any;
         if (importBtn) {
             importBtn.addEventListener('click', () => {
                 vscode.postMessage({ type: 'importGitHubIssue' });
+            });
+        }
+
+        const projectBtn = document.getElementById('btn-new-project');
+        if (projectBtn) {
+            projectBtn.addEventListener('click', () => {
+                vscode.postMessage({ type: 'newProject' });
             });
         }
 
@@ -109,7 +108,10 @@ declare function acquireVsCodeApi(): any;
             const message = event.data;
             switch (message.type) {
                 case 'updateTaskList':
-                    renderTaskList(message.tasks, message.groups || [], message.activeTaskId, message.editingGroupName);
+                    renderSidebar(message.tasks, message.groups || [], message.containers || [], message.activeTaskId, message.editingGroupName);
+                    break;
+                case 'expandContainer':
+                    _collapsed.delete(message.containerId);
                     break;
             }
         });
@@ -119,9 +121,309 @@ declare function acquireVsCodeApi(): any;
     if (dataEl) {
         const tasks = JSON.parse(dataEl.dataset.tasks || '[]');
         const groups = JSON.parse(dataEl.dataset.groups || '[]');
+        const containers = JSON.parse(dataEl.dataset.containers || '[]');
         const activeTaskId = dataEl.dataset.activeTaskId || undefined;
-        renderTaskList(tasks, groups, activeTaskId);
+        renderSidebar(tasks, groups, containers, activeTaskId);
     }
+
+    function renderSidebar(tasks: any[], groups: string[], containers: any[], activeTaskId?: string, editingGroupName?: string) {
+        const pinnedList = document.getElementById('pinned-list');
+        if (!pinnedList) return;
+
+        const validIds = new Set(tasks.map((t: any) => t.id));
+        for (const id of Array.from(selectedTaskIds)) {
+            if (!validIds.has(id)) selectedTaskIds.delete(id);
+        }
+
+        const dataEl = document.getElementById('__sidebarData');
+        if (dataEl) {
+            dataEl.dataset.tasks = JSON.stringify(tasks);
+            dataEl.dataset.groups = JSON.stringify(groups);
+            dataEl.dataset.containers = JSON.stringify(containers);
+            dataEl.dataset.activeTaskId = activeTaskId || '';
+        }
+
+        updateBatchActionBar();
+
+        const visible = tasks.filter((t: any) => !t.archived);
+        const pinned = visible.filter((t: any) => t.pinned);
+
+        // Pinned section
+        const pinnedSection = document.getElementById('section-pinned');
+        if (pinnedSection) {
+            pinnedSection.style.display = pinned.length > 0 ? '' : 'none';
+            pinnedList.innerHTML = '';
+            for (const task of pinned) {
+                pinnedList.appendChild(createTaskItem(task, activeTaskId));
+            }
+        }
+
+        // 未分配 — tasks without containerId
+        const ungroupedSection = document.getElementById('section-ungrouped');
+        const ungroupedList = document.getElementById('ungrouped-list');
+        const unassigned = visible.filter((t: any) => !t.pinned && !t.containerId);
+        if (ungroupedSection && ungroupedList) {
+            ungroupedSection.style.display = unassigned.length > 0 ? '' : 'none';
+            ungroupedList.innerHTML = '';
+            for (const task of unassigned) {
+                ungroupedList.appendChild(createTaskItem(task, activeTaskId));
+            }
+            makeContainerDropTarget(ungroupedList, null, null);
+        }
+
+        // Project list
+        const projectList = document.getElementById('project-list');
+        if (!projectList) return;
+        projectList.innerHTML = '';
+
+        const projects = containers.filter((c: any) => c.type === 'project');
+
+        if (projects.length === 0 && unassigned.length === 0 && pinned.length === 0) {
+            projectList.innerHTML = '<div class="placeholder-text">暂无任务</div>';
+            updateSelectionVisual();
+            return;
+        }
+
+        for (const project of projects) {
+            const section = createProjectSection(project, containers, tasks, activeTaskId);
+            projectList.appendChild(section);
+        }
+
+        // Old string-based groups (backward compat)
+        const oldGroupSection = document.getElementById('section-old-groups');
+        if (oldGroupSection) {
+            const groupMap = new Map<string, any[]>();
+            for (const g of groups) groupMap.set(g, []);
+            for (const t of visible) {
+                if (!t.pinned && t.group && !t.containerId && groupMap.has(t.group)) {
+                    groupMap.get(t.group)!.push(t);
+                }
+            }
+            const hasAnyGroup = groups.length > 0;
+            oldGroupSection.style.display = hasAnyGroup ? '' : 'none';
+            oldGroupSection.innerHTML = '';
+            for (const [groupName, groupTasks] of groupMap) {
+                oldGroupSection.appendChild(createGroupSection(groupName, groupTasks, activeTaskId));
+            }
+        }
+
+        updateSelectionVisual();
+    }
+
+    function createProjectSection(project: any, containers: any[], tasks: any[], activeTaskId?: string): HTMLElement {
+        const section = document.createElement('div');
+        section.className = 'project-section';
+        section.dataset.projectId = project.id;
+
+        const header = document.createElement('div');
+        header.className = 'project-header';
+        header.draggable = true;
+        header.dataset.projectId = project.id;
+
+        const arrow = document.createElement('span');
+        arrow.className = 'arrow';
+        header.appendChild(arrow);
+
+        const name = document.createElement('span');
+        name.className = 'project-name';
+        name.textContent = '📦 ' + escapeHtml(project.name);
+        header.appendChild(name);
+
+        const progress = computeProgress(project.id, containers, tasks);
+        const progText = document.createElement('span');
+        progText.className = 'project-progress-text';
+        progText.textContent = progress.total > 0 ? `${progress.completed}/${progress.total}` : '';
+        header.appendChild(progText);
+
+        let collapsed = _collapsed.get(project.id) ?? false;
+        header.addEventListener('click', (e) => {
+            if ((e.target as HTMLElement).closest('.context-menu')) return;
+            if ((e.target as HTMLElement).closest('.project-add-btn')) return;
+            collapsed = !collapsed;
+            _collapsed.set(project.id, collapsed);
+            body.classList.toggle('hidden', collapsed);
+            arrow.classList.toggle('collapsed', collapsed);
+        });
+
+        // Drag to reorder project
+        header.addEventListener('dragstart', (e) => {
+            e.dataTransfer?.setData('text/plain', 'PROJECT:' + project.id);
+            header.classList.add('dragging');
+        });
+        header.addEventListener('dragend', () => {
+            header.classList.remove('dragging');
+            clearGroupDropIndicators();
+        });
+        header.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const rect = header.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            clearGroupDropIndicators();
+            header.classList.add(y < rect.height / 2 ? 'group-drop-before' : 'group-drop-after');
+        });
+        header.addEventListener('dragleave', (e) => {
+            if (!header.contains(e.relatedTarget as Node)) {
+                header.classList.remove('group-drop-before', 'group-drop-after');
+            }
+        });
+        header.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            clearGroupDropIndicators();
+            const raw = e.dataTransfer?.getData('text/plain');
+            if (!raw) return;
+            if (raw.startsWith('GROUP:')) {
+                // Drag group to project — move group under this project
+                const groupName = raw.slice(6);
+                const container = containers.find((c: any) => c.name === groupName && c.type === 'group');
+                if (container) {
+                    vscode.postMessage({ type: 'updateContainer', containerId: container.id, updates: { parentId: project.id } });
+                }
+            }
+        });
+        header.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showProjectContextMenu(e.clientX, e.clientY, project, tasks);
+        });
+
+        section.appendChild(header);
+
+        // Progress bar
+        if (progress.total > 0) {
+            const bar = document.createElement('div');
+            bar.className = 'project-progress-bar';
+            const fill = document.createElement('div');
+            fill.className = 'project-progress-fill';
+            fill.style.width = Math.round((progress.completed / progress.total) * 100) + '%';
+            bar.appendChild(fill);
+            section.appendChild(bar);
+        }
+
+        const body = document.createElement('div');
+        body.className = 'project-body';
+        if (collapsed) body.classList.add('hidden');
+
+        // Child groups
+        const childContainers = containers.filter((c: any) => c.parentId === project.id && c.type === 'group');
+        for (const child of childContainers) {
+            const childTasks = tasks.filter((t: any) => t.containerId === child.id);
+            body.appendChild(createGroupSection(child.name, childTasks, activeTaskId, child.id));
+        }
+
+        // Direct tasks under project
+        const directTasks = tasks.filter((t: any) => t.containerId === project.id);
+        const zone = document.createElement('div');
+        zone.className = 'section-body drop-zone';
+        zone.dataset.container = project.id;
+        if (directTasks.length === 0) {
+            zone.classList.add('empty');
+            const hint = document.createElement('div');
+            hint.className = 'group-placeholder';
+            hint.textContent = '拖入任务到此项目';
+            zone.appendChild(hint);
+        }
+        for (const task of directTasks) {
+            zone.appendChild(createTaskItem(task, activeTaskId));
+        }
+        makeContainerDropTarget(zone, null, project.id);
+        body.appendChild(zone);
+
+        section.appendChild(body);
+        return section;
+    }
+
+    function computeProgress(projectId: string, containers: any[], tasks: any[]): { completed: number; total: number } {
+        const containerIds = new Set<string>();
+        const collectIds = (parentId: string) => {
+            containerIds.add(parentId);
+            for (const c of containers) {
+                if (c.parentId === parentId) collectIds(c.id);
+            }
+        };
+        collectIds(projectId);
+        const projectTasks = tasks.filter((t: any) => t.containerId && containerIds.has(t.containerId) && t.status !== 'cancelled');
+        const total = projectTasks.length;
+        const completed = projectTasks.filter((t: any) => t.status === 'completed').length;
+        return { completed, total };
+    }
+
+    function showProjectContextMenu(x: number, y: number, project: any, tasks: any[]) {
+        hideContextMenu();
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+
+        // 新建分组
+        const newGroupItem = createMenuItem('新建分组', () => {
+            vscode.postMessage({ type: 'newGroupInProject', projectId: project.id });
+        });
+        menu.appendChild(newGroupItem);
+
+        addSeparator(menu);
+
+        const renameItem = createMenuItem('重命名', () => {
+            const header = document.querySelector(`.project-header[data-project-id="${project.id}"]`);
+            if (header) {
+                const nameEl = header.querySelector('.project-name');
+                if (nameEl) {
+                    startInlineEdit(nameEl as HTMLElement, project.name, (newName) => {
+                        vscode.postMessage({ type: 'renameContainer', containerId: project.id, name: newName });
+                    });
+                }
+            }
+        });
+        menu.appendChild(renameItem);
+
+        addSeparator(menu);
+
+        const upItem = createMenuItem('上移', () => {
+            vscode.postMessage({ type: 'moveContainer', containerId: project.id, direction: 'up' });
+        });
+        menu.appendChild(upItem);
+
+        const downItem = createMenuItem('下移', () => {
+            vscode.postMessage({ type: 'moveContainer', containerId: project.id, direction: 'down' });
+        });
+        menu.appendChild(downItem);
+
+        addSeparator(menu);
+
+        const projectTasks = tasks.filter((t: any) => {
+            if (t.containerId === project.id) return true;
+            const containers = JSON.parse(document.getElementById('__sidebarData')?.dataset.containers || '[]');
+            const descIds = new Set<string>();
+            const collectIds = (parentId: string) => {
+                descIds.add(parentId);
+                for (const c of containers) descIds.add(c.id);
+            };
+            collectIds(project.id);
+            return t.containerId && descIds.has(t.containerId);
+        });
+
+        const deleteItem = document.createElement('div');
+        deleteItem.className = 'context-menu-item';
+        if (projectTasks.length > 0) {
+            deleteItem.textContent = `删除项目（${projectTasks.length} 个任务需先移出）`;
+            deleteItem.style.color = '#888';
+            deleteItem.style.cursor = 'not-allowed';
+        } else {
+            deleteItem.textContent = '删除项目';
+            deleteItem.addEventListener('click', (e) => {
+                e.stopPropagation();
+                hideContextMenu();
+                vscode.postMessage({ type: 'deleteContainer', containerId: project.id });
+            });
+        }
+        menu.appendChild(deleteItem);
+
+        document.body.appendChild(menu);
+        contextMenuEl = menu;
+    }
+
+    // ===== Shared helper functions (unchanged) =====
 
     function addSeparator(menu: HTMLDivElement): void {
         const sep = document.createElement('div');
@@ -169,7 +471,7 @@ declare function acquireVsCodeApi(): any;
     }
 
     function showContextMenu(x: number, y: number, task: any) {
-        vscode.postMessage({ type: 'debugLog', text: 'showContextMenu called! task.id=' + task.id + ' task.title=' + task.title + ' task.pinned=' + task.pinned + ' task.archived=' + task.archived });
+        vscode.postMessage({ type: 'debugLog', text: 'showContextMenu task.id=' + task.id });
         hideContextMenu();
 
         const menu = document.createElement('div');
@@ -193,7 +495,6 @@ declare function acquireVsCodeApi(): any;
 
         addSeparator(menu);
 
-        // --- 重命名 ---
         const renameItem = createMenuItem('重命名', () => {
             const taskItem = document.querySelector(`.task-item[data-task-id="${task.id}"]`);
             if (taskItem) {
@@ -213,6 +514,44 @@ declare function acquireVsCodeApi(): any;
 
         const tasks = JSON.parse(document.getElementById('__sidebarData')?.dataset.tasks || '[]');
         const groups = JSON.parse(document.getElementById('__sidebarData')?.dataset.groups || '[]');
+        const containers = JSON.parse(document.getElementById('__sidebarData')?.dataset.containers || '[]');
+
+        // 移至项目
+        const projectTrigger = document.createElement('div');
+        projectTrigger.className = 'context-menu-item has-submenu';
+        projectTrigger.innerHTML = '<span>移至项目</span><span class="submenu-arrow">&#x25B6;</span>';
+
+        const projectSubmenu = document.createElement('div');
+        projectSubmenu.className = 'context-menu submenu';
+
+        const noneProjectItem = createMenuItem(task.containerId ? '无项目' : '✔ 无项目', () => {
+            for (const id of targetIds) {
+                vscode.postMessage({ type: 'updateTaskContainer', taskId: id, containerId: undefined });
+            }
+        });
+        projectSubmenu.appendChild(noneProjectItem);
+
+        const projects = containers.filter((c: any) => c.type === 'project');
+        for (const p of projects) {
+            const checked = task.containerId === p.id ? '✔ ' : '';
+            const pItem = createMenuItem(checked + p.name, () => {
+                for (const id of targetIds) {
+                    vscode.postMessage({ type: 'updateTaskContainer', taskId: id, containerId: p.id });
+                }
+            });
+            projectSubmenu.appendChild(pItem);
+        }
+
+        projectTrigger.appendChild(projectSubmenu);
+        projectTrigger.addEventListener('mouseenter', () => { projectSubmenu.style.display = 'block'; });
+        projectTrigger.addEventListener('mouseleave', (e) => {
+            const rel = e.relatedTarget as Node;
+            if (!projectSubmenu.contains(rel) && rel !== projectTrigger) projectSubmenu.style.display = 'none';
+        });
+        projectSubmenu.addEventListener('mouseleave', (e) => {
+            const rel = e.relatedTarget as Node;
+            if (!projectTrigger.contains(rel) && rel !== projectTrigger) projectSubmenu.style.display = 'none';
+        });
 
         const submenuTrigger = document.createElement('div');
         submenuTrigger.className = 'context-menu-item has-submenu';
@@ -239,24 +578,18 @@ declare function acquireVsCodeApi(): any;
         }
 
         submenuTrigger.appendChild(submenu);
-
-        submenuTrigger.addEventListener('mouseenter', () => {
-            submenu.style.display = 'block';
-        });
+        submenuTrigger.addEventListener('mouseenter', () => { submenu.style.display = 'block'; });
         submenuTrigger.addEventListener('mouseleave', (e) => {
             const rel = e.relatedTarget as Node;
-            if (!submenu.contains(rel) && rel !== submenuTrigger) {
-                submenu.style.display = 'none';
-            }
+            if (!submenu.contains(rel) && rel !== submenuTrigger) submenu.style.display = 'none';
         });
         submenu.addEventListener('mouseleave', (e) => {
             const rel = e.relatedTarget as Node;
-            if (!submenuTrigger.contains(rel) && rel !== submenuTrigger) {
-                submenu.style.display = 'none';
-            }
+            if (!submenuTrigger.contains(rel) && rel !== submenuTrigger) submenu.style.display = 'none';
         });
 
         menu.appendChild(submenuTrigger);
+        menu.appendChild(projectTrigger);
         document.body.appendChild(menu);
         contextMenuEl = menu;
     }
@@ -280,95 +613,7 @@ declare function acquireVsCodeApi(): any;
         }
     }
 
-    function renderTaskList(tasks: any[], groups: string[], activeTaskId?: string, editingGroupName?: string) {
-        const pinnedList = document.getElementById('pinned-list');
-        const taskList = document.getElementById('task-list');
-        if (!taskList) return;
-
-        const validIds = new Set(tasks.map((t: any) => t.id));
-        for (const id of Array.from(selectedTaskIds)) {
-            if (!validIds.has(id)) selectedTaskIds.delete(id);
-        }
-
-        const dataEl = document.getElementById('__sidebarData');
-        if (dataEl) {
-            dataEl.dataset.tasks = JSON.stringify(tasks);
-            dataEl.dataset.groups = JSON.stringify(groups);
-            dataEl.dataset.activeTaskId = activeTaskId || '';
-        }
-
-        updateBatchActionBar();
-
-        const visible = tasks.filter((t: any) => !t.archived);
-        const pinned = visible.filter((t: any) => t.pinned);
-        const groupMap = new Map<string, any[]>();
-        for (const g of groups) {
-            groupMap.set(g, []);
-        }
-        const ungrouped = visible.filter((t: any) => {
-            if (t.pinned) return false;
-            if (t.group && groupMap.has(t.group)) {
-                groupMap.get(t.group)!.push(t);
-                return false;
-            }
-            return true;
-        });
-
-        const pinnedSection = document.getElementById('section-pinned');
-        if (pinnedSection && pinnedList) {
-            pinnedSection.style.display = pinned.length > 0 ? '' : 'none';
-            pinnedList.innerHTML = '';
-            for (const task of pinned) {
-                pinnedList.appendChild(createTaskItem(task, activeTaskId));
-            }
-        }
-
-        taskList.innerHTML = '';
-        const hasContent = ungrouped.length > 0 || groups.length > 0 || pinned.length > 0;
-        if (!hasContent) {
-            taskList.innerHTML = '<div class="placeholder-text">暂无任务</div>';
-            updateSelectionVisual();
-            return;
-        }
-
-        const ungroupedZone = document.createElement('div');
-        ungroupedZone.className = 'section-body drop-zone';
-        ungroupedZone.dataset.group = '';
-        for (const task of ungrouped) {
-            ungroupedZone.appendChild(createTaskItem(task, activeTaskId));
-        }
-        makeContainerDropTarget(ungroupedZone, null);
-        taskList.appendChild(ungroupedZone);
-
-        for (const key of Array.from(_groupCollapsed.keys())) {
-            if (!groups.includes(key)) {
-                _groupCollapsed.delete(key);
-            }
-        }
-
-        for (const [groupName, groupTasks] of groupMap) {
-            const section = createGroupSection(groupName, groupTasks, activeTaskId);
-            taskList.appendChild(section);
-        }
-
-        updateSelectionVisual();
-
-        if (editingGroupName) {
-            requestAnimationFrame(() => {
-                const header = document.querySelector(`.section-header[data-group-name="${editingGroupName}"]`);
-                if (header) {
-                    const label = header.querySelector('.group-label');
-                    if (label) {
-                        startInlineEdit(label as HTMLElement, editingGroupName, (newName) => {
-                            vscode.postMessage({ type: 'renameGroup', groupName: editingGroupName, currentName: newName });
-                        });
-                    }
-                }
-            });
-        }
-    }
-
-    function makeContainerDropTarget(el: HTMLElement, group: string | null) {
+    function makeContainerDropTarget(el: HTMLElement, group: string | null, containerId: string | null) {
         el.addEventListener('dragenter', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -388,14 +633,18 @@ declare function acquireVsCodeApi(): any;
             e.stopPropagation();
             el.classList.remove('drag-over');
             const taskIds = parseDragTaskIds(e);
-            if (taskIds.length > 0) {
-                vscode.postMessage({
-                    type: 'reorderTasks',
-                    taskIds,
-                    targetTaskId: null,
-                    position: null,
-                    group
-                });
+            if (taskIds.length === 0) return;
+            vscode.postMessage({
+                type: 'reorderTasks',
+                taskIds,
+                targetTaskId: null,
+                position: null,
+                group,
+            });
+            if (containerId !== null && taskIds.length > 0) {
+                for (const id of taskIds) {
+                    vscode.postMessage({ type: 'updateTaskContainer', taskId: id, containerId });
+                }
             }
         });
     }
@@ -544,7 +793,6 @@ declare function acquireVsCodeApi(): any;
         item.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            vscode.postMessage({ type: 'debugLog', text: 'contextmenu fired on task.id=' + task.id });
             showContextMenu(e.clientX, e.clientY, task);
         });
 
@@ -580,6 +828,7 @@ declare function acquireVsCodeApi(): any;
             const position = y < rect.height / 2 ? 'before' : 'after';
             const container = item.closest('.drop-zone') as HTMLElement;
             const group = container?.dataset?.group !== undefined ? (container.dataset.group || null) : null;
+            const cid = container?.dataset?.container !== undefined ? (container.dataset.container || undefined) : undefined;
             vscode.postMessage({
                 type: 'reorderTasks',
                 taskIds,
@@ -587,12 +836,15 @@ declare function acquireVsCodeApi(): any;
                 position,
                 group
             });
+            for (const id of taskIds) {
+                vscode.postMessage({ type: 'updateTaskContainer', taskId: id, containerId: cid });
+            }
         });
 
         return item;
     }
 
-    function createGroupSection(groupName: string, tasks: any[], activeTaskId?: string): HTMLElement {
+    function createGroupSection(groupName: string, tasks: any[], activeTaskId?: string, containerId?: string): HTMLElement {
         const section = document.createElement('div');
         section.className = 'section';
 
@@ -600,6 +852,7 @@ declare function acquireVsCodeApi(): any;
         header.className = 'section-header';
         header.draggable = true;
         header.dataset.groupName = groupName;
+        if (containerId) header.dataset.containerId = containerId;
 
         const arrow = document.createElement('span');
         arrow.className = 'arrow';
@@ -610,11 +863,11 @@ declare function acquireVsCodeApi(): any;
         label.textContent = escapeHtml(groupName);
         header.appendChild(label);
 
-        let collapsed = _groupCollapsed.get(groupName) ?? false;
+        let collapsed = _collapsed.get(groupName) ?? false;
         header.addEventListener('click', (e) => {
             if (e.target && (e.target as HTMLElement).closest('.context-menu')) return;
             collapsed = !collapsed;
-            _groupCollapsed.set(groupName, collapsed);
+            _collapsed.set(groupName, collapsed);
             body.style.display = collapsed ? 'none' : '';
             arrow.classList.toggle('collapsed', collapsed);
         });
@@ -622,7 +875,7 @@ declare function acquireVsCodeApi(): any;
         header.addEventListener('dragenter', () => {
             if (collapsed) {
                 collapsed = false;
-                _groupCollapsed.set(groupName, false);
+                _collapsed.set(groupName, false);
                 body.style.display = '';
                 arrow.classList.remove('collapsed');
             }
@@ -679,7 +932,7 @@ declare function acquireVsCodeApi(): any;
         header.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            showGroupContextMenu(e.clientX, e.clientY, groupName, tasks.length);
+            showGroupContextMenu(e.clientX, e.clientY, groupName, tasks.length, containerId);
         });
 
         section.appendChild(header);
@@ -697,7 +950,7 @@ declare function acquireVsCodeApi(): any;
         for (const task of tasks) {
             body.appendChild(createTaskItem(task, activeTaskId));
         }
-        makeContainerDropTarget(body, groupName);
+        makeContainerDropTarget(body, groupName, containerId || null);
         section.appendChild(body);
 
         if (collapsed) {
@@ -708,7 +961,7 @@ declare function acquireVsCodeApi(): any;
         return section;
     }
 
-    function showGroupContextMenu(x: number, y: number, groupName: string, taskCount: number) {
+    function showGroupContextMenu(x: number, y: number, groupName: string, taskCount: number, containerId?: string) {
         hideContextMenu();
 
         const menu = document.createElement('div');
@@ -716,29 +969,18 @@ declare function acquireVsCodeApi(): any;
         menu.style.left = x + 'px';
         menu.style.top = y + 'px';
 
-        // --- 上移 ---
-        const upItem = createMenuItem('上移', () => {
-            vscode.postMessage({ type: 'moveGroup', groupName, direction: 'up' });
-        });
-        menu.appendChild(upItem);
-
-        // --- 下移 ---
-        const downItem = createMenuItem('下移', () => {
-            vscode.postMessage({ type: 'moveGroup', groupName, direction: 'down' });
-        });
-        menu.appendChild(downItem);
-
-        addSeparator(menu);
-
-        // --- 重命名 ---
         const renameItem = createMenuItem('重命名', () => {
-            const header = document.querySelector(`.section-header[data-group-name="${groupName}"]`);
-            if (header) {
-                const label = header.querySelector('.group-label');
-                if (label) {
-                    startInlineEdit(label as HTMLElement, groupName, (newName) => {
-                        vscode.postMessage({ type: 'renameGroup', groupName, currentName: newName });
-                    });
+            if (containerId) {
+                vscode.postMessage({ type: 'renameContainer', containerId, name: groupName });
+            } else {
+                const header = document.querySelector(`.section-header[data-group-name="${groupName}"]`);
+                if (header) {
+                    const label = header.querySelector('.group-label');
+                    if (label) {
+                        startInlineEdit(label as HTMLElement, groupName, (newName) => {
+                            vscode.postMessage({ type: 'renameGroup', groupName, currentName: newName });
+                        });
+                    }
                 }
             }
         });
@@ -746,11 +988,24 @@ declare function acquireVsCodeApi(): any;
 
         addSeparator(menu);
 
-        // --- 删除 ---
+        if (!containerId) {
+            const upItem = createMenuItem('上移', () => {
+                vscode.postMessage({ type: 'moveGroup', groupName, direction: 'up' });
+            });
+            menu.appendChild(upItem);
+
+            const downItem = createMenuItem('下移', () => {
+                vscode.postMessage({ type: 'moveGroup', groupName, direction: 'down' });
+            });
+            menu.appendChild(downItem);
+
+            addSeparator(menu);
+        }
+
         const deleteItem = document.createElement('div');
         deleteItem.className = 'context-menu-item';
         if (taskCount > 0) {
-            deleteItem.textContent = '删除分组（请先移出所有任务）';
+            deleteItem.textContent = containerId ? '删除分组（请先移出所有任务）' : '删除分组（请先移出所有任务）';
             deleteItem.style.color = '#888';
             deleteItem.style.cursor = 'not-allowed';
         } else {
@@ -758,7 +1013,11 @@ declare function acquireVsCodeApi(): any;
             deleteItem.addEventListener('click', (e) => {
                 e.stopPropagation();
                 hideContextMenu();
-                vscode.postMessage({ type: 'deleteGroup', groupName });
+                if (containerId) {
+                    vscode.postMessage({ type: 'deleteContainer', containerId });
+                } else {
+                    vscode.postMessage({ type: 'deleteGroup', groupName });
+                }
             });
         }
         menu.appendChild(deleteItem);
@@ -777,5 +1036,5 @@ declare function acquireVsCodeApi(): any;
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    (window as any).renderTaskList = renderTaskList;
+    (window as any).renderSidebar = renderSidebar;
 }

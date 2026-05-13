@@ -123,7 +123,7 @@ _目标：逐步用 KCode 自身开发 KCode，从"能看"到"完全切换"。_
 | **7** | 🟥 Level 1 — 能改 | 参与修小 bug | ✅ 已完成 |
 | **8** | 🟧 Level 2 — 能造 | 完成独立小功能 | ✅ 已完成 |
 | **9** | 🟨 Level 3 — 能带 | 主导功能开发 | ✅ 已完成 |
-| **10** | 🟩 Level 4 — 能吃 | 完全切换到 KCode | ⬜ 未开始 |
+| **10** | 🟩 Level 4 — 能吃 | 完全切换到 KCode | 🛠️ 实现中 |
 
 各阶段详细目标和验收标准见 `PROJECT.md > 自举之路`。
 
@@ -1012,7 +1012,7 @@ _目标：从"AI 对话工具"转向"AI 驱动的开发流程管理器"。顶层
 | 任务 | 说明 | 状态 |
 |------|------|------|
 | P10-01 | 任务类型分类 + 模板系统 | ✅ 已完成 |
-| P10-02 | 项目分组 — 顶层分组容器（Group 可嵌套，Project 为终止节点） | 📋 已调研 |
+| P10-02 | 项目分组 — 顶层分组容器（Group 可嵌套，Project 为终止节点） | ✅ 已完成 |
 | P10-03 | 任务委派 — 补齐委派规则 + 上下文继承协议 | 📋 已调研 |
 | P10-04 | 工作台 — Dashboard 定焦「今天要验收什么」 | 📋 已调研 |
 
@@ -1080,9 +1080,18 @@ Project
 
 **进度聚合**: Project 节点自动计算 `completed / total` 百分比（只统计非 cancelled 任务），以进度条 + 分数显示。
 
-**侧边栏视图**: 双 tab — [📋 工作台] [📦 项目]，项目 tab 按 Project 分组展示，Project 内保持现有 group 拖拽折叠不变。
+**侧边栏视图**: 单视图 — 未分配 → 项目列表（可折叠+进度条+子分组/任务）→ 旧分组（向后兼容）。
 
-**状态**: 📋 已调研
+**实现说明**:
+
+> **设计变更**: 根据反馈移除双 tab，改为单视图。侧边栏按：未分配 → 项目1(子分组/任务) → 项目2 → ... → 旧分组(向后兼容)
+
+1. **类型扩展** (`src/types/index.ts`): 新增 `ContainerEntity` (id/name/type/parentId/createdAt)，`ContainerType` 为 `'group' | 'project'`。Task 新增 `containerId?: string`。
+2. **Store 层** (`src/store/TaskStore.ts`): 新增 Container CRUD（含 `getProjectProgress`/`moveContainer` 等）。原有 `groups: string[]` 保持向后兼容。
+3. **侧边栏 Provider** (`KCodeSidebarProvider.ts`): 移除双 tab 和 `_sidebarTab`；HTML 改为 `#section-ungrouped` → `#project-list` → `#section-old-groups`；action bar 新增📦新建项目；消息处理 `addContainer`/`deleteContainer`/`updateTaskContainer`/`renameContainer`/`moveContainer`/`updateContainer`。
+4. **WebView 侧** (`sidebar.ts`): 移除 tab/项目视图代码；`renderSidebar()` 渲染未分配 → 项目(可折叠+进度条) → 旧分组；`createProjectSection()` 含进度条/子分组/直挂任务/拖拽重排；`showProjectContextMenu()` 项目右键菜单；`makeContainerDropTarget()` 支持 `containerId`，拖入任务自动归属。
+
+**状态**: ✅ 已完成
 
 ---
 
