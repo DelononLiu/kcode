@@ -104,7 +104,32 @@ export function activate(context: vscode.ExtensionContext) {
         await importGitHubIssue(store, (taskId, goal) => openTaskInPanel(context, taskId, goal), refreshSidebar);
     });
 
-    context.subscriptions.push(openCmd, newTaskCmd, importGitHubCmd);
+    const newTaskFromTemplateCmd = vscode.commands.registerCommand('kcode.newTaskFromTemplate', () => {
+        if (!store || !panel) return;
+        const existingEmpty = store.findEmptyTask();
+        if (existingEmpty) {
+            refreshSidebar();
+            panel.startTemplateFlow(existingEmpty.id);
+            return;
+        }
+        const task: Task = {
+            id: `task_${Date.now()}`,
+            title: 'New Task',
+            goal: '',
+            type: 'chat',
+            status: 'pending',
+            phase: 'demand',
+            confirmedItems: [],
+            pendingItems: [],
+            planSteps: [],
+            createdAt: Date.now()
+        };
+        store.addTask(task);
+        refreshSidebar();
+        panel.startTemplateFlow(task.id);
+    });
+
+    context.subscriptions.push(openCmd, newTaskCmd, importGitHubCmd, newTaskFromTemplateCmd);
 }
 
 export function deactivate() {

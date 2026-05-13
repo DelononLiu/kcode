@@ -176,10 +176,10 @@ function initMessageHandler() {
                 break;
             case 'updateCategoryDefs':
                 categoryDefs = message.categories;
-                const scrollContainer = document.getElementById('chat-scroll');
-                if (scrollContainer?.classList.contains('chat-empty')) {
-                    renderCategorySelection();
-                }
+                initCategoryChips();
+                break;
+            case 'startTemplateFlow':
+                renderCategorySelection();
                 break;
         }
     });
@@ -366,7 +366,14 @@ function initChat() {
         input.value = '';
         input.focus();
 
-        vscode.postMessage({ type: 'sendMessage', text, taskId: activeTaskId });
+        const msg: any = { type: 'sendMessage', text, taskId: activeTaskId };
+        if (selectedCategory) {
+            msg.category = selectedCategory;
+            selectedCategory = null;
+            const bar = document.getElementById('input-category-bar');
+            if (bar) bar.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+        }
+        vscode.postMessage(msg);
     }
 
     input.addEventListener('keydown', (e) => {
@@ -633,16 +640,11 @@ function renderMessages(messages: any[]) {
 
     const inputEl = document.getElementById('chat-input') as HTMLTextAreaElement;
     if (!messages || messages.length === 0) {
-        if (categoryDefs.length > 0) {
-            scrollContainer.classList.remove('chat-empty');
-            container.innerHTML = '';
-            renderCategorySelection();
-        } else {
-            scrollContainer.classList.add('chat-empty');
-            container.innerHTML = '<div class="chat-placeholder">输入需求，开始与 AI 对话</div>';
-            if (existingIndicator) container.appendChild(existingIndicator);
-            if (inputEl) inputEl.placeholder = '输入需求，开始与 AI 对话';
-        }
+        scrollContainer.classList.add('chat-empty');
+        container.innerHTML = '<div class="chat-placeholder">输入需求，开始与 AI 对话</div>';
+        initCategoryChips();
+        if (existingIndicator) container.appendChild(existingIndicator);
+        if (inputEl) inputEl.placeholder = '输入需求，开始与 AI 对话';
         focusChatInput();
         return;
     }
@@ -683,6 +685,8 @@ function getTemplateDef(catKey: string, subKey: string): any {
 function renderCategorySelection() {
     const container = document.getElementById('chat-messages');
     if (!container) return;
+    const scrollContainer = document.getElementById('chat-scroll');
+    if (scrollContainer) scrollContainer.classList.remove('chat-empty');
     container.innerHTML = '';
     const chatHeader = document.getElementById('chat-header');
     if (chatHeader) chatHeader.style.display = 'none';
@@ -755,11 +759,9 @@ function renderCategorySelection() {
     }
 
     const cat = getCategoryDef(selectedCategory);
-    const template = cat?.subTypes?.[selectedSubType];
+    if (!cat) return;
+    const template = cat.subTypes[selectedSubType];
     if (!template) return;
-
-    const scrollContainer = document.getElementById('chat-scroll');
-    if (scrollContainer) scrollContainer.classList.remove('chat-empty');
 
     const header = document.createElement('div');
     header.className = 'category-header';
@@ -850,7 +852,7 @@ function renderCategorySelection() {
 
     const inputHint = document.getElementById('chat-input') as HTMLTextAreaElement;
     if (inputHint) {
-        inputHint.placeholder = template.inputPlaceholder || '描述需求...';
+        inputHint.placeholder = '提出后续修改要求';
     }
 }
 
@@ -881,6 +883,30 @@ function startTaskFromForm(template: any, formFields: Record<string, string>, no
 
     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
     if (input) input.placeholder = '提出后续修改要求';
+}
+
+function initCategoryChips() {
+    const bar = document.getElementById('input-category-bar');
+    if (!bar) return;
+    if (!categoryDefs || categoryDefs.length === 0) return;
+    bar.innerHTML = '';
+    for (const cat of categoryDefs) {
+        const chip = document.createElement('span');
+        chip.className = 'category-chip';
+        chip.dataset.cat = cat.key;
+        chip.textContent = `${cat.icon} ${cat.label}`;
+        chip.addEventListener('click', () => {
+            if (selectedCategory === cat.key) {
+                selectedCategory = null;
+                bar.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+            } else {
+                selectedCategory = cat.key;
+                bar.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+            }
+        });
+        bar.appendChild(chip);
+    }
 }
 
 function focusChatInput() {

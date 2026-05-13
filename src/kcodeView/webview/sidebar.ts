@@ -16,6 +16,13 @@ declare function acquireVsCodeApi(): any;
             });
         }
 
+        const templateBtn = document.getElementById('btn-template-task');
+        if (templateBtn) {
+            templateBtn.addEventListener('click', () => {
+                vscode.postMessage({ type: 'newTaskFromTemplate' });
+            });
+        }
+
         const groupBtn = document.getElementById('btn-new-group');
         if (groupBtn) {
             groupBtn.addEventListener('click', (e) => {

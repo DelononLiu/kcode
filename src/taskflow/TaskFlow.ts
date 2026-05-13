@@ -8,7 +8,7 @@ import { EXECUTE_PROMPT } from './prompts/execute';
 import { REVIEW_PROMPT } from './prompts/review';
 import { SELF_VERIFY_PROMPT } from './prompts/self_verify';
 
-import { getTemplate } from './templates';
+import { getTemplate, getCategory } from './templates';
 
 export interface ITaskStore {
     getTask(taskId: string): Task | undefined;
@@ -449,20 +449,30 @@ export class TaskFlow {
             }
         })();
 
+        const extraParts: string[] = [];
         if (task.category && task.subType) {
             const template = getTemplate(task.category, task.subType);
             if (template) {
-                const extraParts: string[] = [];
                 if (task.phase === 'plan' && template.analysisFramework) {
                     extraParts.push(`【分析框架】\n${template.analysisFramework}`);
                 }
                 if (task.phase === 'execute' && template.executionHints.length > 0) {
                     extraParts.push(`【执行约束】\n${template.executionHints.map((h, i) => `${i + 1}. ${h}`).join('\n')}`);
                 }
-                if (extraParts.length > 0) {
-                    return basePrompt + '\n\n' + extraParts.join('\n\n');
+            }
+        } else if (task.category) {
+            const cat = getCategory(task.category);
+            if (cat) {
+                if (task.phase === 'plan' && cat.analysisFramework) {
+                    extraParts.push(`【分析框架】\n${cat.analysisFramework}`);
+                }
+                if (task.phase === 'execute' && cat.executionHints.length > 0) {
+                    extraParts.push(`【执行约束】\n${cat.executionHints.map((h, i) => `${i + 1}. ${h}`).join('\n')}`);
                 }
             }
+        }
+        if (extraParts.length > 0) {
+            return basePrompt + '\n\n' + extraParts.join('\n\n');
         }
 
         return basePrompt;

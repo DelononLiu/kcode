@@ -7,7 +7,7 @@ import { AcpClient } from '../acp/AcpClient';
 import { FakeAgent } from '../acp/FakeAgent';
 import { OpenAIAgent } from '../acp/OpenAIAgent';
 import { classifyIntent } from '../acp/intentUtils';
-import { getCategories, getTemplate } from '../taskflow/templates';
+import { getCategories, getTemplate, getCategory } from '../taskflow/templates';
 import type { Task, FileChange, ProgressNode } from '../types';
 
 export class KCodePanel {
@@ -162,9 +162,11 @@ export class KCodePanel {
         if (!task) return;
 
         // Store category/subType if provided (from template-based task creation)
-        if (category && subType) {
+        if (category) {
             this.store.updateTaskCategory(tid, category as any);
-            this.store.updateTaskSubType(tid, subType);
+            if (subType) {
+                this.store.updateTaskSubType(tid, subType);
+            }
         }
 
         const isFirstMessage = this.store.getMessages(tid).length === 0;
@@ -200,6 +202,11 @@ export class KCodePanel {
                 if (category && subType) {
                     const template = getTemplate(category as any, subType);
                     const label = template?.label || subType;
+                    const rawTitle = text.length > 27 ? text.substring(0, 27) + '...' : text;
+                    this.store.updateTaskTitle(tid, `${label}: ${rawTitle}`);
+                } else if (category) {
+                    const cat = getCategory(category as any);
+                    const label = cat?.label || category;
                     const rawTitle = text.length > 27 ? text.substring(0, 27) + '...' : text;
                     this.store.updateTaskTitle(tid, `${label}: ${rawTitle}`);
                 } else {
@@ -842,6 +849,9 @@ export class KCodePanel {
         if (task?.category && task?.subType) {
             const template = getTemplate(task.category, task.subType);
             acceptanceCriteria = template?.acceptanceCriteria;
+        } else if (task?.category) {
+            const cat = getCategory(task.category);
+            acceptanceCriteria = cat?.acceptanceCriteria;
         }
 
         this.panel.webview.postMessage({
@@ -1225,6 +1235,7 @@ export class KCodePanel {
             <div id="chat-input-area">
                 <div class="input-wrapper">
                     <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
+                    <div id="input-category-bar"></div>
                     <div class="input-footer">
                         <div class="input-footer-left">
                             <span class="status-item">
@@ -1311,7 +1322,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-area:has(#chat-scroll.chat-empty) #chat-body{display:none}
 #chat-area:has(#chat-scroll.chat-empty) #chat-input-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-top:none;gap:8px}
 #chat-area:has(#chat-scroll.chat-empty) #chat-input-area .input-wrapper{width:100%;max-width:900px}
-#chat-body.showing-categories #chat-scroll{display:flex;align-items:center;justify-content:center}
+/* Categories rendered as full-screen flow for template mode */
+#chat-body.showing-categories{display:flex!important}
+#chat-body.showing-categories #chat-scroll{display:flex;flex-direction:column;align-items:center}
 #chat-body.showing-categories #chat-messages{padding:0;width:100%;max-width:480px;min-height:auto}
 
 /* === Chat Header === */
@@ -1514,6 +1527,13 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .plan-confirm-btn{background:#4a8bb5;color:#fff;border:none;border-radius:4px;padding:1px 8px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;white-space:nowrap;margin-left:8px;transition:background .2s}
 .plan-confirm-btn:hover{background:#5a9bc8}
 .plan-confirm-btn.hidden{display:none}
+
+/* === Category Chips in Input Bar === */
+#input-category-bar{display:flex;align-items:center;gap:6px;padding:4px 0 0;flex-wrap:wrap}
+#chat-area:has(#chat-scroll.chat-empty) #input-category-bar{justify-content:center;padding:4px 0 0}
+.category-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;font-size:11.5px;color:#888;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:10px;cursor:pointer;user-select:none;transition:all .15s;font-family:inherit;line-height:1.5}
+.category-chip:hover{color:#ccc;border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.05)}
+.category-chip.active{color:#4ec9b0;border-color:rgba(78,201,176,.35);background:rgba(78,201,176,.07)}
 .plan-confirmation-card{margin:8px 0}
 .plan-steps-body{padding:4px 0}
 .plan-step-line{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:#d2d2d4}
@@ -1601,6 +1621,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         const task = this.store.getTask(taskId);
         this.hasSetPlanMessage = !!task?.nodeMessageIds?.plan;
         this.hasSetExecuteMessage = !!task?.nodeMessageIds?.execute;
+        this.sendCategoryDefs();
         this.sendTaskMessages(taskId);
         this.sendTaskInfo(taskId);
         this.sendNodePanelUpdate(taskId);
@@ -1609,6 +1630,21 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
     autoSendGoal(taskId: string, text: string) {
         this.handleSendMessage(text, taskId);
+    }
+
+    startTemplateFlow(taskId: string) {
+        this.loadTask(taskId);
+        this.panel.webview.postMessage({
+            type: 'startTemplateFlow',
+            taskId
+        });
+    }
+
+    private sendCategoryDefs() {
+        this.panel.webview.postMessage({
+            type: 'updateCategoryDefs',
+            categories: getCategories()
+        });
     }
 
     private sendTaskInfo(taskId: string) {
@@ -1643,6 +1679,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         if (task?.category && task?.subType && task?.status === 'in_review') {
             const template = getTemplate(task.category, task.subType);
             acceptanceCriteria = template?.acceptanceCriteria;
+        } else if (task?.category && task?.status === 'in_review') {
+            const cat = getCategory(task.category);
+            acceptanceCriteria = cat?.acceptanceCriteria;
         }
         this.panel.webview.postMessage({
             type: 'loadMessages',

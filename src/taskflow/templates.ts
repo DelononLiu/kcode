@@ -5,6 +5,9 @@ const CATEGORIES: Record<TaskCategory, CategoryDef> = {
         key: 'requirement_dev',
         label: '需求开发',
         icon: '🧩',
+        analysisFramework: '请遵循需求分析流程：先理解需求背景和业务价值，明确功能范围和边界；分析影响面，考虑对现有模块的兼容性；设计实现方案时评估可扩展性和可维护性；输出完整实现代码并补充必要的测试。',
+        executionHints: ['先理清现有相关代码结构，再开始实现', '保持代码风格与项目现有代码一致'],
+        acceptanceCriteria: ['功能符合需求描述', '边界情况已处理', '已有功能不受影响', '代码风格与项目一致'],
         subTypes: {
             feature_dev: {
                 label: '新增功能开发',
@@ -123,6 +126,9 @@ const CATEGORIES: Record<TaskCategory, CategoryDef> = {
         key: 'problem_analysis',
         label: '问题分析',
         icon: '🔍',
+        analysisFramework: '请遵循问题诊断框架：收集完整的错误上下文（堆栈/日志/环境），提出根因假设并逐一排除，定位到最小可复现范围，输出修复方案并说明根因。',
+        executionHints: ['先最小化复现问题，确认根因后再修改', '修改后验证边界情况是否引入新问题'],
+        acceptanceCriteria: ['问题已修复不再复现', '根因已定位并明确说明', '回归测试通过无新增问题'],
         subTypes: {
             debug: {
                 label: '代码 Debug 调试',
@@ -237,6 +243,9 @@ const CATEGORIES: Record<TaskCategory, CategoryDef> = {
         key: 'performance_opt',
         label: '性能优化',
         icon: '⚡',
+        analysisFramework: '请遵循性能优化方法论：先量化测量确认瓶颈位置，使用 profiling 分析热点路径，每次只改一处对比验证效果，保证不引入正确性问题和可维护性损失。',
+        executionHints: ['优化前先做基准测量量化当前性能', '优先优化最大热点路径', '每次只改一处改完验证效果再改下一处'],
+        acceptanceCriteria: ['性能指标达到优化目标', '功能正确性不受影响', '代码可维护性未明显降低'],
         subTypes: {
             perf_code: {
                 label: '代码执行性能优化',
@@ -349,6 +358,9 @@ const CATEGORIES: Record<TaskCategory, CategoryDef> = {
         key: 'precision_issue',
         label: '精度问题',
         icon: '🎯',
+        analysisFramework: '请遵循精度校准框架：从输入数据开始逐步骤验证中间结果，识别精度丢失的关键步骤，评估修复方案对性能的影响，补充边界值和极端值的验证。',
+        executionHints: ['优先定位精度偏差最大的环节', '注意边界值和极端值对精度的影响'],
+        acceptanceCriteria: ['精度偏差在可接受范围内', '边界值测试通过', '性能无显著退化'],
         subTypes: {
             precision_calc: {
                 label: '计算精度校准',

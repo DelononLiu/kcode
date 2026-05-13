@@ -55,6 +55,9 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                 case 'newTask':
                     this.createNewTask();
                     break;
+                case 'newTaskFromTemplate':
+                    vscode.commands.executeCommand('kcode.newTaskFromTemplate');
+                    break;
                 case 'selectTask':
                     this._activeTaskId = message.taskId;
                     this._onTaskSelected(message.taskId);
@@ -273,9 +276,11 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             font-family: inherit;
             font-weight: 500;
         }
-        .sidebar-btn .plus-icon {
-            font-size: 17px;
-            font-weight: 700;
+        .sidebar-btn .sidebar-btn-icon {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+            flex-shrink: 0;
             line-height: 1;
         }
         .sidebar-btn:hover { background: #252526; }
@@ -565,8 +570,9 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
 <body>
     <div id="sidebar-content">
         <div class="action-bar">
-            <button id="btn-new-task" class="sidebar-btn"><span class="plus-icon">+</span> 新建任务</button>
-            <button id="btn-import-issue" class="sidebar-btn"><span style="font-size:17px;font-weight:700;line-height:1">⤓</span> 导入 Issue</button>
+            <button id="btn-new-task" class="sidebar-btn"><span class="sidebar-btn-icon">+</span> 新建任务</button>
+            <button id="btn-template-task" class="sidebar-btn"><span class="sidebar-btn-icon">📋</span> 按模板新建任务</button>
+            <button id="btn-import-issue" class="sidebar-btn"><span class="sidebar-btn-icon">⤓</span> 导入 Issue</button>
             <button id="btn-toggle-panel" class="sidebar-btn" style="font-size:12px;">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
                     <rect x="1" y="2" width="14" height="10" rx="1"/>

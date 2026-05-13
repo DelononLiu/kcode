@@ -23,6 +23,9 @@ export interface CategoryDef {
     key: TaskCategory;
     label: string;
     icon: string;
+    analysisFramework: string;
+    executionHints: string[];
+    acceptanceCriteria: string[];
     subTypes: Record<string, TaskTemplate>;
 }
 
