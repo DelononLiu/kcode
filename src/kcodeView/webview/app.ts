@@ -104,11 +104,10 @@ function initMessageHandler() {
     if (message.reviewChanges || message.acceptanceCriteria) {
         acceptanceCheckedState.delete(message.taskId);
     }
-    if (message.isFirstMessage && message.allTasks) {
-        renderDashboardPanel(message.allTasks);
-    } else {
-        renderMessages(message.messages);
-    }
+    renderMessages(message.messages);
+                break;
+            case 'showDashboard':
+                renderDashboardPanel(message.allTasks);
                 break;
             case 'showFilePreview':
                 if ((window as any).showPreview) {
@@ -477,6 +476,11 @@ function initChat() {
     const btnNewTask = document.getElementById('btn-new-task');
     btnNewTask?.addEventListener('click', () => {
         vscode.postMessage({ type: 'newTask' });
+    });
+
+    const btnDashboard = document.getElementById('btn-dashboard');
+    btnDashboard?.addEventListener('click', () => {
+        vscode.postMessage({ type: 'openDashboard' });
     });
 
     const btnTerminal = document.getElementById('btn-terminal');
@@ -890,7 +894,9 @@ function renderMessages(messages: any[]) {
 
     const inputEl = document.getElementById('chat-input') as HTMLTextAreaElement;
     if (!messages || messages.length === 0) {
-        scrollContainer.classList.add('chat-empty');
+        scrollContainer.classList.remove('chat-empty');
+        document.getElementById('chat-header')?.style.removeProperty('display');
+        document.getElementById('chat-body')?.classList.remove('showing-categories');
         container.innerHTML = '<div class="chat-placeholder">输入需求，开始与 AI 对话</div>';
         initCategoryChips();
         if (existingIndicator) container.appendChild(existingIndicator);

@@ -1158,10 +1158,10 @@ Project
 ### P10-04: 工作台 — Dashboard 定焦「今天要验收什么」
 
 **涉及文件**:
-- `src/kcodeView/KCodePanel.ts` — 空闲态 HTML 改为 Dashboard 渲染
+- `src/kcodeView/KCodePanel.ts` — 空闲态 HTML 改为 Dashboard 渲染；无任务选中时触发 Dashboard
 - `src/kcodeView/webview/app.ts` — `loadMessages` / 空闲态渲染逻辑
-- `src/kcodeView/KCodeSidebarProvider.ts` — 侧边栏双 tab 切换
-- `src/kcodeView/webview/sidebar.ts` — tab 视图渲染
+
+> **注意**: Dashboard 仅存在于主面板（无任务选中时），侧边栏不重复展示工作台视图。
 
 **调研结果**:
 
@@ -1194,27 +1194,10 @@ Project
 - 无任务选中时输入框隐藏（没选任务不需要输入）
 - "[+ 新建任务]" 降级为 Dashboard 操作按钮
 
-**侧边栏（双 tab）**:
-
-```
-[📋 工作台] [📦 项目]    ← tab 切换
-```
-
-| Tab | 内容 | 回答的问题 |
-|-----|------|-----------|
-| 📋 工作台 | 按状态聚合：⚠️待验收 → ▶进行中 → ▼最近完成 | 「我现在要处理什么」 |
-| 📦 项目 | 按 Project 分组：项目进度条 → 分组/任务树 | 「项目 X 进度怎么样了」 |
-
-- 工作台 tab：`in_review` 任务始终置顶，`active` 默认折叠
-- 项目 tab：保留当前分组树状展示，Project 节点头部显示完成进度条
-- "新建任务"按钮移至底部附件位置
-- 侧边栏数据由 `KCodeSidebarProvider.refresh()` 根据当前 tab 发送不同结构
-
 **数据流**:
-- KCodeSidebarProvider → 根据 tab 发送 `dashboardData`（状态分组）或 `projectData`（项目分组）
-- sidebar.ts → 根据数据类型切换渲染模式
 - KCodePanel → 无任务选中时展示 Dashboard（聚合 store 数据）
+- 侧边栏保持单视图（项目树），不再有双 tab
 
-**状态**: ✅ 已完成
+**状态**: 🛠️ 实现中（无任务选中触发 ✅，待补齐：文件数 + 导入需求按钮）
 
 

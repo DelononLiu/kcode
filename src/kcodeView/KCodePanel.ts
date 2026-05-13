@@ -163,6 +163,11 @@ export class KCodePanel {
                 case 'newTask':
                     vscode.commands.executeCommand('kcode.newTask');
                     break;
+                case 'openDashboard': {
+                    const tasks = this.store.getTasks().filter(t => !t.archived);
+                    this.panel.webview.postMessage({ type: 'showDashboard', allTasks: tasks });
+                    break;
+                }
                 case 'openTerminal':
                     vscode.commands.executeCommand('workbench.action.terminal.new');
                     break;
@@ -1368,6 +1373,7 @@ export class KCodePanel {
             <div id="chat-bottom">
                 <div id="chat-toolbar">
                     <button id="btn-new-task" class="toolbar-btn" title="新建任务">新任务</button>
+                    <button id="btn-dashboard" class="toolbar-btn" title="打开工作台">工作台</button>
                     <button id="hooks-toolbar-btn" class="toolbar-btn" title="编辑阶段提示词命令">任务钩子</button>
                     <button id="acp-log-btn" class="toolbar-btn" title="查看 ACP 协议日志">查看日志</button>
                     <button id="btn-terminal" class="toolbar-btn" title="打开终端">打开终端</button>
@@ -1898,8 +1904,6 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
             acceptanceCriteria = cat?.acceptanceCriteria;
         }
 
-        const isFirstMessage = this.currentTaskId === taskId && (!task || messages.length === 0);
-
         this.panel.webview.postMessage({
             type: 'loadMessages',
             messages,
@@ -1908,8 +1912,6 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
             taskStatus: task?.status,
             reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined,
             acceptanceCriteria,
-            isFirstMessage: isFirstMessage || undefined,
-            allTasks: isFirstMessage ? this.store.getTasks().filter(t => !t.archived) : undefined,
         });
     }
 
