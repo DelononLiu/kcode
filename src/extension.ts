@@ -13,13 +13,11 @@ function openTaskInPanel(context: vscode.ExtensionContext, taskId: string, autoS
     if (panel) {
         panel.reveal();
         panel.loadTask(taskId);
-        panel.focusInput();
     } else {
         panel = new KCodePanel(context, store!);
         panel.onDidDispose(() => { panel = undefined; });
         panel.setRefreshSidebarCallback(refreshSidebar);
         panel.loadTask(taskId);
-        panel.focusInput();
     }
     refreshSidebar();
     if (autoSendGoal) {

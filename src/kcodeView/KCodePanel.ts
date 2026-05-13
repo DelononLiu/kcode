@@ -1235,47 +1235,49 @@ export class KCodePanel {
                 </div>
             </div>
             </div>
-            <div id="chat-toolbar">
-                <button id="btn-new-task" class="toolbar-btn" title="新建任务">新任务</button>
-                <button id="acp-log-btn" class="toolbar-btn" title="查看 ACP 协议日志">查看日志</button>
-                <button id="btn-terminal" class="toolbar-btn" title="打开终端">打开终端</button>
-            </div>
-            <div id="chat-input-area">
-                <div class="input-wrapper">
-                    <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
-                    <div class="input-footer">
-                        <div class="input-footer-left">
-                            <span class="status-item">
-                                <span id="agent-status-dot" class="status-dot offline"></span>
-                                <span id="status-model">Agent</span>
-                            </span>
-                            <span class="status-divider"></span>
-                            <div id="input-category-bar"></div>
-                        </div>
-                        <div class="input-footer-right">
-                            <button class="input-tool-btn image-btn" title="图片">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/>
-                                    <circle cx="5" cy="6" r="1.5" fill="currentColor"/>
-                                    <path d="M1.5 11l3.5-3 2.5 2 3-3 3.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                                </svg>
-                            </button>
-                            <button class="input-tool-btn attach-btn" title="附件">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M8 3v7a2 2 0 004 0V4.5a3.5 3.5 0 00-7 0V10a4.5 4.5 0 009 0V3h-1v7a3.5 3.5 0 01-7 0V4.5a2.5 2.5 0 015 0V10a1 1 0 01-2 0V3H8z" fill="currentColor"/>
-                                </svg>
-                            </button>
-                            <button id="send-btn" class="input-tool-btn" title="发送">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M2 14L14 8L2 2v4.5l6 1.5-6 1.5V14z" fill="currentColor"/>
-                                </svg>
-                            </button>
-                            <button id="stop-btn" class="input-tool-btn hidden" title="停止生成">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor"/>
-                                </svg>
-                            </button>
+            <div id="chat-bottom">
+                <div id="chat-toolbar">
+                    <button id="btn-new-task" class="toolbar-btn" title="新建任务">新任务</button>
+                    <button id="acp-log-btn" class="toolbar-btn" title="查看 ACP 协议日志">查看日志</button>
+                    <button id="btn-terminal" class="toolbar-btn" title="打开终端">打开终端</button>
+                </div>
+                <div id="chat-input-area">
+                    <div class="input-wrapper">
+                        <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
+                        <div class="input-footer">
+                            <div class="input-footer-left">
+                                <span class="status-item">
+                                    <span id="agent-status-dot" class="status-dot offline"></span>
+                                    <span id="status-model">Agent</span>
+                                </span>
+                                <span class="status-divider"></span>
+                                <div id="input-category-bar"></div>
+                            </div>
+                            <div class="input-footer-right">
+                                <button class="input-tool-btn image-btn" title="图片">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/>
+                                        <circle cx="5" cy="6" r="1.5" fill="currentColor"/>
+                                        <path d="M1.5 11l3.5-3 2.5 2 3-3 3.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                                    </svg>
+                                </button>
+                                <button class="input-tool-btn attach-btn" title="附件">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M8 3v7a2 2 0 004 0V4.5a3.5 3.5 0 00-7 0V10a4.5 4.5 0 009 0V3h-1v7a3.5 3.5 0 01-7 0V4.5a2.5 2.5 0 015 0V10a1 1 0 01-2 0V3H8z" fill="currentColor"/>
+                                    </svg>
+                                </button>
+                                <button id="send-btn" class="input-tool-btn" title="发送">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M2 14L14 8L2 2v4.5l6 1.5-6 1.5V14z" fill="currentColor"/>
+                                    </svg>
+                                </button>
+                                <button id="stop-btn" class="input-tool-btn hidden" title="停止生成">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor"/>
+                                    </svg>
+                                </button>
 
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1326,17 +1328,15 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-scroll{flex:1;overflow-y:auto;min-height:0;background:var(--vscode-sideBar-background,#1e1e1e);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
 #chat-messages{padding:0 24px 0 32px;min-height:100%;max-width:900px;margin:0 auto}
 #chat-scroll.chat-empty{display:none}
-#chat-area:has(#chat-scroll.chat-empty){justify-content:center}
 #chat-area:has(#chat-scroll.chat-empty) #chat-header{display:none}
 #chat-area:has(#chat-scroll.chat-empty) #chat-body{display:none}
-#chat-area:has(#chat-scroll.chat-empty) #chat-input-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-top:none;gap:8px}
+#chat-area:has(#chat-scroll.chat-empty) #chat-bottom{margin-top:auto}
 #chat-area:has(#chat-scroll.chat-empty) #chat-input-area .input-wrapper{width:100%;max-width:900px}
 /* Categories rendered as full-screen flow for template mode */
 #chat-body.showing-categories{display:flex!important}
 #chat-body.showing-categories #chat-scroll{display:flex;flex-direction:column;align-items:center}
 #chat-body.showing-categories #chat-messages{padding:0;width:100%;max-width:480px;min-height:auto}
-#chat-body.showing-categories ~ #chat-toolbar,
-#chat-body.showing-categories ~ #chat-input-area{display:none}
+#chat-body.showing-categories ~ #chat-bottom{display:none}
 
 /* === Chat Header === */
 #chat-header{flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);width:100%;max-width:900px;margin:0 auto}

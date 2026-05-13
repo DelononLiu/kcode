@@ -655,7 +655,6 @@ function renderMessages(messages: any[]) {
         initCategoryChips();
         if (existingIndicator) container.appendChild(existingIndicator);
         if (inputEl) inputEl.placeholder = '输入需求，开始与 AI 对话';
-        focusChatInput();
         return;
     }
 
@@ -680,7 +679,6 @@ function renderMessages(messages: any[]) {
         addMessageElement(messages[i], changedFilesMap.get(i));
     }
     if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
-    focusChatInput();
 }
 
 function getCategoryDef(catKey: string): any {

@@ -311,3 +311,77 @@ handler.onDone(result.stopReason || 'end_turn');
 - 客户端不应假设 `prompt()` resolve 时流式数据已全部到达，需额外缓冲窗口
 - ACP 日志中 `[TASK_UPDATE]` 块不完整（缺尾部闭合标签）是流式尾部丢数据的典型信号
 - 理想修复在 Agent 侧（await 写队列排空再返回 prompt），但 KCode 无法控制 Agent 代码，客户端缓冲是务实的防御方案
+
+---
+
+## case005 — 新建任务时空态底部布局（控制区 + 输入框贴底）
+
+**分类**: `case:flex-layout` `case:layout-structure` `case:empty-state`
+
+**严重程度**: 中
+
+### 问题描述
+
+点击"新任务"后，聊天区进入空态（无消息），底部控制区（"新任务"/"查看日志"/"打开终端"按钮）和输入框的布局错乱：
+
+1. 控制区跑到 `#chat-area` 顶部，输入框单独在底部
+2. 两者没有紧挨在一起
+
+### 根因分析
+
+`#chat-toolbar` 和 `#chat-input-area` 是 `#chat-area`（flex column）的独立兄弟子元素。空态时 `#chat-header` 和 `#chat-body` 被 `display:none` 隐藏，只剩下这俩兄弟可见。
+
+独立兄弟在 flex 布局中无法靠 CSS 可靠地同时贴底：
+- `margin-top: auto` 只推一个元素到底，另一个保持原位置
+- `justify-content: flex-end` 受 `:has()` 伪类和 `display:none` 子项影响，浏览器渲染结果不稳定
+
+```html
+<!-- 修复前 -->
+<div id="chat-area">                    ← flex column
+    <div id="chat-header">...</div>     ← display:none
+    <div id="chat-body">...</div>       ← display:none
+    <div id="chat-toolbar">...</div>    ← 跑到顶部
+    <div id="chat-input-area">...</div> ← 在底部
+</div>
+```
+
+### 涉及文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/kcodeView/KCodePanel.ts` | HTML 结构 + 内联 CSS |
+
+### 解决方案
+
+将 `#chat-toolbar` 和 `#chat-input-area` 包裹在 `#chat-bottom` 容器中，使其作为单个 flex 子项参与布局。空态时 `#chat-bottom{margin-top:auto}` 统一推到底部：
+
+```html
+<div id="chat-area">                    ← flex column
+    <div id="chat-header">...</div>     ← display:none
+    <div id="chat-body">...</div>       ← display:none
+    <div id="chat-bottom">              ← margin-top:auto（整体贴底）
+        <div id="chat-toolbar">...</div>
+        <div id="chat-input-area">...</div>
+    </div>
+</div>
+```
+
+### 关键改动
+
+```diff
++ <div id="chat-bottom">
+      <div id="chat-toolbar">...</div>
+      <div id="chat-input-area">...</div>
++ </div>
+```
+
+```diff
+- #chat-area:has(#chat-scroll.chat-empty) #chat-toolbar{margin-top:auto}
++ #chat-area:has(#chat-scroll.chat-empty) #chat-bottom{margin-top:auto}
+```
+
+### 教训
+
+- **逻辑单元应当用 DOM 容器绑定**：视觉上属于同一区域（底部操作区）的元素，应该在 DOM 结构中先包裹为一个容器，再参与上层 flex 布局。试图对多个独立兄弟分别定位是脆弱的设计
+- **flex 布局的贴底策略**：单个 flex 子项用 `margin-top: auto` 最可靠；多个子项应先包裹再贴
+- **`:has()` 不是万能的**：`justify-content: flex-end` + `display:none` 的混合组合在不同渲染环境中表现不一致，不如 DOM 结构调整来得可靠
