@@ -54,8 +54,8 @@
       "properties": {
         "kcode.agentName": {
           "type": "string",
-          "default": "fake",
-          "description": "Agent name or executable path. Set to \"fake\" to use built-in FakeAgent for debugging (no real agent required)."
+          "default": "",
+          "description": "Agent name or executable path. Leave empty if no agent is configured."
         },
         "kcode.agentArgs": {
           "type": "array",
