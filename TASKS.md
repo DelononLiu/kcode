@@ -412,6 +412,9 @@ _目标：实现 `<TASK_UPDATE>` 协议驱动的 5 阶段全流程（demand → 
 | P8-08 | 全阶段确认按钮 — 每阶段必须用户点击确认才进入下一阶段 | ✅ 已完成 |
 | P8-09 | TaskFlow 模块抽取 — 阶段状态机与 UI 解耦 | ✅ 已完成 |
 | P8-10 | Self-Verify 自验阶段 — Execute 后 AI 自动审查代码再交人类验收 | ✅ 已完成 |
+| P8-P6 | Plan-before-Execute — AI 通过 `plan_step_update` 协议实时标记步骤进度 | ✅ 已完成 |
+| P8-N1 | 进度节点面板增强 — 折叠/展开 + 节点 label + 点击跳转 | ✅ 已完成 |
+| P8-R1 | 结构化逐条验收 — 交互式勾选清单 + 部分通过/驳回 | ✅ 已完成 |
 
 ---
 
@@ -630,6 +633,57 @@ _目标：实现 `<TASK_UPDATE>` 协议驱动的 5 阶段全流程（demand → 
 
 ---
 
+### P8-P6: Plan-before-Execute — 逐步执行跟踪
+
+**涉及文件**:
+- `src/taskflow/TaskFlow.ts` — 新增 `plan_step_update` 协议动作、`onPlanStepUpdate` delegate
+- `src/taskflow/prompts/protocol.ts` — 文档 `plan_step_update` 用法
+- `src/kcodeView/KCodePanel.ts` — 注册 `onPlanStepUpdate` 回调 → `sendTaskInfo`
+- `src/kcodeView/webview/app.ts` — 步骤进度条、活跃步骤高亮
+
+**实现说明**:
+1. `TaskFlow.ts`: `plan_step_update` 加入 `validateAction`(execute 阶段可用), `executeAction` 中解析 `INDEX` + `STATUS` 调用 `updatePlanStepStatus`
+2. `app.ts`: `updateTaskInfo` 中的 plan steps 渲染增加进度条 (`.plan-progress-bar`)、完成比例显示、活跃步骤蓝色高亮 (`.step-active`)
+3. AI 通过 `[TASK_UPDATE]ACTION: plan_step_update\nINDEX: 0\nSTATUS: active[/TASK_UPDATE]` 标记步骤状态
+4. `ITaskStore` + `MockTaskStore` + `MockDelegate` 均新增对应接口
+
+**状态**: ✅ 已完成
+
+---
+
+### P8-N1: 进度节点面板增强 — 折叠/展开 + 点击跳转
+
+**涉及文件**:
+- `src/kcodeView/KCodePanel.ts` — HTML 新增 `#tl-collapse-btn`；CSS 新增 collapse button 样式 + collapsed 态样式
+- `src/kcodeView/webview/app.ts` — `initNodePanel()` 新增 collapse 逻辑（sessionStorage 持久化）；`loadMessages` 清除 acceptanceCheckedState
+
+**实现说明**:
+1. **折叠/展开**: `#tl-collapse-btn` 按钮在 gutter 顶部，点击切换 `.collapsed` 类（宽度 28px → 12px，隐藏 dots），状态存 `sessionStorage`
+2. **节点 label**: 每个 `.tl-node` 已有 `title` 属性显示中文标签，hover 时浏览器原生 tooltip 展示
+3. **self_verify 节点 messageId**: `startAutoGeneration()` 中新增 `updateTaskNodeMessageId(tid, 'self_verify', ...)` 确保自验阶段可点击跳转
+
+**状态**: ✅ 已完成
+
+---
+
+### P8-R1: 结构化验收 — 逐条验收标准
+
+**涉及文件**:
+- `src/kcodeView/webview/app.ts` — `lastAcceptanceCriteria` checkboxes 改为交互式勾选 + 跟踪 `acceptanceCheckedState`；新增 `updateAcceptanceButtons()` + `#partial-approve-btn` 逐条通过按钮
+- `src/kcodeView/KCodePanel.ts` — `handlePartialApproveReview()` 方法；`partialApproveReview` 消息处理；CSS 新增 `#partial-approve-btn` 样式
+
+**实现说明**:
+1. **交互式勾选**: `addMessageElement` 中 review_request 的验收清单 checkbox 改为受控组件，跟踪 `acceptanceCheckedState` Map
+2. **逐条通过**: 勾选部分项后显示「逐条通过」按钮（`.secondary` 样式），点击发送 `partialApproveReview` 消息
+3. **处理逻辑**:
+   - 全部通过 → `finishReview` 完成
+   - 部分未通过 → 回退到 `execute` 阶段，将通过的/未通过的逐条告知 AI，自动重新生成
+4. **UI 清空**: `loadMessages` 消息中检测到新的 reviewChanges 或 acceptanceCriteria 时清除之前的勾选状态
+
+**状态**: ✅ 已完成
+
+---
+
 ## Phase 9: 自举之路 Level 3 — 能带 ✅
 
 _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完成导入 GitHub Issue 的独立功能，从设计到发布的全流程。_
@@ -816,7 +870,7 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 
 ---
 
-### P9.9-01: 定义 Core interfaces
+### P11-01: 定义 Core interfaces
 
 **涉及文件**: _待调研_
 **调研步骤**:
@@ -851,7 +905,7 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 
 ---
 
-### P9.9-02: 抽取 AgentService
+### P11-02: 抽取 AgentService
 
 **涉及文件**:
 - `src/core/AgentService.ts` — **新建**，从 KCodePanel 抽取 agent 通信逻辑
@@ -879,7 +933,7 @@ KCodePanel 改为一句话: `this.agentService.sendPrompt(taskId, text, callback
 
 ---
 
-### P9.9-03: KCodePanel 瘦身
+### P11-03: KCodePanel 瘦身
 
 **涉及文件**:
 - `src/kcodeView/KCodePanel.ts` — 移除 HTML/CSS 内联、消息路由逻辑
@@ -905,7 +959,7 @@ KCodePanel 改为一句话: `this.agentService.sendPrompt(taskId, text, callback
 
 ---
 
-### P9.9-04: app.ts 拆分
+### P11-04: app.ts 拆分
 
 **涉及文件**:
 - `src/kcodeView/webview/app.ts` — 拆分，保留消息初始化 + DOM 渲染
@@ -929,7 +983,7 @@ KCodePanel 改为一句话: `this.agentService.sendPrompt(taskId, text, callback
 
 ---
 
-### P9.9-05: 测试用例补齐
+### P11-05: 测试用例补齐
 
 **调研结果**:
 - 当前测试: `src/taskflow/__tests__/TaskFlow.test.ts`（260 行），覆盖 buildPrompt 5 阶段 + processChunk 协议解析 + 完整流程
@@ -1132,61 +1186,4 @@ _目标：从"AI 对话工具"转向"AI 驱动的开发流程管理器"。将产
 
 **状态**: 🔍 设计讨论中
 
-_目标：在 P7/P8 已实现的基础上，补全三个功能群的缺失环节。_
 
-| 任务 | 说明 | 状态 |
-|------|------|------|
-| P1-P6 | 计划逐步执行跟踪 — AI 通过 `plan_step_update` 协议实时标记步骤进度 | ✅ 已完成 |
-| N1-N7 | 进度节点面板增强 — 折叠/展开 + 节点 label 显示 + 点击跳转补全 | ✅ 已完成 |
-| R1-R6 | 结构化逐条验收 — 交互式勾选清单 + 部分通过（逐条通过/驳回） | ✅ 已完成 |
-
----
-
-### Plan-before-Execute (P1-P6): 逐步执行跟踪
-
-**涉及文件**:
-- `src/taskflow/TaskFlow.ts` — 新增 `plan_step_update` 协议动作、`onPlanStepUpdate` delegate
-- `src/taskflow/prompts/protocol.ts` — 文档 `plan_step_update` 用法
-- `src/kcodeView/KCodePanel.ts` — 注册 `onPlanStepUpdate` 回调 → `sendTaskInfo`
-- `src/kcodeView/webview/app.ts` — 步骤进度条、活跃步骤高亮
-
-**实现说明**:
-1. `TaskFlow.ts`: `plan_step_update` 加入 `validateAction`(execute 阶段可用), `executeAction` 中解析 `INDEX` + `STATUS` 调用 `updatePlanStepStatus`
-2. `app.ts`: `updateTaskInfo` 中的 plan steps 渲染增加进度条 (`.plan-progress-bar`)、完成比例显示、活跃步骤蓝色高亮 (`.step-active`)
-3. AI 通过 `[TASK_UPDATE]ACTION: plan_step_update\nINDEX: 0\nSTATUS: active[/TASK_UPDATE]` 标记步骤状态
-4. `ITaskStore` + `MockTaskStore` + `MockDelegate` 均新增对应接口
-
-**状态**: ✅ 已完成
-
----
-
-### 进度节点面板增强 (N1-N7): 折叠/展开 + 点击跳转
-
-**涉及文件**:
-- `src/kcodeView/KCodePanel.ts` — HTML 新增 `#tl-collapse-btn`；CSS 新增 collapse button 样式 + collapsed 态样式
-- `src/kcodeView/webview/app.ts` — `initNodePanel()` 新增 collapse 逻辑（sessionStorage 持久化）；`loadMessages` 清除 acceptanceCheckedState
-
-**实现说明**:
-1. **折叠/展开**: `#tl-collapse-btn` 按钮在 gutter 顶部，点击切换 `.collapsed` 类（宽度 28px → 12px，隐藏 dots），状态存 `sessionStorage`
-2. **节点 label**: 每个 `.tl-node` 已有 `title` 属性显示中文标签，hover 时浏览器原生 tooltip 展示
-3. **self_verify 节点 messageId**: `startAutoGeneration()` 中新增 `updateTaskNodeMessageId(tid, 'self_verify', ...)` 确保自验阶段可点击跳转
-
-**状态**: ✅ 已完成
-
----
-
-### 结构化验收 (R1-R6): 逐条验收标准
-
-**涉及文件**:
-- `src/kcodeView/webview/app.ts` — `lastAcceptanceCriteria` checkboxes 改为交互式勾选 + 跟踪 `acceptanceCheckedState`；新增 `updateAcceptanceButtons()` + `#partial-approve-btn` 逐条通过按钮
-- `src/kcodeView/KCodePanel.ts` — `handlePartialApproveReview()` 方法；`partialApproveReview` 消息处理；CSS 新增 `#partial-approve-btn` 样式
-
-**实现说明**:
-1. **交互式勾选**: `addMessageElement` 中 review_request 的验收清单 checkbox 改为受控组件，跟踪 `acceptanceCheckedState` Map
-2. **逐条通过**: 勾选部分项后显示「逐条通过」按钮（`.secondary` 样式），点击发送 `partialApproveReview` 消息
-3. **处理逻辑**:
-   - 全部通过 → `finishReview` 完成
-   - 部分未通过 → 回退到 `execute` 阶段，将通过的/未通过的逐条告知 AI，自动重新生成
-4. **UI 清空**: `loadMessages` 消息中检测到新的 reviewChanges 或 acceptanceCriteria 时清除之前的勾选状态
-
-**状态**: ✅ 已完成
