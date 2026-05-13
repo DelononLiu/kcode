@@ -18,6 +18,7 @@ export class TaskStore {
             confirmedItems: t.confirmedItems || [],
             pendingItems: t.pendingItems || [],
             planSteps: t.planSteps || [],
+            hooks: t.hooks || {},
         }));
     }
 
@@ -271,6 +272,18 @@ export class TaskStore {
             return;
         }
         this.state.update('groups', groups);
+    }
+
+    updateTaskHooks(taskId: string, phase: string, commands: string[]): void {
+        const tasks = this.getTasks();
+        const idx = tasks.findIndex(t => t.id === taskId);
+        if (idx !== -1) {
+            if (!tasks[idx].hooks) {
+                tasks[idx].hooks = {};
+            }
+            (tasks[idx].hooks as Record<string, string[]>)[phase] = commands;
+            this.state.update('tasks', tasks);
+        }
     }
 
     updateTaskNodeMessageId(taskId: string, nodeType: string, messageId: string): void {

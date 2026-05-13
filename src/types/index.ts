@@ -52,6 +52,7 @@ export interface Task {
     group?: string;
     source?: TaskSource;
     nodeMessageIds?: Partial<Record<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string>>;
+    hooks?: Partial<Record<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string[]>>;
 }
 
 export interface ChatMessage {

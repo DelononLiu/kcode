@@ -7,6 +7,7 @@ import { AcpClient } from '../acp/AcpClient';
 import { OpenAIAgent } from '../acp/OpenAIAgent';
 import { classifyIntent } from '../acp/intentUtils';
 import { getCategories, getTemplate, getCategory } from '../taskflow/templates';
+import { parseWorkspaceHooks } from '../taskflow/workspaceHooks';
 import type { Task, FileChange, ProgressNode } from '../types';
 
 export class KCodePanel {
@@ -95,6 +96,10 @@ export class KCodePanel {
 
         this.ensureConnection();
 
+        this.loadWorkspaceHooks().then(hooks => {
+            this.taskFlow.setWorkspaceHooks(hooks);
+        });
+
         this.panel.onDidDispose(() => {
             this.onDisposeCallback?.();
         });
@@ -160,6 +165,12 @@ export class KCodePanel {
                     break;
                 case 'convertToTask':
                     this.handleConvertToTask(message.taskId);
+                    break;
+                case 'updateHooks':
+                    if (message.phase && Array.isArray(message.commands)) {
+                        this.store.updateTaskHooks(message.taskId, message.phase, message.commands);
+                        this.sendTaskInfo(message.taskId);
+                    }
                     break;
             }
         }, null, this.context.subscriptions);
@@ -551,6 +562,7 @@ export class KCodePanel {
                         setTimeout(() => this.startAutoGeneration(tid), 100);
                     } else if (genResult.selfVerifyFinished && task?.type === 'task' && task?.phase === 'self_verify') {
                         this.taskFlow.confirmSelfVerifyDone(tid);
+                        this.sendHooksAsMessage(tid, 'review').catch(() => {});
                         this.triggerReviewRequest(tid, cleanedText || '自验完成，请验收变更');
                     } else {
                         const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
@@ -586,6 +598,7 @@ export class KCodePanel {
         this.panel.webview.postMessage({ type: 'addUserMessage', content: confirmMsg });
 
         this.taskFlow.confirmGoal(tid);
+        await this.sendHooksAsMessage(tid, 'plan');
 
         const promptText = this.taskFlow.buildPhaseTransitionPrompt(tid, originalRequest);
         const handler = this.createAgentResponseHandler(tid, false, originalRequest);
@@ -675,6 +688,7 @@ export class KCodePanel {
         this.panel.webview.postMessage({ type: 'addUserMessage', content: confirmMsg });
 
         this.taskFlow.confirmPlan(tid);
+        await this.sendHooksAsMessage(tid, 'execute');
         // 保留计划卡片不删除，用户可看到已确认的历史
         const promptText = this.taskFlow.buildPhaseTransitionPrompt(tid, '计划已确认，请开始执行。');
 
@@ -709,6 +723,7 @@ export class KCodePanel {
         this.panel.webview.postMessage({ type: 'addUserMessage', content: confirmMsg });
 
         this.taskFlow.confirmExecuteDone(tid);
+        await this.sendHooksAsMessage(tid, 'self_verify');
         this.sendTaskInfo(tid);
         this.sendNodePanelUpdate(tid);
         setTimeout(() => this.startAutoGeneration(tid), 100);
@@ -746,6 +761,7 @@ export class KCodePanel {
         this.panel.webview.postMessage({ type: 'addUserMessage', content: '✅ 确认目标' });
 
         this.taskFlow.confirmGoalWithEdit(tid, newGoal);
+        await this.sendHooksAsMessage(tid, 'plan');
 
         const promptText = this.taskFlow.buildPhaseTransitionPrompt(tid, originalRequest);
         const handler = this.createAgentResponseHandler(tid, false, originalRequest);
@@ -990,6 +1006,7 @@ export class KCodePanel {
             this.store.updateTaskStatus(tid, 'active');
             this.sendNodePanelUpdate(tid);
             this.refreshSidebarCallback?.();
+            await this.sendHooksAsMessage(tid, 'execute');
 
             const promptText = this.taskFlow.buildPhaseTransitionPrompt(tid, approveMsg);
             const handler = this.createAgentResponseHandler(tid, false, approveMsg);
@@ -1023,6 +1040,7 @@ export class KCodePanel {
         this.panel.webview.postMessage({ type: 'addUserMessage', content: rejectMsg });
 
         this.taskFlow.rejectReview(tid);
+        await this.sendHooksAsMessage(tid, 'execute');
 
         const promptText = this.taskFlow.buildPhaseTransitionPrompt(tid, rejectMsg);
         const handler = this.createAgentResponseHandler(tid, false, rejectMsg);
@@ -1238,6 +1256,15 @@ export class KCodePanel {
                             <button id="goal-confirm-btn" class="plan-confirm-btn hidden">确认目标 ✓</button>
                             <button id="plan-confirm-btn" class="plan-confirm-btn hidden">确认计划</button>
                             <button id="execute-confirm-btn" class="plan-confirm-btn hidden">确认完成 ✓</button>
+                            <button id="hooks-edit-btn" class="hooks-edit-btn" title="编辑阶段提示词">⚙️</button>
+                            <span id="hooks-count" class="hooks-count hidden"></span>
+                        </div>
+                        <div id="hooks-editor" class="hooks-editor hidden">
+                            <div class="hooks-editor-header">
+                                <span class="hooks-editor-title">阶段提示词命令</span>
+                                <button id="hooks-close-btn" class="hooks-close-btn" title="关闭">✕</button>
+                            </div>
+                            <div id="hooks-phases-list"></div>
                         </div>
                         <div id="task-info-items" class="hidden">
                             <div id="confirmed-items"></div>
@@ -1266,6 +1293,7 @@ export class KCodePanel {
             <div id="chat-bottom">
                 <div id="chat-toolbar">
                     <button id="btn-new-task" class="toolbar-btn" title="新建任务">新任务</button>
+                    <button id="hooks-toolbar-btn" class="toolbar-btn" title="编辑阶段提示词命令">任务钩子</button>
                     <button id="acp-log-btn" class="toolbar-btn" title="查看 ACP 协议日志">查看日志</button>
                     <button id="btn-terminal" class="toolbar-btn" title="打开终端">打开终端</button>
                 </div>
@@ -1568,6 +1596,36 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .plan-confirm-btn{background:#4a8bb5;color:#fff;border:none;border-radius:4px;padding:1px 8px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;white-space:nowrap;margin-left:8px;transition:background .2s}
 .plan-confirm-btn:hover{background:#5a9bc8}
 .plan-confirm-btn.hidden{display:none}
+.hooks-edit-btn{background:none;border:none;color:#888;cursor:pointer;font-size:13px;padding:0 4px;line-height:1;margin-left:auto;transition:color .2s,background .2s;border-radius:3px}
+.hooks-edit-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
+.hooks-count{font-size:10px;padding:1px 5px;border-radius:3px;color:#888;white-space:nowrap;display:inline-flex;align-items:center;gap:3px}
+.hooks-count.hidden{display:none}
+.hooks-count.has-workspace{color:#4ec9b0;background:rgba(78,201,176,.08)}
+.hooks-count.has-task{color:#5a9bc8;background:rgba(74,139,181,.08)}
+.hooks-editor{padding:6px 24px 8px;background:rgba(255,255,255,.02);border-bottom:1px solid rgba(255,255,255,.06)}
+.hooks-editor.hidden{display:none}
+.hooks-editor-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.hooks-editor-title{font-size:12px;color:#bbb;font-weight:500;flex:1}
+.hooks-close-btn{background:none;border:none;color:#888;cursor:pointer;font-size:14px;padding:0 4px;line-height:1;transition:color .2s}
+.hooks-close-btn:hover{color:#ddd}
+#hooks-phases-list{display:flex;flex-direction:column;gap:2px}
+.hooks-phase-row{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:3px;cursor:pointer;transition:background .1s}
+.hooks-phase-row:hover{background:rgba(255,255,255,.02)}
+.hooks-phase-row.active{background:rgba(255,255,255,.04)}
+.hooks-phase-label{font-size:11px;font-weight:500;color:#999;width:52px;flex-shrink:0}
+.hooks-phase-summary{font-size:11px;color:#666;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hooks-phase-summary.has-any{color:#7ec8a0}
+.hooks-phase-expand{font-size:9px;color:#555;flex-shrink:0}
+.hooks-phase-detail{display:none;padding:4px 6px 8px 14px;border-left:2px solid rgba(255,255,255,.06);margin:0 0 2px 4px}
+.hooks-phase-detail.open{display:block}
+.hooks-ws-label{font-size:10px;color:#4ec9b0;font-weight:500;margin:4px 0 2px}
+.hooks-ws-item{font-size:11px;color:#7ec8a0;padding:1px 0;line-height:1.4;padding-left:8px}
+.hooks-task-textarea{width:100%;background:#1e1e22;border:1px solid rgba(255,255,255,.08);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:12px;padding:5px 7px;resize:vertical;outline:none;min-height:36px;line-height:1.4;margin-top:4px}
+.hooks-task-textarea:focus{border-color:rgba(78,201,176,.3)}
+.hooks-detail-actions{display:flex;gap:6px;padding:4px 0 0;justify-content:flex-end}
+.hooks-save-btn{background:#4a8bb5;color:#fff;border:none;border-radius:3px;padding:2px 10px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;transition:background .2s}
+.hooks-save-btn:hover{background:#5a9bc8}
+.hooks-task-label{font-size:10px;color:#5a9bc8;font-weight:500;margin:4px 0 0}
 .convert-msg-btn{opacity:0;flex-shrink:0;background:none;border:none;color:#4a8bb5;cursor:pointer;padding:2px 6px;border-radius:3px;line-height:1;font-size:12px;font-family:inherit;transition:opacity .2s,color .2s,background .2s}
 .chat-msg:hover .convert-msg-btn{opacity:1}
 .convert-msg-btn:hover{background:rgba(74,139,181,.12);color:#5a9bc8}
@@ -1655,6 +1713,18 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 `;
     }
 
+    private async loadWorkspaceHooks(): Promise<Record<string, string[]>> {
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
+        if (!workspaceRoot) return {};
+        try {
+            const agentsUri = vscode.Uri.joinPath(workspaceRoot, 'AGENTS.md');
+            const content = (await vscode.workspace.fs.readFile(agentsUri)).toString();
+            return parseWorkspaceHooks(content);
+        } catch {
+            return {};
+        }
+    }
+
     loadTask(taskId: string) {
         this.currentTaskId = taskId;
         this.taskFlow.loadTask(taskId);
@@ -1666,6 +1736,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         this.sendTaskInfo(taskId);
         this.sendNodePanelUpdate(taskId);
         this.ensureSession(taskId);
+        this.loadWorkspaceHooks().then(hooks => {
+            this.taskFlow.setWorkspaceHooks(hooks);
+        });
     }
 
     autoSendGoal(taskId: string, text: string) {
@@ -1707,6 +1780,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
             confirmedItems: task.confirmedItems,
             pendingItems: task.pendingItems,
             planSteps: task.planSteps,
+            hooks: task.hooks || {},
+            workspaceHooks: this.taskFlow['workspaceHooks'] || {},
             messageCount: this.store.getMessages(taskId).length,
             executeFinished: this.taskFlow.isExecuteFinished(taskId)
         });
@@ -1785,6 +1860,38 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
             nodes,
             taskType: task?.type || 'task',
         });
+    }
+
+    private async sendHooksAsMessage(tid: string, phase: string): Promise<void> {
+        if (!tid) return;
+        const task = this.store.getTask(tid);
+        if (!task) return;
+        const hooksStr = this.taskFlow.getPhaseHooksString(phase, task);
+        if (!hooksStr) return;
+
+        const discardHandler = {
+            onText: () => {},
+            onReasoning: () => {},
+            onToolCall: () => {},
+            onToolCallUpdate: () => {},
+            onPlan: () => {},
+            onError: () => {},
+            onDone: () => {},
+        };
+
+        if (this.agentReady && this.acpClient) {
+            if (!this.acpClient.hasSession(tid)) {
+                const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
+                await this.acpClient.createSession(tid, workspacePath);
+            }
+            this.sendAcpLog(tid, 'send', hooksStr);
+            await this.acpClient.prompt(tid, hooksStr, discardHandler);
+        } else if (this.openaiAgent) {
+            const sessionId = this.openaiAgent.createSession(tid);
+            this.openaiAgent.setHandler(sessionId, discardHandler);
+            this.sendAcpLog(tid, 'send', hooksStr);
+            await this.openaiAgent.prompt(sessionId, hooksStr);
+        }
     }
 
     onDidDispose(callback: () => void) {

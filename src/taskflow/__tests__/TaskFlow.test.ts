@@ -83,6 +83,8 @@ class MockTaskStore implements ITaskStore {
         if (t) t.type = type;
     }
 
+    updateTaskHooks(_taskId: string, _phase: string, _commands: string[]): void {}
+
     addTask(task: Task): void {
         this.tasks.set(task.id, task);
     }

@@ -645,7 +645,7 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 | P9-03 | 导入 GitHub Issue — GitHub API fetch 实现 | ✅ 已完成 |
 | P9-04 | 导入 GitHub Issue — rate limit 处理 + token 配置 | ✅ 已完成 |
 | P9-05 | 输入队列 — 生成中消息不会丢失，生成结束后自动发送 | ⏸️ 延后（非 Phase 9 核心目标） |
-| P9-06 | 阶段钩子 — 每个节点可指定自定义命令（注入到 phase prompt） | 🔍 调研中 |
+| P9-06 | 阶段钩子 — 每个阶段可指定自定义命令（AGENTS.md + UI 编辑，阶段切换时注入） | ✅ 已完成 |
 
 ---
 
@@ -812,30 +812,7 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 - **Store**: `updateTaskHooks(taskId, phase, commands: string[])` 更新指定阶段的钩子列表
 - **空值处理**: 无钩子时不注入任何内容，不影响现有流程
 
-**状态**: 🔍 调研中
-
----
-
-## Phase 9.9: 代码重构 — 模块拆分 + 测试覆盖
-
-_目标：在进入 Phase 10 核心功能之前，重构代码结构，让逻辑层可测试、UI 层变薄、模块边界清晰。_
-
-**当前问题**:
-
-| 文件 | 行数 | 问题 |
-|------|------|------|
-| `KCodePanel.ts` | 1858 | 职责过重：Panel 生命周期 + HTML/CSS 生成 + Agent 通信 + 任务编排 + 消息路由 |
-| `app.ts` | 2213 | 职责过重：消息处理 + DOM 渲染 + UI 状态管理 + 工具调用渲染 |
-| `sidebar.ts` | 781 | 渲染 + 事件处理 + 右键菜单逻辑混合 |
-| 测试覆盖 | 仅 taskflow | 260 行 7 个用例，核心 UI 模块无测试 |
-
-| 任务 | 说明 | 状态 |
-|------|------|------|
-| P9.9-01 | Core interfaces 定义 — IAgentService / IMessageBus / IPhaseFlow | 🔍 调研中 |
-| P9.9-02 | AgentService 抽取 — 从 KCodePanel 拆出 agent 通信层 | 🔍 调研中 |
-| P9.9-03 | KCodePanel 瘦身 — HTML/CSS 外置 + 消息路由委托 | 🔍 调研中 |
-| P9.9-04 | app.ts 拆分 — 消息处理与 DOM 渲染解耦 | 🔍 调研中 |
-| P9.9-05 | 测试用例补齐 — 覆盖核心逻辑分支 | 🔍 调研中 |
+**状态**: ✅ 已完成
 
 ---
 

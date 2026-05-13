@@ -30,6 +30,7 @@ export interface ITaskStore {
     updateMessageType(taskId: string, messageId: string, type?: ChatMessage['type']): void;
     updateTaskTitle(taskId: string, title: string): void;
     updateTaskType(taskId: string, type: 'task' | 'chat'): void;
+    updateTaskHooks(taskId: string, phase: string, commands: string[]): void;
 }
 
 export interface TaskFlowDelegate {
@@ -64,6 +65,11 @@ export class TaskFlow {
     private selfVerifyFinished: Map<string, boolean> = new Map();
     private accumulatedText: Map<string, string> = new Map();
     private planEntries: Map<string, PlanEntry[]> = new Map();
+    private workspaceHooks: Record<string, string[]> = {};
+
+    setWorkspaceHooks(hooks: Record<string, string[]>): void {
+        this.workspaceHooks = hooks;
+    }
 
     constructor(store: ITaskStore, delegate: TaskFlowDelegate) {
         this.store = store;
@@ -460,7 +466,7 @@ export class TaskFlow {
     }
 
     private buildPhasePrompt(task: Task): string {
-        const basePrompt = (() => {
+        let basePrompt = (() => {
             switch (task.phase) {
                 case 'demand':  return DEMAND_PROMPT;
                 case 'goal':    return GOAL_PROMPT;
@@ -495,9 +501,26 @@ export class TaskFlow {
             }
         }
         if (extraParts.length > 0) {
-            return basePrompt + '\n\n' + extraParts.join('\n\n');
+            basePrompt = basePrompt + '\n\n' + extraParts.join('\n\n');
         }
 
         return basePrompt;
+    }
+
+    getPhaseHooksString(phase: string, task: Task): string {
+        const lines: string[] = [];
+        const wsHooks = this.workspaceHooks[phase] || [];
+        const taskHooks = task.hooks?.[phase as Task['phase']] || [];
+
+        if (wsHooks.length > 0) {
+            lines.push('【项目全局命令】');
+            wsHooks.forEach((h, i) => lines.push(`${i + 1}. ${h}`));
+        }
+        if (taskHooks.length > 0) {
+            if (lines.length > 0) lines.push('');
+            lines.push('【任务级命令】');
+            taskHooks.forEach((h, i) => lines.push(`${i + 1}. ${h}`));
+        }
+        return lines.length > 0 ? lines.join('\n') : '';
     }
 }

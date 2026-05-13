@@ -316,11 +316,14 @@ const activeToolCallElements: Map<string, HTMLElement> = new Map();
 let activeTaskId: string | null = null;
 let activeTaskStatus: string = '';
 let activeTaskType: string = '';
+let activeTaskPhase: string = '';
 let categoryDefs: any[] = [];
 let selectedCategory: string | null = null;
 let selectedSubType: string | null = null;
 let lastAcceptanceCriteria: string[] | null = null;
 const acceptanceCheckedState: Map<string, boolean[]> = new Map();
+let taskHooks: Record<string, string[]> = {};
+let workspaceHooks: Record<string, string[]> = {};
 
 function initLayout() {
     const rightPanel = document.getElementById('right-panel')!;
@@ -494,6 +497,133 @@ function initChat() {
     executeConfirmBtn?.addEventListener('click', () => {
         vscode.postMessage({ type: 'confirmExecuteDone', taskId: activeTaskId });
     });
+
+    const hooksEditBtn = document.getElementById('hooks-edit-btn');
+    const hooksEditor = document.getElementById('hooks-editor');
+    const hooksPhasesList = document.getElementById('hooks-phases-list');
+    const hooksCloseBtn = document.getElementById('hooks-close-btn');
+
+    if (hooksEditBtn && hooksEditor && hooksPhasesList && hooksCloseBtn) {
+        const phaseLabels: Record<string, string> = {
+            demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收'
+        };
+        const phaseOrder = ['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'];
+
+        const hList = hooksPhasesList;
+        function renderHooksEditor() {
+            hList.innerHTML = '';
+            const openPhase = hList.dataset.openPhase || '';
+
+            for (const phase of phaseOrder) {
+                const label = phaseLabels[phase] || phase;
+                const wsCmds = workspaceHooks[phase] || [];
+                const taskCmds = taskHooks[phase] || [];
+                const total = wsCmds.length + taskCmds.length;
+                const isOpen = openPhase === phase;
+
+                const row = document.createElement('div');
+                row.className = 'hooks-phase-row' + (isOpen ? ' active' : '');
+
+                const labelSpan = document.createElement('span');
+                labelSpan.className = 'hooks-phase-label';
+                labelSpan.textContent = label;
+                row.appendChild(labelSpan);
+
+                const summary = document.createElement('span');
+                summary.className = 'hooks-phase-summary' + (total > 0 ? ' has-any' : '');
+                const parts: string[] = [];
+                if (wsCmds.length > 0) parts.push(`📋${wsCmds.length}`);
+                if (taskCmds.length > 0) parts.push(`⚙️${taskCmds.length}`);
+                summary.textContent = total > 0 ? parts.join(' · ') : '无';
+                row.appendChild(summary);
+
+                const expand = document.createElement('span');
+                expand.className = 'hooks-phase-expand';
+                expand.textContent = isOpen ? '▲' : '▼';
+                row.appendChild(expand);
+
+                row.addEventListener('click', () => {
+                    hList.dataset.openPhase = isOpen ? '' : phase;
+                    renderHooksEditor();
+                });
+
+                hList.appendChild(row);
+
+                if (isOpen) {
+                    const detail = document.createElement('div');
+                    detail.className = 'hooks-phase-detail open';
+
+                    if (wsCmds.length > 0) {
+                        const wsLabel = document.createElement('div');
+                        wsLabel.className = 'hooks-ws-label';
+                        wsLabel.textContent = '📋 项目全局命令（AGENTS.md）';
+                        detail.appendChild(wsLabel);
+                        for (const cmd of wsCmds) {
+                            const item = document.createElement('div');
+                            item.className = 'hooks-ws-item';
+                            item.textContent = '• ' + cmd;
+                            detail.appendChild(item);
+                        }
+                    }
+
+                    const taskLabel = document.createElement('div');
+                    taskLabel.className = 'hooks-task-label';
+                    taskLabel.textContent = '⚙️ 任务级命令';
+                    detail.appendChild(taskLabel);
+
+                    const textarea = document.createElement('textarea');
+                    textarea.className = 'hooks-task-textarea';
+                    textarea.placeholder = '每行一条命令，注入当前阶段提示词';
+                    textarea.value = taskCmds.join('\n');
+                    detail.appendChild(textarea);
+
+                    const actions = document.createElement('div');
+                    actions.className = 'hooks-detail-actions';
+
+                    const saveBtn = document.createElement('button');
+                    saveBtn.className = 'hooks-save-btn';
+                    saveBtn.textContent = '保存';
+                    saveBtn.addEventListener('click', () => {
+                        const raw = textarea.value.trim();
+                        const commands = raw ? raw.split('\n').map(l => l.trim()).filter(Boolean) : [];
+                        vscode.postMessage({ type: 'updateHooks', taskId: activeTaskId, phase, commands });
+                        // Update local cache
+                        if (commands.length > 0) {
+                            taskHooks[phase] = commands;
+                        } else {
+                            delete taskHooks[phase];
+                        }
+                        renderHooksEditor();
+                    });
+                    actions.appendChild(saveBtn);
+
+                    detail.appendChild(actions);
+                    hList.appendChild(detail);
+                }
+            }
+        }
+
+        hooksEditBtn.addEventListener('click', () => {
+            const isOpen = !hooksEditor.classList.contains('hidden');
+            hooksEditor.classList.toggle('hidden');
+            if (!isOpen) {
+                renderHooksEditor();
+            }
+        });
+
+        hooksCloseBtn.addEventListener('click', () => {
+            hooksEditor.classList.add('hidden');
+        });
+
+        const hooksToolbarBtn = document.getElementById('hooks-toolbar-btn');
+        hooksToolbarBtn?.addEventListener('click', () => {
+            const isOpen = !hooksEditor.classList.contains('hidden');
+            hooksEditor.classList.toggle('hidden');
+            if (!isOpen) {
+                renderHooksEditor();
+            }
+        });
+    }
 
 }
 
@@ -1207,6 +1337,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
 
 function updateTaskInfo(info: any) {
     activeTaskStatus = info.status || '';
+    activeTaskPhase = info.phase || '';
     const titleEl = document.querySelector('.task-info-title');
     if (titleEl) titleEl.textContent = info.title || '选择任务开始对话';
 
@@ -1316,6 +1447,32 @@ function updateTaskInfo(info: any) {
                 }
             }
             itemsRow.classList.remove('hidden');
+        }
+    }
+
+    // Store hooks data
+    if (info.hooks) {
+        taskHooks = info.hooks;
+    }
+    if (info.workspaceHooks) {
+        workspaceHooks = info.workspaceHooks;
+    }
+
+    // Hooks count indicator
+    const hooksCount = document.getElementById('hooks-count');
+    if (hooksCount) {
+        const phase = info.phase || '';
+        const wsCount = (info.workspaceHooks?.[phase] || []).length;
+        const taskCount = (info.hooks?.[phase] || []).length;
+        const total = wsCount + taskCount;
+        if (total > 0 && info.taskType === 'task' && info.status !== 'cancelled' && info.status !== 'completed') {
+            const parts: string[] = [];
+            if (wsCount > 0) parts.push(`📋${wsCount}`);
+            if (taskCount > 0) parts.push(`⚙️${taskCount}`);
+            hooksCount.textContent = parts.join(' · ');
+            hooksCount.className = 'hooks-count' + (wsCount > 0 ? ' has-workspace' : '') + (taskCount > 0 ? ' has-task' : '');
+        } else {
+            hooksCount.classList.add('hidden');
         }
     }
 
