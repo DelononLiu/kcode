@@ -261,3 +261,62 @@ describe('完整流程', () => {
         expect(store.getTask(pid)!.status).toBe('completed');
     });
 });
+
+// ==============================
+// Test 4: Edge cases
+// ==============================
+
+describe('edge cases', () => {
+    it('空 goal 不报错', () => {
+        const { flow, store, pid } = makeFlow({ goal: '' });
+        expect(() => flow.buildPrompt(pid, 'hello')).not.toThrow();
+    });
+
+    it('nil 确认目标后 phase 切到 plan', () => {
+        const { flow, store, pid } = makeFlow();
+        flow.confirmGoal(pid);
+        expect(store.getTask(pid)!.phase).toBe('plan');
+    });
+
+    it('rejectReview 回到 execute', () => {
+        const { flow, store, pid } = makeFlow({ phase: 'review', status: 'in_review' });
+        flow.rejectReview(pid);
+        expect(store.getTask(pid)!.phase).toBe('execute');
+        expect(store.getTask(pid)!.status).toBe('active');
+    });
+
+    it('batch processChunk 累加文本', () => {
+        const { flow, pid } = makeFlow({ phase: 'goal' });
+        flow.processChunk(pid, 'Hello ');
+        flow.processChunk(pid, 'World');
+        expect(flow.getCleanText(pid)).toContain('Hello World');
+    });
+
+    it('processChunk 过滤 TASK_UPDATE 且保留普通文本', () => {
+        const { flow, pid } = makeFlow({ phase: 'goal' });
+        const clean = flow.processChunk(pid, '前置文本\n\n[TASK_UPDATE]\nACTION: propose_goal\nCONFIRMED:\n  - A\n[/TASK_UPDATE]\n\n后置文本');
+        expect(clean).not.toContain('TASK_UPDATE');
+        expect(clean).toContain('前置文本');
+        expect(clean).toContain('后置文本');
+    });
+
+    it('buildInitialPrompt 对 chat 类型用裸文本', () => {
+        const { flow, pid } = makeFlow({ type: 'chat' });
+        const result = flow.buildInitialPrompt(pid, 'hi');
+        expect(result).toContain('AI 编程助手');
+        expect(result).not.toContain('TASK_UPDATE');
+    });
+
+    it('isPlanProposed 初始为 false', () => {
+        const { flow, pid } = makeFlow();
+        expect(flow.isPlanProposed(pid)).toBe(false);
+    });
+
+    it('getGenResult 返回统一状态', () => {
+        const { flow, pid } = makeFlow();
+        const r = flow.getGenResult(pid);
+        expect(r).toHaveProperty('planProposed');
+        expect(r).toHaveProperty('executeFinished');
+        expect(r).toHaveProperty('selfVerifyFinished');
+    });
+});

@@ -1,5 +1,6 @@
 import { marked } from 'marked';
 import hljs from 'highlight.js';
+import { AppState, type FileChange } from './state';
 
 declare function acquireVsCodeApi(): any;
 const vscode = acquireVsCodeApi();
@@ -1815,12 +1816,6 @@ function createCardMessageElement(taskId?: string): HTMLElement {
     msgDiv.appendChild(bubble);
 
     return msgDiv;
-}
-
-interface FileChange {
-    filePath: string;
-    original: string;
-    modified: string;
 }
 
 const reviewChangesMap: Map<string, FileChange[]> = new Map();

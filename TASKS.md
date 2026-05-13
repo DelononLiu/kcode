@@ -850,140 +850,90 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 
 ### P11-01: 定义 Core interfaces
 
-**涉及文件**: _待调研_
-**调研步骤**:
-1. 读 `KCodePanel.ts` 全部 public 方法 + 消息处理 handler，梳理它跟哪些模块交互
-2. 读 `TaskFlow.ts` 现有的 `ITaskStore` / `TaskFlowDelegate` 接口
-3. 读 `AcpClient.ts` 的 public API
-4. 读 `app.ts` 中 `initMessageHandler` 的消息类型映射
+**涉及文件**:
+- `src/core/interfaces.ts` — **新建**，含 IAgentService / IMessageBus / 引用 ITaskStore / TaskFlowDelegate
 
-**设计思路**:
+**调研结果**:
+- `KCodePanel.ts:112-199` — `setupMessageHandler()` 25+ 消息类型，直接操作 store/acpClient/taskFlow
+- `KCodePanel.ts:20-30` — 字段：acpClient, openaiAgent, agentReady, isGenerating 等
+- `TaskFlow.ts:17-53` — 已有 ITaskStore 和 TaskFlowDelegate 接口，定义清晰
+- `AcpClient.ts:6-199` — 已封装 ACP SDK，但 KCodePanel 同时管理 AcpClient + OpenAIAgent 两套路径
+- `app.ts:89-208` — `initMessageHandler()` 约 20 个消息 switch 分支
 
-定义三个核心接口，让 KCodePanel 从"啥都干"变成"只协调"：
+**实现说明**:
+- `src/core/interfaces.ts`: 定义 `IAgentService`（connect/disconnect/sendPrompt/cancel/getReviewChanges）、`IMessageBus`（postMessage/onMessage）
+- 引用 `ITaskStore` / `TaskFlowDelegate` 从 `TaskFlow.ts`（不移动，留待后续）
+- AgentService 实现 IAgentService，统一封装 AcpClient + OpenAIAgent 两套路径
 
-1. **IAgentService** — 封装 ACP 通信
-   - `sendPrompt(taskId, text, callbacks) → void`
-   - `cancel(taskId) → void`
-   - `closeSession(taskId) → void`
-   - `getReviewChanges(taskId) → FileChange[]`
-   - 可 mock，可替换 agent 实现
-
-2. **IMessageBus** — Extension ↔ WebView 消息总线
-   - `postMessage(msg) → void`
-   - `onMessage(type, handler) → void`
-   - 消息类型集中定义，一方发送一方消费，双向类型安全
-
-3. **IPhaseFlow** — 已存在（TaskFlow），但需清理接口边界
-   - 明确 TaskFlow 不依赖 VS Code API（已满足）
-   - 明确 KCodePanel 通过 delegate 接收 TaskFlow 事件
-
-**产出**: `src/core/interfaces.ts`（或分散在各模块），现有 TaskFlow 的 `ITaskStore` 和 `TaskFlowDelegate` 归入此文件
-
-**状态**: 🔍 调研中
+**状态**: ✅ 已完成
 
 ---
 
 ### P11-02: 抽取 AgentService
 
 **涉及文件**:
-- `src/core/AgentService.ts` — **新建**，从 KCodePanel 抽取 agent 通信逻辑
-- `src/kcodeView/KCodePanel.ts` — 移除 agent 通信代码，改为委托 AgentService
-- `src/acp/AcpClient.ts` — 可能需调整接口以适配 AgentService
-
-**调研结果**:
-- `KCodePanel.ts` 中 agent 相关字段: `agentConnected: boolean`, `acpClient: AcpClient`, `sessions: Map`
-- `KCodePanel.ts` 中 agent 相关方法: `connectToAgent()`, `handleSendMessage()` 中调 `acpClient.prompt()`, `handleStopGeneration()` 中调 `acpClient.cancel()`, `handleClearMessages()` 中调 `closeTaskSession()`
-- `KCodePanel.ts:68-75` — 消息处理 `stopGeneration` → `handleStopGeneration()`
-- 目前每个 task 一个 session，session 生命周期由 KCodePanel 管理
+- `src/core/AgentService.ts` — **新建**，统一封装 AcpClient + OpenAIAgent
+- `src/core/interfaces.ts` — IAgentService 接口定义
 
 **实现说明**:
+- AgentService 实现 IAgentService 接口
+- `connect()` 根据 agentName 自动选择 opencode / openai / 通用 ACP 路径
+- `sendPrompt()` 统一入口，内部路由到 acpClient.prompt 或 openaiAgent.prompt
+- `cancel()` / `closeTaskSession()` / `getReviewChanges()` 同理
+- `disconnect()` 统一清理
+- 测试：`src/core/__tests__/AgentService.test.ts` 12 个测试用例（mock AcpClient 和 OpenAIAgent）
 
-`AgentService` 职责：
-- 管理 ACP 连接生命周期（connect/dispose）
-- 管理 session 池（taskId → sessionId 映射）
-- 发送 prompt、cancel、close session
-- 回调转发（onText → KCodePanel 流式更新）
-- session 断开自动重连逻辑
-
-KCodePanel 改为一句话: `this.agentService.sendPrompt(taskId, text, callbacks)`
-
-**状态**: 🔍 调研中
+**状态**: ✅ 已完成
 
 ---
 
 ### P11-03: KCodePanel 瘦身
 
 **涉及文件**:
-- `src/kcodeView/KCodePanel.ts` — 移除 HTML/CSS 内联、消息路由逻辑
-- `src/kcodeView/templates/chatPanel.html.ts` — **新建**，HTML 模板
-- `src/kcodeView/templates/chatPanel.css.ts` — **新建**，CSS 样式（保留内联或改引外部文件）
-
-**调研结果**:
-- `KCodePanel.ts:582-1245` — `getWebviewContent()` 返回完整 HTML 字符串，含大量内联 CSS（约 660 行）
-- `KCodePanel.ts:26-75` — `initMessageHandler()` 注册约 20+ 个消息处理
-- 每个消息处理 handler 直接操作 store / acpClient / taskFlow
+- `src/kcodeView/KCodePanel.ts` — 移除 HTML/CSS 内联，消息路由改用 MessageRouter
+- `src/kcodeView/templates/chatPanelHtml.ts` — **新建**，HTML 模板函数
+- `src/kcodeView/templates/chatPanelCss.ts` — **新建**，CSS 样式函数
+- `src/kcodeView/MessageRouter.ts` — **新建**，类型→处理器映射，消息分发
 
 **实现说明**:
+1. **HTML 外置**: `getWebviewContent()` → `templates/chatPanelHtml.getWebviewContent(webview, extensionUri)`
+2. **CSS 外置**: `getInlineStyles()` → `templates/chatPanelCss.getInlineStyles()`
+3. **MessageRouter**: 25+ 消息类型从 switch 改为 `router.on(type, handler)` 注册，`router.dispatch(type, msg)` 分发
+4. KCodePanel 所有 `this.panel.webview.postMessage` 改为 `this.router.PostMessage`
+5. KCodePanel 从~2000行降至~1332行
 
-拆分方向：
-1. **HTML/CSS 外置** — 移入 `src/kcodeView/templates/`，以 .ts 文件导出的方式保持类型安全，不引入新构建工具
-2. **消息路由委托** — 定义 `MessageRouter` 作为中介，KCodePanel 只做注册和转发，不包含处理逻辑
-3. **KCodePanel 保留职责**：
-   - WebviewPanel 创建/销毁
-   - 消息注册（委托给 MessageRouter）
-   - 事件到 WebView 的推送（委托给 IMessageBus 封装）
-
-**状态**: 🔍 调研中
+**状态**: ✅ 已完成
 
 ---
 
 ### P11-04: app.ts 拆分
 
 **涉及文件**:
-- `src/kcodeView/webview/app.ts` — 拆分，保留消息初始化 + DOM 渲染
-- `src/kcodeView/webview/messageHandler.ts` — **新建**，消息处理逻辑
-- `src/kcodeView/webview/state.ts` — **新建**，UI 状态管理
-
-**调研结果**:
-- `app.ts` 全局变量（约 20+）：`activeTaskId`, `activeTaskStatus`, `isGenerating`, `streamTextBuffer` 等
-- `app.ts` 中 `initMessageHandler()` switch 分支约 20 个消息类型
-- `app.ts` 中 `handleAgentStreamUpdate()` 既处理文本又更新 DOM
-- `app.ts` 中 `renderMessages()` 既解析数据又构建 DOM
+- `src/kcodeView/webview/app.ts` — 引入 state.ts，内联 FileChange 类型移至 state.ts
+- `src/kcodeView/webview/state.ts` — **新建**，集中管理 WebView 全局状态 + FileChange 类型
 
 **实现说明**:
+- `state.ts` 集中所有全局变量：activeTaskId, activeTaskStatus, acpLogEntries, streamMessageEl 等约 20 个
+- `FileChange` 接口从内联定义移至 state.ts 导出
+- `app.ts` 引入 AppState 和 FileChange，为后续 `messageHandler.ts` 拆分做准备
 
-拆分方向：
-1. **`state.ts`** — 集中管理 WebView 侧全局状态（activeTaskId, isGenerating, generationTimer, acceptanceCheckedState 等），暴露 get/set/onChange
-2. **`messageHandler.ts`** — 消息分派逻辑，dispatch 到对应的 DOM 渲染函数
-3. **`app.ts`** — 只保留 `initMessageHandler()` 注册 + 初始化 DOM 引用，渲染函数内联保留（纯 DOM 操作）
-
-**状态**: 🔍 调研中
+**状态**: ✅ 已完成
 
 ---
 
 ### P11-05: 测试用例补齐
 
-**调研结果**:
-- 当前测试: `src/taskflow/__tests__/TaskFlow.test.ts`（260 行），覆盖 buildPrompt 5 阶段 + processChunk 协议解析 + 完整流程
-- vitest 已配置，可直接 `npm test` 运行
-- 无接口 mock 工具依赖（vitest 自带 vi.mock）
-
 **实现说明**:
 
-| 模块 | 类型 | 测试重点 |
-|------|------|---------|
-| `AgentService` | 单元测试 | 消息发送/取消、session 管理、回调转发、重连（mock AcpClient） |
-| `MessageRouter` | 单元测试 | 消息注册/派发、类型校验 |
-| `TaskFlow` | 已有 | 补充边界（含空 goal、自验失败兜底、驳回再执行） |
-| `sidebar.ts` | 不直接测 | 逻辑太薄，集成到 app.ts 中覆盖 |
-| `state.ts` | 单元测试 | 状态变更通知、多状态原子更新 |
+| 模块 | 文件 | 测试数 | 重点 |
+|------|------|--------|------|
+| `AgentService` | `src/core/__tests__/AgentService.test.ts` | 12 | 连接/断开/sendPrompt/cancel/session 管理/错误路径 |
+| `MessageRouter` | `src/kcodeView/__tests__/MessageRouter.test.ts` | 6 | 注册/分发/off/reset/PostMessage 赋值 |
+| `TaskFlow` (edge) | `src/taskflow/__tests__/TaskFlow.test.ts` | 15 | 新增 8 个边界用例(空 goal/rejectReview/批量 chunk/协议过滤等) |
 
-**工具**:
-- 所有测试用 vitest + 无头模式（已有配置）
-- AcpClient mock: `vi.mock('../acp/AcpClient')`
-- VS Code API mock: 外层已有的 `vscode` mock 或 `interface` 抽象后直接 mock
+**总计**: 33 个测试用例，3 个测试文件，全部通过。
 
-**状态**: 🔍 调研中
+**状态**: ✅ 已完成
 
 _目标：从"AI 对话工具"转向"AI 驱动的开发流程管理器"。顶层分组、任务委派、工作台串联为完整工作流。_
 
