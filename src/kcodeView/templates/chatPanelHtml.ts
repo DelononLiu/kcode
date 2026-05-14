@@ -176,29 +176,24 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             </div>
         </div>
 
-        <!-- Right Output Panel — vertical sections (no tabs) -->
+        <!-- Right Output Panel — vertical sections, collapse via edge handle -->
+        <div id="output-resize-handle" class="output-resize-handle"></div>
         <div id="right-output-panel">
-            <div id="output-resize-handle" class="output-resize-handle"></div>
-            <button id="op-expand-btn" class="op-expand-btn hidden" title="展开右栏">◀</button>
             <div id="right-output-content">
                 <div class="op-section">
                     <div class="op-section-title">变更列表</div>
-                    <div class="op-divider">----------</div>
                     <div id="op-code-list"><div class="op-empty">暂无变更</div></div>
                 </div>
                 <div class="op-section">
                     <div class="op-section-title">知识wiki</div>
-                    <div class="op-divider">----------</div>
                     <div id="op-knowledge-list"><div class="op-empty">暂无知识</div></div>
                 </div>
                 <div class="op-section">
                     <div class="op-section-title">TODO区</div>
-                    <div class="op-divider">----------</div>
                     <div id="op-plan-list"><div class="op-empty">暂无待办</div></div>
                 </div>
                 <div class="op-section">
                     <div class="op-section-title">工具调用</div>
-                    <div class="op-divider">----------</div>
                     <div id="op-tool-list"><div class="op-empty">暂无工具调用</div></div>
                 </div>
             </div>

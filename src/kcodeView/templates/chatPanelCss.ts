@@ -217,19 +217,15 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .category-chip.active{color:#4ec9b0;background:rgba(78,201,176,.12)}
 
 /* === Right Output Panel — vertical sections (no tabs) === */
-#right-output-panel{width:220px;min-width:140px;display:flex;flex-direction:column;background:var(--vscode-sideBar-background,#1e1e1e);border-left:1px solid rgba(255,255,255,.06);flex-shrink:0;position:relative;overflow:hidden;transition:min-width .2s}
-#right-output-panel.collapsed{min-width:16px;width:16px!important;overflow:visible;background:transparent}
-#right-output-panel.collapsed #right-output-content{display:none}
-#right-output-panel.collapsed .output-resize-handle{display:none}
-.op-expand-btn.hidden{display:none}
-.op-expand-btn{position:absolute;top:4px;left:0;z-index:15;background:rgba(40,40,40,.7);border:none;color:#999;cursor:pointer;width:16px;height:20px;border-radius:0 3px 3px 0;display:flex;align-items:center;justify-content:center;font-size:10px;padding:0;transition:color .2s,background .2s}
-.op-expand-btn:hover{color:#ddd;background:rgba(70,70,70,.9)}
-.output-resize-handle{position:absolute;left:0;top:0;bottom:0;width:4px;cursor:col-resize;z-index:10;background:transparent;transition:background .15s}
-.output-resize-handle:hover,.output-resize-handle:active{background:rgba(74,139,181,.3)}
+#right-output-panel{width:220px;min-width:140px;display:flex;flex-direction:column;background:var(--vscode-sideBar-background,#1e1e1e);border-left:1px solid rgba(255,255,255,.06);flex-shrink:0;position:relative;overflow:hidden}
+#right-output-panel.collapsed{min-width:0;width:0!important;overflow:hidden;border-left:none;padding:0}
+#right-output-panel.collapsed + #right-panel{display:none}
+/* Edge handle: sits between chat-area and right-output-panel (outside panel), always accessible */
+.output-resize-handle{width:5px;cursor:col-resize;flex-shrink:0;background:transparent;transition:background .15s}
+.output-resize-handle:hover,.output-resize-handle:active{background:rgba(74,139,181,.4)}
 #right-output-content{flex:1;overflow-y:auto;min-height:0;padding:6px 8px}
 .op-section{margin-bottom:4px}
-.op-section-title{font-size:11px;font-weight:600;color:#999;padding:2px 0}
-.op-divider{font-size:10px;color:#444;letter-spacing:1px;line-height:1;margin-bottom:2px;user-select:none}
+.op-section-title{font-size:11px;font-weight:600;color:#999;padding:4px 0 3px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:2px}
 .op-empty{font-size:11px;color:#555;text-align:center;padding:6px 0 10px}
 .op-item{display:flex;align-items:center;gap:5px;padding:3px 4px;border-radius:3px;cursor:pointer;font-size:11px;color:#aaa;transition:background .1s}
 .op-item:hover{background:rgba(255,255,255,.03)}

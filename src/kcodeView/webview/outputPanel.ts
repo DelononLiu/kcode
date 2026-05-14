@@ -1,4 +1,4 @@
-// Right output panel: four output artifact tabs
+// Right output panel: vertical sections, collapse via left edge handle
 
 function opEscapeHtml(text: string): string {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -7,58 +7,68 @@ function opEscapeHtml(text: string): string {
 function initOutputPanel() {
     const panel = document.getElementById('right-output-panel');
     const handle = document.getElementById('output-resize-handle');
-    const expandBtn = document.getElementById('op-expand-btn');
-    if (!panel) return;
+    if (!panel || !handle) return;
 
-    // Expand button to restore panel
-    expandBtn?.addEventListener('click', () => {
-        panel.classList.remove('collapsed');
-        panel.style.width = '220px';
-        panel.style.flex = 'none';
-        expandBtn.classList.add('hidden');
+    // Draggable resize — VS Code style: hover → highlight → drag
+    // Single drag session (isDragging stays true throughout):
+    //   right → narrow → snap collapse at <30px threshold
+    //   left → widen → snap expand at >30px threshold
+    // minWidth:0 inline overrides CSS 140px so panel can go below 140 during drag.
+    const MIN_W = 100, MAX_W = 500, SNAP = 30;
+
+    let isDragging = false;
+    let startX = 0;
+    let startWidth = 0;
+
+    handle.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startX = e.clientX;
+        startWidth = panel.classList.contains('collapsed') ? 0 : panel.offsetWidth;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
     });
 
-    // Draggable resize + collapse when dragged to left edge
-    if (handle) {
-        let isDragging = false;
-        let startX = 0;
-        let startWidth = 0;
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const diff = startX - e.clientX;
+        const newWidth = Math.min(MAX_W, Math.max(0, startWidth + diff));
 
-        handle.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            startX = e.clientX;
-            startWidth = panel.offsetWidth;
-            document.body.style.cursor = 'col-resize';
-            document.body.style.userSelect = 'none';
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            const diff = startX - e.clientX;
-            const newWidth = startWidth + diff;
-            if (newWidth < 30) {
-                // Collapse when dragged to edge
-                panel.classList.add('collapsed');
-                expandBtn?.classList.remove('hidden');
-                isDragging = false;
-                document.body.style.cursor = '';
-                document.body.style.userSelect = '';
-            } else {
+        if (panel.classList.contains('collapsed')) {
+            if (newWidth > SNAP) {
+                panel.style.minWidth = '0';
+                panel.style.width = Math.max(MIN_W, newWidth) + 'px';
+                panel.style.flex = 'none';
                 panel.classList.remove('collapsed');
-                expandBtn?.classList.add('hidden');
-                panel.style.width = Math.min(500, Math.max(100, newWidth)) + 'px';
+            }
+        } else {
+            if (newWidth < SNAP) {
+                panel.classList.add('collapsed');
+                panel.style.minWidth = '';
+                panel.style.width = '';
+            } else {
+                panel.style.minWidth = '0';
+                panel.style.width = Math.min(MAX_W, Math.max(MIN_W, newWidth)) + 'px';
                 panel.style.flex = 'none';
             }
-        });
+        }
+    });
 
-        document.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                document.body.style.cursor = '';
-                document.body.style.userSelect = '';
+    document.addEventListener('mouseup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        if (!panel.classList.contains('collapsed')) {
+            const w = panel.offsetWidth;
+            if (w < SNAP) {
+                panel.classList.add('collapsed');
+                panel.style.minWidth = '';
+                panel.style.width = '';
+            } else if (w >= 140) {
+                panel.style.minWidth = '';
             }
-        });
-    }
+        }
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+    });
 }
 
 function updateOutputPanel(taskInfo: any, changes: any[]) {
