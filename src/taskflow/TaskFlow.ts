@@ -9,6 +9,7 @@ import { REVIEW_PROMPT } from './prompts/review';
 import { SELF_VERIFY_PROMPT } from './prompts/self_verify';
 
 import { getTemplate, getCategory } from './templates';
+import { loadExternalPrompt } from './externalPrompts';
 
 const CHAT_PROMPT = `你是一个 AI 编程助手。请直接回答用户的问题，使用中文回复。
 你可以使用 markdown 格式（代码块、列表、表格等）来组织回答。
@@ -142,8 +143,8 @@ export class TaskFlow {
 
     getCleanText(taskId: string): string {
         const text = this.accumulatedText.get(taskId) || '';
-        // 只剥离独立成段的 [TASK_UPDATE] 块
-        return text.replace(/(?:^|\n\n)\[TASK_UPDATE\][\s\S]*?\[\/TASK_UPDATE\](?:\n\n|$)/gi, '').trim();
+        // 剥离 [TASK_UPDATE] 块
+        return text.replace(/\[TASK_UPDATE\][\s\S]*?\[\/TASK_UPDATE\]/gi, '').trim();
     }
 
     processChunk(taskId: string, chunk: string): string {
@@ -156,7 +157,7 @@ export class TaskFlow {
 
     private parseTaskDelegate(taskId: string): void {
         let text = this.accumulatedText.get(taskId) || '';
-        const regex = /(?:^|\n+)\[TASK_DELEGATE\]([\s\S]*?)\[\/TASK_DELEGATE\](?:\n+|$)/gi;
+        const regex = /\[TASK_DELEGATE\]([\s\S]*?)\[\/TASK_DELEGATE\]/gi;
         let match;
         while ((match = regex.exec(text)) !== null) {
             try {
@@ -211,8 +212,8 @@ export class TaskFlow {
         if (!task || task.type !== 'task') return;
         let text = this.accumulatedText.get(taskId) || '';
 
-        // 匹配 [TASK_UPDATE] 块（前后一个或多个换行或字符串边界）
-        const regex = /(?:^|\n+)\[TASK_UPDATE\]([\s\S]*?)\[\/TASK_UPDATE\](?:\n+|$)/gi;
+        // 匹配 [TASK_UPDATE] 块
+        const regex = /\[TASK_UPDATE\]([\s\S]*?)\[\/TASK_UPDATE\]/gi;
         let match;
         while ((match = regex.exec(text)) !== null) {
             try {
@@ -556,6 +557,11 @@ export class TaskFlow {
         }
         if (extraParts.length > 0) {
             basePrompt = basePrompt + '\n\n' + extraParts.join('\n\n');
+        }
+
+        const externalContent = loadExternalPrompt(task.type, task.category, task.subType, task.phase);
+        if (externalContent) {
+            basePrompt = basePrompt + '\n\n【用户自定义规则】\n' + externalContent;
         }
 
         return basePrompt;

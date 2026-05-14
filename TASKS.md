@@ -109,11 +109,248 @@ _目标：升级 AI 对话消息渲染质量，实现与 Kilo 接近的消息展
 
 **状态**: ✅ 已完成
 
-> 🟫 Level 0 — 自举之路第一步：能看清 AI 写的代码
+---
+
+### P11-06: Kilo Agent 支持 + 输入框 Agent 名称显示
+
+**涉及文件**:
+- `src/core/AgentService.ts` — 新增 `connectKilo()` 方法 + `connect()` 分支；新增 `agentName` 属性
+- `package.json` — `contributes.configuration` 新增 `kcode.kiloPath`
+- `src/kcodeView/KCodePanel.ts` — `flowHandler.sendStatus()` 增加 `agentName` 字段
+- `src/kcodeView/webview/app.ts` — `agentStatus` 消息处理更新 `#status-model` 文本
+
+**调研结果**:
+- `AgentService.ts:30-58` — `connect()` 当前支持 opencode / openai / 通用 ACP 三条路由
+- `chatPanelHtml.ts:122-125` — 输入框底部已有 `#status-model` 元素，固定显示 "Agent"
+- `app.ts:312` — `agentStatus` 消息当前只处理连接状态指示灯，未更新名称文本
+
+**方案**:
+
+**Kilo ACP 连接**（方案 B — 专属路由）:
+- `connectKilo()` 类似 `connectOpenCode()`，通过 ACP stdio 连接 `kilo acp` 命令
+- 配置项 `kcode.kiloPath`，默认值 `kilo`
+- 启动参数：`kilo acp --port 0 --cwd <workspaceRoot>`
+
+**Agent 名称显示**:
+- `AgentService` 新增 `agentName: string` 属性，连接时记录
+- `KCodePanel` 发送 `agentStatus` 时携带 `agentName`
+- WebView 收到后更新 `#status-model` 文本为 `'kilo' | 'opencode' | 'openai'`
+
+**状态**: ✅ 已完成
 
 ---
 
-## Phase 7—10: 自举之路
+### P11-07: 动态导入外部提示词 — 叠加 + 级联继承
+
+**涉及文件**:
+- `src/taskflow/externalPrompts.ts` — **新建**：文件读取 + 标签解析 + 级联查找
+- `src/taskflow/TaskFlow.ts` — `buildPhasePrompt()` 调用外部 prompt 并追加
+- `src/taskflow/__tests__/TaskFlow.test.ts` — 新增外部 prompt 级联测试用例
+
+**调研结果**:
+- `TaskFlow.ts:522-562` — `buildPhasePrompt()` 当前按 phase switch 加载内置 `prompts/<phase>.ts`，再注入 `templates.ts` 的 `analysisFramework`/`executionHints`
+- `TaskFlow.ts:457-472` — `buildInitialPrompt()` 组装 4 层：BASE → PROTOCOL → buildTaskContext → buildPhasePrompt
+- 外部 prompt 作为第 5 层注入，叠加到内置 prompt 末尾
+
+**文件路径规范**:
+```
+~/.kcode/taskflow/
+  task.md                  ← 所有 task 类型基底
+  requirement_dev.md       ← category 层
+  problem_analysis.md
+  performance_opt.md
+  defect_analysis.md
+  feature_dev.md           ← subType 层 (key 全局唯一，平铺)
+  debug.md
+  ...
+```
+
+**文件格式**:
+```markdown
+<plan>
+计划必须包含测试策略
+</plan>
+
+<execute>
+完成代码后自动运行 npx tsc --noEmit 检查类型
+</execute>
+```
+仅定义部分阶段标签，未定义的阶段继承上一层。
+
+**级联查找逻辑** (per phase):
+```
+buildPhasePrompt(task, phase):
+  content = ""
+
+  // L1: subType 文件 → 当前 phase 标签内容
+  content += loadPhaseSection("~/.kcode/taskflow/<subType>.md", phase)
+
+  // L2: category 文件 → 仅当 L1 该 phase 为空时
+  content += loadPhaseSection("~/.kcode/taskflow/<category>.md", phase)
+
+  // L3: 类型基底 → 仅当 L1+L2 该 phase 都为空时
+  content += loadPhaseSection("~/.kcode/taskflow/<task.type>.md", phase)
+
+  // 注入到内置 prompt 末尾
+  if content: basePrompt += "\n\n【用户自定义规则】\n" + content
+```
+
+**标签解析规则**:
+- 正则 `<phase>([\s\S]*?)<\/phase>` 逐 phase 提取内容段
+- phase 名对应 6 个阶段：`demand` / `goal` / `plan` / `execute` / `self_verify` / `review`
+- 文件不存在 → 无操作（fallback 到内置 prompt）
+- 文件存在但无当前 phase 标签 → 该层返回空
+
+**状态**: ✅ 已完成
+
+---
+
+## Phase 12: 卡片UI堆叠 + 三栏布局
+
+_目标：减少卡片视觉干扰 + 将 KCode 面板重新划分为三栏，职责完全解耦。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P12-01 | 三栏布局骨架 — 左流程 / 中对话 / 右产出 | ⬜ 未开始 |
+| P12-02 | 卡片堆叠 — 相邻工具卡片折叠、仅当前卡片展开 | ⬜ 未开始 |
+| P12-03 | 卡片风格升级 — 参考 Kilo 设计语言，重构卡片标题/配色/视觉层次 | ⬜ 未开始 |
+
+### 设计定调 — 三栏布局
+
+| 区域 | 核心问题 | 内容 | 定位 |
+|------|----------|------|------|
+| **左栏** | 我走到哪 | 进度线 / 阶段节点 / 任务状态 / 时间线 | ⚙️ 流程控制、导航 |
+| **中栏** | 我在聊什么 | 对话消息 / 输入区 / Goal 编辑 / 确认按钮 | 💬 过程交互 |
+| **右栏** | 我产出了什么 | 文件变更清单 / 工具执行记录 / Todo 待办 / 关联知识 | 📦 产出物沉淀 |
+
+**极简记忆**：左边「走到哪」— 中间「聊什么」— 右边「产出了什么」
+
+### Header 重构（中栏顶部）
+
+当前 header 7 块内容平铺（标题/状态/时间/Goal/阶段/按钮/共识/计划/钩子），缺行级语义分组。重构为严格 3 行：
+
+```
+行1: [标题] [类型标签] [状态badge]        ← 任务是谁、什么状态
+     创建时间 · 最后活跃 · 待验收文件数     ← 小号副信息
+
+行2: 🎯 [Goal 文本]                        ← 要达成什么
+     [共识inline tag1] [tag2] ...          ← 已锁定共识（紧凑 inline）
+
+行3: 📍 [阶段名称] — 阶段一句话描述         ← 走到哪、还剩多少
+     ■■□□  TODO 3/5                        ← 计划步骤进度条+分数
+```
+
+| 行 | 回答的问题 | 内容 |
+|----|-----------|------|
+| **行1 + 副行** | 这任务是谁、什么时候 | 身份 + 时间上下文 |
+| **行2** | 要达成什么 | Goal + 已锁定共识（任务契约） |
+| **行3** | 走到哪、还剩多少 | 当前阶段 + 描述 + 计划步骤完工比例 |
+
+**关键变化**：
+- 阶段按钮只显示当前阶段唯一操作按钮（不堆叠4个）
+- 钩子入口移到工具栏
+- 共识条目从独立列表变为 Goal 行内 inline tag
+- 计划步骤从独立区域压缩为进度条 + 分数
+- 创建时间/最后活跃降级为行1下方小字
+
+### 右栏四类产出物
+
+| 产出类型 | 来源 | 内容 |
+|----------|------|------|
+| 📄 **代码产出** | `FileChange[]` | AI 修改/新增/删除的文件列表，点击打开 diff |
+| 🔧 **行为产出** | ACP tool_call 记录 | AI 调用过的工具: bash(已执行命令+输出)、read/glob 等 |
+| ✅ **计划产出** | `Task.planSteps` + Todo | AI 制定的步骤及其完成状态，人工可勾选确认 |
+| 📚 **知识产出** | 对话关键决策 + 关联案例 | AI 提炼的本次任务可复用的经验、决策记录，跨任务可追溯 |
+
+### 右栏 vs 工具浮层 — 索引 + 详情两层
+
+**右栏（产出物列）— ~200px 固定窄列，始终可见**
+聚合四类产出物的列表，作为永久索引入口，不压缩中栏。
+
+**工具浮层 — 从右侧边界滑出，z-index overlay**
+Diff / Preview / ACP Log / Device 保留为 tab 形式，但作为**浮层**而非固定面板：
+
+- **默认隐藏**，不占任何布局空间
+- **触发**：点击右栏条目自动滑出，切到对应 tab 加载详情（点击文件 → Diff、点击工具 → Log）
+- **宽度自由**：diff 需要横向宽度，浮层不受窄列限制
+- **关闭**：点击 ✕ 收回，产出物列恢复可见
+- **右栏 = 列表/索引层，浮层 = 详情/渲染层**
+
+**对比当前**：
+- 当前右侧面板（Preview / Diff / ACP Log / Device）与 task 无绑定，长期占据固定空间
+- Phase 12 将右栏改为产出物聚合窄列（始终可见），详情渲染交给滑出浮层（需要时才出现）
+
+### 涉及文件
+
+| 文件 | 改动 |
+|------|------|
+| `src/kcodeView/templates/chatPanelHtml.ts` | HTML 结构改为三栏 flex 布局；header 从 7 块缩为 3 行 |
+| `src/kcodeView/templates/chatPanelCss.ts` | CSS 响应式三栏，左栏固定宽度 240px，右栏可拖拽调宽 |
+| `src/kcodeView/webview/app.ts` | `updateTaskInfo()` 按三行语义重写渲染 + 进度条 |
+| `src/kcodeView/webview/processPanel.ts` | **新建** — 左栏渲染：进度线 + 任务状态 + 时间线 |
+| `src/kcodeView/webview/outputPanel.ts` | **新建** — 右栏渲染：四类产出物标签页聚合 |
+| `src/kcodeView/KCodePanel.ts` | 新消息类型注册，输出数据推送（工具记录、决策点等） |
+| `src/taskflow/TaskFlow.ts` | 决策点提取事件（`onDecisionLogged` delegate） |
+
+---
+
+### P12-02: 卡片堆叠 — 相邻工具卡片折叠、仅当前卡片展开
+
+**涉及文件**:
+- `src/kcodeView/webview/app.ts` — `createCard()` 增加堆叠逻辑；`handleToolCallUpdate()` 追加卡片时折叠相邻卡片
+- `src/kcodeView/templates/chatPanelCss.ts` — `.msg-card-body` 堆叠态过渡动画
+
+**调研结果**:
+- `app.ts:1701-1810` — `createCard()` 每张卡片独立创建，无堆叠感知
+- `app.ts:2272-2292` — `handleToolCallUpdate()` 每收到 toolCallUpdate 就创建/更新独立卡片，追加到 chat-messages
+- `app.ts:2335-2376` — `renderToolBubbleContent()` 所有卡片 `defaultCollapsed: false`，从不自动折叠
+- 当前每个工具卡片是独立 `chat-msg tool` 消息元素，appendToChatMessages 追加
+
+**实现说明**:
+
+1. **堆叠判定**：在 `handleToolCallUpdate()` 中，追加新卡片前检查上一个兄弟元素是否为 `chat-msg tool`。如果是，则触发堆叠模式：
+   - 找到上一个 `chat-msg tool` 元素内的 `.msg-card-body`，添加 `collapsed` 类
+   - 切换其 toggle 箭头为 `▶`
+   - 新卡片保持 `defaultCollapsed: false`
+2. **仅相邻堆叠**：如果上一兄弟元素是普通文本消息（`chat-msg agent` 含文本），则不触发堆叠
+3. **header 点击展开**：维持现有的 `msg-card-header` click 事件，点击某张已折叠卡片时展开它，同时折叠当前活跃卡片
+4. **转换动画**：新增 CSS `.msg-card-body` transition，折叠/展开时有平滑高度过渡
+
+**状态**: ⬜ 未开始
+
+---
+
+### P12-03: 卡片风格升级 — 参考 Kilo 设计语言
+
+**涉及文件**:
+- `src/kcodeView/templates/chatPanelCss.ts`
+- `src/kcodeView/webview/app.ts`
+- `src/kcodeView/templates/chatPanelHtml.ts`
+
+**实现说明**:
+
+1. **设计 Token 系统**（`chatPanelCss.ts` 定义 CSS 变量）：
+   - `--card-radius: 8px` / `--card-bg: var(--vscode-sideBar-background)` / `--card-border: var(--vscode-widget-border)`
+   - `--card-shadow: 0 1px 3px rgba(0,0,0,0.08)`
+   - `--tool-bash-border: #4CAF50` / `--tool-read-border: #2196F3` / `--tool-write-border: #FF9800` / `--tool-thinking-border: #9E9E9E`
+
+2. **卡片标题层级**：`[icon] ToolName + 时间戳 + ▶/▼`，hover 微亮背景
+
+3. **工具类型差异化配色**：
+   - bash/command/terminal：左侧 3px 绿色实线，monospace，深背景
+   - read/glob/grep/search：左侧 3px 蓝色实线
+   - write/edit：左侧 3px 橙色实线，diff 风格（绿底新增/红底删除）
+   - thinking：灰色斜体，半透明，自动折叠
+
+4. **消息类型差异化**：用户气泡靠右浅蓝 / Agent 灰色左竖线 / Goal 黄色标签 / 验收绿色顶边 ✅ / 系统居中灰色 ⚙️
+
+5. **状态指示**：运行中旋转动画 + 绿边 → 完成 ✅ → 失败 ❌ 红边
+
+6. **间距**：卡片间距 8px，内边距 `12px 14px`(header) / `8px 14px 12px`(body)
+
+**状态**: ⬜ 未开始
+
+---
 
 _目标：逐步用 KCode 自身开发 KCode，从"能看"到"完全切换"。_
 
@@ -850,140 +1087,90 @@ _目标：KCode 主导功能开发，开发者只做 code review。用 KCode 完
 
 ### P11-01: 定义 Core interfaces
 
-**涉及文件**: _待调研_
-**调研步骤**:
-1. 读 `KCodePanel.ts` 全部 public 方法 + 消息处理 handler，梳理它跟哪些模块交互
-2. 读 `TaskFlow.ts` 现有的 `ITaskStore` / `TaskFlowDelegate` 接口
-3. 读 `AcpClient.ts` 的 public API
-4. 读 `app.ts` 中 `initMessageHandler` 的消息类型映射
+**涉及文件**:
+- `src/core/interfaces.ts` — **新建**，含 IAgentService / IMessageBus / 引用 ITaskStore / TaskFlowDelegate
 
-**设计思路**:
+**调研结果**:
+- `KCodePanel.ts:112-199` — `setupMessageHandler()` 25+ 消息类型，直接操作 store/acpClient/taskFlow
+- `KCodePanel.ts:20-30` — 字段：acpClient, openaiAgent, agentReady, isGenerating 等
+- `TaskFlow.ts:17-53` — 已有 ITaskStore 和 TaskFlowDelegate 接口，定义清晰
+- `AcpClient.ts:6-199` — 已封装 ACP SDK，但 KCodePanel 同时管理 AcpClient + OpenAIAgent 两套路径
+- `app.ts:89-208` — `initMessageHandler()` 约 20 个消息 switch 分支
 
-定义三个核心接口，让 KCodePanel 从"啥都干"变成"只协调"：
+**实现说明**:
+- `src/core/interfaces.ts`: 定义 `IAgentService`（connect/disconnect/sendPrompt/cancel/getReviewChanges）、`IMessageBus`（postMessage/onMessage）
+- 引用 `ITaskStore` / `TaskFlowDelegate` 从 `TaskFlow.ts`（不移动，留待后续）
+- AgentService 实现 IAgentService，统一封装 AcpClient + OpenAIAgent 两套路径
 
-1. **IAgentService** — 封装 ACP 通信
-   - `sendPrompt(taskId, text, callbacks) → void`
-   - `cancel(taskId) → void`
-   - `closeSession(taskId) → void`
-   - `getReviewChanges(taskId) → FileChange[]`
-   - 可 mock，可替换 agent 实现
-
-2. **IMessageBus** — Extension ↔ WebView 消息总线
-   - `postMessage(msg) → void`
-   - `onMessage(type, handler) → void`
-   - 消息类型集中定义，一方发送一方消费，双向类型安全
-
-3. **IPhaseFlow** — 已存在（TaskFlow），但需清理接口边界
-   - 明确 TaskFlow 不依赖 VS Code API（已满足）
-   - 明确 KCodePanel 通过 delegate 接收 TaskFlow 事件
-
-**产出**: `src/core/interfaces.ts`（或分散在各模块），现有 TaskFlow 的 `ITaskStore` 和 `TaskFlowDelegate` 归入此文件
-
-**状态**: 🔍 调研中
+**状态**: ✅ 已完成
 
 ---
 
 ### P11-02: 抽取 AgentService
 
 **涉及文件**:
-- `src/core/AgentService.ts` — **新建**，从 KCodePanel 抽取 agent 通信逻辑
-- `src/kcodeView/KCodePanel.ts` — 移除 agent 通信代码，改为委托 AgentService
-- `src/acp/AcpClient.ts` — 可能需调整接口以适配 AgentService
-
-**调研结果**:
-- `KCodePanel.ts` 中 agent 相关字段: `agentConnected: boolean`, `acpClient: AcpClient`, `sessions: Map`
-- `KCodePanel.ts` 中 agent 相关方法: `connectToAgent()`, `handleSendMessage()` 中调 `acpClient.prompt()`, `handleStopGeneration()` 中调 `acpClient.cancel()`, `handleClearMessages()` 中调 `closeTaskSession()`
-- `KCodePanel.ts:68-75` — 消息处理 `stopGeneration` → `handleStopGeneration()`
-- 目前每个 task 一个 session，session 生命周期由 KCodePanel 管理
+- `src/core/AgentService.ts` — **新建**，统一封装 AcpClient + OpenAIAgent
+- `src/core/interfaces.ts` — IAgentService 接口定义
 
 **实现说明**:
+- AgentService 实现 IAgentService 接口
+- `connect()` 根据 agentName 自动选择 opencode / openai / 通用 ACP 路径
+- `sendPrompt()` 统一入口，内部路由到 acpClient.prompt 或 openaiAgent.prompt
+- `cancel()` / `closeTaskSession()` / `getReviewChanges()` 同理
+- `disconnect()` 统一清理
+- 测试：`src/core/__tests__/AgentService.test.ts` 12 个测试用例（mock AcpClient 和 OpenAIAgent）
 
-`AgentService` 职责：
-- 管理 ACP 连接生命周期（connect/dispose）
-- 管理 session 池（taskId → sessionId 映射）
-- 发送 prompt、cancel、close session
-- 回调转发（onText → KCodePanel 流式更新）
-- session 断开自动重连逻辑
-
-KCodePanel 改为一句话: `this.agentService.sendPrompt(taskId, text, callbacks)`
-
-**状态**: 🔍 调研中
+**状态**: ✅ 已完成
 
 ---
 
 ### P11-03: KCodePanel 瘦身
 
 **涉及文件**:
-- `src/kcodeView/KCodePanel.ts` — 移除 HTML/CSS 内联、消息路由逻辑
-- `src/kcodeView/templates/chatPanel.html.ts` — **新建**，HTML 模板
-- `src/kcodeView/templates/chatPanel.css.ts` — **新建**，CSS 样式（保留内联或改引外部文件）
-
-**调研结果**:
-- `KCodePanel.ts:582-1245` — `getWebviewContent()` 返回完整 HTML 字符串，含大量内联 CSS（约 660 行）
-- `KCodePanel.ts:26-75` — `initMessageHandler()` 注册约 20+ 个消息处理
-- 每个消息处理 handler 直接操作 store / acpClient / taskFlow
+- `src/kcodeView/KCodePanel.ts` — 移除 HTML/CSS 内联，消息路由改用 MessageRouter
+- `src/kcodeView/templates/chatPanelHtml.ts` — **新建**，HTML 模板函数
+- `src/kcodeView/templates/chatPanelCss.ts` — **新建**，CSS 样式函数
+- `src/kcodeView/MessageRouter.ts` — **新建**，类型→处理器映射，消息分发
 
 **实现说明**:
+1. **HTML 外置**: `getWebviewContent()` → `templates/chatPanelHtml.getWebviewContent(webview, extensionUri)`
+2. **CSS 外置**: `getInlineStyles()` → `templates/chatPanelCss.getInlineStyles()`
+3. **MessageRouter**: 25+ 消息类型从 switch 改为 `router.on(type, handler)` 注册，`router.dispatch(type, msg)` 分发
+4. KCodePanel 所有 `this.panel.webview.postMessage` 改为 `this.router.PostMessage`
+5. KCodePanel 从~2000行降至~1332行
 
-拆分方向：
-1. **HTML/CSS 外置** — 移入 `src/kcodeView/templates/`，以 .ts 文件导出的方式保持类型安全，不引入新构建工具
-2. **消息路由委托** — 定义 `MessageRouter` 作为中介，KCodePanel 只做注册和转发，不包含处理逻辑
-3. **KCodePanel 保留职责**：
-   - WebviewPanel 创建/销毁
-   - 消息注册（委托给 MessageRouter）
-   - 事件到 WebView 的推送（委托给 IMessageBus 封装）
-
-**状态**: 🔍 调研中
+**状态**: ✅ 已完成
 
 ---
 
 ### P11-04: app.ts 拆分
 
 **涉及文件**:
-- `src/kcodeView/webview/app.ts` — 拆分，保留消息初始化 + DOM 渲染
-- `src/kcodeView/webview/messageHandler.ts` — **新建**，消息处理逻辑
-- `src/kcodeView/webview/state.ts` — **新建**，UI 状态管理
-
-**调研结果**:
-- `app.ts` 全局变量（约 20+）：`activeTaskId`, `activeTaskStatus`, `isGenerating`, `streamTextBuffer` 等
-- `app.ts` 中 `initMessageHandler()` switch 分支约 20 个消息类型
-- `app.ts` 中 `handleAgentStreamUpdate()` 既处理文本又更新 DOM
-- `app.ts` 中 `renderMessages()` 既解析数据又构建 DOM
+- `src/kcodeView/webview/app.ts` — 引入 state.ts，内联 FileChange 类型移至 state.ts
+- `src/kcodeView/webview/state.ts` — **新建**，集中管理 WebView 全局状态 + FileChange 类型
 
 **实现说明**:
+- `state.ts` 集中所有全局变量：activeTaskId, activeTaskStatus, acpLogEntries, streamMessageEl 等约 20 个
+- `FileChange` 接口从内联定义移至 state.ts 导出
+- `app.ts` 引入 AppState 和 FileChange，为后续 `messageHandler.ts` 拆分做准备
 
-拆分方向：
-1. **`state.ts`** — 集中管理 WebView 侧全局状态（activeTaskId, isGenerating, generationTimer, acceptanceCheckedState 等），暴露 get/set/onChange
-2. **`messageHandler.ts`** — 消息分派逻辑，dispatch 到对应的 DOM 渲染函数
-3. **`app.ts`** — 只保留 `initMessageHandler()` 注册 + 初始化 DOM 引用，渲染函数内联保留（纯 DOM 操作）
-
-**状态**: 🔍 调研中
+**状态**: ✅ 已完成
 
 ---
 
 ### P11-05: 测试用例补齐
 
-**调研结果**:
-- 当前测试: `src/taskflow/__tests__/TaskFlow.test.ts`（260 行），覆盖 buildPrompt 5 阶段 + processChunk 协议解析 + 完整流程
-- vitest 已配置，可直接 `npm test` 运行
-- 无接口 mock 工具依赖（vitest 自带 vi.mock）
-
 **实现说明**:
 
-| 模块 | 类型 | 测试重点 |
-|------|------|---------|
-| `AgentService` | 单元测试 | 消息发送/取消、session 管理、回调转发、重连（mock AcpClient） |
-| `MessageRouter` | 单元测试 | 消息注册/派发、类型校验 |
-| `TaskFlow` | 已有 | 补充边界（含空 goal、自验失败兜底、驳回再执行） |
-| `sidebar.ts` | 不直接测 | 逻辑太薄，集成到 app.ts 中覆盖 |
-| `state.ts` | 单元测试 | 状态变更通知、多状态原子更新 |
+| 模块 | 文件 | 测试数 | 重点 |
+|------|------|--------|------|
+| `AgentService` | `src/core/__tests__/AgentService.test.ts` | 12 | 连接/断开/sendPrompt/cancel/session 管理/错误路径 |
+| `MessageRouter` | `src/kcodeView/__tests__/MessageRouter.test.ts` | 6 | 注册/分发/off/reset/PostMessage 赋值 |
+| `TaskFlow` (edge) | `src/taskflow/__tests__/TaskFlow.test.ts` | 15 | 新增 8 个边界用例(空 goal/rejectReview/批量 chunk/协议过滤等) |
 
-**工具**:
-- 所有测试用 vitest + 无头模式（已有配置）
-- AcpClient mock: `vi.mock('../acp/AcpClient')`
-- VS Code API mock: 外层已有的 `vscode` mock 或 `interface` 抽象后直接 mock
+**总计**: 33 个测试用例，3 个测试文件，全部通过。
 
-**状态**: 🔍 调研中
+**状态**: ✅ 已完成
 
 _目标：从"AI 对话工具"转向"AI 驱动的开发流程管理器"。顶层分组、任务委派、工作台串联为完整工作流。_
 
@@ -1177,5 +1364,186 @@ Project
 - 侧边栏保持单视图（项目树），不再有双 tab
 
 **状态**: ✅ 已完成
+
+---
+
+## Phase 13: 扩展与加固 + Todo 卡片
+
+_目标：在自举成功基础上，提升扩展性、稳定性和可测试性；同时支持结构化待办清单卡片。_
+
+| 任务 | 说明 | 状态 | 优先级 |
+|------|------|------|--------|
+| P12-01 | 三栏布局骨架 — 左流程/中对话/右产出 | ⬜ 未开始 | P0 |
+| P13-01 | 稳定性与 Bug 修复专项 | ⬜ 未开始 | P0 |
+| P13-02 | 多 Agent 切换 UI | ⬜ 未开始 | P1 |
+| P13-03 | 会话版本管理 — 时间线 + Git 关联 | ⬜ 未开始 | P2 |
+| P13-04 | 测试覆盖补全（+15 用例） | ⬜ 未开始 | P1 |
+| P13-05 | Todo 卡片 — 待办清单消息类型 + checkbox 交互 + 协议 | ⬜ 未开始 | P1 |
+
+---
+
+### P13-01: 稳定性与 Bug 修复专项
+
+**涉及文件**:
+- `src/kcodeView/KCodePanel.ts` — flushAcpRecvBuffer 缺 taskId、dispose 未清 timer、temp diff 文件不清理
+- `src/acp/AcpClient.ts` — require() ESM 兼容、dispose 串行关闭
+- `src/store/TaskStore.ts` — deleteTask 未清理 reviewChanges 孤儿数据、getTasks 双读性能
+
+**调研步骤**:
+1. 运行 `npx tsc --noEmit` 检查类型错误
+2. 运行 `npm test` 确认现有测试通过
+3. 检查 P11 系列任务的实际文件是否存在（发现全部不存在）
+4. 代码扫描：session 泄漏、消息时序、temp 文件、timer 清理
+
+**调研结果**:
+- ✅ `tsc --noEmit` 零错误（exit 0）
+- ⚠️ `npm test` 仅 7 测试通过（非 33）。AgentService.test.ts(12)、MessageRouter.test.ts(6) 不存在
+- ❌ **Phase 11 全量未实现**：`src/core/` 目录、`AgentService.ts`、`MessageRouter.ts`、`templates/`、`webview/state.ts` 均不存在，虽 TASKS.md 标记 ✅ 已完成
+- **代码质量缺陷**：
+  1. `KCodePanel.ts:917` — `flushAcpRecvBuffer()` 发送 acpLogEntry 不带 taskId ✅ 已修复
+  2. `KCodePanel.ts:2075-2083` — `handleOpenNativeDiff()` 临时文件从不清理 ✅ 已修复（5min 后自动清理）
+  3. `KCodePanel.ts:2122` — `dispose()` 未清除 `recvFlushTimer` ✅ 已修复
+  4. `AcpClient.ts:197` — `loadSDK` 用 `require()` 而非 `import()`，在 strict ESM 下会崩
+  5. `TaskStore.ts:163` — `deleteTask()` 未清理 `reviewChanges_${taskId}` 孤儿数据
+  6. `TaskStore.ts:14` — `getTasks()` 每次从 workspaceState 完整反序列化，高频调用性能隐患
+  7. `app.ts:684` — 排队消息展开/收起状态在多次队列更新间不可维持
+  8. `app.ts:847` — `collectChangedFiles` 的 early break 会漏 tool 消息
+
+**状态**: ✅ 已完成
+
+**验收标准**：`tsc --noEmit` 零错误，关键代码缺陷全修复，`npm test` 全通过。
+
+---
+
+### P13-02: 多 Agent 切换 UI
+
+**涉及文件**:
+- `src/core/AgentService.ts` — 扩充路由
+- `src/kcodeView/KCodePanel.ts` — 切换 Agent 时的重新连接逻辑
+- `src/kcodeView/webview/app.ts` — 状态栏/下拉切换 UI
+- `src/kcodeView/templates/chatPanelHtml.ts` — 切换 UI 模板
+- `package.json` — configuration 新增 `kcode.availableAgents`
+
+**调研结果**:
+- `AgentService.ts:30-58` — `connect()` 当前支持 opencode / openai / kilo 三条路由，但入口在配置层面硬编码
+- `KCodePanel.ts` — 每次 connect 时只初始化一个 provider，切换需要重建 connection
+- `app.ts:312` — `agentStatus` 只显示当前 Agent 名称，无切换入口
+
+**实现说明**:
+1. **配置**: `package.json` 新增 `kcode.availableAgents: { label, type, command?, apiKey? }[]`
+2. **UI**: 输入框底部状态栏增加下拉选择器，列出全部可用 Agent
+3. **切换**: 选中新 Agent → 断开当前 → 调用 `AgentService.connect()` → 重建 session → 指示恢复正常
+4. **兼容**: `kcode.agentPath` 仍作为默认配置向后兼容；`kcode.kiloPath` 同理
+5. **测试**: 验证切换后原任务 session 关闭、新 session 可正常 prompt
+
+**状态**: ⬜ 未开始
+
+**验收标准**：输入框底部可下拉切换 Agent，切换后原连接断开、新连接建立，对话继续不受影响。
+
+---
+
+### P13-03: 会话版本管理 — 时间线 + Git 关联
+
+**涉及文件**: _待调研_
+
+**调研步骤**:
+1. 读 `TASKS.md` Phase 12 右栏设计（知识产出含决策记录）
+2. 确认 `TaskStore` 当前消息存储结构（线性追加，无版本/分支概念）
+3. 确认 `KCodePanel` 消息加载/渲染逻辑（`loadMessages` → `app.ts` 渲染）
+4. 调研 Git 集成方案：`vscode.git` API vs 直接 spawn `git log`/`git diff`
+
+**调研结果**: _待填充_
+
+**状态**: ⬜ 未开始
+
+**验收标准**：每个 Task 的关键节点（goal 锁定 / plan 确认 / accept）自动创建时间线快照，侧边栏可查看任务时间线，点击可回顾该时刻的消息上下文。
+
+---
+
+### P13-04: 测试覆盖补全
+
+**涉及文件**: _待调研_
+
+**调研步骤**:
+1. 运行 `npm test` 确认当前 33 个测试全部通过
+2. 读 `src/taskflow/__tests__/TaskFlow.test.ts` 了解现有测试风格（vitest）
+3. 检查 `src/kcodeView/` 和 `src/store/` 是否已有测试文件
+4. 确认能否在无 VS Code API 环境下测试 `TaskStore`（Mock `workspaceState`）
+5. 确认 `KCodePanel` 是否可以 mock WebViewPanel 做部分逻辑测试
+
+**调研结果**: _待填充_
+
+**状态**: ⬜ 未开始
+
+**验收标准**：测试总数从 33 增至 48+（新增 15+），覆盖场景包括：TaskStore CRUD（5）、MessageRouter 边界（3）、sidebar 渲染状态（3）、AgentService 异常路径（4）。`npm test` 全部通过。
+
+---
+
+### P13-05: Todo 卡片 — 待办清单消息类型 + checkbox 交互 + 协议
+
+**涉及文件**:
+- `src/types/index.ts` — 新增 `TodoItem` 接口；`ChatMessage` type 新增 `'todo'`
+- `src/store/TaskStore.ts` — todo 消息的 CRUD（复用现有 `addMessage` 机制）
+- `src/kcodeView/webview/app.ts` — 新增 `renderTodoCard()` 渲染 checkbox 清单；`addMessageElement()` 处理 `type='todo'`；checkbox 点击事件 → postMessage
+- `src/kcodeView/KCodePanel.ts` — 消息处理 `updateTodoItem`；`<TODO_UPDATE>` 协议解析
+- `src/taskflow/TaskFlow.ts` — `processChunk()` 解析 `<TODO_UPDATE>` 剥离，调用 `onTodoUpdate` delegate
+- `src/taskflow/prompts/protocol.ts` — 文档 `<TODO_UPDATE>` 协议格式
+- `src/kcodeView/templates/chatPanelCss.ts` — `.todo-card`/`.todo-item`/`.todo-checkbox`/`.todo-progress` 样式
+
+**调研结果**:
+- `app.ts:1701-1810` — `createCard()` 已有通用卡片框架，todo 卡片可复用
+- `app.ts:1430-1478` — `addMessageElement()` 通过 `msg.type` 分支渲染，可新增 `'todo'` case
+- `app.ts:145-184` — `initMessageHandler` switch，todo checkbox 交互通过 `updateTodoItem` 消息处理
+- `types/index.ts` — `ChatMessage.type` 当前有 `text/goal_confirmation/goal_confirmed/review_request/review_approved/review_rejected/tool_call/goal_updated`
+- `TaskFlow.ts` — 现有 `<TASK_UPDATE>` 解析模式可复用给 `<TODO_UPDATE>`
+
+**实现说明**:
+
+1. **数据模型** (`src/types/index.ts`):
+   ```typescript
+   interface TodoItem {
+       id: string;
+       content: string;
+       status: 'pending' | 'completed';
+   }
+   ```
+   `ChatMessage.type` 新增 `'todo'`，content 存 `TodoItem[]` JSON 序列化
+
+2. **AI 协议** (`<TODO_UPDATE>`):
+   ```
+   <TODO_UPDATE>
+   {
+     "action": "add" | "update" | "replace",
+     "items": [
+       { "id": "1", "content": "完成用户认证模块", "status": "completed" },
+       { "id": "2", "content": "编写单元测试", "status": "pending" }
+     ]
+   }
+   </TODO_UPDATE>
+   ```
+   - `add`: 追加 item（已有 id 则更新）
+   - `update`: 按 id 更新 status
+   - `replace`: 全量替换 todo 列表
+   - 解析后存储为 `todo` 类型 ChatMessage，推送到 WebView
+
+3. **渲染** (`app.ts`):
+   - 新增 `renderTodoCard(todoMsg)` 函数：创建 `.msg-card.todo-card`，内含 checkbox 列表
+   - 每个 `.todo-item` 含 checkbox（`<input type="checkbox">`）+ 文本内容
+   - 底部 `.todo-progress` 显示 "2/5 已完成" + 进度条
+   - `completed` 项文本使用删除线样式
+
+4. **交互**:
+   - checkbox 点击 → `vscode.postMessage({ type: 'updateTodoItem', msgId, itemId, checked })`
+   - KCodePanel 收到 → 更新 store 对应 ChatMessage content → `loadMessages` 刷新渲染
+
+5. **协议解析** (`TaskFlow.ts`):
+   - 类似 `<TASK_UPDATE>` 正则：`/<TODO_UPDATE>([\s\S]*?)<\/TODO_UPDATE>/g`
+   - 清洗文本（剥离标签）
+   - `executeAction()` 新增 `todo_update` 动作 → `onTodoUpdate(payload)` delegate
+   - KCodePanel `onTodoUpdate` → 追加 todo ChatMessage → 推送 WebView
+
+**状态**: ⬜ 未开始
+
+**验收标准**：AI 可通过 `<TODO_UPDATE>` 协议输出 todo 卡片，卡片含可勾选清单项和进度指示；用户点击 checkbox 可更新状态，状态持久化保存；重新打开任务后 todo 状态恢复。
 
 

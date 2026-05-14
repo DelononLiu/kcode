@@ -2,7 +2,7 @@
   "name": "kcode",
   "displayName": "Kcode",
   "description": "Kcode - AI Agent Powered Development Environment (VS Code Extension)",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "kcode",
   "license": "MIT",
   "engines": {
@@ -72,10 +72,10 @@
           "default": "deepseek-v4-flash",
           "description": "OpenAI model name for the built-in OpenAI agent. Falls back to OPENAI_MODEL environment variable."
         },
-        "kcode.opencodePath": {
+        "kcode.agentPath": {
           "type": "string",
-          "default": "opencode",
-          "description": "Path to the opencode executable. Used when kcode.agentName is \"opencode\"."
+          "default": "",
+          "description": "Path to the agent executable. Used when kcode.agentName is \"opencode\" or \"kilo\". Falls back to built-in defaults."
         },
         "kcode.openaiBaseUrl": {
           "type": "string",
@@ -113,7 +113,7 @@
     "test:watch": "vitest",
     "lint": "eslint src --ext .ts",
     "package": "npx @vscode/vsce package --allow-missing-repository",
-    "build:install": "npm run package && code --install-extension kcode-0.1.0.vsix"
+    "build:install": "npm run package && code --install-extension kcode-0.2.0.vsix"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.21.0",
