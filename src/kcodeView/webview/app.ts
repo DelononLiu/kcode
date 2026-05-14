@@ -339,7 +339,7 @@ let streamMessageEl: HTMLElement | null = null;
 function appendToChatMessages(el: Element) {
     const container = document.getElementById('chat-messages')!;
     const indicator = document.getElementById('working-indicator');
-    if (indicator && !indicator.classList.contains('hidden') && indicator.parentElement === container) {
+    if (indicator && indicator.parentElement === container) {
         container.insertBefore(el, indicator);
     } else {
         container.appendChild(el);
@@ -1576,6 +1576,7 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
         renderToolBubbleContent(bubble, toolInfo);
 
         appendToChatMessages(msgDiv);
+        applyAggressiveStack(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
     }
@@ -1771,6 +1772,7 @@ function createCard(config: {
     bodyClassName?: string;
     rawData?: any;
     copyable?: boolean;
+    onExpand?: (expanded: boolean) => void;
 }): HTMLElement {
     const card = document.createElement('div');
     card.className = 'msg-card';
@@ -1851,6 +1853,7 @@ function createCard(config: {
         const collapsed = body.classList.toggle('collapsed');
         toggle.classList.toggle('collapsed');
         header.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        if (config.onExpand) config.onExpand(!collapsed);
     });
 
     if (config.actions && config.actions.length > 0) {
@@ -2422,8 +2425,18 @@ function handleToolCallUpdate(msg: any) {
         toolEl = createToolMessageElement(msg);
         appendToChatMessages(toolEl);
         activeToolCallElements.set(msg.toolCallId, toolEl);
+        applyAggressiveStack(toolEl);
     } else {
         updateToolMessageElement(toolEl, msg);
+        const wrapper = toolEl.closest('.tool-stack-wrapper') as HTMLElement;
+        if (wrapper) {
+            setCardCollapsed(toolEl, true);
+            const previewBody = wrapper.querySelector('.stack-preview-body') as HTMLElement;
+            if (previewBody && previewBody.dataset.activeTool === toolEl.dataset.msgId) {
+                const body = toolEl.querySelector('.msg-card-body') as HTMLElement;
+                if (body) previewBody.innerHTML = body.innerHTML;
+            }
+        }
     }
 
     updateWorkingIndicator(msg);
@@ -2431,9 +2444,12 @@ function handleToolCallUpdate(msg: any) {
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
+let _nextToolId = 0;
 function createToolMessageElement(msg: any): HTMLElement {
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg tool';
+    const id = msg.toolCallId || 'tool-auto-' + (++_nextToolId);
+    msgDiv.dataset.msgId = id;
 
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble tool-bubble';
@@ -2488,7 +2504,21 @@ function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
     const headerHtml = kindIcon + formatToolTitle(kind, title);
 
     const makeCard = (config: any) => {
-        const card = createCard(config);
+        const card = createCard({
+            ...config,
+            onExpand: (expanded: boolean) => {
+                if (expanded) {
+                    const toolEl = card.closest('.chat-msg.tool') as HTMLElement;
+                    if (toolEl) {
+                        const wrapper = toolEl.closest('.tool-stack-wrapper');
+                        if (wrapper) {
+                            const p = wrapper.querySelector('.stack-preview') as HTMLElement;
+                            if (p) showPreview(toolEl, p);
+                        }
+                    }
+                }
+            }
+        });
         card.setAttribute('data-tool-kind', kind);
         return card;
     };
@@ -2568,6 +2598,112 @@ function getToolKindIcon(kind: string): string {
             return '';
     }
     }
+
+function setCardCollapsed(toolEl: HTMLElement, collapsed: boolean) {
+    const body = toolEl.querySelector('.msg-card-body') as HTMLElement;
+    const toggle = toolEl.querySelector('.msg-card-toggle') as HTMLElement;
+    const header = toolEl.querySelector('.msg-card-header') as HTMLElement;
+    if (body) {
+        if (collapsed) body.classList.add('collapsed');
+        else body.classList.remove('collapsed');
+    }
+    if (toggle) {
+        if (collapsed) toggle.classList.add('collapsed');
+        else toggle.classList.remove('collapsed');
+    }
+    if (header) header.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+}
+
+function showPreview(toolEl: HTMLElement, preview: HTMLElement) {
+    const body = toolEl.querySelector('.msg-card-body') as HTMLElement;
+    const previewBody = preview.querySelector('.stack-preview-body') as HTMLElement;
+    if (!body || !previewBody) return;
+    previewBody.innerHTML = body.innerHTML;
+    previewBody.dataset.activeTool = toolEl.dataset.msgId || '';
+    preview.querySelectorAll('.stack-preview-tab.active').forEach(el => el.classList.remove('active'));
+    const tab = preview.querySelector(`.stack-preview-tab[data-tab-id="${toolEl.dataset.msgId || ''}"]`);
+    if (tab) tab.classList.add('active');
+}
+
+function applyAggressiveStack(toolEl: HTMLElement) {
+    const parent = toolEl.parentElement;
+    if (!parent) return;
+
+    // Case A: previous sibling is already a tool-stack-wrapper → add to it
+    const prevEl = toolEl.previousElementSibling as HTMLElement;
+    if (prevEl && prevEl.classList.contains('tool-stack-wrapper')) {
+        const preview = prevEl.querySelector('.stack-preview');
+        if (preview) prevEl.insertBefore(toolEl, preview);
+        else prevEl.appendChild(toolEl);
+        prevEl.querySelectorAll('.chat-msg.tool').forEach(el => setCardCollapsed(el as HTMLElement, true));
+        const lastTool = prevEl.querySelector('.chat-msg.tool:last-child') as HTMLElement;
+        const p = prevEl.querySelector('.stack-preview') as HTMLElement;
+        if (lastTool && p) showPreview(lastTool, p);
+        return;
+    }
+
+    // Case B: consecutive .chat-msg.tool siblings
+    let first = toolEl;
+    while (first.previousElementSibling?.classList.contains('chat-msg') && first.previousElementSibling.classList.contains('tool')) {
+        first = first.previousElementSibling as HTMLElement;
+    }
+    let last = toolEl;
+    while (last.nextElementSibling?.classList.contains('chat-msg') && last.nextElementSibling.classList.contains('tool')) {
+        last = last.nextElementSibling as HTMLElement;
+    }
+
+    if (first === last) {
+        const existingWrapper = toolEl.closest('.tool-stack-wrapper');
+        if (existingWrapper) {
+            const container = existingWrapper.parentElement;
+            if (container) {
+                const sp = existingWrapper.querySelector('.stack-preview');
+                if (sp) sp.remove();
+                container.insertBefore(toolEl, existingWrapper);
+                existingWrapper.remove();
+            }
+        }
+        return;
+    }
+
+    let wrapper = first.previousElementSibling as HTMLElement;
+    if (!wrapper || !wrapper.classList.contains('tool-stack-wrapper')) {
+        wrapper = document.createElement('div');
+        wrapper.className = 'tool-stack-wrapper';
+        parent.insertBefore(wrapper, first);
+        let cur: HTMLElement | null = first;
+        while (cur) {
+            const next = cur.nextElementSibling as HTMLElement | null;
+            wrapper.appendChild(cur);
+            if (cur === last) break;
+            cur = next;
+        }
+    }
+
+    wrapper.querySelectorAll('.chat-msg.tool').forEach(el => setCardCollapsed(el as HTMLElement, true));
+
+    let preview = wrapper.querySelector('.stack-preview') as HTMLElement;
+    if (!preview) {
+        preview = document.createElement('div');
+        preview.className = 'stack-preview';
+        preview.innerHTML = '<div class="stack-preview-body"></div>';
+        wrapper.appendChild(preview);
+        wrapper.addEventListener('mouseover', (e) => {
+            const tab = (e.target as HTMLElement).closest('.chat-msg.tool') as HTMLElement;
+            if (!tab) return;
+            const p = wrapper.querySelector('.stack-preview') as HTMLElement;
+            if (p) showPreview(tab, p);
+        });
+        wrapper.addEventListener('mouseleave', () => {
+            const last = wrapper.querySelector('.chat-msg.tool:last-child') as HTMLElement;
+            const p = wrapper.querySelector('.stack-preview') as HTMLElement;
+            if (last && p) showPreview(last, p);
+        });
+    }
+
+    const lastTool = wrapper.querySelector('.chat-msg.tool:last-child') as HTMLElement;
+    if (lastTool) showPreview(lastTool, preview);
+}
 
 function escapeHtml(text: string): string {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

@@ -326,9 +326,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-card-toggle.collapsed{transform:rotate(-90deg)}
 /* Header bottom border when expanded */
 .msg-card-header[aria-expanded="true"]{border-bottom:1px solid rgba(255,255,255,.05)}
-.msg-card-body{padding:8px 12px;font-size:13.5px;line-height:1.6;color:#fff;overflow-y:auto;max-height:300px}
+.msg-card-body{padding:8px 12px;font-size:13.5px;line-height:1.6;color:#fff;overflow-y:auto;max-height:300px;transition:max-height .25s ease,padding .25s ease,opacity .2s ease}
 .msg-card-body.tool-card-body{max-height:300px}
-.msg-card-body.collapsed{display:none}
+.msg-card-body.collapsed{max-height:0;padding:0 12px;opacity:0;overflow:hidden}
 .msg-card-actions{display:flex;gap:8px;padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05)}
 .msg-card-btn{flex:1;max-width:150px;padding:5px 10px;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .2s}
 .msg-card-btn.primary{background:#4a8bb5;color:#fff}
@@ -395,6 +395,29 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-timestamp{font-size:10px;color:#555;font-weight:400}
 .chat-msg.tool{padding:6px 0}
 .chat-msg.tool .msg-bubble{font-size:13px;line-height:1.5;color:#b5c9a8}
+/* === Tool Stack (tab-like) === */
+.tool-stack-wrapper{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;margin-bottom:6px;border:var(--card-border);border-radius:var(--card-radius);background:rgba(0,0,0,.06)}
+.tool-stack-wrapper .chat-msg.tool{padding:0;margin:0;flex:0 1 auto;min-width:0}
+.tool-stack-wrapper .msg-bubble{padding:0;background:transparent}
+.tool-stack-wrapper .msg-card{border:1px solid rgba(255,255,255,.08);border-radius:3px;margin:0}
+
+.tool-stack-wrapper .msg-card-header{min-height:28px;padding:3px 10px;font-size:11px;border-left:3px solid transparent!important;white-space:nowrap;background:rgba(255,255,255,.015)}
+.tool-stack-wrapper .msg-card-header:hover{background:rgba(255,255,255,.04)}
+.tool-stack-wrapper .msg-card-header[aria-expanded=false]{border-bottom:none!important}
+.tool-stack-wrapper .msg-card-body{display:none!important}
+.tool-stack-wrapper .msg-card-toggle{display:none}
+.tool-stack-wrapper .card-copy-btn,.tool-stack-wrapper .card-copy-raw-btn{display:none}
+.tool-stack-wrapper .stack-preview{flex:0 0 100%;border-top:1px solid rgba(255,255,255,.06);padding:8px 12px;max-height:400px;overflow-y:auto;background:var(--vscode-sideBar-background,#1e1e1e);font-size:13px;line-height:1.6;color:#d2d2d4}
+.stack-preview-body pre{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px;color:#9aa;background:transparent;padding:0}
+.stack-preview-body .tool-bash-output{color:var(--tool-color-bash)}
+.stack-preview-body .tool-body-diff{color:#d2d2d4}
+.stack-preview-body.tool-thinking{color:#777;font-style:italic}
+.tool-stack-wrapper [data-tool-kind="bash"] .msg-card-header,.tool-stack-wrapper [data-tool-kind="command"] .msg-card-header,.tool-stack-wrapper [data-tool-kind="terminal"] .msg-card-header{border-left-color:var(--tool-color-bash)!important}
+.tool-stack-wrapper [data-tool-kind="read"] .msg-card-header{border-left-color:var(--tool-color-read)!important}
+.tool-stack-wrapper [data-tool-kind="write"] .msg-card-header,.tool-stack-wrapper [data-tool-kind="edit"] .msg-card-header{border-left-color:var(--tool-color-write)!important}
+.tool-stack-wrapper [data-tool-kind="glob"] .msg-card-header{border-left-color:var(--tool-color-glob)!important}
+.tool-stack-wrapper [data-tool-kind="grep"] .msg-card-header,.tool-stack-wrapper [data-tool-kind="search"] .msg-card-header{border-left-color:var(--tool-color-grep)!important}
+.tool-stack-wrapper [data-tool-kind="thinking"] .msg-card-header{border-left-color:var(--tool-color-thinking)!important;font-style:italic;color:#777}
 .agent-diff-summary{margin-top:10px;padding:6px 10px;background:rgba(78,201,176,.04);border-left:2px solid #4ec9b0;border-radius:3px;font-size:12px;line-height:1.6;color:#9aa}
 .review-inline-actions{display:flex;gap:8px;padding:8px 0 2px}
 .review-inline-status{font-size:12px;color:#777;padding:6px 0 2px}
