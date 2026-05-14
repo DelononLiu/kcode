@@ -203,6 +203,51 @@ buildPhasePrompt(task, phase):
 
 **状态**: ⬜ 未开始
 
+---
+
+## Phase 12: 三栏布局重构 — 流程·对话·产出
+
+_目标：将 KCode 面板重新划分为三栏，职责完全解耦，每次只聚焦一个维度。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P12-01 | 三栏布局骨架 — 左流程 / 中对话 / 右产出 | ⬜ 未开始 |
+
+### 设计定调
+
+| 区域 | 核心问题 | 内容 | 定位 |
+|------|----------|------|------|
+| **左栏** | 我走到哪 | 进度线 / 阶段节点 / 任务状态 / 时间线 | ⚙️ 流程控制、导航 |
+| **中栏** | 我在聊什么 | 对话消息 / 输入区 / Goal 编辑 / 确认按钮 | 💬 过程交互 |
+| **右栏** | 我产出了什么 | 文件变更清单 / 工具执行记录 / Todo 待办 / 关联知识 | 📦 产出物沉淀 |
+
+**极简记忆**：左边「走到哪」— 中间「聊什么」— 右边「产出了什么」
+
+### 右栏四类产出物
+
+| 产出类型 | 来源 | 内容 |
+|----------|------|------|
+| 📄 **代码产出** | `FileChange[]` | AI 修改/新增/删除的文件列表，点击打开 diff |
+| 🔧 **行为产出** | ACP tool_call 记录 | AI 调用过的工具: bash(已执行命令+输出)、read/glob 等 |
+| ✅ **计划产出** | `Task.planSteps` + Todo | AI 制定的步骤及其完成状态，人工可勾选确认 |
+| 📚 **知识产出** | 对话关键决策 + 关联案例 | AI 提炼的本次任务可复用的经验、决策记录，跨任务可追溯 |
+
+**对比当前**：
+- 当前右侧面板（Preview / Diff / WebView / Device）职责分散，除 Diff 外与 AI 对话流程关联弱
+- Phase 12 将右侧完全聚焦为「本次任务的产出/行为/知识聚合面板」，Preview/Diff 等降级为产出物内的交互（点击文件打开 diff）
+- Device tab 移至左下角或工具栏菜单
+
+### 涉及文件
+
+| 文件 | 改动 |
+|------|------|
+| `src/kcodeView/templates/chatPanelHtml.ts` | HTML 结构改为三栏 flex 布局 |
+| `src/kcodeView/templates/chatPanelCss.ts` | CSS 响应式三栏，左栏固定宽度 240px，右栏可拖拽调宽 |
+| `src/kcodeView/webview/app.ts` | 新增左栏/右栏渲染入口，消息调度适配 |
+| `src/kcodeView/webview/processPanel.ts` | **新建** — 左栏渲染：进度线 + 任务状态 + 时间线 |
+| `src/kcodeView/webview/outputPanel.ts` | **新建** — 右栏渲染：四类产出物标签页聚合 |
+| `src/kcodeView/KCodePanel.ts` | 新消息类型注册，输出数据推送（工具记录、决策点等） |
+| `src/taskflow/TaskFlow.ts` | 决策点提取事件（`onDecisionLogged` delegate） |
 
 ---
 
