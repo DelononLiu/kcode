@@ -256,6 +256,15 @@ export class TaskSessionHandler {
                     }
                 }
 
+                // 工具调用输出中也可能包含 [TASK_UPDATE] 协议标记
+                if (!isGoalFormatting) {
+                    for (const [, tc] of ctx.activeToolCalls) {
+                        if (tc.output && /\[TASK_UPDATE\]/i.test(tc.output)) {
+                            ctx.taskFlow.processChunk(tid, tc.output);
+                        }
+                    }
+                }
+
                 if (isGoalFormatting) {
                     ctx.taskFlow.processGoalProposal(tid, ctx.taskFlow.getCleanText(tid), originalText, originalText);
                 } else {
