@@ -9,12 +9,14 @@ export class AgentService implements IAgentService {
     private openaiAgent: OpenAIAgent | null = null;
     private _isConnected: boolean = false;
     private _lastError: string = '';
+    private _agentName: string = '';
     private agentType: 'acp' | 'openai' | null = null;
     private workspaceRoot: string;
     private logCallback: ((direction: 'send' | 'recv', text: string) => void) | null = null;
 
     get isConnected(): boolean { return this._isConnected; }
     get lastError(): string { return this._lastError; }
+    get agentName(): string { return this._agentName; }
 
     constructor(workspaceRoot: string) {
         this.workspaceRoot = workspaceRoot;
@@ -32,6 +34,11 @@ export class AgentService implements IAgentService {
 
         try {
             const config = vscode.workspace.getConfiguration('kcode');
+
+            // Kilo agent via stdio ACP (kilo acp)
+            if (agentName === 'kilo') {
+                return await this.connectKilo(config);
+            }
 
             // OpenCode agent via stdio ACP
             if (agentName === 'opencode') {
@@ -58,13 +65,13 @@ export class AgentService implements IAgentService {
     }
 
     private async connectOpenCode(config: vscode.WorkspaceConfiguration): Promise<boolean> {
-        const opencodePath = config.get<string>('opencodePath') || 'opencode';
+        const agentPath = config.get<string>('agentPath') || 'opencode';
         const acpClient = new AcpClient(this.workspaceRoot);
         if (this.logCallback) {
             acpClient.setLogCallback(this.logCallback);
         }
 
-        const connectPromise = acpClient.connect(opencodePath, [
+        const connectPromise = acpClient.connect(agentPath, [
             'acp', '--port', '0', '--cwd', this.workspaceRoot
         ]);
         const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10000));
@@ -73,11 +80,12 @@ export class AgentService implements IAgentService {
         if (connected) {
             this.acpClient = acpClient;
             this._isConnected = true;
+            this._agentName = 'opencode';
             this.agentType = 'acp';
             return true;
         }
 
-        this._lastError = acpClient.lastError || `无法启动 opencode: ${opencodePath}`;
+        this._lastError = acpClient.lastError || `无法启动 opencode: ${agentPath}`;
         return false;
     }
 
@@ -88,8 +96,34 @@ export class AgentService implements IAgentService {
             baseURL: config.get<string>('openaiBaseUrl'),
         });
         this._isConnected = true;
+        this._agentName = 'openai';
         this.agentType = 'openai';
         return true;
+    }
+
+    private async connectKilo(config: vscode.WorkspaceConfiguration): Promise<boolean> {
+        const kiloPath = config.get<string>('agentPath') || 'kilo';
+        const acpClient = new AcpClient(this.workspaceRoot);
+        if (this.logCallback) {
+            acpClient.setLogCallback(this.logCallback);
+        }
+
+        const connectPromise = acpClient.connect(kiloPath, [
+            'acp', '--port', '0', '--cwd', this.workspaceRoot
+        ]);
+        const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10000));
+        const connected = await Promise.race([connectPromise, timeoutPromise]);
+
+        if (connected) {
+            this.acpClient = acpClient;
+            this._isConnected = true;
+            this._agentName = 'kilo';
+            this.agentType = 'acp';
+            return true;
+        }
+
+        this._lastError = acpClient.lastError || `无法启动 kilo: ${kiloPath}`;
+        return false;
     }
 
     private async connectGenericACP(agentName: string, agentArgs: string[]): Promise<boolean> {
@@ -105,6 +139,7 @@ export class AgentService implements IAgentService {
         if (connected) {
             this.acpClient = acpClient;
             this._isConnected = true;
+            this._agentName = agentName;
             this.agentType = 'acp';
             return true;
         }
@@ -120,6 +155,7 @@ export class AgentService implements IAgentService {
         }
         this.openaiAgent = null;
         this._isConnected = false;
+        this._agentName = '';
         this.agentType = null;
     }
 

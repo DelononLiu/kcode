@@ -22,6 +22,7 @@ export interface IAgentService {
     setLogCallback(cb: (direction: 'send' | 'recv', text: string) => void): void;
     get isConnected(): boolean;
     get lastError(): string;
+    get agentName(): string;
 }
 
 /**

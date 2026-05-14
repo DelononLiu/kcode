@@ -1,39 +1,41 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AgentService } from '../AgentService';
 
-vi.mock('vscode', () => ({
-    workspace: {
-        getConfiguration: vi.fn(() => ({
-            get: vi.fn(() => ''),
-        })),
-        workspaceFolders: [{ uri: { fsPath: '/test' } }],
-    },
-}));
+vi.mock('vscode', () => {
+    const configGet = vi.fn().mockReturnValue('');
+    const getConfig = vi.fn().mockReturnValue({ get: configGet });
+    return {
+        workspace: {
+            getConfiguration: getConfig,
+            workspaceFolders: [{ uri: { fsPath: '/test' } }],
+        },
+    };
+});
 
 vi.mock('../../acp/AcpClient', () => ({
-    AcpClient: vi.fn().mockImplementation(() => ({
-        connect: vi.fn().mockResolvedValue(true),
-        setLogCallback: vi.fn(),
-        hasSession: vi.fn().mockReturnValue(false),
-        createSession: vi.fn().mockResolvedValue('session-1'),
-        getSessionId: vi.fn().mockReturnValue('session-1'),
-        prompt: vi.fn().mockResolvedValue(undefined),
-        cancel: vi.fn().mockResolvedValue(undefined),
-        closeTaskSession: vi.fn().mockResolvedValue(undefined),
-        getReviewChanges: vi.fn().mockReturnValue([]),
-        dispose: vi.fn().mockResolvedValue(undefined),
-        lastError: '',
-    })),
+    AcpClient: vi.fn(function(this: any) {
+        this.connect = vi.fn().mockResolvedValue(true);
+        this.setLogCallback = vi.fn();
+        this.hasSession = vi.fn().mockReturnValue(false);
+        this.createSession = vi.fn().mockResolvedValue('session-1');
+        this.getSessionId = vi.fn().mockReturnValue('session-1');
+        this.prompt = vi.fn().mockResolvedValue(undefined);
+        this.cancel = vi.fn().mockResolvedValue(undefined);
+        this.closeTaskSession = vi.fn().mockResolvedValue(undefined);
+        this.getReviewChanges = vi.fn().mockReturnValue([]);
+        this.dispose = vi.fn().mockResolvedValue(undefined);
+        this.lastError = '';
+    }),
 }));
 
 vi.mock('../../acp/OpenAIAgent', () => ({
-    OpenAIAgent: vi.fn().mockImplementation(() => ({
-        createSession: vi.fn().mockReturnValue('openai-session-1'),
-        setHandler: vi.fn(),
-        prompt: vi.fn().mockResolvedValue(undefined),
-        cancel: vi.fn(),
-        getReviewChanges: vi.fn().mockReturnValue([]),
-    })),
+    OpenAIAgent: vi.fn(function(this: any) {
+        this.createSession = vi.fn().mockReturnValue('openai-session-1');
+        this.setHandler = vi.fn();
+        this.prompt = vi.fn().mockResolvedValue(undefined);
+        this.cancel = vi.fn();
+        this.getReviewChanges = vi.fn().mockReturnValue([]);
+    }),
 }));
 
 describe('AgentService', () => {
@@ -46,6 +48,7 @@ describe('AgentService', () => {
     it('starts disconnected', () => {
         expect(service.isConnected).toBe(false);
         expect(service.lastError).toBe('');
+        expect(service.agentName).toBe('');
     });
 
     it('connect returns false with empty agentName', async () => {
@@ -101,5 +104,22 @@ describe('AgentService', () => {
 
     it('createSession throws when not connected', async () => {
         await expect(service.createSession('task-1', '/cwd')).rejects.toThrow('未连接到 Agent');
+    });
+
+    it('connect with kilo agentName via ACP', async () => {
+        const result = await service.connect('kilo');
+        expect(service.lastError).toBe('');
+        expect(result).toBe(true);
+        expect(service.isConnected).toBe(true);
+        expect(service.agentName).toBe('kilo');
+    });
+
+    it('agentName resets after disconnect', async () => {
+        const result = await service.connect('kilo');
+        expect(result).toBe(true);
+        expect(service.agentName).toBe('kilo');
+        await service.disconnect();
+        expect(service.isConnected).toBe(false);
+        expect(service.agentName).toBe('');
     });
 });

@@ -132,7 +132,7 @@ function initMessageHandler() {
                 handleAgentStreamUpdate(message.text);
                 break;
             case 'agentStatus':
-                handleAgentStatus(message.status, message.message);
+                handleAgentStatus(message.status, message.message, message.agentName || '');
                 break;
             case 'focusInput':
                 const inputEl = document.getElementById('chat-input') as HTMLTextAreaElement;
@@ -308,11 +308,19 @@ function handleAgentStreamUpdate(text: string) {
 let latestStreamText = '';
 let streamRenderPending = false;
 
-function handleAgentStatus(status: string, message: string) {
+function handleAgentStatus(status: string, message: string, agentName: string) {
     const statusDot = document.getElementById('agent-status-dot');
     if (statusDot) {
         statusDot.className = 'status-dot ' + (status === 'connected' ? 'online' : 'offline');
         statusDot.title = message;
+    }
+    const statusModel = document.getElementById('status-model');
+    if (statusModel && status === 'connected') {
+        const labels: Record<string, string> = { kilo: 'Kilo', opencode: 'OpenCode', openai: 'OpenAI' };
+        statusModel.textContent = labels[agentName] || agentName || 'Agent';
+    }
+    if (statusModel && status === 'disconnected') {
+        statusModel.textContent = 'Agent';
     }
 }
 

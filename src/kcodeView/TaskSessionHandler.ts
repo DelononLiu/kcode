@@ -18,17 +18,20 @@ export class TaskSessionHandler {
 
             const connected = await ctx.agentService.connect(agentName, agentArgs);
             if (connected) {
-                const msg = agentName === 'opencode'
-                    ? `OpenCode (${config.get<string>('opencodePath') || 'opencode'})`
-                    : agentName === 'openai'
-                        ? `OpenAI Agent (${config.get<string>('openaiModel') || ''})`
-                        : 'Agent 已连接';
-                ctx.router.PostMessage({ type: 'agentStatus', status: 'connected', message: msg });
+                const displayName = ctx.agentService.agentName;
+                const msg = displayName === 'kilo'
+                    ? `Kilo (${config.get<string>('agentPath') || 'kilo'})`
+                    : displayName === 'opencode'
+                        ? `OpenCode (${config.get<string>('agentPath') || 'opencode'})`
+                        : displayName === 'openai'
+                            ? `OpenAI Agent (${config.get<string>('openaiModel') || ''})`
+                            : 'Agent 已连接';
+                ctx.router.PostMessage({ type: 'agentStatus', status: 'connected', message: msg, agentName: displayName });
             } else {
-                ctx.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: ctx.agentService.lastError || 'Agent 未连接' });
+                ctx.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: ctx.agentService.lastError || 'Agent 未连接', agentName: '' });
             }
         } catch (err: any) {
-            ctx.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: 'Agent 连接失败' });
+            ctx.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: 'Agent 连接失败', agentName: '' });
         }
     }
 

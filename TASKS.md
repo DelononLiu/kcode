@@ -136,7 +136,7 @@ _目标：升级 AI 对话消息渲染质量，实现与 Kilo 接近的消息展
 - `KCodePanel` 发送 `agentStatus` 时携带 `agentName`
 - WebView 收到后更新 `#status-model` 文本为 `'kilo' | 'opencode' | 'openai'`
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 
