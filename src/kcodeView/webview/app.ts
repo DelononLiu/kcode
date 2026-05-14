@@ -82,6 +82,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Auto-show dashboard on first open (no active task)
+    const dataEl = document.getElementById('__panelData');
+    if (dataEl) {
+        const allTasks = JSON.parse(dataEl.dataset.allTasks || '[]');
+        if (allTasks.length >= 0) {
+            renderDashboardPanel(allTasks);
+        }
+    }
+
     (window as any).__openNativeDiff = (original: string, modified: string, filePath: string) => {
         vscode.postMessage({ type: 'openNativeDiff', original, modified, filePath });
     };
@@ -871,9 +880,16 @@ function renderDashboardPanel(allTasks: any[]) {
     const dashboardPanel = document.getElementById('dashboard-panel');
     if (!scrollContainer || !dashboardPanel) return;
 
+    AppState.activeTaskId = null;
+    AppState.activeTaskStatus = '';
+    AppState.activeTaskType = '';
+
     scrollContainer.classList.add('chat-empty');
     document.getElementById('chat-header')?.style.setProperty('display', 'none');
     document.getElementById('chat-body')?.classList.remove('showing-categories');
+
+    const gutter = document.getElementById('node-timeline-gutter');
+    if (gutter) gutter.classList.add('hidden');
 
     dashboardPanel.classList.remove('hidden');
 

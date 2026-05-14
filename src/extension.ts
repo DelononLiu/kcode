@@ -27,7 +27,7 @@ function openTaskInPanel(context: vscode.ExtensionContext, taskId: string, autoS
 
 function refreshSidebar() {
     if (sidebarProvider) {
-        sidebarProvider.refresh(panel?.getCurrentTaskId() ?? undefined);
+        sidebarProvider.refresh(panel?.getCurrentTaskId());
     }
 }
 
@@ -51,15 +51,10 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    // Auto-create the main panel when KCode is activated
+    // Auto-create the main panel when KCode is activated (shows dashboard by default)
     panel = new KCodePanel(context, store!);
     panel.onDidDispose(() => { panel = undefined; });
     panel.setRefreshSidebarCallback(refreshSidebar);
-
-    const activeTask = store!.getTasks().find(t => t.status === 'active');
-    if (activeTask) {
-        openTaskInPanel(context, activeTask.id);
-    }
 
     // Open/focus the sidebar view and reveal the main panel
     const openCmd = vscode.commands.registerCommand('kcode.open', async () => {

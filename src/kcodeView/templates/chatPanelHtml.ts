@@ -1,7 +1,11 @@
 import * as vscode from 'vscode';
 import { getInlineStyles } from './chatPanelCss';
 
-export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
+function escapeAttr(str: string): string {
+    return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&#62;');
+}
+
+export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, allTasks?: any[]): string {
     const scriptUri = (name: string) => webview.asWebviewUri(
         vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', `${name}.js`)
     ).toString();
@@ -81,17 +85,17 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                 </div>
                 <div id="dashboard-active-section" class="dp-section" style="display:none">
                     <div class="dp-section-header dp-collapsible" data-target="dashboard-active-body">
-                        <span class="dp-arrow collapsed">▶</span> 进行中
+                        <span class="dp-arrow">▶</span> 进行中
                     </div>
-                    <div id="dashboard-active-body" class="dp-body hidden">
+                    <div id="dashboard-active-body" class="dp-body">
                         <div id="dashboard-active-list" class="dp-list"></div>
                     </div>
                 </div>
                 <div id="dashboard-completed-section" class="dp-section" style="display:none">
                     <div class="dp-section-header dp-collapsible" data-target="dashboard-completed-body">
-                        <span class="dp-arrow collapsed">▶</span> 最近完成
+                        <span class="dp-arrow">▶</span> 最近完成
                     </div>
-                    <div id="dashboard-completed-body" class="dp-body hidden">
+                    <div id="dashboard-completed-body" class="dp-body">
                         <div id="dashboard-completed-list" class="dp-list"></div>
                     </div>
                 </div>
@@ -184,6 +188,9 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         </div>
     </div>
 
+    <div id="__panelData"
+         data-all-tasks="${escapeAttr(JSON.stringify(allTasks || []))}"
+         style="display:none"></div>
     <script src="${scriptUri('app.bundle')}"></script>
     <script src="${scriptUri('preview')}"></script>
 </body>

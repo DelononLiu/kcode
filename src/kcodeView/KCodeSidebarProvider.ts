@@ -254,7 +254,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&#62;');
     }
 
-    refresh(activeTaskId?: string, editingGroupName?: string): void {
+    refresh(activeTaskId?: string | null, editingGroupName?: string): void {
         if (!this._view) {
             _output.appendLine('[KCodeSidebarProvider] refresh skipped — _view is null');
             return;
@@ -262,7 +262,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         const tasks = this._store.getTasks();
         const groups = this._store.getGroups();
         const containers = this._store.getContainers();
-        this._activeTaskId = activeTaskId ?? this._activeTaskId;
+        this._activeTaskId = activeTaskId !== undefined ? activeTaskId : this._activeTaskId;
         _output.appendLine('[KCodeSidebarProvider] refresh — tasks=' + tasks.length + ' groups=' + groups.length + ' containers=' + containers.length + ' active=' + this._activeTaskId);
         this._view.webview.postMessage({
             type: 'updateTaskList',
