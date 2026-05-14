@@ -131,7 +131,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #working-indicator.hidden{display:none}
 .working-spinner{width:12px;height:12px;border:2px solid rgba(255,255,255,.08);border-top-color:#5a9d6b;border-radius:50%;animation:tool-spin .8s linear infinite;flex-shrink:0}
 .working-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chat-msg{padding:14px 0}
+.chat-msg{padding:10px 0}
 .msg-row{display:flex;align-items:center;min-height:20px}
 .chat-msg.agent .msg-row{justify-content:flex-start;padding-left:2px}
 .chat-msg.user .msg-row{justify-content:flex-end}
@@ -276,17 +276,43 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .nav-bottom-btn:disabled:hover{background:#4a8bb5;color:#fff}
 .nav-bottom-btn svg{display:block}
 
-/* === Card Styles === */
+/* === Card Styles (Kilo-inspired) === */
+:root{
+--card-radius:4px;
+--card-border:1px solid rgba(255,255,255,.08);
+--card-header-bg:rgba(0,0,0,.2);
+--card-header-hover:rgba(255,255,255,.025);
+--card-body-bg:transparent;
+--card-gap:6px;
+--tool-color-bash:#4CAF50;
+--tool-color-read:#2196F3;
+--tool-color-write:#FF9800;
+--tool-color-glob:#9C27B0;
+--tool-color-grep:#2196F3;
+--tool-color-thinking:#9E9E9E
+}
 .msg-bubble.card-bubble{padding:0;border:none;background:transparent}
-.msg-card{border:1px solid rgba(255,255,255,.08);border-radius:6px;overflow:hidden;margin-bottom:8px}
+.msg-card{border:var(--card-border);border-radius:var(--card-radius);overflow:hidden;margin-bottom:6px}
 .msg-card:last-child{margin-bottom:0}
-.msg-card-header{display:flex;align-items:center;padding:7px 12px;font-size:12px;cursor:pointer;user-select:none;gap:6px;color:#bbb;background:rgba(0,0,0,.25)}
-.msg-card-header:hover{background:rgba(255,255,255,.015)}
+.msg-card-header{display:flex;align-items:center;min-height:34px;padding:3px 10px;font-size:12px;cursor:pointer;user-select:none;gap:var(--card-gap);color:#bbb;background:var(--card-header-bg);border-left:3px solid transparent;transition:background .15s,border-color .15s}
+.msg-card-header:hover{background:var(--card-header-hover)}
 .msg-card-header-text{flex:1;display:flex;align-items:center;gap:5px;min-width:0}
-.card-copy-raw-btn{background:none;border:none;color:#555;cursor:pointer;font-size:11px;padding:0 4px;border-radius:3px;flex-shrink:0;line-height:1;transition:color .2s,background .2s;margin-left:auto;margin-right:4px}
+/* Tool type color accents on header left border */
+.msg-card[data-tool-kind="bash"] .msg-card-header,.msg-card[data-tool-kind="command"] .msg-card-header,.msg-card[data-tool-kind="terminal"] .msg-card-header{border-left-color:var(--tool-color-bash)}
+.msg-card[data-tool-kind="read"] .msg-card-header{border-left-color:var(--tool-color-read)}
+.msg-card[data-tool-kind="write"] .msg-card-header,.msg-card[data-tool-kind="edit"] .msg-card-header{border-left-color:var(--tool-color-write)}
+.msg-card[data-tool-kind="glob"] .msg-card-header{border-left-color:var(--tool-color-glob)}
+.msg-card[data-tool-kind="grep"] .msg-card-header,.msg-card[data-tool-kind="search"] .msg-card-header{border-left-color:var(--tool-color-grep)}
+.msg-card[data-tool-kind="thinking"] .msg-card-header{border-left-color:var(--tool-color-thinking)}
+.card-copy-raw-btn{background:none;border:none;color:#555;cursor:pointer;font-size:11px;padding:0 4px;border-radius:3px;flex-shrink:0;line-height:1;transition:color .2s,background .2s;margin-left:auto;margin-right:2px}
 .card-copy-raw-btn:hover{color:#ddd;background:rgba(255,255,255,.05)}
-.msg-card-toggle{font-size:10px;color:#666;flex-shrink:0;transition:transform .2s}
-.msg-card-body{padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05);font-size:13.5px;line-height:1.6;color:#fff;overflow-y:auto;max-height:300px}
+/* SVG chevron toggle */
+.msg-card-toggle{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:#666;transition:transform .2s}
+.msg-card-toggle svg{display:block}
+.msg-card-toggle.collapsed{transform:rotate(-90deg)}
+/* Header bottom border when expanded */
+.msg-card-header[aria-expanded="true"]{border-bottom:1px solid rgba(255,255,255,.05)}
+.msg-card-body{padding:8px 12px;font-size:13.5px;line-height:1.6;color:#fff;overflow-y:auto;max-height:300px}
 .msg-card-body.tool-card-body{max-height:300px}
 .msg-card-body.collapsed{display:none}
 .msg-card-actions{display:flex;gap:8px;padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05)}
@@ -298,15 +324,15 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-card-btn.cancel{background:transparent;color:#888;border:1px solid rgba(255,255,255,.08)}
 .msg-card-btn.cancel:hover{background:rgba(255,255,255,.04);color:#bbb}
 .msg-card-status{padding:4px 12px 10px;font-size:12px;color:#777;text-align:center}
-.tool-kind-icon{font-size:12px;flex-shrink:0;opacity:.45;display:inline-flex;vertical-align:middle}
+.tool-kind-icon{font-size:12px;flex-shrink:0;opacity:.55;display:inline-flex;vertical-align:middle}
 .tool-body-content{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px;color:#9aa;background:transparent;padding:0}
 .tool-body-bash{background:rgba(0,0,0,.3);border-radius:3px;padding:8px!important}
-.tool-bash-output{color:#5a9d6b}
+.tool-bash-output{color:var(--tool-color-bash)}
 .tool-body-diff{color:#d2d2d4}
 .tool-thinking{background:rgba(0,0,0,.25)}
 .tool-thinking .msg-card-header{color:#777;font-style:italic}
 .tool-thinking .tool-body-content{font-size:11.5px;font-style:italic;color:#777}
-.tool-spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.08);border-top-color:#5a9d6b;border-radius:50%;animation:tool-spin .8s linear infinite;flex-shrink:0}
+.tool-spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.08);border-top-color:var(--tool-color-bash);border-radius:50%;animation:tool-spin .8s linear infinite;flex-shrink:0}
 @keyframes tool-spin{to{transform:rotate(360deg)}}
 
 /* === Review / Diff / Plan === */

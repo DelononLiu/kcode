@@ -1813,9 +1813,10 @@ function createCard(config: {
     }
 
     const toggle = document.createElement('span');
-    toggle.className = 'msg-card-toggle';
-    toggle.textContent = config.defaultCollapsed ? '▶' : '▼';
+    toggle.className = 'msg-card-toggle' + (config.defaultCollapsed ? ' collapsed' : '');
+    toggle.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     header.appendChild(toggle);
+    header.setAttribute('aria-expanded', config.defaultCollapsed ? 'false' : 'true');
 
     card.appendChild(header);
 
@@ -1837,8 +1838,9 @@ function createCard(config: {
 
     header.addEventListener('click', (e) => {
         if ((e.target as HTMLElement).closest('.msg-card-btn, .code-copy-btn')) return;
-        body.classList.toggle('collapsed');
-        toggle.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+        const collapsed = body.classList.toggle('collapsed');
+        toggle.classList.toggle('collapsed');
+        header.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
     });
 
     if (config.actions && config.actions.length > 0) {
@@ -2392,8 +2394,14 @@ function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
     const kindIcon = getToolKindIcon(kind);
     const headerHtml = kindIcon + escapeHtml(formatToolTitle(kind, title));
 
+    const makeCard = (config: any) => {
+        const card = createCard(config);
+        card.setAttribute('data-tool-kind', kind);
+        return card;
+    };
+
     if (kind === 'thinking') {
-        const card = createCard({
+        const card = makeCard({
             headerHtml,
             bodyHtml: content ? '<pre class="tool-body-content" style="white-space:pre-wrap">' + escapeHtml(content) + '</pre>' : undefined,
             defaultCollapsed: false,
@@ -2416,7 +2424,7 @@ function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
     let bodyClassName = 'tool-card-body';
     if (kind === 'bash' || kind === 'command' || kind === 'terminal') bodyClassName += ' tool-body-bash';
 
-    const card = createCard({
+    const card = makeCard({
         headerHtml,
         bodyHtml: bodyHtml || undefined,
         defaultCollapsed: false,
