@@ -165,6 +165,7 @@ export class TaskStore {
         this.state.update('tasks', tasks);
         this.state.update(`messages_${taskId}`, []);
         this.state.update(`msgCounter_${taskId}`, undefined);
+        this.state.update(`reviewChanges_${taskId}`, undefined);
     }
 
     deleteTasks(taskIds: string[]): void {
@@ -174,6 +175,7 @@ export class TaskStore {
         for (const id of taskIds) {
             this.state.update(`messages_${id}`, []);
             this.state.update(`msgCounter_${id}`, undefined);
+            this.state.update(`reviewChanges_${id}`, undefined);
         }
     }
 

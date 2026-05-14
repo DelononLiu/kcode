@@ -460,10 +460,10 @@ export class KCodePanel {
             reasoningActive = false;
             const full = reasoningText;
             reasoningText = '';
-            this.flushAcpRecvBuffer();
+            this.flushAcpRecvBuffer(tid);
             if (full) {
                 this.sendAcpLog(tid, 'recv', full);
-                this.flushAcpRecvBuffer();
+                this.flushAcpRecvBuffer(tid);
             }
             sendToolCallUpdate(currentReasoningId, '推理过程', 'thinking', 'completed', full);
         };
@@ -544,7 +544,7 @@ export class KCodePanel {
             onDone: (stopReason?: string) => {
                 completeReasoning();
                 this.setGenerationState(false);
-                this.flushAcpRecvBuffer();
+                this.flushAcpRecvBuffer(tid);
                 const cleanedText = this.taskFlow.getCleanText(tid);
 
                 if (stopReason === 'cancelled') {
@@ -911,10 +911,12 @@ export class KCodePanel {
         }
     }
 
-    private flushAcpRecvBuffer() {
+    private flushAcpRecvBuffer(taskId?: string) {
         clearTimeout(this.recvFlushTimer);
         if (this.acpRecvBuffer.trim()) {
-            this.panel.webview.postMessage({ type: 'acpLogEntry', direction: 'recv', text: this.acpRecvBuffer, timestamp: Date.now() });
+            const msg: any = { type: 'acpLogEntry', direction: 'recv', text: this.acpRecvBuffer, timestamp: Date.now() };
+            if (taskId) msg.taskId = taskId;
+            this.panel.webview.postMessage(msg);
             this.acpRecvBuffer = '';
         }
     }
@@ -2074,11 +2076,19 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         const timestamp = Date.now();
         const leftUri = vscode.Uri.file(path.join(os.tmpdir(), `kcode_${baseName}_${timestamp}_original${ext}`));
         const rightUri = vscode.Uri.file(path.join(os.tmpdir(), `kcode_${baseName}_${timestamp}_modified${ext}`));
+        const cleanup = () => {
+            try {
+                vscode.workspace.fs.delete(leftUri, { useTrash: false, recursive: false }).then(() => {}, () => {});
+                vscode.workspace.fs.delete(rightUri, { useTrash: false, recursive: false }).then(() => {}, () => {});
+            } catch {}
+        };
         try {
             await vscode.workspace.fs.writeFile(leftUri, Buffer.from(original));
             await vscode.workspace.fs.writeFile(rightUri, Buffer.from(modified));
             await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, `变更对比: ${baseName}${ext}`);
+            setTimeout(cleanup, 300000);
         } catch (err) {
+            cleanup();
             console.error('[KCode] Failed to open diff:', err);
         }
     }
@@ -2120,6 +2130,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     }
 
     dispose() {
+        clearTimeout(this.recvFlushTimer);
         this.acpClient?.dispose();
         this.disposables.forEach(d => d.dispose());
         this.disposables = [];

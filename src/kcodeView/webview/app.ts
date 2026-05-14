@@ -681,12 +681,12 @@ function handlePendingQueueUpdate(count: number, items: { text: string }[]) {
     bar.classList.remove('hidden');
     summary.textContent = `⏳ 排队中 (${count} 条)`;
 
-    let expanded = false;
-    toggle.textContent = '展开';
+    const wasExpanded = toggle.textContent === '收起';
+    toggle.textContent = wasExpanded ? '收起' : '展开';
     toggle.onclick = () => {
-        expanded = !expanded;
-        toggle.textContent = expanded ? '收起' : '展开';
-        list.classList.toggle('hidden', !expanded);
+        const nowExpanded = list.classList.contains('hidden');
+        toggle.textContent = nowExpanded ? '收起' : '展开';
+        list.classList.toggle('hidden', nowExpanded);
     };
 
     clearBtn.onclick = () => {
@@ -844,7 +844,7 @@ function collectChangedFiles(messages: any[], startIdx: number): string[] {
     const files: string[] = [];
     for (let i = startIdx; i < messages.length; i++) {
         const m = messages[i];
-        if (m.role !== 'tool') break;
+        if (m.role !== 'tool') continue;
         if (m.type === 'tool_call') {
             try {
                 const info = JSON.parse(m.content);
