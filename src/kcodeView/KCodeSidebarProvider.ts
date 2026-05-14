@@ -563,15 +563,20 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
             flex-shrink: 0;
-            font-size: 12px;
+            font-size: 9px;
+            font-weight: 700;
             line-height: 1;
         }
         .task-status.status-completed { color: #4caf50; }
         .task-status.status-cancelled { color: #888; }
-        .task-status.status-active { color: #4caf50; }
+        .task-status.status-active {
+            background: #1a5f9e;
+            color: #fff;
+            border-radius: 50%;
+        }
         .task-status.status-waiting { color: #ffa726; }
 
         /* --- Placeholder --- */

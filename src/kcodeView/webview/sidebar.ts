@@ -685,12 +685,19 @@ declare function acquireVsCodeApi(): any;
         bar.style.display = selectedTaskIds.size > 0 ? 'flex' : 'none';
     }
 
+    function getPhaseLetter(phase: string): string {
+        const map: Record<string, string> = { demand: 'D', goal: 'T', plan: 'P', execute: 'E', self_verify: 'V', review: 'C' };
+        return map[phase] || '';
+    }
+
     function getStatusIndicator(task: any): { text: string; className: string } {
         if (task.type === 'chat') return { text: '', className: '' };
         switch (task.status) {
             case 'completed': return { text: '\u2713', className: 'status-completed' };
             case 'cancelled': return { text: '\u2715', className: 'status-cancelled' };
-            case 'active': return { text: '\u25CF', className: 'status-active' };
+            case 'active':
+                const letter = getPhaseLetter(task.phase);
+                return { text: letter || '\u25CF', className: 'status-active' };
             case 'in_review': return { text: '\u23F3', className: 'status-waiting' };
             case 'pending': return { text: '', className: '' };
             default: return { text: '', className: '' };

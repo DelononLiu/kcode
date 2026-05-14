@@ -22,50 +22,55 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 </head>
 <body>
     <div id="container">
-            <!-- Chat Area -->
-            <div id="chat-area">
-                <div id="chat-header">
-                    <div id="task-info">
-                        <div id="task-info-primary">
-                            <span class="task-info-title">选择任务开始对话</span>
-                            <span id="task-status-badge" class="task-status-badge hidden"></span>
-                        </div>
-                        <div id="task-info-secondary">
-                            <span id="task-info-created"></span>
-                            <span id="task-info-sep" class="hidden">|</span>
-                            <span id="task-info-review"></span>
-                        </div>
-                        <div id="task-info-goal" class="hidden">
-                            <span class="header-label">Goal：</span>
-                            <span id="goal-header-text"></span>
-                        </div>
-                        <div id="task-info-phase" class="hidden">
-                            <span id="task-phase-badge" class="task-phase-badge"></span>
-                            <button id="goal-confirm-btn" class="plan-confirm-btn hidden">确认目标 ✓</button>
-                            <button id="plan-confirm-btn" class="plan-confirm-btn hidden">确认计划</button>
-                            <button id="execute-confirm-btn" class="plan-confirm-btn hidden">确认完成 ✓</button>
-                            <button id="hooks-edit-btn" class="hooks-edit-btn" title="编辑阶段提示词">⚙️</button>
-                            <span id="hooks-count" class="hooks-count hidden"></span>
-                        </div>
-                        <div id="hooks-editor" class="hooks-editor hidden">
-                            <div class="hooks-editor-header">
-                                <span class="hooks-editor-title">阶段提示词命令</span>
-                                <button id="hooks-close-btn" class="hooks-close-btn" title="关闭">✕</button>
-                            </div>
-                            <div id="hooks-phases-list"></div>
-                        </div>
-                        <div id="task-info-items" class="hidden">
-                            <div id="confirmed-items"></div>
-                            <div id="pending-items"></div>
-                        </div>
-                        <div id="task-info-plan" class="hidden">
-                            <div id="plan-steps"></div>
-                        </div>
-                    </div>
+        <!-- Middle Panel — Chat -->
+        <div id="chat-area">
+            <div id="chat-header">
+                <!-- Row 1: Title + type + status + secondary info -->
+                <div id="chat-header-row1">
+                    <span class="task-info-title">选择任务开始对话</span>
+                    <span id="task-status-badge" class="task-status-badge hidden"></span>
                 </div>
+                <div id="chat-header-sub">
+                    <span id="task-info-created"></span>
+                    <span id="task-info-sep" class="hidden">|</span>
+                    <span id="task-info-review"></span>
+                </div>
+
+                <!-- Row 2: Goal + confirmed tags -->
+                <div id="chat-header-row2" class="hidden">
+                    <span class="header-label">🎯</span>
+                    <span id="goal-header-text" class="goal-header-text"></span>
+                    <div id="confirmed-tags" class="confirmed-tags"></div>
+                </div>
+
+                <!-- Row 3: Phase + progress bar -->
+                <div id="chat-header-row3" class="hidden">
+                    <span id="task-phase-badge" class="task-phase-badge"></span>
+                    <span id="phase-desc" class="phase-desc"></span>
+                    <div id="phase-confirm-btns">
+                        <button id="goal-confirm-btn" class="plan-confirm-btn hidden">确认目标 ✓</button>
+                        <button id="plan-confirm-btn" class="plan-confirm-btn hidden">确认计划</button>
+                        <button id="execute-confirm-btn" class="plan-confirm-btn hidden">确认完成 ✓</button>
+                    </div>
+                    <div id="plan-progress-header" class="plan-progress-header hidden">
+                        <div class="plan-progress-bar"><div class="plan-progress-fill" id="header-progress-fill" style="width:0%"></div></div>
+                        <span id="header-progress-label" class="plan-progress-label">0/0</span>
+                    </div>
+                    <button id="hooks-edit-btn" class="hooks-edit-btn" title="编辑阶段提示词">⚙️</button>
+                    <span id="hooks-count" class="hooks-count hidden"></span>
+                </div>
+
+                <div id="hooks-editor" class="hooks-editor hidden">
+                    <div class="hooks-editor-header">
+                        <span class="hooks-editor-title">阶段提示词命令</span>
+                        <button id="hooks-close-btn" class="hooks-close-btn" title="关闭">✕</button>
+                    </div>
+                    <div id="hooks-phases-list"></div>
+                </div>
+            </div>
+
             <div id="chat-body">
                 <div id="node-timeline-gutter" class="hidden">
-                    <button id="tl-collapse-btn" title="折叠节点面板">◀</button>
                     <div id="tl-dots"></div>
                 </div>
                 <div id="chat-scroll" class="chat-empty">
@@ -76,6 +81,15 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                         <span class="working-text">思考中</span>
                     </div>
                 </div>
+            </div>
+            <div id="chat-nav-btns" class="hidden">
+                <button id="nav-prev-btn" class="chat-nav-btn" title="上一条用户消息">↑</button>
+                <button id="nav-next-btn" class="chat-nav-btn" title="下一条用户消息">↓</button>
+                <button id="nav-bottom-btn" class="chat-nav-btn nav-bottom-btn" title="回到底部">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 3v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
             </div>
             <div id="dashboard-panel" class="hidden">
                 <div class="dashboard-title">📊 KCode 工作台</div>
@@ -101,16 +115,8 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                 </div>
                 <div id="dashboard-empty-msg" class="dp-empty" style="display:none">暂无任务，点击下方按钮创建</div>
             </div>
-            <div id="chat-nav-btns" class="hidden">
-                <button id="nav-prev-btn" class="chat-nav-btn" title="上一条用户消息">↑</button>
-                <button id="nav-next-btn" class="chat-nav-btn" title="下一条用户消息">↓</button>
-                <button id="nav-bottom-btn" class="chat-nav-btn nav-bottom-btn" title="回到底部">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 3v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
             </div>
-            </div>
+
             <div id="chat-bottom">
                 <div id="chat-toolbar">
                     <button id="btn-new-task" class="toolbar-btn" title="新建任务">新任务</button>
@@ -170,8 +176,35 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             </div>
         </div>
 
-        <div id="splitter-2" class="splitter"></div>
+        <!-- Right Output Panel — vertical sections (no tabs) -->
+        <div id="right-output-panel">
+            <div id="output-resize-handle" class="output-resize-handle"></div>
+            <button id="op-expand-btn" class="op-expand-btn hidden" title="展开右栏">◀</button>
+            <div id="right-output-content">
+                <div class="op-section">
+                    <div class="op-section-title">变更列表</div>
+                    <div class="op-divider">----------</div>
+                    <div id="op-code-list"><div class="op-empty">暂无变更</div></div>
+                </div>
+                <div class="op-section">
+                    <div class="op-section-title">知识wiki</div>
+                    <div class="op-divider">----------</div>
+                    <div id="op-knowledge-list"><div class="op-empty">暂无知识</div></div>
+                </div>
+                <div class="op-section">
+                    <div class="op-section-title">TODO区</div>
+                    <div class="op-divider">----------</div>
+                    <div id="op-plan-list"><div class="op-empty">暂无待办</div></div>
+                </div>
+                <div class="op-section">
+                    <div class="op-section-title">工具调用</div>
+                    <div class="op-divider">----------</div>
+                    <div id="op-tool-list"><div class="op-empty">暂无工具调用</div></div>
+                </div>
+            </div>
+        </div>
 
+        <!-- Overlay Right Panel — Diff / Preview / ACP Log -->
         <div id="right-panel" class="hidden">
             <div id="right-panel-header">
                 <div class="tabs">
@@ -202,6 +235,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
          style="display:none"></div>
     <script src="${scriptUri('app.bundle')}"></script>
     <script src="${scriptUri('preview')}"></script>
+    <script src="${scriptUri('outputPanel')}"></script>
 </body>
 </html>`;
 }

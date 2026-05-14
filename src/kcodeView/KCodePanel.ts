@@ -188,6 +188,12 @@ export class KCodePanel {
             hooks: task.hooks || {}, workspaceHooks: this.taskFlow['workspaceHooks'] || {},
             messageCount: this.store.getMessages(taskId).length, executeFinished: this.taskFlow.isExecuteFinished(taskId)
         });
+        this.sendOutputPanelUpdate(taskId);
+    }
+
+    private sendOutputPanelUpdate(taskId: string) {
+        const changes = this.store.getReviewChanges(taskId);
+        this.router.PostMessage({ type: 'updateOutputPanel', taskInfo: { planSteps: this.store.getTask(taskId)?.planSteps }, changes });
     }
 
     private createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string) {
@@ -468,6 +474,7 @@ export class KCodePanel {
         this.sendTaskMessages(taskId);
         this.sendTaskInfo(taskId);
         this.sendNodePanelUpdate(taskId);
+        this.sendOutputPanelUpdate(taskId);
         this.sessionHandler.ensureSession(taskId);
         this.loadWorkspaceHooks().then(hooks => this.taskFlow.setWorkspaceHooks(hooks));
     }

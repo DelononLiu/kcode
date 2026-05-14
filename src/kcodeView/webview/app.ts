@@ -69,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initMessageHandler();
     initNodePanel();
     initNavButtons();
+    (window as any).initOutputPanel?.();
 
     // Dashboard collapsible sections
     document.querySelectorAll('.dp-section-header.dp-collapsible').forEach(header => {
@@ -172,8 +173,11 @@ function initMessageHandler() {
                 activeTaskStatus = message.taskStatus || '';
                 activeTaskType = message.taskType || '';
                 renderAcpLog();
+                const gutter = document.getElementById('node-timeline-gutter');
+                if (gutter) gutter.classList.remove('hidden');
                 if (message.reviewChanges && message.reviewChanges.length > 0) {
                     reviewChangesMap.set(message.taskId, message.reviewChanges);
+                    (window as any).updateOutputPanel?.({}, message.reviewChanges);
                 }
     lastAcceptanceCriteria = message.acceptanceCriteria || null;
     if (message.reviewChanges || message.acceptanceCriteria) {
@@ -278,6 +282,9 @@ function initMessageHandler() {
                 break;
             case 'startTemplateFlow':
                 renderCategorySelection();
+                break;
+            case 'updateOutputPanel':
+                (window as any).updateOutputPanel?.(message.taskInfo || {}, message.changes || []);
                 break;
         }
     });
@@ -436,6 +443,7 @@ function initLayout() {
         const acpLogBtn = document.getElementById('acp-log-btn');
         acpLogBtn?.classList.remove('active');
     });
+
 }
 
 function initInstructionToggle() {
@@ -1598,129 +1606,113 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
 function updateTaskInfo(info: any) {
     activeTaskStatus = info.status || '';
     activeTaskPhase = info.phase || '';
+    activeTaskTitle = info.title || '';
+
+    // Row 1: Title + status badge
     const titleEl = document.querySelector('.task-info-title');
     if (titleEl) titleEl.textContent = info.title || '选择任务开始对话';
 
     const badge = document.getElementById('task-status-badge');
-    const sep = document.getElementById('task-info-sep');
-    if (badge && sep) {
+    if (badge) {
         const hasStatus = !!info.status && info.status !== 'pending' && info.title;
         badge.classList.toggle('hidden', !hasStatus);
-        sep.classList.toggle('hidden', !hasStatus);
         if (hasStatus) {
             const statusMap: Record<string, string> = {
-                pending: 'Pending',
-                active: 'Active',
-                in_review: 'In Review',
-                completed: 'Completed',
-                cancelled: 'Cancelled'
+                pending: 'Pending', active: 'Active', in_review: 'In Review',
+                completed: 'Completed', cancelled: 'Cancelled'
             };
-            const label = statusMap[info.status] || info.status;
-            badge.textContent = label;
+            badge.textContent = statusMap[info.status] || info.status;
             badge.className = 'task-status-badge';
             badge.classList.add('status-' + info.status);
         }
     }
 
+    // Sub row: created + review info
     const createdEl = document.getElementById('task-info-created');
+    const sep = document.getElementById('task-info-sep');
+    const reviewEl = document.getElementById('task-info-review');
     if (createdEl && info.createdAt) {
         const d = new Date(info.createdAt);
-        const hh = d.getHours().toString().padStart(2, '0');
-        const mm = d.getMinutes().toString().padStart(2, '0');
-        createdEl.textContent = `创建 ${hh}:${mm}`;
+        createdEl.textContent = `创建 ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
     }
-
-    const reviewEl = document.getElementById('task-info-review');
     if (reviewEl) {
-        reviewEl.textContent = `待验收 ${info.pendingReviewFiles || 0} 个文件`;
+        const hasFiles = (info.pendingReviewFiles || 0) > 0;
+        reviewEl.textContent = hasFiles ? `待验收 ${info.pendingReviewFiles} 个文件` : '';
+        if (sep) sep.classList.toggle('hidden', !hasFiles);
     }
 
-    const goalRow = document.getElementById('task-info-goal');
+    // Row 2: Goal + confirmed tags
+    const row2 = document.getElementById('chat-header-row2');
     const goalText = document.getElementById('goal-header-text');
-    if (goalRow && goalText) {
+    const confirmTags = document.getElementById('confirmed-tags');
+    if (row2 && goalText && confirmTags) {
         const hasGoal = info.taskType === 'task' && info.goal && info.status !== 'cancelled' && info.status !== 'completed';
-        goalRow.classList.toggle('hidden', !hasGoal);
-        const summary = (info.goal || '').split('\n')[0].replace(/[*_#`>\[\]]/g, '').trim();
-        goalText.textContent = summary || '目标';
+        row2.classList.toggle('hidden', !hasGoal);
         if (hasGoal) {
-            const scrollContainer = document.getElementById('chat-scroll');
-            if (scrollContainer) {
-                scrollContainer.classList.remove('chat-empty');
-            }
+            goalText.textContent = (info.goal || '').split('\n')[0].replace(/[*_#`>\[\]]/g, '').trim() || '目标';
+            const confirmed = info.confirmedItems || [];
+            confirmTags.innerHTML = confirmed.map((item: string) =>
+                `<span class="confirmed-tag">${escapeHtml(item)}</span>`
+            ).join('');
         }
     }
 
-    // Phase badge + phase confirm buttons
-    const phaseRow = document.getElementById('task-info-phase');
+    // Row 3: Phase badge + desc + confirm buttons + progress
+    const row3 = document.getElementById('chat-header-row3');
     const phaseBadge = document.getElementById('task-phase-badge');
+    const phaseDesc = document.getElementById('phase-desc');
     const goalConfirmBtn = document.getElementById('goal-confirm-btn');
     const planConfirmBtn = document.getElementById('plan-confirm-btn');
     const executeConfirmBtn = document.getElementById('execute-confirm-btn');
-    if (phaseRow && phaseBadge) {
+    const progHeader = document.getElementById('plan-progress-header');
+    const progFill = document.getElementById('header-progress-fill');
+    const progLabel = document.getElementById('header-progress-label');
+
+    if (row3 && phaseBadge && phaseDesc) {
         const hasPhase = info.taskType === 'task' && info.phase && info.status !== 'cancelled' && info.status !== 'completed';
-        phaseRow.classList.toggle('hidden', !hasPhase);
+        row3.classList.toggle('hidden', !hasPhase);
         if (hasPhase) {
-            const phaseLetters: Record<string, string> = {
-                demand: 'D', goal: 'T', plan: 'P', execute: 'E', self_verify: 'V', review: 'C'
+            const phaseLabels: Record<string, string> = {
+                demand: 'D 需求', goal: 'T 目标', plan: 'P 计划',
+                execute: 'E 执行', self_verify: 'V 自验', review: 'C 验收'
             };
-            const letter = phaseLetters[info.phase] || '';
-            phaseBadge.textContent = `${letter} ${info.phaseLabel || info.phase}`;
+            const phaseDescs: Record<string, string> = {
+                demand: '收集需求，明确目标', goal: '确认任务目标',
+                plan: '制定执行计划', execute: '执行实现',
+                self_verify: 'AI 自验代码', review: '最终验收'
+            };
+            phaseBadge.textContent = phaseLabels[info.phase] || info.phase;
+            phaseDesc.textContent = phaseDescs[info.phase] || '';
         }
         if (goalConfirmBtn) {
-            const isGoalPhase = info.taskType === 'task' && info.phase === 'goal' && info.status !== 'cancelled' && info.status !== 'completed';
-            goalConfirmBtn.classList.toggle('hidden', !isGoalPhase);
+            goalConfirmBtn.classList.toggle('hidden', !(info.taskType === 'task' && info.phase === 'goal' && info.status !== 'cancelled' && info.status !== 'completed'));
         }
         if (planConfirmBtn) {
-            const isPlanPhase = info.taskType === 'task' && info.phase === 'plan' && info.status !== 'cancelled' && info.status !== 'completed';
-            planConfirmBtn.classList.toggle('hidden', !isPlanPhase);
+            planConfirmBtn.classList.toggle('hidden', !(info.taskType === 'task' && info.phase === 'plan' && info.status !== 'cancelled' && info.status !== 'completed'));
         }
         if (executeConfirmBtn) {
-            const isExecutePhase = info.taskType === 'task' && info.phase === 'execute' && info.status !== 'cancelled' && info.status !== 'completed';
-            executeConfirmBtn.classList.toggle('hidden', !isExecutePhase);
+            executeConfirmBtn.classList.toggle('hidden', !(info.taskType === 'task' && info.phase === 'execute' && info.status !== 'cancelled' && info.status !== 'completed'));
+        }
+
+        // Progress bar in header
+        const steps = info.planSteps || [];
+        const hasSteps = info.taskType === 'task' && info.phase === 'execute' && steps.length > 0;
+        if (progHeader && progFill && progLabel) {
+            progHeader.classList.toggle('hidden', !hasSteps);
+            if (hasSteps) {
+                const done = steps.filter((s: any) => s.status === 'completed').length;
+                const pct = Math.round((done / steps.length) * 100);
+                progFill.style.width = pct + '%';
+                progLabel.textContent = `${done}/${steps.length}`;
+            }
         }
     }
 
-    // Confirmed items
-    const itemsRow = document.getElementById('task-info-items');
-    if (itemsRow) {
-        const confirmed = info.confirmedItems || [];
-        const pending = info.pendingItems || [];
-        const hasItems = info.taskType === 'task' && (confirmed.length > 0 || pending.length > 0);
-        itemsRow.classList.toggle('hidden', !hasItems);
-        if (hasItems) {
-            const confirmedEl = document.getElementById('confirmed-items');
-            const pendingEl = document.getElementById('pending-items');
-            if (confirmedEl) {
-                if (confirmed.length > 0) {
-                    confirmedEl.innerHTML = '<span class="items-label">共识</span>' +
-                        confirmed.map((item: string) => `<span class="confirmed-tag">${escapeHtml(item)}</span>`).join('');
-                } else {
-                    confirmedEl.innerHTML = '';
-                }
-            }
-            if (pendingEl) {
-                if (pending.length > 0) {
-                    pendingEl.innerHTML = '<span class="items-label">待定</span>' +
-                        pending.map((item: string) => `<span class="pending-tag">${escapeHtml(item)}</span>`).join('');
-                } else {
-                    pendingEl.innerHTML = '';
-                }
-            }
-            itemsRow.classList.remove('hidden');
-        }
-    }
-
-    // Store hooks data
-    if (info.hooks) {
-        taskHooks = info.hooks;
-    }
-    if (info.workspaceHooks) {
-        workspaceHooks = info.workspaceHooks;
-    }
-
-    // Hooks count indicator
+    // Hooks count
     const hooksCount = document.getElementById('hooks-count');
     if (hooksCount) {
+        if (info.hooks) taskHooks = info.hooks;
+        if (info.workspaceHooks) workspaceHooks = info.workspaceHooks;
         const phase = info.phase || '';
         const wsCount = (info.workspaceHooks?.[phase] || []).length;
         const taskCount = (info.hooks?.[phase] || []).length;
@@ -1736,34 +1728,9 @@ function updateTaskInfo(info: any) {
         }
     }
 
-    // Plan steps + execution progress
-    const planRow = document.getElementById('task-info-plan');
-    if (planRow) {
-        const steps = info.planSteps || [];
-        const hasSteps = info.taskType === 'task' && info.phase === 'execute' && steps.length > 0;
-        planRow.classList.toggle('hidden', !hasSteps);
-        if (hasSteps) {
-            const stepsEl = document.getElementById('plan-steps');
-            if (stepsEl) {
-                const statusEmoji: Record<string, string> = {
-                    pending: '○', active: '◉', completed: '✓'
-                };
-                const total = steps.length;
-                const done = steps.filter((s: any) => s.status === 'completed').length;
-                const activeIdx = steps.findIndex((s: any) => s.status === 'active');
-                const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
-                stepsEl.innerHTML =
-                    `<div class="plan-progress-bar"><div class="plan-progress-fill" style="width:${progressPct}%"></div></div>` +
-                    `<div class="plan-progress-label">${done}/${total} 步骤完成</div>` +
-                    steps.map((step: any, i: number) => {
-                        const emoji = statusEmoji[step.status] || '○';
-                        const activeClass = i === activeIdx ? ' step-active' : '';
-                        return `<div class="plan-step-item${activeClass}"><span class="step-status status-${step.status}">${emoji}</span><span class="step-content">${escapeHtml(step.content)}</span></div>`;
-                    }).join('');
-            }
-            planRow.classList.remove('hidden');
-        }
-    }
+    // Update left panel + output panel
+    (window as any).renderProcessPanel?.(info, []);
+    (window as any).updateOutputPanel?.(info, []);
 }
 
 
@@ -2517,6 +2484,18 @@ function getNodeLetter(type: string): string {
     }
 }
 
+function getNodeLabel(type: string): string {
+    switch (type) {
+        case 'demand': return '需求';
+        case 'goal': return '目标';
+        case 'plan': return '计划';
+        case 'execute': return '执行';
+        case 'self_verify': return '自验';
+        case 'review': return '验收';
+        default: return type;
+    }
+}
+
 function handleNodePanelUpdate(nodes: any[], taskType: string) {
     const gutter = document.getElementById('node-timeline-gutter');
     const dotsEl = document.getElementById('tl-dots');
@@ -2548,6 +2527,12 @@ function handleNodePanelUpdate(nodes: any[], taskType: string) {
         emoji.className = 'tl-emoji';
         emoji.textContent = getNodeLetter(node.type);
         dot.appendChild(emoji);
+
+        const label = document.createElement('span');
+        label.className = 'tl-label';
+        label.textContent = getNodeLabel(node.type);
+        dot.appendChild(label);
+
         wrap.appendChild(dot);
         dotsEl.appendChild(wrap);
 
@@ -2556,10 +2541,10 @@ function handleNodePanelUpdate(nodes: any[], taskType: string) {
             seg.className = 'tl-line-segment';
             const color = getNodeSegmentColor(node.status);
             for (let d = 0; d < 7; d++) {
-                const dot = document.createElement('div');
-                dot.className = 'tl-line-dot';
-                dot.style.background = color;
-                seg.appendChild(dot);
+                const lineDot = document.createElement('div');
+                lineDot.className = 'tl-line-dot';
+                lineDot.style.background = color;
+                seg.appendChild(lineDot);
             }
             dotsEl.appendChild(seg);
         }
@@ -2568,11 +2553,11 @@ function handleNodePanelUpdate(nodes: any[], taskType: string) {
 
 function getNodeSegmentColor(status: string): string {
     switch (status) {
-        case 'completed': return '#2ea043';
-        case 'active': return '#1f7bc4';
-        case 'pending': return 'rgba(255,255,255,.25)';
-        case 'cancelled': return '#e06060';
-        default: return 'rgba(255,255,255,.15)';
+        case 'completed': return '#1e7a32';
+        case 'active': return '#1a5f9e';
+        case 'pending': return 'rgba(26,95,158,.3)';
+        case 'cancelled': return '#a04040';
+        default: return 'rgba(255,255,255,.1)';
     }
 }
 
@@ -2600,24 +2585,9 @@ function initNodePanel() {
             scrollToMessage(msgId);
         }
     });
-
-    const gutter = document.getElementById('node-timeline-gutter');
-    const collapseBtn = document.getElementById('tl-collapse-btn');
-    if (gutter && collapseBtn) {
-        const stored = sessionStorage.getItem('kcode_tl_collapsed');
-        if (stored === '1') {
-            gutter.classList.add('collapsed');
-            collapseBtn.textContent = '▶';
-        }
-        collapseBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            gutter.classList.toggle('collapsed');
-            const isCollapsed = gutter.classList.contains('collapsed');
-            collapseBtn.textContent = isCollapsed ? '▶' : '◀';
-            sessionStorage.setItem('kcode_tl_collapsed', isCollapsed ? '1' : '0');
-        });
-    }
 }
+
+let activeTaskTitle: string = '';
 
 (window as any).addMessage = addMessage;
 (window as any).renderMarkdown = renderMarkdown;

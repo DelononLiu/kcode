@@ -28,16 +28,17 @@ src/
 │   │   └── review.ts
 │   └── __tests__/
 │       └── TaskFlow.test.ts      # 7 个测试用例，覆盖完整状态机流程
-├── kcodeView/
-│   ├── KCodePanel.ts             # 编辑器聊天面板（使用 TaskFlow 管理阶段）
-│   ├── KCodeSidebarProvider.ts   # 侧边栏视图
-│   └── webview/
-│       ├── app.ts                # 主 WebView 逻辑
-│       ├── sidebar.ts            # 侧边栏任务列表渲染
-│       ├── chat.ts               # 空壳(渲染逻辑在 app.ts)
-│       ├── preview.ts            # 右侧面板 Preview/Diff/WebView
-│       ├── device.ts             # Device tab
-│       └── style.css             # 样式
+    ├── kcodeView/
+    │   ├── KCodePanel.ts             # 编辑器聊天面板（使用 TaskFlow 管理阶段）
+    │   ├── KCodeSidebarProvider.ts   # 侧边栏视图
+    │   └── webview/
+    │       ├── app.ts                # 主 WebView 逻辑（三栏布局通信）
+    │       ├── sidebar.ts            # 侧边栏任务列表渲染
+    │       ├── chat.ts               # 空壳(渲染逻辑在 app.ts)
+    │       ├── preview.ts            # 右侧浮层面板 Preview/Diff/WebView
+    │       ├── device.ts             # Device tab
+    │       ├── outputPanel.ts        # 右栏：产出物列表（变更/知识/TODO/工具记录）
+    │       └── style.css             # 样式
 └── acp/
     ├── AcpClient.ts              # ACP 客户端封装
     ├── AgentManager.ts           # Agent 子进程管理
@@ -53,9 +54,10 @@ src/
 |------|--------|--------|
 | 扩展骨架 | 激活/停用、命令注册 | - |
 | 侧边栏 | 任务列表、分组管理、右键菜单（重命名/置顶/归档/移至分组）、GitHub Issue 导入 | - |
-| 编辑器面板 | 两栏布局、Tab切换、拖拽分割、流式消息、Goal 固定显示与编辑、进度线 5 阶段节点、5 阶段全流程协议 | - |
+| 编辑器面板 | 三栏布局(左节点/中对话/右产出)、3行 header、Goal 固定显示与编辑、进度线 5 阶段节点(带中文标签)、5 阶段全流程协议 | - |
 | AI 对话 | 流式消息、Markdown渲染(代码块语法高亮)、增量流式渲染、Tool UI 改进、停止按钮、`<TASK_UPDATE>` 协议解析 + 阶段分发提示词 | - |
-| 右侧面板 | Preview、Diff、WebView、Device UI壳、验收卡片（文件关联+驳回带原因） | - |
+| 右侧产出物面板 | 垂直四区块(变更列表/知识wiki/TODO区/工具调用)、可拖拽调宽、可折叠 | - |
+| 右侧浮层面板 | Preview、Diff、WebView、Device UI壳、ACP Log、验收卡片（文件关联+驳回带原因） | - |
 | ACP | 多会话管理、Agent进程、文件读写、流式回调、工具调用/计划事件 | - |
 | 数据层 | Task CRUD、消息存储、5 阶段字段扩展 | - |
 
