@@ -109,7 +109,100 @@ _目标：升级 AI 对话消息渲染质量，实现与 Kilo 接近的消息展
 
 **状态**: ✅ 已完成
 
-> 🟫 Level 0 — 自举之路第一步：能看清 AI 写的代码
+---
+
+### P11-06: Kilo Agent 支持 + 输入框 Agent 名称显示
+
+**涉及文件**:
+- `src/core/AgentService.ts` — 新增 `connectKilo()` 方法 + `connect()` 分支；新增 `agentName` 属性
+- `package.json` — `contributes.configuration` 新增 `kcode.kiloPath`
+- `src/kcodeView/KCodePanel.ts` — `flowHandler.sendStatus()` 增加 `agentName` 字段
+- `src/kcodeView/webview/app.ts` — `agentStatus` 消息处理更新 `#status-model` 文本
+
+**调研结果**:
+- `AgentService.ts:30-58` — `connect()` 当前支持 opencode / openai / 通用 ACP 三条路由
+- `chatPanelHtml.ts:122-125` — 输入框底部已有 `#status-model` 元素，固定显示 "Agent"
+- `app.ts:312` — `agentStatus` 消息当前只处理连接状态指示灯，未更新名称文本
+
+**方案**:
+
+**Kilo ACP 连接**（方案 B — 专属路由）:
+- `connectKilo()` 类似 `connectOpenCode()`，通过 ACP stdio 连接 `kilo acp` 命令
+- 配置项 `kcode.kiloPath`，默认值 `kilo`
+- 启动参数：`kilo acp --port 0 --cwd <workspaceRoot>`
+
+**Agent 名称显示**:
+- `AgentService` 新增 `agentName: string` 属性，连接时记录
+- `KCodePanel` 发送 `agentStatus` 时携带 `agentName`
+- WebView 收到后更新 `#status-model` 文本为 `'kilo' | 'opencode' | 'openai'`
+
+**状态**: ⬜ 未开始
+
+---
+
+### P11-07: 动态导入外部提示词 — 叠加 + 级联继承
+
+**涉及文件**:
+- `src/taskflow/externalPrompts.ts` — **新建**：文件读取 + 标签解析 + 级联查找
+- `src/taskflow/TaskFlow.ts` — `buildPhasePrompt()` 调用外部 prompt 并追加
+- `src/taskflow/__tests__/TaskFlow.test.ts` — 新增外部 prompt 级联测试用例
+
+**调研结果**:
+- `TaskFlow.ts:522-562` — `buildPhasePrompt()` 当前按 phase switch 加载内置 `prompts/<phase>.ts`，再注入 `templates.ts` 的 `analysisFramework`/`executionHints`
+- `TaskFlow.ts:457-472` — `buildInitialPrompt()` 组装 4 层：BASE → PROTOCOL → buildTaskContext → buildPhasePrompt
+- 外部 prompt 作为第 5 层注入，叠加到内置 prompt 末尾
+
+**文件路径规范**:
+```
+~/.kcode/taskflow/
+  task.md                  ← 所有 task 类型基底
+  requirement_dev.md       ← category 层
+  problem_analysis.md
+  performance_opt.md
+  precision_issue.md
+  feature_dev.md           ← subType 层 (key 全局唯一，平铺)
+  debug.md
+  ...
+```
+
+**文件格式**:
+```markdown
+<plan>
+计划必须包含测试策略
+</plan>
+
+<execute>
+完成代码后自动运行 npx tsc --noEmit 检查类型
+</execute>
+```
+仅定义部分阶段标签，未定义的阶段继承上一层。
+
+**级联查找逻辑** (per phase):
+```
+buildPhasePrompt(task, phase):
+  content = ""
+
+  // L1: subType 文件 → 当前 phase 标签内容
+  content += loadPhaseSection("~/.kcode/taskflow/<subType>.md", phase)
+
+  // L2: category 文件 → 仅当 L1 该 phase 为空时
+  content += loadPhaseSection("~/.kcode/taskflow/<category>.md", phase)
+
+  // L3: 类型基底 → 仅当 L1+L2 该 phase 都为空时
+  content += loadPhaseSection("~/.kcode/taskflow/<task.type>.md", phase)
+
+  // 注入到内置 prompt 末尾
+  if content: basePrompt += "\n\n【用户自定义规则】\n" + content
+```
+
+**标签解析规则**:
+- 正则 `<phase>([\s\S]*?)<\/phase>` 逐 phase 提取内容段
+- phase 名对应 6 个阶段：`demand` / `goal` / `plan` / `execute` / `self_verify` / `review`
+- 文件不存在 → 无操作（fallback 到内置 prompt）
+- 文件存在但无当前 phase 标签 → 该层返回空
+
+**状态**: ⬜ 未开始
+
 
 ---
 
