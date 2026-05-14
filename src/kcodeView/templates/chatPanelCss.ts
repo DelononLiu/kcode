@@ -297,6 +297,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-card-header{display:flex;align-items:center;min-height:34px;padding:3px 10px;font-size:12px;cursor:pointer;user-select:none;gap:var(--card-gap);color:#bbb;background:var(--card-header-bg);border-left:3px solid transparent;transition:background .15s,border-color .15s}
 .msg-card-header:hover{background:var(--card-header-hover)}
 .msg-card-header-text{flex:1;display:flex;align-items:center;gap:5px;min-width:0}
+.tool-title-label{flex-shrink:0;font-weight:500;color:#bbb}
+.tool-title-detail{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888;font-size:11.5px;min-width:0}
 /* Tool type color accents on header left border */
 .msg-card[data-tool-kind="bash"] .msg-card-header,.msg-card[data-tool-kind="command"] .msg-card-header,.msg-card[data-tool-kind="terminal"] .msg-card-header{border-left-color:var(--tool-color-bash)}
 .msg-card[data-tool-kind="read"] .msg-card-header{border-left-color:var(--tool-color-read)}

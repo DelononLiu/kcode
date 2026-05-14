@@ -183,6 +183,15 @@ function extractToolDisplayTitle(update: any): string {
     const title = update.title ?? '';
 
     if (title && title !== kind) {
+        if (kind === 'read') {
+            const rawInput = update.rawInput as any;
+            if (rawInput && typeof rawInput === 'object') {
+                const parts: string[] = [];
+                if (rawInput.offset !== undefined) parts.push(`偏移=${rawInput.offset}`);
+                if (rawInput.limit !== undefined) parts.push(`行数=${rawInput.limit}`);
+                if (parts.length > 0) return title + ' (' + parts.join(', ') + ')';
+            }
+        }
         return title;
     }
 

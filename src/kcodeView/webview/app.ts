@@ -2370,19 +2370,25 @@ function extractContentFromXml(output: string): string {
 }
 
 function formatToolTitle(kind: string, title: string): string {
+    let label: string;
+    let detail: string;
     switch (kind) {
-        case 'read': return '读取 ' + title;
-        case 'write': return '写入 ' + title;
-        case 'edit': return '修改 ' + title;
-        case 'bash':
-        case 'command':
-        case 'terminal': return title;
+        case 'read': label = '读取'; detail = title; break;
+        case 'write': label = '写入'; detail = title; break;
+        case 'edit': label = '修改'; detail = title; break;
+        case 'bash': label = '命令'; detail = title; break;
+        case 'command': label = '命令'; detail = title; break;
+        case 'terminal': label = '终端'; detail = title; break;
         case 'grep':
-        case 'search': return '搜索 ' + title;
-        case 'glob': return '查找 ' + title;
-        case 'thinking': return '推理';
-        default: return title;
+        case 'search': label = '搜索'; detail = title; break;
+        case 'glob': label = '查找'; detail = title; break;
+        case 'thinking': label = '推理'; detail = ''; break;
+        default: label = kind; detail = title; break;
     }
+    if (detail) {
+        return '<span class="tool-title-label">' + escapeHtml(label) + '</span> <span class="tool-title-detail">' + escapeHtml(detail) + '</span>';
+    }
+    return '<span class="tool-title-label">' + escapeHtml(label) + '</span>';
 }
 
 function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
@@ -2392,7 +2398,7 @@ function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
     const status = msg.status || '';
 
     const kindIcon = getToolKindIcon(kind);
-    const headerHtml = kindIcon + escapeHtml(formatToolTitle(kind, title));
+    const headerHtml = kindIcon + formatToolTitle(kind, title);
 
     const makeCard = (config: any) => {
         const card = createCard(config);
