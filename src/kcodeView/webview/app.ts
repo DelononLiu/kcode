@@ -68,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initChat();
     initMessageHandler();
     initNodePanel();
+    initNavButtons();
 
     // Dashboard collapsible sections
     document.querySelectorAll('.dp-section-header.dp-collapsible').forEach(header => {
@@ -95,6 +96,70 @@ document.addEventListener('DOMContentLoaded', () => {
         vscode.postMessage({ type: 'openNativeDiff', original, modified, filePath });
     };
 });
+
+function initNavButtons() {
+    const scrollContainer = document.getElementById('chat-scroll');
+    const navBtns = document.getElementById('chat-nav-btns');
+    const prevBtn = document.getElementById('nav-prev-btn') as HTMLButtonElement;
+    const nextBtn = document.getElementById('nav-next-btn') as HTMLButtonElement;
+    const bottomBtn = document.getElementById('nav-bottom-btn') as HTMLButtonElement;
+    if (!scrollContainer || !navBtns || !prevBtn || !nextBtn || !bottomBtn) return;
+
+    let currentIdx = -1;
+
+    function update() {
+        const sc = scrollContainer!;
+        const nb = navBtns!;
+        const userMsgs = sc.querySelectorAll('.chat-msg.user');
+        const hasUserMsgs = userMsgs.length > 0;
+        const atBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 48;
+
+        if (hasUserMsgs && !atBottom) {
+            nb.classList.remove('hidden');
+        } else {
+            nb.classList.add('hidden');
+            return;
+        }
+
+        currentIdx = -1;
+        const scrollCenter = sc.scrollTop + sc.clientHeight / 2;
+        userMsgs.forEach((el, i) => {
+            const top = (el as HTMLElement).offsetTop;
+            if (top <= scrollCenter) currentIdx = i;
+        });
+
+        prevBtn.disabled = currentIdx <= 0;
+        nextBtn.disabled = currentIdx >= userMsgs.length - 1 || currentIdx < 0;
+    }
+
+    prevBtn.addEventListener('click', () => {
+        const userMsgs = scrollContainer.querySelectorAll('.chat-msg.user');
+        if (userMsgs.length === 0) return;
+        const targetIdx = currentIdx > 0 ? currentIdx - 1 : 0;
+        (userMsgs[targetIdx] as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    nextBtn.addEventListener('click', () => {
+        const userMsgs = scrollContainer.querySelectorAll('.chat-msg.user');
+        if (userMsgs.length === 0) return;
+        if (currentIdx >= 0 && currentIdx < userMsgs.length - 1) {
+            (userMsgs[currentIdx + 1] as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
+        }
+    });
+
+    bottomBtn.addEventListener('click', () => {
+        scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
+    });
+
+    scrollContainer.addEventListener('scroll', update);
+
+    const observer = new MutationObserver(() => update());
+    observer.observe(scrollContainer, { childList: true, subtree: true });
+
+    update();
+}
 
 function initMessageHandler() {
     window.addEventListener('message', (event) => {
@@ -917,6 +982,9 @@ function renderDashboardPanel(allTasks: any[]) {
     if (emptyEl) {
         emptyEl.style.display = allTasks.length === 0 ? '' : 'none';
     }
+
+    const navBtns = document.getElementById('chat-nav-btns');
+    if (navBtns) navBtns.classList.add('hidden');
 }
 
 function createDashboardPanelItem(task: any): HTMLElement {

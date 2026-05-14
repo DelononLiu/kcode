@@ -187,6 +187,17 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tab:hover{color:#bbb}
 .tab.active{color:#ddd;border-bottom-color:rgba(255,255,255,.2)}
 .tab.disabled{color:#444;cursor:default}
+#chat-nav-btns{position:absolute;bottom:12px;right:16px;display:flex;flex-direction:column;align-items:center;gap:4px;z-index:20;opacity:0;transition:opacity .2s;pointer-events:none}
+#chat-nav-btns:not(.hidden){opacity:1;pointer-events:auto}
+.chat-nav-btn{width:26px;height:26px;border:none;background:rgba(40,40,40,.88);color:#999;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;backdrop-filter:blur(4px);transition:background .15s,color .15s}
+.chat-nav-btn:hover{background:rgba(70,70,70,.9);color:#ddd}
+.chat-nav-btn:disabled{opacity:.25;cursor:default;pointer-events:none}
+.chat-nav-btn:disabled:hover{background:rgba(40,40,40,.88);color:#999}
+.nav-bottom-btn{width:32px;height:32px;border-radius:50%;background:#4a8bb5;color:#fff;margin-top:2px}
+.nav-bottom-btn:hover{background:#5a9bc8;color:#fff}
+.nav-bottom-btn:disabled{opacity:.3}
+.nav-bottom-btn:disabled:hover{background:#4a8bb5;color:#fff}
+.nav-bottom-btn svg{display:block}
 .close-btn{background:none;border:none;color:#666;font-size:14px;cursor:pointer;padding:6px 12px;transition:color .2s}
 .close-btn:hover{color:#ddd}
 #right-panel-content{flex:1;overflow:hidden;position:relative}
