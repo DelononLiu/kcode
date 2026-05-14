@@ -215,6 +215,24 @@ _目标：减少卡片视觉干扰 + 将 KCode 面板重新划分为三栏，职
 | P12-02 | 卡片堆叠 — 相邻工具卡片折叠、仅当前卡片展开 | ⬜ 未开始 |
 | P12-03 | 卡片风格升级 — 参考 Kilo 设计语言，重构卡片标题/配色/视觉层次 | ⬜ 未开始 |
 
+### P12-04: 对话区悬浮导航按钮 — 上一条/下一条用户消息跳转 + 回底部
+
+**涉及文件**:
+- `src/kcodeView/templates/chatPanelHtml.ts` — 新增悬浮按钮组 HTML
+- `src/kcodeView/templates/chatPanelCss.ts` — 按钮组样式（磨砂底、hover/disabled 状态）
+- `src/kcodeView/webview/app.ts` — `initNavButtons()` 导航逻辑、`updateNavButtons()` 可见性+置灰状态
+
+**调研结果**:
+- HTML: 在 `#chat-area` 底部添加 `#chat-nav-btns` 容器，含 3 个 `chat-nav-btn` 按钮
+- CSS: 按钮组 `position:absolute` 定位右下角，半透明 `rgba(30,30,30,.85)` 底色，hover 高亮
+- JS: 查询 `.chat-msg.user` 获取所有用户消息 DOM，`previousUserMsg()`/`nextUserMsg()` 滚动到对应位置
+- 可见性规则：`#chat-scroll` 不在底部（`scrollTop + clientHeight < scrollHeight - 48`）且用户消息 ≥ 1 条时显示
+- 置灰规则：当前视口已在第一条/最后一条用户消息时，对应按钮置灰不可点击
+
+**状态**: 🛠️ 实现中
+
+---
+
 ### 设计定调 — 三栏布局
 
 | 区域 | 核心问题 | 内容 | 定位 |
