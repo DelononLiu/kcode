@@ -276,6 +276,18 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .nav-bottom-btn:disabled:hover{background:#4a8bb5;color:#fff}
 .nav-bottom-btn svg{display:block}
 
+/* === Todo Card === */
+.todo-list{padding:2px 0}
+.todo-item{display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px;color:#d2d2d4}
+.todo-item:hover{color:#fff}
+.todo-checkbox{accent-color:#4ec9b0;cursor:pointer;flex-shrink:0;width:14px;height:14px}
+.todo-item-text{flex:1;min-width:0;line-height:1.4}
+.todo-item-text.todo-done{text-decoration:line-through;color:#666}
+.todo-progress{display:flex;align-items:center;gap:8px;padding:8px 0 2px;border-top:1px solid rgba(255,255,255,.05);margin-top:4px}
+.todo-progress-label{font-size:11px;color:#888;flex-shrink:0}
+.todo-progress-bar{flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
+.todo-progress-fill{height:100%;background:#4ec9b0;border-radius:2px;transition:width .3s ease}
+
 /* === Card Styles (Kilo-inspired) === */
 :root{
 --card-radius:4px;

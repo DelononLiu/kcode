@@ -45,4 +45,29 @@ CONTEXT: 当前 TokenStore 提供 get/set/clear 三个方法，token 存储于 w
   GOAL     — 新任务的独立目标描述（必填，从当前讨论中提取并重写）
   RELATED  — 逗号分隔的相关文件路径（可选）
   CONFIRMED — 逗号分隔的共识条目，从当前任务继承（可选）
-  CONTEXT  — 补充的技术上下文，帮助新任务 AI 理解背景（可选）`;
+  CONTEXT  — 补充的技术上下文，帮助新任务 AI 理解背景（可选）
+
+[TODO_UPDATE] 待办清单协议
+
+你可以在任意阶段输出 TODO_UPDATE 协议块来创建或更新待办清单。系统会自动在对话中渲染为可勾选的 todo 卡片。
+
+格式：
+[TODO_UPDATE]
+{
+  "action": "add",
+  "items": [
+    { "id": "1", "content": "完成用户认证模块", "status": "pending" },
+    { "id": "2", "content": "编写单元测试", "status": "completed" }
+  ]
+}
+[/TODO_UPDATE]
+
+动作说明：
+  add     — 追加新 item，已有相同 id 则更新
+  update  — 按 id 更新 items 中匹配项的 status
+  replace — 全量替换 todo 列表（清空旧的，使用新列表）
+
+约定：
+  - id 取 "1", "2", "3"... 简单递增即可
+  - status 为 "pending" 或 "completed"
+  - 同一任务可多次输出 TODO_UPDATE，会基于已有 todo 消息追加/更新`;

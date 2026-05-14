@@ -190,6 +190,15 @@ export class TaskStore {
         this.state.update('tasks', tasks);
     }
 
+    updateMessageContent(taskId: string, messageId: string, content: string): void {
+        const messages = this.getMessages(taskId);
+        const idx = messages.findIndex(m => m.id === messageId);
+        if (idx !== -1) {
+            messages[idx].content = content;
+            this.state.update(`messages_${taskId}`, messages);
+        }
+    }
+
     updateMessageType(taskId: string, messageId: string, type: ChatMessage['type']): void {
         const messages = this.getMessages(taskId);
         const idx = messages.findIndex(m => m.id === messageId);

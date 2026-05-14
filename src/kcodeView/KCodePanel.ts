@@ -9,7 +9,30 @@ import { MessageRouter } from './MessageRouter';
 import { TaskSessionHandler } from './TaskSessionHandler';
 import { TaskFlowHandler } from './TaskFlowHandler';
 import type { KCodePanelContext, ToolCallState, PendingMessage } from './PanelContext';
-import type { AcpMessageHandler, Task } from '../types';
+import type { AcpMessageHandler, Task, TodoItem } from '../types';
+
+function parseTodosFromOutput(output: string): any[] {
+    const titleMatch = output.match(/<title>\s*\d+\s*todos?\s*<\/title>\s*(\[[\s\S]*?\])\s*/);
+    if (titleMatch) {
+        try { return JSON.parse(titleMatch[1]); } catch {}
+    }
+    try {
+        const arr = JSON.parse(output);
+        if (Array.isArray(arr)) return arr;
+    } catch {}
+    if (output.trim().startsWith('[')) {
+        try { return JSON.parse(output.trim()); } catch {}
+    }
+    return [];
+}
+
+function replaceTodosInOutput(output: string, todos: any[]): string {
+    const titleMatch = output.match(/^(<title>\s*\d+\s*todos?\s*<\/title>\s*)/i);
+    if (titleMatch) {
+        return titleMatch[1] + JSON.stringify(todos, null, 2);
+    }
+    return JSON.stringify(todos, null, 2);
+}
 
 export class KCodePanel {
     readonly panel: vscode.WebviewPanel;
@@ -48,6 +71,7 @@ export class KCodePanel {
             onSelfVerifyFinished: (taskId) => { this.sendTaskInfo(taskId); },
             onPlanStepUpdate: (taskId) => { this.sendTaskInfo(taskId); },
             onTaskDelegated: (taskId, payload) => { this.handleTaskDelegated(taskId, payload); },
+            onTodoUpdate: (taskId, items, action) => { this.handleTodoUpdate(taskId, items, action); },
         });
 
         const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
@@ -136,6 +160,7 @@ export class KCodePanel {
         this.router.on('convertToTask', (msg) => this.handleConvertToTask(msg.taskId));
         this.router.on('updateHooks', (msg) => { if (msg.phase && Array.isArray(msg.commands)) { this.store.updateTaskHooks(msg.taskId, msg.phase, msg.commands); this.sendTaskInfo(msg.taskId); } });
         this.router.on('selectTask', (msg) => { this.loadTask(msg.taskId); this.refreshSidebarCallback?.(); });
+        this.router.on('updateTodoItem', (msg) => { this.handleUpdateTodoItem(msg.taskId, msg.msgId, msg.itemId, msg.checked); });
 
         this.panel.webview.onDidReceiveMessage((message: any) => { this.router.dispatch(message.type, message); }, null, this.context.subscriptions);
     }
@@ -158,6 +183,47 @@ export class KCodePanel {
         }
         this.loadTask(newId);
         this.refreshSidebarCallback?.();
+    }
+
+    private handleTodoUpdate(taskId: string, items: TodoItem[], action: string) {
+        const messages = this.store.getMessages(taskId);
+        const existingTodoMsgs = messages.filter(m => m.type === 'todo');
+
+        if (action === 'replace') {
+            const msgId = this.store.nextMessageId(taskId);
+            this.store.addMessage({
+                id: msgId, taskId, role: 'agent', type: 'todo',
+                content: JSON.stringify(items), timestamp: Date.now()
+            });
+        } else if (action === 'add' && existingTodoMsgs.length > 0) {
+            const last = existingTodoMsgs[existingTodoMsgs.length - 1];
+            const existing: TodoItem[] = JSON.parse(last.content || '[]');
+            const merged = [...existing];
+            for (const item of items) {
+                const idx = merged.findIndex(i => i.id === item.id);
+                if (idx >= 0) merged[idx] = item;
+                else merged.push(item);
+            }
+            this.store.updateMessageContent(taskId, last.id, JSON.stringify(merged));
+        } else if (action === 'update' && existingTodoMsgs.length > 0) {
+            const last = existingTodoMsgs[existingTodoMsgs.length - 1];
+            const existing: TodoItem[] = JSON.parse(last.content || '[]');
+            for (const item of items) {
+                const idx = existing.findIndex(i => i.id === item.id);
+                if (idx >= 0) existing[idx].status = item.status;
+            }
+            this.store.updateMessageContent(taskId, last.id, JSON.stringify(existing));
+        } else {
+            const msgId = this.store.nextMessageId(taskId);
+            this.store.addMessage({
+                id: msgId, taskId, role: 'agent', type: 'todo',
+                content: JSON.stringify(items), timestamp: Date.now()
+            });
+        }
+
+        const t = this.store.getTask(taskId);
+        this.router.PostMessage({ type: 'loadMessages', messages: this.store.getMessages(taskId), taskId, taskStatus: t?.status });
+        this.sendOutputPanelUpdate(taskId);
     }
 
     private handleTaskDelegated(parentTaskId: string, payload: any) {
@@ -193,7 +259,24 @@ export class KCodePanel {
 
     private sendOutputPanelUpdate(taskId: string) {
         const changes = this.store.getReviewChanges(taskId);
-        this.router.PostMessage({ type: 'updateOutputPanel', taskInfo: { planSteps: this.store.getTask(taskId)?.planSteps }, changes });
+        const messages = this.store.getMessages(taskId);
+        const todos: TodoItem[] = [];
+        for (const msg of messages) {
+            if (msg.type === 'todo') {
+                try { todos.push(...JSON.parse(msg.content || '[]')); } catch {}
+            } else if (msg.type === 'tool_call') {
+                try {
+                    const info = JSON.parse(msg.content);
+                    if (info.kind === 'todowrite' && info.output) {
+                        const raw = parseTodosFromOutput(info.output);
+                        for (let idx = 0; idx < raw.length; idx++) {
+                            todos.push({ id: String(idx), content: String(raw[idx].content || ''), status: raw[idx].status === 'completed' ? 'completed' : 'pending' });
+                        }
+                    }
+                } catch {}
+            }
+        }
+        this.router.PostMessage({ type: 'updateOutputPanel', taskInfo: { planSteps: this.store.getTask(taskId)?.planSteps, todos }, changes });
     }
 
     private createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string) {
@@ -538,6 +621,49 @@ export class KCodePanel {
 
     private sendPendingQueueUpdate() {
         this.router.PostMessage({ type: 'pendingQueueUpdate', count: this.pendingMessages.length, items: this.pendingMessages.map(p => ({ text: p.text.substring(0, 60) })) });
+    }
+
+    private handleUpdateTodoItem(taskId: string, msgId: string, itemId: string, checked: boolean) {
+        const messages = this.store.getMessages(taskId);
+        let msg = messages.find(m => m.id === msgId);
+
+        if (!msg && msgId.startsWith('tool_')) {
+            const toolCallId = msgId.slice(5);
+            msg = messages.find(m => {
+                if (m.type !== 'tool_call') return false;
+                try {
+                    const info = JSON.parse(m.content);
+                    return info.toolCallId === toolCallId;
+                } catch { return false; }
+            });
+        }
+
+        if (!msg) return;
+        try {
+            if (msg.type === 'todo') {
+                const items: TodoItem[] = JSON.parse(msg.content || '[]');
+                const item = items.find(i => i.id === itemId);
+                if (item) {
+                    item.status = checked ? 'completed' : 'pending';
+                    this.store.updateMessageContent(taskId, msg.id, JSON.stringify(items));
+                }
+            } else if (msg.type === 'tool_call') {
+                const info = JSON.parse(msg.content);
+                const rawOutput = info.output || '';
+                const todos = parseTodosFromOutput(rawOutput);
+                const idx = parseInt(itemId, 10);
+                const item = !isNaN(idx) && idx >= 0 && idx < todos.length ? todos[idx] : todos.find((i: any) => String(i.id) === itemId);
+                if (item) {
+                    item.status = checked ? 'completed' : 'pending';
+                    const newOutput = replaceTodosInOutput(rawOutput, todos);
+                    info.output = newOutput;
+                    this.store.updateMessageContent(taskId, msg.id, JSON.stringify(info));
+                }
+            }
+            const t = this.store.getTask(taskId);
+            this.router.PostMessage({ type: 'loadMessages', messages: this.store.getMessages(taskId), taskId, taskStatus: t?.status });
+            this.sendOutputPanelUpdate(taskId);
+        } catch {}
     }
 
     storeMessage(taskId: string, role: 'user' | 'agent', content: string): string {

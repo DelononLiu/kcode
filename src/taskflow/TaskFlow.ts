@@ -1,4 +1,4 @@
-import type { Task, PlanStep, ChatMessage } from '../types';
+import type { Task, PlanStep, ChatMessage, TodoItem } from '../types';
 import { BASE_PROMPT } from './prompts/base';
 import { PROTOCOL_PROMPT } from './prompts/protocol';
 import { DEMAND_PROMPT } from './prompts/demand';
@@ -29,6 +29,7 @@ export interface ITaskStore {
     addMessage(msg: ChatMessage): void;
     nextMessageId(taskId: string): string;
     updateMessageType(taskId: string, messageId: string, type?: ChatMessage['type']): void;
+    updateMessageContent(taskId: string, messageId: string, content: string): void;
     updateTaskTitle(taskId: string, title: string): void;
     updateTaskType(taskId: string, type: 'task' | 'chat'): void;
     updateTaskHooks(taskId: string, phase: string, commands: string[]): void;
@@ -51,6 +52,7 @@ export interface TaskFlowDelegate {
     onSelfVerifyFinished(taskId: string): void;
     onPlanStepUpdate(taskId: string): void;
     onTaskDelegated(taskId: string, payload: DelegatePayload): void;
+    onTodoUpdate(taskId: string, items: TodoItem[], action: string): void;
 }
 
 export interface GenResult {
@@ -143,8 +145,8 @@ export class TaskFlow {
 
     getCleanText(taskId: string): string {
         const text = this.accumulatedText.get(taskId) || '';
-        // 剥离 [TASK_UPDATE] 块
-        return text.replace(/\[TASK_UPDATE\][\s\S]*?\[\/TASK_UPDATE\]/gi, '').trim();
+        // 剥离 [TASK_UPDATE] 块（仅独立段落：块起始于行首）
+        return text.replace(/(?:^|\n)\s*\[TASK_UPDATE\][\s\S]*?\[\/TASK_UPDATE\]\s*/g, '\n').trim();
     }
 
     processChunk(taskId: string, chunk: string): string {
@@ -152,6 +154,7 @@ export class TaskFlow {
         this.accumulatedText.set(taskId, current + chunk);
         this.parseTaskUpdate(taskId);
         this.parseTaskDelegate(taskId);
+        this.parseTodoUpdate(taskId);
         return this.getCleanText(taskId);
     }
 
@@ -199,6 +202,57 @@ export class TaskFlow {
         };
     }
 
+    private parseTodoUpdate(taskId: string): void {
+        let text = this.accumulatedText.get(taskId) || '';
+        let found = false;
+
+        // 格式1: <TODO_UPDATE>{ action, items }</TODO_UPDATE>（自定义协议）
+        const regex1 = /<TODO_UPDATE>([\s\S]*?)<\/TODO_UPDATE>/gi;
+        let match;
+        while ((match = regex1.exec(text)) !== null) {
+            try {
+                const payload = JSON.parse(match[1].trim());
+                if (!payload.action || !Array.isArray(payload.items)) continue;
+                const items: TodoItem[] = payload.items.map((item: any) => ({
+                    id: String(item.id),
+                    content: String(item.content || ''),
+                    status: item.status === 'completed' ? 'completed' : 'pending'
+                }));
+                text = text.replace(match[0], '');
+                found = true;
+                regex1.lastIndex = 0;
+                this.delegate.onTodoUpdate(taskId, items, payload.action);
+            } catch {
+                // skip
+            }
+        }
+
+        // 格式2: <title>N todos</title>\n[{ content, status, priority }]（ACP 原生格式）
+        const regex2 = /<title>\s*\d+\s*todos?\s*<\/title>\s*(\[[\s\S]*?\])\s*/gi;
+        while ((match = regex2.exec(text)) !== null) {
+            try {
+                const rawItems = JSON.parse(match[1].trim());
+                if (!Array.isArray(rawItems) || rawItems.length === 0) continue;
+                const items: TodoItem[] = rawItems.map((item: any, idx: number) => ({
+                    id: String(idx),
+                    content: String(item.content || ''),
+                    status: item.status === 'completed' ? 'completed' : 'pending',
+                    priority: item.priority,
+                }));
+                text = text.replace(match[0], '');
+                found = true;
+                regex2.lastIndex = 0;
+                this.delegate.onTodoUpdate(taskId, items, 'replace');
+            } catch {
+                // skip
+            }
+        }
+
+        if (found) {
+            this.accumulatedText.set(taskId, text);
+        }
+    }
+
     getGenResult(taskId: string): GenResult {
         return {
             planProposed: this.isPlanProposed(taskId),
@@ -212,8 +266,8 @@ export class TaskFlow {
         if (!task || task.type !== 'task') return;
         let text = this.accumulatedText.get(taskId) || '';
 
-        // 匹配 [TASK_UPDATE] 块
-        const regex = /\[TASK_UPDATE\]([\s\S]*?)\[\/TASK_UPDATE\]/gi;
+        // 匹配 [TASK_UPDATE] 块（仅独立段落：起始于行首）
+        const regex = /(?:^|\n)\s*\[TASK_UPDATE\]\s*([\s\S]*?)\s*\[\/TASK_UPDATE\]/g;
         let match;
         while ((match = regex.exec(text)) !== null) {
             try {

@@ -108,18 +108,34 @@ function updateOutputPanel(taskInfo: any, changes: any[]) {
     const planList = document.getElementById('op-plan-list');
     if (planList && taskInfo) {
         const steps = taskInfo.planSteps || [];
+        const todos: any[] = taskInfo.todos || [];
+        const parts: string[] = [];
+
         if (steps.length > 0) {
             const statusEmoji: Record<string, string> = { pending: '○', active: '◉', completed: '✓' };
             const done = steps.filter((s: any) => s.status === 'completed').length;
-            planList.innerHTML =
-                `<div class="op-plan-header">${done}/${steps.length} 完成</div>` +
+            parts.push(
+                `<div class="op-plan-header">📋 计划步骤 (${done}/${steps.length})</div>` +
                 `<div class="op-plan-bar"><div class="op-plan-fill" style="width:${steps.length > 0 ? (done / steps.length * 100) : 0}%"></div></div>` +
                 steps.map((s: any) =>
                     `<div class="op-item"><span class="op-item-icon">${statusEmoji[s.status] || '○'}</span><span class="op-item-name">${opEscapeHtml(s.content)}</span></div>`
-                ).join('');
-        } else {
-            planList.innerHTML = '<div class="op-empty">暂无计划步骤</div>';
+                ).join('')
+            );
         }
+
+        if (todos.length > 0) {
+            const done = todos.filter((t: any) => t.status === 'completed').length;
+            parts.push(
+                `<div class="op-plan-header" style="margin-top:6px">✅ 待办清单 (${done}/${todos.length})</div>` +
+                `<div class="op-plan-bar"><div class="op-plan-fill" style="width:${todos.length > 0 ? (done / todos.length * 100) : 0}%"></div></div>` +
+                todos.map((t: any) => {
+                    const checked = t.status === 'completed';
+                    return `<div class="op-item"><span class="op-item-icon">${checked ? '✓' : '○'}</span><span class="op-item-name" style="${checked ? 'text-decoration:line-through;color:#666' : ''}">${opEscapeHtml(t.content)}</span></div>`;
+                }).join('')
+            );
+        }
+
+        planList.innerHTML = parts.length > 0 ? parts.join('') : '<div class="op-empty">暂无计划步骤</div>';
     }
 
     // Update knowledge tab

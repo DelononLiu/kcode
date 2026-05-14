@@ -1535,6 +1535,16 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
         return;
     }
 
+    if (msg.type === 'todo') {
+        const msgDiv = createCardMessageElement(msg.taskId);
+        const bubble = msgDiv.querySelector('.msg-bubble')!;
+        const card = renderTodoCard(msg);
+        bubble.appendChild(card);
+        appendToChatMessages(msgDiv);
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        return;
+    }
+
     if (msg.type === 'stop_message') {
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg agent stop-message';
@@ -1860,6 +1870,83 @@ function createCard(config: {
     }
 
     return card;
+}
+
+function renderTodoCard(msg: any): HTMLElement {
+    let items: any[];
+    try {
+        items = JSON.parse(msg.content || '[]');
+    } catch {
+        items = [];
+    }
+    const activeItems = items.filter((i: any) => i.status !== 'completed');
+    const done = items.filter((i: any) => i.status === 'completed').length;
+    const total = items.length;
+
+    if (activeItems.length === 0) {
+        return createCard({
+            headerHtml: '✅ 待办清单',
+            bodyHtml: '<div class="todo-progress" style="border:none;margin:0;padding:4px 0"><span class="todo-progress-label">全部完成 🎉</span></div>',
+            rawData: msg, defaultCollapsed: false,
+            borderColor: '#3c3c3c', headerBg: '#2d2d2d', headerColor: '#e0e0e0',
+        });
+    }
+
+    const bodyHtml = activeItems.map((item: any) => {
+        return `<label class="todo-item"><input type="checkbox" class="todo-checkbox" data-msg-id="${msg.id}" data-item-id="${item.id}"><span class="todo-item-text">${escapeHtml(item.content)}</span></label>`;
+    }).join('');
+
+    const progressHtml = `<div class="todo-progress"><span class="todo-progress-label">${done}/${total} 已完成</span><div class="todo-progress-bar"><div class="todo-progress-fill" style="width:${total > 0 ? (done / total * 100) : 0}%"></div></div></div>`;
+
+    const card = createCard({
+        headerHtml: '✅ 待办清单',
+        bodyHtml: `<div class="todo-list">${bodyHtml}${progressHtml}</div>`,
+        rawData: msg,
+        defaultCollapsed: false,
+        borderColor: '#3c3c3c',
+        headerBg: '#2d2d2d',
+        headerColor: '#e0e0e0',
+    });
+
+    card.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement;
+        if (!target.classList.contains('todo-checkbox')) return;
+        const msgId = target.dataset.msgId;
+        const itemId = target.dataset.itemId;
+        const checked = target.checked;
+        vscode.postMessage({ type: 'updateTodoItem', taskId: msg.taskId, msgId, itemId, checked });
+    });
+
+    return card;
+}
+
+function buildTodoBodyHtml(output: string, toolCallId: string, taskId: string): string {
+    let items: any[] = [];
+    const titleMatch = output.match(/<title>\s*\d+\s*todos?\s*<\/title>\s*(\[[\s\S]*?\])\s*/);
+    if (titleMatch) {
+        try { items = JSON.parse(titleMatch[1]); } catch {}
+    } else if (output.trim().startsWith('[')) {
+        try { items = JSON.parse(output.trim()); } catch {}
+    }
+    if (items.length === 0) {
+        return '<div class="op-empty">无待办项</div>';
+    }
+    items = items.map((item: any, idx: number) => ({
+        id: String(idx),
+        content: String(item.content || ''),
+        status: item.status === 'completed' ? 'completed' : 'pending',
+    }));
+    const activeItems = items.filter((i: any) => i.status !== 'completed');
+    const done = items.filter((i: any) => i.status === 'completed').length;
+    const total = items.length;
+    if (activeItems.length === 0) {
+        return '<div class="todo-progress" style="border:none;margin:0;padding:4px 0"><span class="todo-progress-label">全部完成 🎉</span></div>';
+    }
+    const itemsHtml = activeItems.map((item: any) => {
+        return `<label class="todo-item"><input type="checkbox" class="todo-checkbox" data-msg-id="tool_${toolCallId}" data-item-id="${item.id}"><span class="todo-item-text">${escapeHtml(item.content)}</span></label>`;
+    }).join('');
+    const progressHtml = `<div class="todo-progress"><span class="todo-progress-label">${done}/${total} 已完成</span><div class="todo-progress-bar"><div class="todo-progress-fill" style="width:${total > 0 ? (done / total * 100) : 0}%"></div></div></div>`;
+    return `<div class="todo-list">${itemsHtml}${progressHtml}</div>`;
 }
 
 function createCardMessageElement(taskId?: string): HTMLElement {
@@ -2405,6 +2492,25 @@ function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
         card.setAttribute('data-tool-kind', kind);
         return card;
     };
+
+    if (kind === 'todowrite') {
+        const todoHtml = buildTodoBodyHtml(content, msg.toolCallId || '', msg.taskId || activeTaskId || '');
+        const card = makeCard({
+            headerHtml: '<span class="tool-kind-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v2H2V2zm0 5h12v2H2V7zm0 5h8v2H2v-2z"/></svg></span><span class="tool-title-label">待办清单</span>',
+            bodyHtml: todoHtml,
+            defaultCollapsed: false,
+            rawData: msg
+        });
+        card.addEventListener('change', (e) => {
+            const target = e.target as HTMLInputElement;
+            if (!target.classList.contains('todo-checkbox')) return;
+            const itemId = target.dataset.itemId;
+            const checked = target.checked;
+            vscode.postMessage({ type: 'updateTodoItem', taskId: msg.taskId || activeTaskId, msgId: 'tool_' + (msg.toolCallId || ''), itemId, checked });
+        });
+        bubble.appendChild(card);
+        return;
+    }
 
     if (kind === 'thinking') {
         const card = makeCard({

@@ -39,6 +39,13 @@ export interface CategoryDef {
     subTypes: Record<string, TaskTemplate>;
 }
 
+export interface TodoItem {
+    id: string;
+    content: string;
+    status: 'pending' | 'completed';
+    priority?: 'low' | 'medium' | 'high';
+}
+
 export interface PlanStep {
     content: string;
     status: 'pending' | 'active' | 'completed';
@@ -70,7 +77,7 @@ export interface ChatMessage {
     id: string;
     taskId: string;
     role: 'user' | 'agent' | 'tool';
-    type?: 'text' | 'goal_confirmation' | 'goal_confirmed' | 'goal_updated' | 'plan_proposal' | 'plan_confirmed' | 'review_request' | 'review_approved' | 'review_rejected' | 'tool_call' | 'stop_message';
+    type?: 'text' | 'goal_confirmation' | 'goal_confirmed' | 'goal_updated' | 'plan_proposal' | 'plan_confirmed' | 'review_request' | 'review_approved' | 'review_rejected' | 'tool_call' | 'stop_message' | 'todo';
     content: string;
     timestamp: number;
 }

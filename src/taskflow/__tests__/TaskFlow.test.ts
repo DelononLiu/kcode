@@ -79,6 +79,13 @@ class MockTaskStore implements ITaskStore {
     }
 
     updateMessageType(_taskId: string, _messageId: string, _type?: ChatMessage['type']): void {}
+    updateMessageContent(taskId: string, messageId: string, content: string): void {
+        const msgs = this.messages.get(taskId);
+        if (msgs) {
+            const idx = msgs.findIndex(m => m.id === messageId);
+            if (idx >= 0) msgs[idx].content = content;
+        }
+    }
 
     updateTaskTitle(_taskId: string, _title: string): void {}
 
@@ -113,6 +120,7 @@ class MockDelegate implements TaskFlowDelegate {
     onSelfVerifyFinished(taskId: string): void { this.selfVerifyFinished.push(taskId); }
     onPlanStepUpdate(taskId: string): void { this.planStepUpdated.push(taskId); }
     onTaskDelegated(_taskId: string, _payload: any): void {}
+    onTodoUpdate(_taskId: string, _items: any[], _action: string): void {}
 }
 
 // ==============================
