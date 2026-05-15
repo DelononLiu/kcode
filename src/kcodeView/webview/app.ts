@@ -188,22 +188,10 @@ function initMessageHandler() {
             case 'showDashboard':
                 renderDashboardPanel(message.allTasks);
                 break;
-            case 'showFilePreview':
-                if ((window as any).showPreview) {
-                    (window as any).showPreview(message.filePath, message.content);
-                    activateTab('preview');
-                }
-                break;
             case 'showDiff':
                 if ((window as any).showDiff) {
                     (window as any).showDiff(message.original, message.modified);
                     activateTab('diff');
-                }
-                break;
-            case 'deviceConnect':
-                if ((window as any).connectToDevice) {
-                    (window as any).connectToDevice(message.host, message.port, message.connectionType);
-                    activateTab('device');
                 }
                 break;
             case 'agentStreamUpdate':
@@ -230,9 +218,6 @@ function initMessageHandler() {
                 const rp = document.getElementById('right-panel');
                 if (rp) {
                     rp.classList.toggle('hidden');
-                    if (!rp.classList.contains('hidden')) {
-                        activateTab('preview');
-                    }
                 }
                 break;
             case 'showGoalConfirmation':
@@ -1063,9 +1048,7 @@ function renderMessages(messages: any[]) {
         scrollContainer.classList.remove('chat-empty');
         document.getElementById('chat-header')?.style.removeProperty('display');
         document.getElementById('chat-body')?.classList.remove('showing-categories');
-        container.innerHTML = '<div class="chat-placeholder">输入需求，开始与 AI 对话</div>';
         initCategoryChips();
-        if (existingIndicator) container.appendChild(existingIndicator);
         if (inputEl) inputEl.placeholder = '输入需求，开始与 AI 对话';
         return;
     }

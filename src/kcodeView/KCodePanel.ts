@@ -680,10 +680,8 @@ export class KCodePanel {
     focusInput() { this.router.PostMessage({ type: 'focusInput' }); }
     flashInput() { this.router.PostMessage({ type: 'flashInput' }); }
     toggleRightPanel() { this.router.PostMessage({ type: 'toggleRightPanel' }); }
-    showFilePreview(fp: string, c: string) { this.router.PostMessage({ type: 'showFilePreview', filePath: fp, content: c }); }
     showDiff(o: string, m: string) { this.router.PostMessage({ type: 'showDiff', original: o, modified: m }); }
     showWebView(url: string) { this.router.PostMessage({ type: 'showWebView', url }); }
-    deviceConnect(h: string, p: number, t: 'ssh' | 'telnet') { this.router.PostMessage({ type: 'deviceConnect', host: h, port: p, connectionType: t }); }
     private handleShowFileDiff(original: string, modified: string) { this.showDiff(original, modified); }
     getCurrentTaskId(): string | null { return this.currentTaskId; }
     setRefreshSidebarCallback(cb: () => void) { this.refreshSidebarCallback = cb; }

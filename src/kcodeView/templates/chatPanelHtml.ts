@@ -75,7 +75,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                 </div>
                 <div id="chat-scroll" class="chat-empty">
                     <div id="chat-messages">
-                    <div class="chat-placeholder">输入需求，开始与 AI 对话</div>
                     <div id="working-indicator" class="hidden">
                         <span class="working-spinner"></span>
                         <span class="working-text">思考中</span>
@@ -199,20 +198,17 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             </div>
         </div>
 
-        <!-- Overlay Right Panel — Diff / Preview / ACP Log -->
+        <!-- Overlay Right Panel — Diff / ACP Log -->
         <div id="right-panel" class="hidden">
             <div id="right-panel-header">
                 <div class="tabs">
-                    <button class="tab active" data-tab="preview">Preview</button>
-                    <button class="tab" data-tab="diff">Diff</button>
+                    <button class="tab active" data-tab="diff">Diff</button>
                     <button class="tab" data-tab="acplog">ACP Log</button>
-                    <button class="tab disabled" data-tab="device" title="即将推出">Device</button>
                 </div>
                 <button id="right-panel-close" class="close-btn" title="关闭右侧面板">✕</button>
             </div>
             <div id="right-panel-content">
-                <div id="tab-preview" class="tab-content active">Preview</div>
-                <div id="tab-diff" class="tab-content">Diff</div>
+                <div id="tab-diff" class="tab-content active">Diff</div>
                 <div id="tab-acplog" class="tab-content">
                     <div id="acp-log-toolbar">
                         <label><input type="checkbox" id="acp-log-enable"> 采集日志</label>
@@ -220,7 +216,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     </div>
                     <div id="acp-log-content"></div>
                 </div>
-                <div id="tab-device" class="tab-content">Device</div>
             </div>
         </div>
     </div>
@@ -229,7 +224,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
          data-all-tasks="${escapeAttr(JSON.stringify(allTasks || []))}"
          style="display:none"></div>
     <script src="${scriptUri('app.bundle')}"></script>
-    <script src="${scriptUri('preview')}"></script>
     <script src="${scriptUri('outputPanel')}"></script>
 </body>
 </html>`;
