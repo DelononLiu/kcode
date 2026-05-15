@@ -237,18 +237,18 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .op-plan-bar{height:2px;background:rgba(255,255,255,.06);border-radius:2px;margin-bottom:4px;overflow:hidden}
 .op-plan-fill{height:100%;background:#4a8bb5;border-radius:2px;transition:width .4s ease}
 
-/* === Overlay Right Panel — Diff / Preview / ACP Log (hidden by default) === */
-#right-panel{position:absolute;right:0;top:0;height:100%;width:500px;background:var(--vscode-sideBar-background,#1e1e1e);border-left:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;z-index:20;box-shadow:-4px 0 16px rgba(0,0,0,.35)}
+/* === Overlay Right Panel — TabCard (Diff / Preview / ACP Log) === */
+#right-panel{position:fixed;right:0;top:0;height:100%;width:500px;background:var(--vscode-sideBar-background,#1e1e1e);border-left:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;z-index:20;box-shadow:-4px 0 16px rgba(0,0,0,.35)}
 #right-panel.hidden{display:none}
-#right-panel-header{display:flex;align-items:center;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
-.tabs{display:flex;flex:1;overflow-x:auto}
-.tab{padding:8px 14px;background:none;border:none;color:#777;font-size:12px;cursor:pointer;border-bottom:1px solid transparent;white-space:nowrap;transition:color .2s}
-.tab:hover{color:#bbb}
-.tab.active{color:#ddd;border-bottom-color:rgba(255,255,255,.2)}
+#right-panel-header{display:flex;align-items:stretch;background:rgba(0,0,0,.15);flex-shrink:0}
+.tabs{display:flex;flex:1;min-width:0;flex-wrap:wrap}
+.tab{flex:1;min-width:100px;text-align:center;padding:7px 8px;background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,.06);color:#666;font-size:12px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .15s;font-family:inherit}
+.tab:hover{color:#999}
+.tab.active{color:#ddd;font-weight:500;background:var(--vscode-sideBar-background,#1e1e1e);border-bottom-color:transparent}
 .tab.disabled{color:#444;cursor:default}
-.tab-content{display:none;height:100%;overflow-y:auto;padding:12px}
+.tab-content{display:none;max-height:280px;overflow-y:auto;padding:12px}
 .tab-content.active{display:block}
-#tab-acplog{display:flex;flex-direction:column;height:100%;font-size:11px}
+#tab-acplog{display:flex;flex-direction:column;max-height:280px;overflow:hidden;font-size:11px}
 #acp-log-toolbar{display:flex;align-items:center;gap:8px;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
 #acp-log-toolbar label{display:flex;align-items:center;gap:4px;cursor:pointer;color:#aaa;font-size:11px}
 #acp-log-toolbar input[type=checkbox]{accent-color:#4a9eff;cursor:pointer}
@@ -349,6 +349,24 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tool-spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.08);border-top-color:var(--tool-color-bash);border-radius:50%;animation:tool-spin .8s linear infinite;flex-shrink:0}
 @keyframes tool-spin{to{transform:rotate(360deg)}}
 
+/* === TabCard Component === */
+.tab-card{border:var(--card-border);border-radius:var(--card-radius);overflow:hidden;margin-bottom:6px}
+.tab-card:last-child{margin-bottom:0}
+.tab-card-header{display:flex;align-items:stretch;background:rgba(0,0,0,.15);flex-shrink:0}
+.tab-card-tabs{display:flex;flex:1;min-width:0;flex-wrap:wrap}
+.tab-card-tab{flex:1;min-width:100px;text-align:center;padding:6px 8px;background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,.06);color:#666;font-size:11.5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .15s;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px}
+.tab-card-tab:hover{color:#999}
+.tab-card-tab.active{color:#ddd;font-weight:500;background:var(--vscode-sideBar-background,#1e1e1e);border-bottom-color:transparent}
+.tab-card-tab .tool-kind-icon{font-size:11px}
+.tab-card-bodies{height:280px;overflow-y:auto}
+.tab-card-body{display:none;padding:8px 12px;font-size:13px;line-height:1.6;color:#d2d2d4}
+.tab-card-body.active{display:block}
+.tab-card-body .tool-body-content{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px;color:#9aa;background:transparent;padding:0}
+.tab-card-body.tool-body-bash{background:rgba(0,0,0,.3);border-radius:3px;padding:8px 12px!important}
+.tab-card-body.tool-body-bash .tool-body-content{color:var(--tool-color-bash)}
+.tab-card-body.tool-thinking{background:rgba(0,0,0,.25)}
+.tab-card-body.tool-thinking .tool-body-content{font-size:11.5px;font-style:italic;color:#777}
+
 /* === Review / Diff / Plan === */
 .review-changes{padding:6px 0 0;border-top:1px solid rgba(255,255,255,.04);margin-top:6px}
 .review-changes-label{font-size:11px;color:#888;padding:4px 0 2px}
@@ -395,29 +413,6 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-timestamp{font-size:10px;color:#555;font-weight:400}
 .chat-msg.tool{padding:6px 0}
 .chat-msg.tool .msg-bubble{font-size:13px;line-height:1.5;color:#b5c9a8}
-/* === Tool Stack (tab-like) === */
-.tool-stack-wrapper{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;margin-bottom:6px;border:var(--card-border);border-radius:var(--card-radius);background:rgba(0,0,0,.06)}
-.tool-stack-wrapper .chat-msg.tool{padding:0;margin:0;flex:0 1 auto;min-width:0}
-.tool-stack-wrapper .msg-bubble{padding:0;background:transparent}
-.tool-stack-wrapper .msg-card{border:1px solid rgba(255,255,255,.08);border-radius:3px;margin:0}
-
-.tool-stack-wrapper .msg-card-header{min-height:28px;padding:3px 10px;font-size:11px;border-left:3px solid transparent!important;white-space:nowrap;background:rgba(255,255,255,.015)}
-.tool-stack-wrapper .msg-card-header:hover{background:rgba(255,255,255,.04)}
-.tool-stack-wrapper .msg-card-header[aria-expanded=false]{border-bottom:none!important}
-.tool-stack-wrapper .msg-card-body{display:none!important}
-.tool-stack-wrapper .msg-card-toggle{display:none}
-.tool-stack-wrapper .card-copy-btn,.tool-stack-wrapper .card-copy-raw-btn{display:none}
-.tool-stack-wrapper .stack-preview{flex:0 0 100%;border-top:1px solid rgba(255,255,255,.06);padding:8px 12px;max-height:400px;overflow-y:auto;background:var(--vscode-sideBar-background,#1e1e1e);font-size:13px;line-height:1.6;color:#d2d2d4}
-.stack-preview-body pre{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px;color:#9aa;background:transparent;padding:0}
-.stack-preview-body .tool-bash-output{color:var(--tool-color-bash)}
-.stack-preview-body .tool-body-diff{color:#d2d2d4}
-.stack-preview-body.tool-thinking{color:#777;font-style:italic}
-.tool-stack-wrapper [data-tool-kind="bash"] .msg-card-header,.tool-stack-wrapper [data-tool-kind="command"] .msg-card-header,.tool-stack-wrapper [data-tool-kind="terminal"] .msg-card-header{border-left-color:var(--tool-color-bash)!important}
-.tool-stack-wrapper [data-tool-kind="read"] .msg-card-header{border-left-color:var(--tool-color-read)!important}
-.tool-stack-wrapper [data-tool-kind="write"] .msg-card-header,.tool-stack-wrapper [data-tool-kind="edit"] .msg-card-header{border-left-color:var(--tool-color-write)!important}
-.tool-stack-wrapper [data-tool-kind="glob"] .msg-card-header{border-left-color:var(--tool-color-glob)!important}
-.tool-stack-wrapper [data-tool-kind="grep"] .msg-card-header,.tool-stack-wrapper [data-tool-kind="search"] .msg-card-header{border-left-color:var(--tool-color-grep)!important}
-.tool-stack-wrapper [data-tool-kind="thinking"] .msg-card-header{border-left-color:var(--tool-color-thinking)!important;font-style:italic;color:#777}
 .agent-diff-summary{margin-top:10px;padding:6px 10px;background:rgba(78,201,176,.04);border-left:2px solid #4ec9b0;border-radius:3px;font-size:12px;line-height:1.6;color:#9aa}
 .review-inline-actions{display:flex;gap:8px;padding:8px 0 2px}
 .review-inline-status{font-size:12px;color:#777;padding:6px 0 2px}
