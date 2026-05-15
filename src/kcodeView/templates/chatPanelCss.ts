@@ -211,10 +211,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .status-dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
 .status-dot.online{background:#5a9d6b}
 .status-dot.offline{background:#555}
-#input-category-bar{display:inline-flex;align-items:center;gap:4px}
-.category-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;font-size:11.5px;color:#888;background:rgba(255,255,255,.04);border-radius:10px;cursor:pointer;user-select:none;transition:all .15s;font-family:inherit;line-height:1.5}
-.category-chip:hover{color:#ccc;background:rgba(255,255,255,.08)}
-.category-chip.active{color:#4ec9b0;background:rgba(78,201,176,.12)}
+#input-template-bar{display:inline-flex;align-items:center;gap:3px}
+.template-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;font-size:11px;color:#666;background:rgba(255,255,255,.03);border-radius:3px;cursor:pointer;user-select:none;transition:all .15s;font-family:inherit;line-height:1.5;white-space:nowrap}
+.template-chip:hover{color:#bbb;background:rgba(255,255,255,.07)}
+.template-chip .tmpl-icon{font-size:11px}
 
 /* === Right Output Panel — vertical sections (no tabs) === */
 #right-output-panel{width:220px;min-width:140px;display:flex;flex-direction:column;background:var(--vscode-sideBar-background,#1e1e1e);border-left:1px solid rgba(255,255,255,.06);flex-shrink:0;position:relative;overflow:hidden}

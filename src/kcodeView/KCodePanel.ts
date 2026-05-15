@@ -261,6 +261,9 @@ export class KCodePanel {
         const changes = this.store.getReviewChanges(taskId);
         const messages = this.store.getMessages(taskId);
         const todos: TodoItem[] = [];
+        const toolCalls: { toolCallId: string; title: string; kind: string; status: string; output?: string }[] = [];
+        const knowledgeItems: { content: string; source: string }[] = [];
+        const seenToolCalls = new Set<string>();
         for (const msg of messages) {
             if (msg.type === 'todo') {
                 try { todos.push(...JSON.parse(msg.content || '[]')); } catch {}
@@ -272,11 +275,14 @@ export class KCodePanel {
                         for (let idx = 0; idx < raw.length; idx++) {
                             todos.push({ id: String(idx), content: String(raw[idx].content || ''), status: raw[idx].status === 'completed' ? 'completed' : 'pending' });
                         }
+                    } else if (info.toolCallId && !seenToolCalls.has(info.toolCallId)) {
+                        seenToolCalls.add(info.toolCallId);
+                        toolCalls.push({ toolCallId: info.toolCallId, title: info.title || '', kind: info.kind || '', status: info.status || '', output: info.output || '' });
                     }
                 } catch {}
             }
         }
-        this.router.PostMessage({ type: 'updateOutputPanel', taskInfo: { planSteps: this.store.getTask(taskId)?.planSteps, todos }, changes });
+        this.router.PostMessage({ type: 'updateOutputPanel', taskInfo: { planSteps: this.store.getTask(taskId)?.planSteps, todos, toolCalls, knowledgeItems }, changes });
     }
 
     private createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string) {

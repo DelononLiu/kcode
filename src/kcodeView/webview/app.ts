@@ -263,7 +263,7 @@ function initMessageHandler() {
                 break;
             case 'updateCategoryDefs':
                 categoryDefs = message.categories;
-                initCategoryChips();
+                initTemplateChips();
                 break;
             case 'startTemplateFlow':
                 renderCategorySelection();
@@ -479,8 +479,6 @@ function initChat() {
         if (selectedCategory) {
             msg.category = selectedCategory;
             selectedCategory = null;
-            const bar = document.getElementById('input-category-bar');
-            if (bar) bar.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
         }
         vscode.postMessage(msg);
     }
@@ -556,20 +554,22 @@ function initChat() {
         }
     });
 
-    const btnNewTask = document.getElementById('btn-new-task');
-    btnNewTask?.addEventListener('click', () => {
-        vscode.postMessage({ type: 'newTask' });
-    });
-
     const btnDashboard = document.getElementById('btn-dashboard');
     btnDashboard?.addEventListener('click', () => {
         vscode.postMessage({ type: 'openDashboard' });
+    });
+
+    const btnKnowledgeExtract = document.getElementById('btn-knowledge-extract');
+    btnKnowledgeExtract?.addEventListener('click', () => {
+        vscode.window.showInformationMessage?.('知识萃取功能即将推出');
     });
 
     const btnTerminal = document.getElementById('btn-terminal');
     btnTerminal?.addEventListener('click', () => {
         vscode.postMessage({ type: 'openTerminal' });
     });
+
+
 
     const acpLogEnable = document.getElementById('acp-log-enable') as HTMLInputElement;
     acpLogEnable?.addEventListener('change', () => {
@@ -717,15 +717,6 @@ function initChat() {
 
         hooksCloseBtn.addEventListener('click', () => {
             hooksEditor.classList.add('hidden');
-        });
-
-        const hooksToolbarBtn = document.getElementById('hooks-toolbar-btn');
-        hooksToolbarBtn?.addEventListener('click', () => {
-            const isOpen = !hooksEditor.classList.contains('hidden');
-            hooksEditor.classList.toggle('hidden');
-            if (!isOpen) {
-                renderHooksEditor();
-            }
         });
     }
 
@@ -955,9 +946,10 @@ function renderDashboardPanel(allTasks: any[]) {
 
     dashboardPanel.classList.remove('hidden');
 
-    const inReview = allTasks.filter((t: any) => t.status === 'in_review');
-    const active = allTasks.filter((t: any) => t.status === 'active');
-    const completed = allTasks.filter((t: any) => t.status === 'completed').slice(0, 10);
+    const taskOnly = (t: any) => t.type !== 'chat';
+    const inReview = allTasks.filter((t: any) => t.status === 'in_review' && taskOnly(t));
+    const active = allTasks.filter((t: any) => t.status === 'active' && taskOnly(t));
+    const completed = allTasks.filter((t: any) => t.status === 'completed' && taskOnly(t)).slice(0, 10);
 
     const renderSection = (sectionId: string, listId: string, tasks: any[]) => {
         const section = document.getElementById(sectionId);
@@ -1048,7 +1040,7 @@ function renderMessages(messages: any[]) {
         scrollContainer.classList.remove('chat-empty');
         document.getElementById('chat-header')?.style.removeProperty('display');
         document.getElementById('chat-body')?.classList.remove('showing-categories');
-        initCategoryChips();
+        initTemplateChips();
         if (inputEl) inputEl.placeholder = '输入需求，开始与 AI 对话';
         return;
     }
@@ -1329,31 +1321,35 @@ function startTaskFromForm(template: any, formFields: Record<string, string>, no
 
     selectedCategory = null;
     selectedSubType = null;
-    categoryDefs = [];
 
     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
     if (input) input.placeholder = '提出后续修改要求';
 }
 
-function initCategoryChips() {
-    const bar = document.getElementById('input-category-bar');
+function initTemplateChips() {
+    const bar = document.getElementById('input-template-bar');
     if (!bar) return;
-    if (!categoryDefs || categoryDefs.length === 0) return;
+    const templates = [
+        { icon: '📝', label: '需求开发', text: '请按需求开发模板推进：\n## 需求背景\n## 目标\n## 范围\n## 验收标准\n' },
+        { icon: '🔍', label: '问题分析', text: '请分析以下问题：\n## 问题描述\n## 复现步骤\n## 根因分析\n' },
+        { icon: '⚡', label: '性能优化', text: '请进行性能优化：\n## 当前指标\n## 目标指标\n## 优化方案\n' },
+        { icon: '🐛', label: 'Bug修复', text: '请修复以下Bug：\n## 复现步骤\n## 根因\n## 修复方案\n' },
+    ];
     bar.innerHTML = '';
-    for (const cat of categoryDefs) {
+    for (const t of templates) {
         const chip = document.createElement('span');
-        chip.className = 'category-chip';
-        chip.dataset.cat = cat.key;
-        chip.textContent = `${cat.icon} ${cat.label}`;
+        chip.className = 'template-chip';
+        chip.innerHTML = `<span class="tmpl-icon">${t.icon}</span> ${t.label}`;
         chip.addEventListener('click', () => {
-            if (selectedCategory === cat.key) {
-                selectedCategory = null;
-                bar.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
-            } else {
-                selectedCategory = cat.key;
-                bar.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
-                chip.classList.add('active');
-            }
+            vscode.postMessage({
+                type: 'sendMessage',
+                text: t.text,
+                taskId: activeTaskId,
+                category: t.label === '需求开发' ? 'requirement_dev' :
+                         t.label === '问题分析' ? 'problem_analysis' :
+                         t.label === '性能优化' ? 'performance_opt' : 'defect_analysis',
+                subType: 'quick_template',
+            });
         });
         bar.appendChild(chip);
     }

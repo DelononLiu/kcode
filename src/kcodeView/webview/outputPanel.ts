@@ -1,5 +1,3 @@
-// Right output panel: vertical sections, collapse via left edge handle
-
 function opEscapeHtml(text: string): string {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -9,11 +7,6 @@ function initOutputPanel() {
     const handle = document.getElementById('output-resize-handle');
     if (!panel || !handle) return;
 
-    // Draggable resize — VS Code style: hover → highlight → drag
-    // Single drag session (isDragging stays true throughout):
-    //   right → narrow → snap collapse at <30px threshold
-    //   left → widen → snap expand at >30px threshold
-    // minWidth:0 inline overrides CSS 140px so panel can go below 140 during drag.
     const MIN_W = 100, MAX_W = 500, SNAP = 30;
 
     let isDragging = false;
@@ -72,7 +65,7 @@ function initOutputPanel() {
 }
 
 function updateOutputPanel(taskInfo: any, changes: any[]) {
-    // Update code changes tab
+    // Section 1: Changes list
     const codeList = document.getElementById('op-code-list');
     if (codeList) {
         if (changes && changes.length > 0) {
@@ -94,17 +87,24 @@ function updateOutputPanel(taskInfo: any, changes: any[]) {
                 });
             });
         } else {
-            codeList.innerHTML = '<div class="op-empty">暂无代码变更</div>';
+            codeList.innerHTML = '<div class="op-empty">暂无变更</div>';
         }
     }
 
-    // Update tool records tab
-    const toolList = document.getElementById('op-tool-list');
-    if (toolList && taskInfo) {
-        toolList.innerHTML = '<div class="op-empty">工具执行记录将在此显示</div>';
+    // Section 2: Knowledge wiki
+    const knowledgeList = document.getElementById('op-knowledge-list');
+    if (knowledgeList) {
+        const known = taskInfo?.knowledgeItems;
+        if (known && known.length > 0) {
+            knowledgeList.innerHTML = known.map((k: any) =>
+                `<div class="op-item"><span class="op-item-icon">📌</span><span class="op-item-name">${opEscapeHtml(k.content)}</span></div>`
+            ).join('');
+        } else {
+            knowledgeList.innerHTML = '<div class="op-empty">暂无知识条目</div>';
+        }
     }
 
-    // Update plan/todo tab
+    // Section 3: TODO + Plan steps
     const planList = document.getElementById('op-plan-list');
     if (planList && taskInfo) {
         const steps = taskInfo.planSteps || [];
@@ -135,13 +135,27 @@ function updateOutputPanel(taskInfo: any, changes: any[]) {
             );
         }
 
-        planList.innerHTML = parts.length > 0 ? parts.join('') : '<div class="op-empty">暂无计划步骤</div>';
+        planList.innerHTML = parts.length > 0 ? parts.join('') : '<div class="op-empty">暂无待办</div>';
     }
 
-    // Update knowledge tab
-    const knowledgeList = document.getElementById('op-knowledge-list');
-    if (knowledgeList) {
-        knowledgeList.innerHTML = '<div class="op-empty">关联知识将在此显示</div>';
+    // Section 4: Tool call records
+    const toolList = document.getElementById('op-tool-list');
+    if (toolList) {
+        const toolCalls = taskInfo?.toolCalls;
+        if (toolCalls && toolCalls.length > 0) {
+            toolList.innerHTML = toolCalls.map((tc: any) => {
+                const kindIcon: Record<string, string> = { bash: '$', read: '📖', write: '✏️', glob: '🔍', grep: '🔎', thinking: '💭' };
+                const icon = kindIcon[tc.kind] || '🔧';
+                const statusIcon = tc.status === 'completed' ? '✅' : tc.status === 'running' ? '🔄' : '⏳';
+                return `<div class="op-item" title="${opEscapeHtml(tc.title || '')}">
+                    <span class="op-item-icon">${icon}</span>
+                    <span class="op-item-label">${statusIcon}</span>
+                    <span class="op-item-name">${opEscapeHtml(tc.title || tc.kind)}</span>
+                </div>`;
+            }).join('');
+        } else {
+            toolList.innerHTML = '<div class="op-empty">暂无工具调用</div>';
+        }
     }
 }
 

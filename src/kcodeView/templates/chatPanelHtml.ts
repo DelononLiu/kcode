@@ -118,11 +118,10 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 
             <div id="chat-bottom">
                 <div id="chat-toolbar">
-                    <button id="btn-new-task" class="toolbar-btn" title="新建任务">新任务</button>
-                    <button id="btn-dashboard" class="toolbar-btn" title="打开工作台">工作台</button>
-                    <button id="hooks-toolbar-btn" class="toolbar-btn" title="编辑阶段提示词命令">任务钩子</button>
-                    <button id="acp-log-btn" class="toolbar-btn" title="查看 ACP 协议日志">查看日志</button>
-                    <button id="btn-terminal" class="toolbar-btn" title="打开终端">打开终端</button>
+                    <button id="btn-dashboard" class="toolbar-btn" title="打开工作台">📊 工作台</button>
+                    <button id="btn-knowledge-extract" class="toolbar-btn hidden" title="从当前任务萃取知识">📚 知识萃取</button>
+                    <button id="acp-log-btn" class="toolbar-btn" title="查看 ACP 协议日志">🔍 查看日志</button>
+                    <button id="btn-terminal" class="toolbar-btn" title="打开终端">💻 打开终端</button>
                 </div>
                 <div id="chat-input-area">
                     <div id="queue-bar" class="hidden">
@@ -142,7 +141,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                                     <span id="status-model">Agent</span>
                                 </span>
                                 <span class="status-divider"></span>
-                                <div id="input-category-bar"></div>
+                                <div id="input-template-bar"></div>
                             </div>
                             <div class="input-footer-right">
                                 <button class="input-tool-btn image-btn" title="图片">
