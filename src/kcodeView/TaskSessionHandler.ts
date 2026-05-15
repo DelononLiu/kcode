@@ -170,6 +170,8 @@ export class TaskSessionHandler {
             reasoningText = '';
             ctx.flushAcpRecvBuffer();
             if (full) { ctx.sendAcpLog(tid, 'recv', full); ctx.flushAcpRecvBuffer(); }
+            const rc = ctx.activeToolCalls.get(currentReasoningId);
+            if (rc) rc.status = 'completed';
             sendToolCallUpdate(currentReasoningId, '推理过程', 'thinking', 'completed', full);
         };
 

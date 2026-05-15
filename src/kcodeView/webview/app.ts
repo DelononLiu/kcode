@@ -1043,6 +1043,7 @@ function createDashboardPanelItem(task: any): HTMLElement {
 }
 
 function renderMessages(messages: any[]) {
+    resetTabGroup();
     activeToolCallElements.clear();
     const container = document.getElementById('chat-messages');
     const scrollContainer = document.getElementById('chat-scroll');
@@ -1102,20 +1103,24 @@ function renderMessages(messages: any[]) {
         }
     }
 
+    const maxTabs = getTabCardMaxTabs();
     for (const group of messageGroups) {
         if (group.type === 'tool-group' && group.msgs.length > 1) {
             const toolInfos = group.msgs.map(msg => {
                 try { return JSON.parse(msg.content); }
                 catch { return { title: msg.content, kind: '', status: '', output: '' }; }
             });
-            const tabCardEl = createTabCardFromTools(toolInfos);
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'chat-msg tool';
-            const bubble = document.createElement('div');
-            bubble.className = 'msg-bubble';
-            bubble.appendChild(tabCardEl);
-            msgDiv.appendChild(bubble);
-            appendToChatMessages(msgDiv);
+            for (let ci = 0; ci < toolInfos.length; ci += maxTabs) {
+                const chunk = toolInfos.slice(ci, ci + maxTabs);
+                const tabCardEl = createTabCardFromTools(chunk);
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'chat-msg tool';
+                const bubble = document.createElement('div');
+                bubble.className = 'msg-bubble';
+                bubble.appendChild(tabCardEl);
+                msgDiv.appendChild(bubble);
+                appendToChatMessages(msgDiv);
+            }
         } else {
             addMessageElement(group.msgs[0], changedFilesMap.get(group.indices[0]));
         }
@@ -1909,6 +1914,13 @@ function createCard(config: {
     return card;
 }
 
+const TAB_WIDTH = 200;
+function getTabCardMaxTabs(): number {
+    const el = document.getElementById('chat-messages');
+    const w = el?.clientWidth || 600;
+    return Math.max(1, Math.floor(w / TAB_WIDTH));
+}
+
 function createTabCardFromTools(toolInfos: any[]): HTMLElement {
     const card = document.createElement('div');
     card.className = 'tab-card';
@@ -1946,13 +1958,15 @@ function createTabCardFromTools(toolInfos: any[]): HTMLElement {
             tab.appendChild(chk);
         }
 
-        tab.addEventListener('click', () => {
+        const activateTab = () => {
             tabs.querySelectorAll('.tab-card-tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             bodies.querySelectorAll('.tab-card-body').forEach(b => b.classList.remove('active'));
             const body = bodies.children[i] as HTMLElement;
             if (body) body.classList.add('active');
-        });
+        };
+        tab.addEventListener('mouseenter', activateTab);
+        tab.addEventListener('click', activateTab);
 
         tabs.appendChild(tab);
 
@@ -1984,6 +1998,17 @@ function createTabCardFromTools(toolInfos: any[]): HTMLElement {
     });
 
     header.appendChild(tabs);
+
+    const toggle = document.createElement('span');
+    toggle.className = 'tab-card-toggle';
+    toggle.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        bodies.classList.toggle('collapsed');
+        toggle.classList.toggle('collapsed');
+    });
+    header.appendChild(toggle);
+
     card.appendChild(header);
     card.appendChild(bodies);
     return card;
@@ -2547,13 +2572,31 @@ function handleToolCallUpdate(msg: any) {
         _tabGroup.element.replaceWith(newCard);
         _tabGroup.element = newCard;
     } else if (_tabGroup) {
-        _tabGroup.elems.set(toolId, {
-            toolCallId: toolId, title: msg.title || '', kind: msg.kind || '',
-            status: msg.status || '', output: msg.content || msg.output || ''
-        });
-        const newCard = createTabCardFromTools(Array.from(_tabGroup.elems.values()));
-        _tabGroup.element.replaceWith(newCard);
-        _tabGroup.element = newCard;
+        const maxTabs = getTabCardMaxTabs();
+        if (_tabGroup.elems.size >= maxTabs) {
+            _tabGroup = { elems: new Map(), element: null! };
+            _tabGroup.elems.set(toolId, {
+                toolCallId: toolId, title: msg.title || '', kind: msg.kind || '',
+                status: msg.status || '', output: msg.content || msg.output || ''
+            });
+            const tabCard = createTabCardFromTools(Array.from(_tabGroup.elems.values()));
+            _tabGroup.element = tabCard;
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-msg tool';
+            const bubble = document.createElement('div');
+            bubble.className = 'msg-bubble';
+            bubble.appendChild(tabCard);
+            msgDiv.appendChild(bubble);
+            appendToChatMessages(msgDiv);
+        } else {
+            _tabGroup.elems.set(toolId, {
+                toolCallId: toolId, title: msg.title || '', kind: msg.kind || '',
+                status: msg.status || '', output: msg.content || msg.output || ''
+            });
+            const newCard = createTabCardFromTools(Array.from(_tabGroup.elems.values()));
+            _tabGroup.element.replaceWith(newCard);
+            _tabGroup.element = newCard;
+        }
     } else {
         _tabGroup = { elems: new Map(), element: null! };
         _tabGroup.elems.set(toolId, {

@@ -294,6 +294,8 @@ export class KCodePanel {
                 this.sendAcpLog(tid, 'recv', full);
                 this.flushAcpRecvBuffer(tid);
             }
+            const rc = this.activeToolCalls.get(currentReasoningId);
+            if (rc) rc.status = 'completed';
             sendToolCallUpdate(currentReasoningId, '推理过程', 'thinking', 'completed', full);
         };
 
