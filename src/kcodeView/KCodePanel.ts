@@ -178,7 +178,9 @@ export class KCodePanel {
         this.flowHandler.sendTaskMessages(taskId);
         this.flowHandler.sendTaskInfo(taskId);
         this.flowHandler.sendNodePanelUpdate(taskId);
-        this.sessionHandler.ensureSession(taskId);
+        this.sessionHandler.ensureSession(taskId).catch(err => {
+            this.flowHandler.showAgentError(taskId, err?.message || 'ACP 会话未就绪');
+        });
         this.loadWorkspaceHooks().then(hooks => this.taskFlow.setWorkspaceHooks(hooks));
     }
 

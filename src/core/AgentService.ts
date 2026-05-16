@@ -191,10 +191,18 @@ export class AgentService implements IAgentService {
     }
 
     async sendPrompt(taskId: string, text: string, handler: AcpMessageHandler): Promise<void> {
-        const sessionId = this.getSessionId(taskId);
+        let sessionId = this.getSessionId(taskId);
         if (!sessionId) {
-            handler.onError('ACP 会话未就绪');
-            return;
+            if (this.isConnected && this.acpClient) {
+                const cwd = this.workspaceRoot;
+                const newSession = await this.acpClient.createSession(taskId, cwd);
+                sessionId = newSession ?? undefined;
+            }
+            if (!sessionId) {
+                const errMsg = this.acpClient ? this.acpClient.lastError : '';
+                handler.onError(errMsg || 'ACP 会话未就绪');
+                return;
+            }
         }
 
         if (this.acpClient && this.agentType === 'acp') {

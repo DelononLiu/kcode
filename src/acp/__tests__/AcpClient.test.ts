@@ -67,7 +67,23 @@ describe('AcpClient', () => {
     });
 
     it('createSession without connection throws', async () => {
-        await expect(client.createSession('task-1', '/cwd')).rejects.toThrow('Not connected');
+        await expect(client.createSession('task-1', '/cwd')).rejects.toThrow('ACP 连接尚未建立');
+    });
+
+    it('createSession failure sets lastError and returns null', async () => {
+        await client.connect('test-agent');
+        mockSdk.mockNewSession.mockRejectedValueOnce(new Error('agent process exited'));
+        const result = await client.createSession('task-1', '/cwd');
+        expect(result).toBeNull();
+        expect(client.lastError).toContain('agent process exited');
+    });
+
+    it('createSession success clears lastError', async () => {
+        client['_lastError'] = 'previous error';
+        await client.connect('test-agent');
+        const result = await client.createSession('task-1', '/cwd');
+        expect(result).toBe('session-1');
+        expect(client.lastError).toBe('');
     });
 
     it('prompt sends text to connection', async () => {

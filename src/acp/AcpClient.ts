@@ -78,7 +78,8 @@ export class AcpClient {
      */
     async createSession(taskId: string, cwd: string): Promise<string | null> {
         if (!this.connection) {
-            throw new Error('Not connected to agent');
+            this._lastError = 'ACP 连接尚未建立';
+            throw new Error(this._lastError);
         }
 
         try {
@@ -88,9 +89,11 @@ export class AcpClient {
             });
 
             this.sessions.set(taskId, result.sessionId);
+            this._lastError = '';
             return result.sessionId;
         } catch (err) {
-            console.error('Failed to create ACP session:', err);
+            this._lastError = `创建 ACP 会话失败: ${(err as Error)?.message || String(err)}`;
+            console.error(this._lastError);
             return null;
         }
     }

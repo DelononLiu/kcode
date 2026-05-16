@@ -134,6 +134,37 @@ describe('TaskSessionHandler', () => {
         });
     });
 
+    describe('ensureSession', () => {
+        it('throws when createSession returns null', async () => {
+            mocks.agentService.isConnected = true;
+            mocks.agentService.hasSession = vi.fn().mockReturnValue(false);
+            mocks.agentService.createSession = vi.fn().mockResolvedValue(null);
+            mocks.agentService.lastError = 'agent crashed';
+            await expect(mocks.handler.ensureSession('task-1')).rejects.toThrow('agent crashed');
+        });
+
+        it('skips when already has session', async () => {
+            mocks.agentService.isConnected = true;
+            mocks.agentService.hasSession = vi.fn().mockReturnValue(true);
+            const createSpy = vi.fn();
+            mocks.agentService.createSession = createSpy;
+            await mocks.handler.ensureSession('task-1');
+            expect(createSpy).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('doPrompt', () => {
+        it('calls onError when createSession returns null', async () => {
+            mocks.agentService.isConnected = true;
+            mocks.agentService.hasSession = vi.fn().mockReturnValue(false);
+            mocks.agentService.createSession = vi.fn().mockResolvedValue(null);
+            mocks.agentService.lastError = 'ACP 会话创建失败';
+            const handler = { onText: vi.fn(), onError: vi.fn(), onDone: vi.fn() };
+            await mocks.handler.doPrompt('task-1', 'hello', handler);
+            expect(handler.onError).toHaveBeenCalledWith('ACP 会话创建失败');
+        });
+    });
+
     describe('switchAgent', () => {
         it('切换 Agent 后发送连接状态', async () => {
             await mocks.handler.handleSwitchAgent('OpenCode');

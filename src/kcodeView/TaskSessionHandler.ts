@@ -39,7 +39,11 @@ export class TaskSessionHandler {
         const { ctx } = this;
         if (!ctx.agentService.isConnected || ctx.agentService.hasSession(taskId)) return;
         const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
-        await ctx.agentService.createSession(taskId, workspacePath);
+        const sessionId = await ctx.agentService.createSession(taskId, workspacePath);
+        if (!sessionId) {
+            const lastErr = ctx.agentService.lastError || 'Agent 未就绪或已断开';
+            throw new Error(`创建 ACP 会话失败：${lastErr}`);
+        }
     }
 
     async doPrompt(tid: string, promptText: string, handler: AcpMessageHandler): Promise<void> {
@@ -48,7 +52,11 @@ export class TaskSessionHandler {
         try {
             if (!ctx.agentService.hasSession(tid)) {
                 const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
-                await ctx.agentService.createSession(tid, workspacePath);
+                const sessionId = await ctx.agentService.createSession(tid, workspacePath);
+                if (!sessionId) {
+                    handler.onError(ctx.agentService.lastError || 'ACP 会话未就绪');
+                    return;
+                }
             }
         } catch (err: any) {
             handler.onError(err?.message || 'Agent 连接失败');

@@ -146,6 +146,31 @@ describe('AgentService', () => {
         expect(handler.onError).not.toHaveBeenCalled();
     });
 
+    it('sendPrompt automatically recreates session when missing', async () => {
+        await service.connect('kilo');
+        const acpClient = (service as any).acpClient;
+        // Simulate lost session: getSessionId returns undefined
+        acpClient.getSessionId = vi.fn().mockReturnValue(undefined);
+        const createSpy = vi.fn().mockResolvedValue('session-retry');
+        acpClient.createSession = createSpy;
+        acpClient.lastError = '';
+        const handler = { onText: vi.fn(), onError: vi.fn(), onDone: vi.fn() };
+        await service.sendPrompt('task-1', 'hello', handler);
+        expect(createSpy).toHaveBeenCalledWith('task-1', '/test/workspace');
+        expect(handler.onError).not.toHaveBeenCalled();
+    });
+
+    it('sendPrompt reports error when session recreation fails', async () => {
+        await service.connect('kilo');
+        const acpClient = (service as any).acpClient;
+        acpClient.getSessionId = vi.fn().mockReturnValue(undefined);
+        acpClient.createSession = vi.fn().mockResolvedValue(null);
+        acpClient.lastError = 'Agent 子进程已退出';
+        const handler = { onText: vi.fn(), onError: vi.fn(), onDone: vi.fn() };
+        await service.sendPrompt('task-1', 'hello', handler);
+        expect(handler.onError).toHaveBeenCalledWith('Agent 子进程已退出');
+    });
+
     it('getReviewChanges returns changes after execute', async () => {
         await service.connect('kilo');
         const changes = service.getReviewChanges('task-1');
