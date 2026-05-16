@@ -1419,28 +1419,22 @@ function startTaskFromForm(template: any, formFields: Record<string, string>, no
 
 function initTemplateChips() {
     const bar = document.getElementById('input-template-bar');
-    if (!bar) return;
-    const templates = [
-        { icon: '📝', label: '需求开发', text: '请按需求开发模板推进：\n## 需求背景\n## 目标\n## 范围\n## 验收标准\n' },
-        { icon: '🔍', label: '问题分析', text: '请分析以下问题：\n## 问题描述\n## 复现步骤\n## 根因分析\n' },
-        { icon: '⚡', label: '性能优化', text: '请进行性能优化：\n## 当前指标\n## 目标指标\n## 优化方案\n' },
-        { icon: '🐛', label: 'Bug修复', text: '请修复以下Bug：\n## 复现步骤\n## 根因\n## 修复方案\n' },
-    ];
+    if (!bar || !categoryDefs || categoryDefs.length === 0) return;
     bar.innerHTML = '';
-    for (const t of templates) {
+    for (const cat of categoryDefs) {
         const chip = document.createElement('span');
-        chip.className = 'template-chip';
-        chip.innerHTML = `<span class="tmpl-icon">${t.icon}</span> ${t.label}`;
+        chip.className = 'template-chip' + (selectedCategory === cat.key ? ' active' : '');
+        chip.innerHTML = `<span class="tmpl-icon">${cat.icon}</span> ${cat.label}`;
         chip.addEventListener('click', () => {
-            vscode.postMessage({
-                type: 'sendMessage',
-                text: t.text,
-                taskId: activeTaskId,
-                category: t.label === '需求开发' ? 'requirement_dev' :
-                         t.label === '问题分析' ? 'problem_analysis' :
-                         t.label === '性能优化' ? 'performance_opt' : 'defect_analysis',
-                subType: 'quick_template',
-            });
+            if (selectedCategory === cat.key) {
+                selectedCategory = null;
+                bar.querySelectorAll('.template-chip').forEach(c => c.classList.remove('active'));
+            } else {
+                selectedCategory = cat.key;
+                selectedSubType = null;
+                bar.querySelectorAll('.template-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+            }
         });
         bar.appendChild(chip);
     }

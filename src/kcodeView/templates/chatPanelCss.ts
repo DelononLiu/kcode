@@ -223,6 +223,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #input-template-bar{display:inline-flex;align-items:center;gap:3px}
 .template-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;font-size:12px;color:#666;background:rgba(255,255,255,.03);border-radius:3px;cursor:pointer;user-select:none;transition:all .15s;font-family:inherit;line-height:1.5;white-space:nowrap}
 .template-chip:hover{color:#bbb;background:rgba(255,255,255,.07)}
+.template-chip.active{color:#4a8bb5;background:rgba(74,139,181,.15)}
 .template-chip .tmpl-icon{font-size:12px}
 
 /* === Right Output Panel — vertical sections (no tabs) === */
