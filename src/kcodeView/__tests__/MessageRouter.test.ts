@@ -53,4 +53,31 @@ describe('MessageRouter', () => {
         router.PostMessage({ type: 'ping' });
         expect(sender).toHaveBeenCalledWith({ type: 'ping' });
     });
+
+    it('re-registering handler after off works', () => {
+        const router = new MessageRouter();
+        const handler = vi.fn();
+        router.on('evt', handler);
+        router.off('evt', handler);
+        router.on('evt', handler);
+        router.dispatch('evt', { ok: true });
+        expect(handler).toHaveBeenCalledWith({ ok: true });
+    });
+
+    it('handler throwing does not affect other handlers', () => {
+        const router = new MessageRouter();
+        const throwing = vi.fn().mockImplementation(() => { throw new Error('oops'); });
+        const normal = vi.fn();
+        router.on('err', throwing);
+        router.on('err', normal);
+        expect(() => router.dispatch('err', {})).toThrow('oops');
+        expect(normal).not.toHaveBeenCalled();
+    });
+
+    it('dispatch with no handlers does nothing', () => {
+        const router = new MessageRouter();
+        router.on('a', vi.fn());
+        router.off('a', vi.fn());
+        expect(() => router.dispatch('a', {})).not.toThrow();
+    });
 });

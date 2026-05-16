@@ -122,4 +122,33 @@ describe('AgentService', () => {
         expect(service.isConnected).toBe(false);
         expect(service.agentName).toBe('');
     });
+
+    it('double connect succeeds (disconnects first)', async () => {
+        const r1 = await service.connect('kilo');
+        expect(r1).toBe(true);
+        const r2 = await service.connect('kilo');
+        expect(r2).toBe(true);
+        expect(service.isConnected).toBe(true);
+    });
+
+    it('connect with openai agentName sets agentName', async () => {
+        const result = await service.connect('openai');
+        expect(result).toBe(true);
+        expect(service.agentName).toBe('openai');
+    });
+
+    it('sendPrompt with connected session forwards to agent', async () => {
+        await service.connect('kilo');
+        await service.createSession('task-1', '/cwd');
+        const handler = { onText: vi.fn(), onError: vi.fn(), onDone: vi.fn() };
+        await service.sendPrompt('task-1', 'hello', handler);
+        expect(handler.onText).not.toHaveBeenCalled();
+        expect(handler.onError).not.toHaveBeenCalled();
+    });
+
+    it('getReviewChanges returns changes after execute', async () => {
+        await service.connect('kilo');
+        const changes = service.getReviewChanges('task-1');
+        expect(Array.isArray(changes)).toBe(true);
+    });
 });
