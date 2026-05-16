@@ -194,6 +194,6 @@ export class AcpClient {
      * Dynamically load the ACP SDK (ESM-compatible).
      */
     private async loadSDK(): Promise<typeof acp> {
-        return require('@agentclientprotocol/sdk');
+        return (await import('@agentclientprotocol/sdk')) as typeof acp;
     }
 }

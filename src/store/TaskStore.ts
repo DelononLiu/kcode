@@ -3,6 +3,7 @@ import { Task, ChatMessage, FileChange, ContainerEntity } from '../types';
 
 export class TaskStore {
     private state: vscode.Memento;
+    private _tasksCache: Task[] | null = null;
 
     constructor(state: vscode.Memento) {
         this.state = state;
@@ -10,9 +11,14 @@ export class TaskStore {
 
     // ===== Task CRUD =====
 
+    private _invalidateCache(): void {
+        this._tasksCache = null;
+    }
+
     getTasks(): Task[] {
+        if (this._tasksCache) return this._tasksCache;
         const tasks = this.state.get<Task[]>('tasks', []);
-        return tasks.map(t => ({
+        this._tasksCache = tasks.map(t => ({
             ...t,
             phase: t.phase || ('demand' as const),
             confirmedItems: t.confirmedItems || [],
@@ -20,12 +26,14 @@ export class TaskStore {
             planSteps: t.planSteps || [],
             hooks: t.hooks || {},
         }));
+        return this._tasksCache;
     }
 
     addTask(task: Task): void {
         const tasks = this.state.get<Task[]>('tasks', []);
         tasks.unshift(task);
         this.state.update('tasks', tasks);
+        this._invalidateCache();
     }
 
     updateTaskPhase(taskId: string, phase: Task['phase']): void {
@@ -34,6 +42,7 @@ export class TaskStore {
         if (idx !== -1) {
             tasks[idx].phase = phase;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -43,6 +52,7 @@ export class TaskStore {
         if (idx !== -1) {
             tasks[idx].confirmedItems = items;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -52,6 +62,7 @@ export class TaskStore {
         if (idx !== -1) {
             tasks[idx].pendingItems = items;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -61,6 +72,7 @@ export class TaskStore {
         if (idx !== -1) {
             tasks[idx].planSteps = steps;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -70,6 +82,7 @@ export class TaskStore {
         if (idx !== -1 && tasks[idx].planSteps[index]) {
             tasks[idx].planSteps[index].status = status;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -79,6 +92,7 @@ export class TaskStore {
         if (idx !== -1) {
             tasks[idx].status = status;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -88,6 +102,7 @@ export class TaskStore {
         if (idx !== -1) {
             tasks[idx].title = title;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -97,6 +112,7 @@ export class TaskStore {
         if (idx !== -1) {
             tasks[idx].type = type;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -106,6 +122,7 @@ export class TaskStore {
         if (idx !== -1) {
             tasks[idx].goal = goal;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -115,6 +132,7 @@ export class TaskStore {
         if (idx !== -1) {
             tasks[idx].category = category;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -124,6 +142,7 @@ export class TaskStore {
         if (idx !== -1) {
             tasks[idx].subType = subType;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -133,6 +152,7 @@ export class TaskStore {
         if (idx !== -1) {
             tasks[idx].pinned = pinned;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -163,6 +183,7 @@ export class TaskStore {
     deleteTask(taskId: string): void {
         const tasks = this.getTasks().filter(t => t.id !== taskId);
         this.state.update('tasks', tasks);
+        this._invalidateCache();
         this.state.update(`messages_${taskId}`, []);
         this.state.update(`msgCounter_${taskId}`, undefined);
         this.state.update(`reviewChanges_${taskId}`, undefined);
@@ -172,6 +193,7 @@ export class TaskStore {
         const idSet = new Set(taskIds);
         const tasks = this.getTasks().filter(t => !idSet.has(t.id));
         this.state.update('tasks', tasks);
+        this._invalidateCache();
         for (const id of taskIds) {
             this.state.update(`messages_${id}`, []);
             this.state.update(`msgCounter_${id}`, undefined);
@@ -188,6 +210,7 @@ export class TaskStore {
             }
         }
         this.state.update('tasks', tasks);
+        this._invalidateCache();
     }
 
     updateMessageContent(taskId: string, messageId: string, content: string): void {
@@ -240,6 +263,7 @@ export class TaskStore {
         if (idx !== -1) {
             tasks[idx].group = group ?? undefined;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -253,6 +277,7 @@ export class TaskStore {
             }
         }
         this.state.update('tasks', tasks);
+        this._invalidateCache();
     }
 
     renameGroup(oldName: string, newName: string): void {
@@ -269,6 +294,7 @@ export class TaskStore {
             }
         }
         this.state.update('tasks', tasks);
+        this._invalidateCache();
     }
 
     moveGroup(groupName: string, direction: 'up' | 'down'): void {
@@ -294,6 +320,7 @@ export class TaskStore {
             }
             (tasks[idx].hooks as Record<string, string[]>)[phase] = commands;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -306,6 +333,7 @@ export class TaskStore {
             }
             (tasks[idx].nodeMessageIds as Record<string, string>)[nodeType] = messageId;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -315,6 +343,7 @@ export class TaskStore {
         if (idx !== -1) {
             tasks[idx].archived = archived;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -327,6 +356,7 @@ export class TaskStore {
             }
         }
         this.state.update('tasks', tasks);
+        this._invalidateCache();
     }
 
     reorderGroups(groupNames: string[]): void {
@@ -389,6 +419,7 @@ export class TaskStore {
             }
         }
         this.state.update('tasks', tasks);
+        this._invalidateCache();
     }
 
     getChildren(parentId: string): ContainerEntity[] {
@@ -463,6 +494,7 @@ export class TaskStore {
         if (idx !== -1) {
             tasks[idx].containerId = containerId;
             this.state.update('tasks', tasks);
+        this._invalidateCache();
         }
     }
 
@@ -493,6 +525,7 @@ export class TaskStore {
         }
 
         this.state.update('tasks', tasks);
+        this._invalidateCache();
     }
 
     findEmptyTask(): Task | undefined {

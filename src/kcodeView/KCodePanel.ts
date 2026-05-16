@@ -124,6 +124,8 @@ export class KCodePanel {
         this.router.PostMessage({ type: 'acpLogState', enabled: this.acpLogEnabled, maxGlobal: config.get<number>('acpLogMaxGlobal', 5000), maxTask: config.get<number>('acpLogMaxTask', 2000) });
         this.router.PostMessage({ type: 'updateCategoryDefs', categories: getCategories() });
 
+        this.sendAgentList();
+
         this.sessionHandler.ensureConnection();
 
         this.loadWorkspaceHooks().then(hooks => this.taskFlow.setWorkspaceHooks(hooks));
@@ -161,6 +163,7 @@ export class KCodePanel {
         this.router.on('updateHooks', (msg) => { if (msg.phase && Array.isArray(msg.commands)) { this.store.updateTaskHooks(msg.taskId, msg.phase, msg.commands); this.sendTaskInfo(msg.taskId); } });
         this.router.on('selectTask', (msg) => { this.loadTask(msg.taskId); this.refreshSidebarCallback?.(); });
         this.router.on('updateTodoItem', (msg) => { this.handleUpdateTodoItem(msg.taskId, msg.msgId, msg.itemId, msg.checked); });
+        this.router.on('switchAgent', (msg) => { this.handleSwitchAgent(msg.label); });
 
         this.panel.webview.onDidReceiveMessage((message: any) => { this.router.dispatch(message.type, message); }, null, this.context.subscriptions);
     }
@@ -699,7 +702,11 @@ export class KCodePanel {
 
     private getWebviewContent(): string {
         const allTasks = this.store.getTasks().filter(t => !t.archived);
-        return getTemplateHtml(this.panel.webview, this.context.extensionUri, allTasks);
+        const agents = [
+            { label: 'Kilo', type: 'kilo' },
+            { label: 'OpenCode', type: 'opencode' },
+        ];
+        return getTemplateHtml(this.panel.webview, this.context.extensionUri, allTasks, agents);
     }
 
     private async loadWorkspaceHooks(): Promise<Record<string, string[]>> {
@@ -708,6 +715,31 @@ export class KCodePanel {
         try {
             return parseWorkspaceHooks((await vscode.workspace.fs.readFile(vscode.Uri.joinPath(workspaceRoot, 'AGENTS.md'))).toString());
         } catch { return {}; }
+    }
+
+    private sendAgentList(): void {
+        this.router.PostMessage({
+            type: 'agentList',
+            agents: [
+                { label: 'Kilo', type: 'kilo' },
+                { label: 'OpenCode', type: 'opencode' },
+            ],
+        });
+    }
+
+    private async handleSwitchAgent(label: string): Promise<void> {
+        if (this.isGenerating) {
+            await this.flowHandler.handleStopGeneration(this.currentTaskId || '');
+        }
+        await this.agentService.disconnect();
+        this.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: '正在切换 Agent...', agentName: '' });
+        const connected = await this.agentService.connectByLabel(label);
+        if (connected) {
+            const displayName = this.agentService.agentName;
+            this.router.PostMessage({ type: 'agentStatus', status: 'connected', message: `已切换到 ${label}`, agentName: displayName });
+        } else {
+            this.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: this.agentService.lastError || 'Agent 切换失败', agentName: '' });
+        }
     }
 
     private async sendHooksAsMessage(tid: string, phase: string): Promise<void> {

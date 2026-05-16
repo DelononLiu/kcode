@@ -91,7 +91,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (allTasks.length >= 0) {
             renderDashboardPanel(allTasks);
         }
+        const agents = JSON.parse(dataEl.dataset.availableAgents || '[]');
+        if (agents.length > 0) {
+            initAgentSelector(agents);
+        }
     }
+    initTemplateChips();
 
     (window as any).__openNativeDiff = (original: string, modified: string, filePath: string) => {
         vscode.postMessage({ type: 'openNativeDiff', original, modified, filePath });
@@ -271,6 +276,9 @@ function initMessageHandler() {
             case 'updateOutputPanel':
                 (window as any).updateOutputPanel?.(message.taskInfo || {}, message.changes || []);
                 break;
+            case 'agentList':
+                initAgentSelector(message.agents || []);
+                break;
         }
     });
 }
@@ -375,19 +383,88 @@ function handleAgentStreamUpdate(text: string) {
 let latestStreamText = '';
 let streamRenderPending = false;
 
+let _agentSelectorInited = false;
+
+function initAgentSelector(agents: { label: string; type: string }[]) {
+    const btn = document.getElementById('agent-dropdown-btn');
+    const label = document.getElementById('agent-dropdown-label');
+    const list = document.getElementById('agent-dropdown-list');
+    if (!btn || !label || !list) return;
+
+    list.innerHTML = '';
+    for (const agent of agents) {
+        const item = document.createElement('li');
+        item.className = 'agent-dropdown-item';
+        item.dataset.value = agent.type;
+        item.textContent = agent.label;
+        item.addEventListener('click', () => {
+            label.textContent = agent.label;
+            list.classList.add('hidden');
+            vscode.postMessage({ type: 'switchAgent', label: agent.type });
+        });
+        list.appendChild(item);
+    }
+
+    // measure to match button min-width with dropdown list content width
+    const origDisplay = list.style.display;
+    const origClass = list.classList.contains('hidden');
+    list.classList.remove('hidden');
+    list.style.display = 'block';
+    list.style.visibility = 'hidden';
+    const listWidth = list.offsetWidth;
+    list.style.display = origDisplay || '';
+    list.style.visibility = '';
+    if (origClass) list.classList.add('hidden');
+    if (listWidth > 0) {
+        btn.style.minWidth = listWidth + 'px';
+    }
+
+    if (_agentSelectorInited) return;
+    _agentSelectorInited = true;
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const wasHidden = list.classList.contains('hidden');
+        if (!wasHidden) {
+            list.classList.add('hidden');
+            return;
+        }
+        list.classList.remove('hidden');
+        const anchor = (btn.closest('.agent-dropdown') || btn) as HTMLElement;
+        const rect = anchor.getBoundingClientRect();
+        list.style.left = rect.left + 'px';
+        list.style.bottom = 'auto';
+        list.style.maxHeight = (window.innerHeight - rect.bottom - 12) + 'px';
+        list.style.top = (rect.bottom + 2) + 'px';
+        const belowSpace = window.innerHeight - rect.bottom - 12;
+        const listHeight = list.scrollHeight;
+        if (listHeight > belowSpace && rect.top > listHeight + 12) {
+            list.style.top = 'auto';
+            list.style.maxHeight = (rect.top - 12) + 'px';
+            list.style.bottom = (window.innerHeight - rect.top + 2) + 'px';
+        }
+    });
+
+    document.addEventListener('click', () => {
+        list.classList.add('hidden');
+    });
+}
+
 function handleAgentStatus(status: string, message: string, agentName: string) {
     const statusDot = document.getElementById('agent-status-dot');
     if (statusDot) {
         statusDot.className = 'status-dot ' + (status === 'connected' ? 'online' : 'offline');
         statusDot.title = message;
     }
-    const statusModel = document.getElementById('status-model');
-    if (statusModel && status === 'connected') {
-        const labels: Record<string, string> = { kilo: 'Kilo', opencode: 'OpenCode', openai: 'OpenAI' };
-        statusModel.textContent = labels[agentName] || agentName || 'Agent';
-    }
-    if (statusModel && status === 'disconnected') {
-        statusModel.textContent = 'Agent';
+    const label = document.getElementById('agent-dropdown-label');
+    const list = document.getElementById('agent-dropdown-list');
+    if (!label || !list) return;
+    if (status === 'connected') {
+        const activeItem = list.querySelector(`.agent-dropdown-item[data-value="${agentName}"]`);
+        label.textContent = (activeItem?.textContent) || agentName;
+        list.querySelectorAll('.agent-dropdown-item').forEach(el => {
+            el.classList.toggle('active', (el as HTMLElement).dataset.value === agentName);
+        });
     }
 }
 
@@ -736,6 +813,8 @@ function handleGenerationState(isGenerating: boolean) {
     }
 }
 
+let _queueExpanded = false;
+
 function handlePendingQueueUpdate(count: number, items: { text: string }[]) {
     const bar = document.getElementById('queue-bar');
     const summary = document.getElementById('queue-summary');
@@ -746,25 +825,26 @@ function handlePendingQueueUpdate(count: number, items: { text: string }[]) {
 
     if (count === 0) {
         bar.classList.add('hidden');
+        _queueExpanded = false;
         return;
     }
 
     bar.classList.remove('hidden');
     summary.textContent = `⏳ 排队中 (${count} 条)`;
 
-    const wasExpanded = toggle.textContent === '收起';
-    toggle.textContent = wasExpanded ? '收起' : '展开';
+    toggle.textContent = _queueExpanded ? '收起' : '展开';
     toggle.onclick = () => {
-        const nowExpanded = list.classList.contains('hidden');
-        toggle.textContent = nowExpanded ? '收起' : '展开';
-        list.classList.toggle('hidden', nowExpanded);
+        _queueExpanded = list.classList.contains('hidden');
+        toggle.textContent = _queueExpanded ? '收起' : '展开';
+        list.classList.toggle('hidden', _queueExpanded);
     };
 
     clearBtn.onclick = () => {
+        _queueExpanded = false;
         vscode.postMessage({ type: 'clearPendingQueue' });
     };
 
-    list.classList.add('hidden');
+    list.classList.toggle('hidden', !_queueExpanded);
     list.innerHTML = '';
     for (let i = 0; i < items.length; i++) {
         const item = document.createElement('div');

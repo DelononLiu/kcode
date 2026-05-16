@@ -5,7 +5,7 @@ function escapeAttr(str: string): string {
     return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&#62;');
 }
 
-export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, allTasks?: any[]): string {
+export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, allTasks?: any[], agents?: { label: string; type: string }[]): string {
     const scriptUri = (name: string) => webview.asWebviewUri(
         vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', `${name}.js`)
     ).toString();
@@ -138,7 +138,13 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                             <div class="input-footer-left">
                                 <span class="status-item">
                                     <span id="agent-status-dot" class="status-dot offline"></span>
-                                    <span id="status-model">Agent</span>
+                                    <div class="agent-dropdown" id="agent-dropdown">
+                                        <button class="agent-dropdown-btn" id="agent-dropdown-btn">
+                                            <span id="agent-dropdown-label">Agent</span>
+                                            <svg class="agent-dropdown-arrow" width="8" height="5" viewBox="0 0 8 5"><path d="M1 1l3 3 3-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                        </button>
+                                        <ul class="agent-dropdown-list hidden" id="agent-dropdown-list"></ul>
+                                    </div>
                                 </span>
                                 <span class="status-divider"></span>
                                 <div id="input-template-bar"></div>
@@ -221,6 +227,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 
     <div id="__panelData"
          data-all-tasks="${escapeAttr(JSON.stringify(allTasks || []))}"
+         data-available-agents="${escapeAttr(JSON.stringify(agents || []))}"
          style="display:none"></div>
     <script src="${scriptUri('app.bundle')}"></script>
     <script src="${scriptUri('outputPanel')}"></script>

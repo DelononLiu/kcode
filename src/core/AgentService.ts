@@ -29,6 +29,17 @@ export class AgentService implements IAgentService {
         }
     }
 
+    async connectByLabel(label: string): Promise<boolean> {
+        if (this._isConnected) await this.disconnect();
+        const config = vscode.workspace.getConfiguration('kcode');
+        switch (label) {
+            case 'kilo': return await this.connectKilo(config);
+            case 'opencode': return await this.connectOpenCode(config);
+            case 'openai': return this.connectOpenAI(config);
+            default: return false;
+        }
+    }
+
     async connect(agentName: string, agentArgs: string[] = []): Promise<boolean> {
         if (this._isConnected) return true;
 
@@ -64,8 +75,8 @@ export class AgentService implements IAgentService {
         }
     }
 
-    private async connectOpenCode(config: vscode.WorkspaceConfiguration): Promise<boolean> {
-        const agentPath = config.get<string>('agentPath') || 'opencode';
+    private async connectOpenCode(config: vscode.WorkspaceConfiguration, overridePath?: string): Promise<boolean> {
+        const agentPath = overridePath || config.get<string>('agentPath') || 'opencode';
         const acpClient = new AcpClient(this.workspaceRoot);
         if (this.logCallback) {
             acpClient.setLogCallback(this.logCallback);
@@ -89,11 +100,11 @@ export class AgentService implements IAgentService {
         return false;
     }
 
-    private connectOpenAI(config: vscode.WorkspaceConfiguration): boolean {
+    private connectOpenAI(config: vscode.WorkspaceConfiguration, overrideApiKey?: string, overrideModel?: string, overrideBaseUrl?: string): boolean {
         this.openaiAgent = new OpenAIAgent({
-            apiKey: config.get<string>('openaiApiKey'),
-            model: config.get<string>('openaiModel'),
-            baseURL: config.get<string>('openaiBaseUrl'),
+            apiKey: overrideApiKey || config.get<string>('openaiApiKey'),
+            model: overrideModel || config.get<string>('openaiModel'),
+            baseURL: overrideBaseUrl || config.get<string>('openaiBaseUrl'),
         });
         this._isConnected = true;
         this._agentName = 'openai';
@@ -101,8 +112,8 @@ export class AgentService implements IAgentService {
         return true;
     }
 
-    private async connectKilo(config: vscode.WorkspaceConfiguration): Promise<boolean> {
-        const kiloPath = config.get<string>('agentPath') || 'kilo';
+    private async connectKilo(config: vscode.WorkspaceConfiguration, overridePath?: string): Promise<boolean> {
+        const kiloPath = overridePath || config.get<string>('agentPath') || 'kilo';
         const acpClient = new AcpClient(this.workspaceRoot);
         if (this.logCallback) {
             acpClient.setLogCallback(this.logCallback);
@@ -126,7 +137,7 @@ export class AgentService implements IAgentService {
         return false;
     }
 
-    private async connectGenericACP(agentName: string, agentArgs: string[]): Promise<boolean> {
+    private async connectGenericACP(agentName: string, agentArgs: string[] = []): Promise<boolean> {
         const acpClient = new AcpClient(this.workspaceRoot);
         if (this.logCallback) {
             acpClient.setLogCallback(this.logCallback);
