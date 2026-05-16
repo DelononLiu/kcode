@@ -1977,52 +1977,146 @@ tags: database, architecture
 
 ---
 
-## Phase 15: 随心聊 — Chat 与 Task 分离
+## Phase 15: 小助手 + 侧边栏重构 — Chat/Task 分离
 
-_目标：将自由对话从"伪装成任务的异常存在"提升为"与任务并列的一等公民"，两个入口对应两种工作模式。_
+_目标：将自由对话从 Task 中剥离为独立的小助手实体，侧边栏重新布局，两个入口对应两种工作模式。_
+
+```
+┌─ 侧边栏 ──────────────────┐
+│                            │
+│  💬 小助手                 │  ← 全局唯一，始终在顶部
+│                            │
+│  + 新建任务                 │  ← 按钮，点击弹出下拉
+│    导入任务                 │
+│    根据模板新建任务          │
+│                            │
+│────  ────  ────  ────     │  ← 分割线
+│                            │
+│  📦 未分类                 │
+│     📝 任务1               │  ← 全是 task，无 chat 类型
+│     📝 任务2               │
+│                            │
+│  🏗️ 项目A                  │
+│     📝 任务3               │
+└────────────────────────────┘
+```
 
 | 任务 | 说明 | 状态 |
 |------|------|------|
-| P15-01 | 随心聊 — 侧边栏固定条目 + 主面板自由对话 | ⬜ 未开始 |
+| P15-01 | 小助手独立实体 — 数据模型 + 存储 + 主面板双模式 + /go | ⬜ 未开始 |
+| P15-02 | 侧边栏重构 — 移除 footer/action bar，新布局 + 新建下拉 | ⬜ 未开始 |
 
-### P15-01: 随心聊 — 侧边栏固定条目 + 主面板自由对话
+### 产品边界
 
-**产品设计**:
-
-```
-侧边栏
-├── 💬 随心聊          ← 自由对话，无阶段约束（默认打开状态）
-├── 📦 未分类任务        ← 结构化任务
-├── 🏗️ 项目A
-└── 🏗️ 项目B
-```
-
-| | 随心聊 | 新建任务 |
+| | 小助手 | 任务体系 |
 |---|---|---|
-| **场景** | "帮我看看这个报错" / "解释下这段代码" | "实现 OAuth 登录" |
-| **生命周期** | 持久对话，无终点 | demand→goal→plan→execute→self_verify→review |
-| **有 Goal 吗** | 没有 | 有 |
-| **有验收吗** | 没有 | 有 |
-| **存储** | `__free_chat__` 固定 ID | 普通 Task ID |
+| **场景** | 思路沟通、答疑、草稿 | 正式开发、项目交付、迭代 |
+| **生命周期** | 永久对话，无终点 | demand→goal→plan→execute→self_verify→review |
+| **Goal** | 无 | 有 |
+| **验收** | 无 | 有 |
+| **工程能力** | 无项目结构、无文件托管 | 代码编写、批量修改、项目运维 |
+| **存储** | 独立 AssistantMessage | Task + ChatMessage |
+| **实例数** | 全局唯一 | 无限 |
+
+### P15-01: 小助手独立实体 — 数据模型 + 存储 + 主面板双模式 + /go
 
 **涉及文件**:
+- `src/types/index.ts` — 新增 `AssistantMessage` 接口（id/role/type/content/timestamp，无 taskId）；移除 Task 的 `type: 'chat'`
+- `src/store/TaskStore.ts` — 新增 `getAssistantMessages()` / `addAssistantMessage()` / `nextAssistantMessageId()`
+- `src/kcodeView/KCodePanel.ts` — 新增 `loadAssistant()` / `handleStartWork()`（对应 /go 指令）；构造函数默认调 `loadAssistant()`；切换到小助手/任务时正确管理 session
+- `src/kcodeView/webview/app.ts` — 新增 `enterAssistantMode(messages)` — 隐藏 task header/node panel/goal/右栏，渲染消息列表；`loadMessages` 消息处理支持 assistant vs task 分支
+- `src/kcodeView/templates/chatPanelHtml.ts` — 小助手模式输入框始终可见
 
-- `src/kcodeView/webview/sidebar.ts` — 新增「💬 随心聊」固定条目，排在最上方（未分类任务之上），点击发送 `selectFreeChat`
-- `src/kcodeView/KCodeSidebarProvider.ts` — 处理 `selectFreeChat` 消息；`createNewTask()` 默认 `type` 改为 `'task'`
-- `src/kcodeView/KCodePanel.ts` — 新增 `loadFreeChat()` 方法：加载 `__free_chat__` 消息、隐藏任务 UI、建立 session；构造函数中默认调用 `loadFreeChat()` 替代 Dashboard
-- `src/kcodeView/webview/app.ts` — 新增 `enterFreeChatMode()` — 隐藏 task header、node panel、goal 区域、右栏；显示对话输入区
-- `src/extension.ts` — `kcode.newTask` / `kcode.newTaskFromTemplate` 默认 `type` 改为 `'task'`
-- `src/kcodeView/templates/chatPanelHtml.ts` — 确保无任务选中时输入区可正常显示（当前空闲态可能隐藏输入框）
+**数据模型**:
 
-**实现要点**:
+```typescript
+interface AssistantMessage {
+    id: string;
+    role: 'user' | 'agent' | 'tool';
+    type?: 'text' | 'tool_call' | 'stop_message' | 'todo' | ...;
+    content: string;
+    timestamp: number;
+}
+```
 
-1. **固定 ID**: 随心聊用 `__free_chat__` 作为消息存储 key，`TaskStore.getMessages()` 无需改动
-2. **单线程**: 只有一个随心聊，不需要多个自由对话窗口
-3. **默认打开**: 启动 KCode / `KCode: Open` → 主面板默认显示随心聊，侧边栏「💬 随心聊」高亮
-4. **可转任务**: `handleConvertToTask()` 已有能力，随心聊可一键转为正式 task
-5. **已有 chat 任务**: 保留（产品未发布），不做迁移
-6. **侧边栏条目**: 固定排在第一位，不可拖拽、不可右键菜单、不可删除、不可归档
+与 `ChatMessage` 的区别：无 `taskId`，独立存储 key `assistant_messages`。
+
+**对话 UI 复用**: `renderMessages()` / `createCard()` / `handleToolCallUpdate()` 不关心消息来源，仅消费字段渲染。区别在外层 UI 显隐：
+
+| 区域 | 小助手模式 | 任务模式 |
+|------|-----------|---------|
+| task header | 隐藏 | 显示 |
+| node panel | 隐藏 | 显示 |
+| goal header | 隐藏 | 显示 |
+| right output panel | 隐藏 | 显示 |
+| 对话消息区 | ✅ 正常渲染 | ✅ 正常渲染 |
+| 输入框 | ✅ 始终可用 | ✅ 始终可用 |
+
+**`/go` 指令**:
+
+用户在小助手中输入 `/go` → 不发给 AI，截获后走转换流程：
+
+1. 取小助手最近 N 条消息作为上下文（最近 1 条权重最高）
+2. 将上下文作为 goal 格式化请求发给 AI：识别任务目标、提取关键需求
+3. AI 返回格式化 goal → 创建新 Task，复制上下文消息到新 Task
+4. 自动切换到新任务，触发 demand 阶段
+
+**截获位置**: `KCodePanel.ts:handleSendMessage` 中，小助手模式下维护命令表 `{ '/go': 'startTask' }`，匹配即截获不发 agent。
 
 **状态**: ⬜ 未开始
 
-**验收标准**：打开 KCode 默认进入随心聊，可立即输入对话；侧边栏第一个条目为「💬 随心聊」且始终可见；点击任务可切到任务对话；点击随心聊可切回自由对话；消息持久化存储。
+**验收标准**：打开 KCode 默认进入小助手，可立即对话；消息持久化到 `assistant_messages`；输入 `/go` 自动创建任务并切换；点击侧边栏任务可切到任务模式，对话上下文正确隔离。
+
+---
+
+### P15-02: 侧边栏重构 — 新布局 + 新建下拉
+
+**涉及文件**:
+- `src/kcodeView/KCodeSidebarProvider.ts` — HTML 重构：移除 footer（4 按钮）、移除旧 action bar；新增小助手条目 + 新建下拉按钮 + 分割线；处理 `selectAssistant` / 各新建入口消息；刷新逻辑适配无 `activeTaskId` 的 assistant 选中态
+- `src/kcodeView/webview/sidebar.ts` — 新增 `createAssistantEntry()` 渲染小助手条目（独立样式，不可拖拽/无右键菜单/不可删除）；新增 `createNewTaskDropdown()` 弹出下拉（空白任务 / 导入任务 / 根据模板新建任务）；移除对 `task.type === 'chat'` 的判断分支；`getStatusIndicator()` 移除 chat 区分
+- `src/extension.ts` — `kcode.newTask` / `kcode.newTaskFromTemplate` 默认 `type` 改为 `'task'`
+- `src/types/index.ts` — Task 移除 `type: 'chat'` 字段（Task 只有 task 类型，`type` 改为固定值或移除）
+
+**`type: 'chat'` 清理清单**:
+
+| 位置 | 当前行为 | 处理 |
+|------|---------|------|
+| `sidebar.ts:435` | `getStatusIndicator` 返回 `s-chat` | 移除 `'chat'` case |
+| `sidebar.ts:496` | `createTaskItem` 图标 💬 | 固定显示 📝 |
+| `app.ts:1029` | Dashboard `taskOnly` filter | 删除 filter 变量 |
+| `app.ts:1083` | Dashboard 图标判断 | 固定显示 📝 |
+| `KCodePanel.ts:175` | `handleConvertToTask` 判断 | 改为 `if (!chatTask)` |
+| `KCodeSidebarProvider.ts:176` | `createNewTask` 默认 type | 改为 `'task'` |
+| `extension.ts:82,112` | 两处 `type: 'chat'` | 改为 `'task'` |
+
+**侧边栏样式要点**:
+
+- 小助手条目：独立 `assistant-entry` 类，与 task-item 不同（左侧无缩进、无状态圆点、无拖拽能力）
+- 新建下拉：下拉菜单从按钮下方弹出，3 个选项
+- 选中态：小助手选中时高亮 `assistant-entry`，同时清除所有 task-item 的 active
+- 分割线：`border-bottom: 1px solid var(--vscode-sideBar-border)`
+
+**状态**: ⬜ 未开始
+
+**验收标准**：侧边栏显示小助手 + 新建按钮 + 任务列表；小助手不可删除/拖拽；新建下拉 3 个选项均可触发对应命令；所有任务均为 task 类型，无 chat 图标混杂。
+
+---
+
+### P15-02: 侧边栏重构 — 新布局 + 新建下拉
+
+**涉及文件**:
+- `src/kcodeView/KCodeSidebarProvider.ts` — HTML 重构：移除 footer（4 按钮）、移除旧 action bar；新增小助手条目 + 新建下拉按钮 + 分割线；处理 `selectAssistant` / 各新建入口消息；刷新逻辑适配无 `activeTaskId` 的 assistant 选中态
+- `src/kcodeView/webview/sidebar.ts` — 新增 `createAssistantEntry()` 渲染小助手条目（独立样式，不可拖拽/无右键菜单/不可删除）；新增 `createNewTaskDropdown()` 弹出下拉（空白任务/导入任务/根据模板新建/创建任务模板）；移除对 `task.type === 'chat'` 的判断分支；`getStatusIndicator()` 移除 chat 区分
+- `src/extension.ts` — `kcode.newTask` / `kcode.newTaskFromTemplate` 默认 `type` 改为 `'task'`
+- `src/types/index.ts` — Task 移除 `type: 'chat'` 字段（Task 只有 task 类型，`type` 改为固定值或移除）
+
+**侧边栏样式要点**:
+
+- 小助手条目：独立 `assistant-entry` 类，与 task-item 不同（左侧无缩进、无状态圆点、无拖拽能力）
+- 新建下拉：下拉菜单从按钮下方弹出，4 个选项
+- 选中态：小助手选中时高亮 `assistant-entry`，同时清除所有 task-item 的 active
+- 分割线：`border-bottom: 1px solid var(--vscode-sideBar-border)`
+
+**状态**: ⬜ 未开始
+
+**验收标准**：侧边栏显示小助手 + 新建按钮 + 任务列表；小助手不可删除/拖拽；新建下拉 4 个选项均可触发对应命令；所有任务均为 task 类型，无 chat 图标混杂。
