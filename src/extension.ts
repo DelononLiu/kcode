@@ -4,17 +4,21 @@ import { KCodeSidebarProvider } from './kcodeView/KCodeSidebarProvider';
 import { TaskStore } from './store/TaskStore';
 import { Task } from './types';
 import { importGitHubIssue } from './commands/importGitHubIssue';
+import { ConfigService } from './core/ConfigService';
+import { SettingsProvider } from './kcodeView/SettingsProvider';
 
 let panel: KCodePanel | undefined;
 let store: TaskStore | undefined;
 let sidebarProvider: KCodeSidebarProvider | undefined;
+let configService: ConfigService | undefined;
+let settingsProvider: SettingsProvider | undefined;
 
 function openTaskInPanel(context: vscode.ExtensionContext, taskId: string, autoSendGoal?: string) {
     if (panel) {
         panel.reveal();
         panel.loadTask(taskId);
     } else {
-        panel = new KCodePanel(context, store!);
+        panel = new KCodePanel(context, store!, configService);
         panel.onDidDispose(() => { panel = undefined; });
         panel.setRefreshSidebarCallback(refreshSidebar);
         panel.loadTask(taskId);
@@ -31,9 +35,18 @@ function refreshSidebar() {
     }
 }
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
     console.log('KCode is now active!');
     store = new TaskStore(context.workspaceState);
+
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
+    configService = new ConfigService(workspaceRoot);
+    ConfigService.setInstance(configService);
+    await configService.load();
+    configService.startWatch(context);
+    context.subscriptions.push(configService.onDidChange(() => {
+        // Config change handler — refresh UI elements if needed
+    }));
 
     // Register sidebar view provider
     sidebarProvider = new KCodeSidebarProvider(
@@ -53,7 +66,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     // Auto-create the main panel when KCode is activated (shows assistant by default)
-    panel = new KCodePanel(context, store!);
+    panel = new KCodePanel(context, store!, configService);
     panel.onDidDispose(() => { panel = undefined; });
     panel.setRefreshSidebarCallback(refreshSidebar);
     panel.loadAssistant();
@@ -64,7 +77,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (panel) {
             panel.reveal();
         } else {
-            panel = new KCodePanel(context, store!);
+            panel = new KCodePanel(context, store!, configService);
             panel.onDidDispose(() => { panel = undefined; });
         }
     });
@@ -124,7 +137,15 @@ export function activate(context: vscode.ExtensionContext) {
         panel.startTemplateFlow(task.id);
     });
 
-    context.subscriptions.push(openCmd, newTaskCmd, importGitHubCmd, newTaskFromTemplateCmd);
+    const settingsCmd = vscode.commands.registerCommand('kcode.openSettings', async () => {
+        if (!settingsProvider) {
+            settingsProvider = new SettingsProvider(context, configService!);
+            settingsProvider.onDidDispose(() => { settingsProvider = undefined; });
+        }
+        settingsProvider.reveal();
+    });
+
+    context.subscriptions.push(openCmd, newTaskCmd, importGitHubCmd, newTaskFromTemplateCmd, settingsCmd);
 }
 
 export function deactivate() {

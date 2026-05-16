@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type { KCodePanelContext } from './PanelContext';
 import type { AcpMessageHandler } from '../types';
+import { ConfigService } from '../core/ConfigService';
 import { classifyIntent } from '../acp/intentUtils';
 import { getTemplate, getCategory } from '../taskflow/templates';
 
@@ -12,19 +13,19 @@ export class TaskSessionHandler {
         if (ctx.agentService.isConnected) return;
 
         try {
-            const config = vscode.workspace.getConfiguration('kcode');
-            const agentName = config.get<string>('agentName') || '';
-            const agentArgs = config.get<string[]>('agentArgs') || [];
+            const cfg = ConfigService.getInstance();
+            const agentName = cfg.get<string>('agentName', '');
+            const agentArgs = cfg.get<string[]>('agentArgs', []);
 
             const connected = await ctx.agentService.connect(agentName, agentArgs);
             if (connected) {
                 const displayName = ctx.agentService.agentName;
                 const msg = displayName === 'kilo'
-                    ? `Kilo (${config.get<string>('agentPath') || 'kilo'})`
+                    ? `Kilo (${cfg.get<string>('agentPath', 'kilo')})`
                     : displayName === 'opencode'
-                        ? `OpenCode (${config.get<string>('agentPath') || 'opencode'})`
+                        ? `OpenCode (${cfg.get<string>('agentPath', 'opencode')})`
                         : displayName === 'openai'
-                            ? `OpenAI Agent (${config.get<string>('openaiModel') || ''})`
+                            ? `OpenAI Agent (${cfg.get<string>('provider.openai.model', '')})`
                             : 'Agent 已连接';
                 ctx.router.PostMessage({ type: 'agentStatus', status: 'connected', message: msg, agentName: displayName });
             } else {
@@ -138,11 +139,10 @@ export class TaskSessionHandler {
         if (ctx.agentService.isConnected) {
             await this.doPrompt(tid, promptText, handler);
         } else {
-            const config = vscode.workspace.getConfiguration('kcode');
-            const agentName = config.get<string>('agentName') || '';
+            const agentName = ConfigService.getInstance().get<string>('agentName', '');
             ctx.showAgentError(tid, ctx.agentService.lastError
                 || (!agentName || agentName === 'npx'
-                    ? '请配置 Agent：在 VS Code 设置中设置 `kcode.agentName`'
+                    ? '请配置 Agent：在 KCode 设置中配置 agentName'
                     : `Agent 连接失败：无法连接到 "${agentName}"`));
         }
     }

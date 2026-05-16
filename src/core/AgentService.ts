@@ -1,6 +1,6 @@
-import * as vscode from 'vscode';
 import { AcpClient } from '../acp/AcpClient';
 import { OpenAIAgent } from '../acp/OpenAIAgent';
+import { ConfigService } from './ConfigService';
 import type { AcpMessageHandler, FileChange } from '../types';
 import type { IAgentService } from './interfaces';
 
@@ -29,13 +29,16 @@ export class AgentService implements IAgentService {
         }
     }
 
+    private _cfg(): ConfigService {
+        return ConfigService.getInstance();
+    }
+
     async connectByLabel(label: string): Promise<boolean> {
         if (this._isConnected) await this.disconnect();
-        const config = vscode.workspace.getConfiguration('kcode');
         switch (label) {
-            case 'kilo': return await this.connectKilo(config);
-            case 'opencode': return await this.connectOpenCode(config);
-            case 'openai': return this.connectOpenAI(config);
+            case 'kilo': return await this.connectKilo();
+            case 'opencode': return await this.connectOpenCode();
+            case 'openai': return this.connectOpenAI();
             default: return false;
         }
     }
@@ -44,21 +47,19 @@ export class AgentService implements IAgentService {
         if (this._isConnected) return true;
 
         try {
-            const config = vscode.workspace.getConfiguration('kcode');
-
             // Kilo agent via stdio ACP (kilo acp)
             if (agentName === 'kilo') {
-                return await this.connectKilo(config);
+                return await this.connectKilo();
             }
 
             // OpenCode agent via stdio ACP
             if (agentName === 'opencode') {
-                return await this.connectOpenCode(config);
+                return await this.connectOpenCode();
             }
 
             // OpenAI Agent
             if (agentName === 'openai') {
-                return this.connectOpenAI(config);
+                return this.connectOpenAI();
             }
 
             // Generic ACP stdio subprocess
@@ -75,8 +76,8 @@ export class AgentService implements IAgentService {
         }
     }
 
-    private async connectOpenCode(config: vscode.WorkspaceConfiguration, overridePath?: string): Promise<boolean> {
-        const agentPath = overridePath || config.get<string>('agentPath') || 'opencode';
+    private async connectOpenCode(overridePath?: string): Promise<boolean> {
+        const agentPath = overridePath || this._cfg().get<string>('agentPath', 'opencode');
         const acpClient = new AcpClient(this.workspaceRoot);
         if (this.logCallback) {
             acpClient.setLogCallback(this.logCallback);
@@ -100,11 +101,12 @@ export class AgentService implements IAgentService {
         return false;
     }
 
-    private connectOpenAI(config: vscode.WorkspaceConfiguration, overrideApiKey?: string, overrideModel?: string, overrideBaseUrl?: string): boolean {
+    private connectOpenAI(overrideApiKey?: string, overrideModel?: string, overrideBaseUrl?: string): boolean {
+        const cfg = this._cfg();
         this.openaiAgent = new OpenAIAgent({
-            apiKey: overrideApiKey || config.get<string>('openaiApiKey'),
-            model: overrideModel || config.get<string>('openaiModel'),
-            baseURL: overrideBaseUrl || config.get<string>('openaiBaseUrl'),
+            apiKey: overrideApiKey || cfg.get<string>('provider.openai.apiKey'),
+            model: overrideModel || cfg.get<string>('provider.openai.model'),
+            baseURL: overrideBaseUrl || cfg.get<string>('provider.openai.baseUrl'),
         });
         this._isConnected = true;
         this._agentName = 'openai';
@@ -112,8 +114,8 @@ export class AgentService implements IAgentService {
         return true;
     }
 
-    private async connectKilo(config: vscode.WorkspaceConfiguration, overridePath?: string): Promise<boolean> {
-        const kiloPath = overridePath || config.get<string>('agentPath') || 'kilo';
+    private async connectKilo(overridePath?: string): Promise<boolean> {
+        const kiloPath = overridePath || this._cfg().get<string>('agentPath', 'kilo');
         const acpClient = new AcpClient(this.workspaceRoot);
         if (this.logCallback) {
             acpClient.setLogCallback(this.logCallback);

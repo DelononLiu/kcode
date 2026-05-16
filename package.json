@@ -47,6 +47,14 @@
       {
         "command": "kcode.importGitHubIssue",
         "title": "Kcode: Import GitHub Issue"
+      },
+      {
+        "command": "kcode.newTaskFromTemplate",
+        "title": "Kcode: New Task from Template"
+      },
+      {
+        "command": "kcode.openSettings",
+        "title": "Kcode: Open Settings"
       }
     ],
     "configuration": {
@@ -118,6 +126,7 @@
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.21.0",
     "highlight.js": "^11.11.1",
+    "jsonc-parser": "^3.3.1",
     "marked": "^18.0.3"
   },
   "devDependencies": {

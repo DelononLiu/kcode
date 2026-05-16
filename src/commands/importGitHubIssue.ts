@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as net from 'net';
 import * as tls from 'tls';
 import { TaskStore } from '../store/TaskStore';
+import { ConfigService } from '../core/ConfigService';
 import { Task, TaskSource } from '../types';
 
 const output = vscode.window.createOutputChannel('KCode Import');
@@ -235,7 +236,7 @@ export async function importGitHubIssue(
     }
     output.appendLine(`Parsed: ${parsed.owner}/${parsed.repo}#${parsed.issueNumber}`);
 
-    const token = (vscode.workspace.getConfiguration('kcode').get<string>('githubToken') || '').trim() || undefined;
+    const token = (ConfigService.getInstance().get<string>('github.token', '') || '').trim() || undefined;
 
     let issue: GitHubIssueData;
     try {

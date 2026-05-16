@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { TaskStore } from '../store/TaskStore';
 import { TaskFlow } from '../taskflow/TaskFlow';
 import { AgentService } from '../core/AgentService';
+import { ConfigService } from '../core/ConfigService';
 import { getCategories } from '../taskflow/templates';
 import { parseWorkspaceHooks } from '../taskflow/workspaceHooks';
 import { getWebviewContent as getTemplateHtml } from './templates/chatPanelHtml';
@@ -33,10 +34,12 @@ export class KCodePanel {
 
     private context: vscode.ExtensionContext;
     private onDisposeCallback?: () => void;
+    readonly configService: ConfigService;
 
-    constructor(context: vscode.ExtensionContext, store: TaskStore) {
+    constructor(context: vscode.ExtensionContext, store: TaskStore, configService?: ConfigService) {
         this.context = context;
         this.store = store;
+        this.configService = configService || new ConfigService();
         this.router = new MessageRouter();
 
         this.panel = vscode.window.createWebviewPanel('kcode', 'KCode', vscode.ViewColumn.One, {
@@ -110,9 +113,8 @@ export class KCodePanel {
 
         this.setupMessageHandler();
 
-        const config = vscode.workspace.getConfiguration('kcode');
-        this.acpLogManager.enabled = config.get<boolean>('acpLogEnabled', false);
-        this.router.PostMessage({ type: 'acpLogState', enabled: this.acpLogManager.enabled, maxGlobal: config.get<number>('acpLogMaxGlobal', 5000), maxTask: config.get<number>('acpLogMaxTask', 2000) });
+        this.acpLogManager.enabled = this.configService.get<boolean>('log.acpLogEnabled', false);
+        this.router.PostMessage({ type: 'acpLogState', enabled: this.acpLogManager.enabled, maxGlobal: this.configService.get<number>('log.acpLogMaxGlobal', 5000), maxTask: this.configService.get<number>('log.acpLogMaxTask', 2000) });
         this.router.PostMessage({ type: 'updateCategoryDefs', categories: getCategories() });
 
         this.sessionHandler.sendAgentList();
@@ -139,7 +141,7 @@ export class KCodePanel {
         this.router.on('rejectPlan', (msg) => this.flowHandler.handleRejectPlan(msg.taskId));
         this.router.on('confirmExecuteDone', async (msg) => this.flowHandler.handleConfirmExecuteDone(msg.taskId));
         this.router.on('partialApproveReview', (msg) => this.flowHandler.handlePartialApproveReview(msg.taskId, msg.passed, msg.failed));
-        this.router.on('toggleAcpLog', (msg) => { this.acpLogManager.enabled = msg.enabled; vscode.workspace.getConfiguration('kcode').update('acpLogEnabled', msg.enabled, true); });
+        this.router.on('toggleAcpLog', (msg) => { this.acpLogManager.enabled = msg.enabled; this.configService.set('log.acpLogEnabled', msg.enabled); this.configService.save(); });
         this.router.on('newTask', () => vscode.commands.executeCommand('kcode.newTask'));
         this.router.on('openDashboard', () => {
             this.currentTaskId = null;
@@ -155,6 +157,7 @@ export class KCodePanel {
         this.router.on('sendAssistantMessage', async (msg) => { await this.assistantHandler.handleMessage(msg.text); });
         this.router.on('updateTodoItem', (msg) => { this.flowHandler.handleUpdateTodoItem(msg.taskId, msg.msgId, msg.itemId, msg.checked); });
         this.router.on('switchAgent', (msg) => { this.sessionHandler.handleSwitchAgent(msg.label); });
+        this.router.on('openSettings', () => vscode.commands.executeCommand('kcode.openSettings'));
 
         this.panel.webview.onDidReceiveMessage((message: any) => { this.router.dispatch(message.type, message); }, null, this.context.subscriptions);
     }

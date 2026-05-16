@@ -13,6 +13,7 @@ out/**/*.map
 node_modules/**
 !node_modules/@agentclientprotocol/**
 !node_modules/zod/**
+!node_modules/jsonc-parser/**
 src/**
 scripts/**
 tsconfig.json

@@ -106,7 +106,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     this.refresh();
                     break;
                 case 'openSettings':
-                    vscode.commands.executeCommand('workbench.action.openSettings', 'kcode');
+                    vscode.commands.executeCommand('kcode.openSettings');
                     break;
                 case 'newProject':
                     this.createNewProject();
