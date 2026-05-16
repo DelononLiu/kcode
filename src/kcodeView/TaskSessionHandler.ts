@@ -139,6 +139,32 @@ export class TaskSessionHandler {
         }
     }
 
+    async handleSwitchAgent(label: string): Promise<void> {
+        const { ctx } = this;
+        if (ctx.isGenerating) {
+            await ctx.stopGeneration(ctx.currentTaskId || '');
+        }
+        await ctx.agentService.disconnect();
+        ctx.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: '正在切换 Agent...', agentName: '' });
+        const connected = await ctx.agentService.connectByLabel(label);
+        if (connected) {
+            const displayName = ctx.agentService.agentName;
+            ctx.router.PostMessage({ type: 'agentStatus', status: 'connected', message: `已切换到 ${label}`, agentName: displayName });
+        } else {
+            ctx.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: ctx.agentService.lastError || 'Agent 切换失败', agentName: '' });
+        }
+    }
+
+    sendAgentList(): void {
+        this.ctx.router.PostMessage({
+            type: 'agentList',
+            agents: [
+                { label: 'Kilo', type: 'kilo' },
+                { label: 'OpenCode', type: 'opencode' },
+            ],
+        });
+    }
+
     async startAutoGeneration(tid: string) {
         const { ctx } = this;
         if (!tid || ctx.isGenerating) return;

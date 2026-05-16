@@ -2,7 +2,6 @@ import type { TaskStore } from '../store/TaskStore';
 import type { TaskFlow } from '../taskflow/TaskFlow';
 import type { AgentService } from '../core/AgentService';
 import type { MessageRouter } from './MessageRouter';
-import type { Task, FileChange } from '../types';
 
 export interface ToolCallState {
     title: string;
@@ -40,7 +39,7 @@ export interface KCodePanelContext {
     setGenerationState(generating: boolean): void;
     sendPendingQueueUpdate(): void;
     sendAcpLog(taskId: string, direction: 'send' | 'recv', text: string): void;
-    flushAcpRecvBuffer(): void;
+    flushAcpRecvBuffer(taskId?: string): void;
     storeMessage(taskId: string, role: 'user' | 'agent', content: string): string;
     sendTaskInfo(taskId: string): void;
     sendNodePanelUpdate(taskId: string): void;
@@ -48,7 +47,15 @@ export interface KCodePanelContext {
     triggerReviewRequest(tid: string, content: string): void;
     showPlanConfirmation(tid: string): boolean;
     showAgentError(tid: string, errorMsg: string): void;
+
     /** 发送 prompt 并创建完整 response handler（委托给 sessionHandler） */
     sendAgentPrompt(tid: string, promptText: string, isGoalFormatting: boolean, originalText: string): Promise<void>;
     startAutoGeneration(tid: string): Promise<void>;
+
+    /** 停止当前生成 */
+    stopGeneration(taskId?: string): void;
+    /** 加载任务（切换当前任务） */
+    loadTask(taskId: string): void;
+    /** 加载小助手 */
+    loadAssistant(): void;
 }

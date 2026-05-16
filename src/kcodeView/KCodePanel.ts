@@ -2,37 +2,15 @@ import * as vscode from 'vscode';
 import { TaskStore } from '../store/TaskStore';
 import { TaskFlow } from '../taskflow/TaskFlow';
 import { AgentService } from '../core/AgentService';
-import { getCategories, getTemplate, getCategory } from '../taskflow/templates';
+import { getCategories } from '../taskflow/templates';
 import { parseWorkspaceHooks } from '../taskflow/workspaceHooks';
 import { getWebviewContent as getTemplateHtml } from './templates/chatPanelHtml';
 import { MessageRouter } from './MessageRouter';
 import { TaskSessionHandler } from './TaskSessionHandler';
 import { TaskFlowHandler } from './TaskFlowHandler';
+import { AcpLogManager } from './AcpLogManager';
+import { AssistantHandler } from './AssistantHandler';
 import type { KCodePanelContext, ToolCallState, PendingMessage } from './PanelContext';
-import type { AcpMessageHandler, Task, TodoItem, AssistantMessage } from '../types';
-
-function parseTodosFromOutput(output: string): any[] {
-    const titleMatch = output.match(/<title>\s*\d+\s*todos?\s*<\/title>\s*(\[[\s\S]*?\])\s*/);
-    if (titleMatch) {
-        try { return JSON.parse(titleMatch[1]); } catch {}
-    }
-    try {
-        const arr = JSON.parse(output);
-        if (Array.isArray(arr)) return arr;
-    } catch {}
-    if (output.trim().startsWith('[')) {
-        try { return JSON.parse(output.trim()); } catch {}
-    }
-    return [];
-}
-
-function replaceTodosInOutput(output: string, todos: any[]): string {
-    const titleMatch = output.match(/^(<title>\s*\d+\s*todos?\s*<\/title>\s*)/i);
-    if (titleMatch) {
-        return titleMatch[1] + JSON.stringify(todos, null, 2);
-    }
-    return JSON.stringify(todos, null, 2);
-}
 
 export class KCodePanel {
     readonly panel: vscode.WebviewPanel;
@@ -42,6 +20,8 @@ export class KCodePanel {
     readonly router: MessageRouter;
     readonly sessionHandler: TaskSessionHandler;
     readonly flowHandler: TaskFlowHandler;
+    readonly acpLogManager: AcpLogManager;
+    readonly assistantHandler: AssistantHandler;
 
     currentTaskId: string | null = null;
     activeToolCalls: Map<string, ToolCallState> = new Map();
@@ -52,31 +32,12 @@ export class KCodePanel {
     refreshSidebarCallback?: () => void;
 
     private context: vscode.ExtensionContext;
-    private disposables: vscode.Disposable[] = [];
     private onDisposeCallback?: () => void;
-    private acpLogEnabled = false;
-    private acpRecvBuffer = '';
-    private recvFlushTimer: any = null;
 
     constructor(context: vscode.ExtensionContext, store: TaskStore) {
         this.context = context;
         this.store = store;
-
-        this.taskFlow = new TaskFlow(store, {
-            onPhaseChanged: (taskId) => { this.sendTaskInfo(taskId); this.sendNodePanelUpdate(taskId); this.refreshSidebarCallback?.(); },
-            onExecuteFinished: (taskId) => { this.sendTaskInfo(taskId); },
-            onGoalFormatted: (taskId, goalText, originalRequest) => { this.router.PostMessage({ type: 'showGoalConfirmation', goal: goalText, originalRequest, taskId }); },
-            onError: (taskId, error) => { this.flowHandler.showAgentError(taskId, error); },
-            onSelfVerifyNeeded: (taskId) => { setTimeout(() => this.sessionHandler.startAutoGeneration(taskId), 100); },
-            onSelfVerifyFinished: (taskId) => { this.sendTaskInfo(taskId); },
-            onPlanStepUpdate: (taskId) => { this.sendTaskInfo(taskId); },
-            onTaskDelegated: (taskId, payload) => { this.handleTaskDelegated(taskId, payload); },
-            onTodoUpdate: (taskId, items, action) => { this.handleTodoUpdate(taskId, items, action); },
-        });
-
-        const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
-        this.agentService = new AgentService(workspacePath);
-        this.agentService.setLogCallback((dir, text) => { const t = this.currentTaskId || ''; if (t) this.sendAcpLog(t, dir, text); });
+        this.router = new MessageRouter();
 
         this.panel = vscode.window.createWebviewPanel('kcode', 'KCode', vscode.ViewColumn.One, {
             enableScripts: true, retainContextWhenHidden: true,
@@ -85,10 +46,27 @@ export class KCodePanel {
                 vscode.Uri.joinPath(context.extensionUri, 'src', 'kcodeView', 'webview')
             ]
         });
+        this.router.PostMessage = (msg) => this.panel.webview.postMessage(msg);
+
+        this.acpLogManager = new AcpLogManager(this.router);
+
+        this.taskFlow = new TaskFlow(store, {
+            onPhaseChanged: (taskId) => { this.flowHandler.sendTaskInfo(taskId); this.flowHandler.sendNodePanelUpdate(taskId); this.refreshSidebarCallback?.(); },
+            onExecuteFinished: (taskId) => { this.flowHandler.sendTaskInfo(taskId); },
+            onGoalFormatted: (taskId, goalText, originalRequest) => { this.router.PostMessage({ type: 'showGoalConfirmation', goal: goalText, originalRequest, taskId }); },
+            onError: (taskId, error) => { this.flowHandler.showAgentError(taskId, error); },
+            onSelfVerifyNeeded: (taskId) => { setTimeout(() => this.sessionHandler.startAutoGeneration(taskId), 100); },
+            onSelfVerifyFinished: (taskId) => { this.flowHandler.sendTaskInfo(taskId); },
+            onPlanStepUpdate: (taskId) => { this.flowHandler.sendTaskInfo(taskId); },
+            onTaskDelegated: (taskId, payload) => { this.flowHandler.handleTaskDelegated(taskId, payload); },
+            onTodoUpdate: (taskId, items, action) => { this.flowHandler.handleTodoUpdate(taskId, items, action); },
+        });
+
+        const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
+        this.agentService = new AgentService(workspacePath);
+        this.agentService.setLogCallback((dir, text) => { const t = this.currentTaskId || ''; if (t) this.acpLogManager.send(t, dir, text); });
 
         this.panel.webview.html = this.getWebviewContent();
-        this.router = new MessageRouter();
-        this.router.PostMessage = (msg) => this.panel.webview.postMessage(msg);
 
         const ctx: KCodePanelContext = {
             store: this.store, taskFlow: this.taskFlow, agentService: this.agentService, router: this.router,
@@ -98,11 +76,11 @@ export class KCodePanel {
             refreshSidebarCallback: this.refreshSidebarCallback,
             setGenerationState: (b) => this.setGenerationState(b),
             sendPendingQueueUpdate: () => this.sendPendingQueueUpdate(),
-            sendAcpLog: (t, d, tx) => this.sendAcpLog(t, d, tx),
-            flushAcpRecvBuffer: () => this.flushAcpRecvBuffer(),
+            sendAcpLog: (t, d, tx) => this.acpLogManager.send(t, d, tx),
+            flushAcpRecvBuffer: (tid) => this.acpLogManager.flush(tid),
             storeMessage: (t, r, c) => this.storeMessage(t, r, c),
-            sendTaskInfo: (t) => this.sendTaskInfo(t),
-            sendNodePanelUpdate: (t) => this.sendNodePanelUpdate(t),
+            sendTaskInfo: (t) => this.flowHandler.sendTaskInfo(t),
+            sendNodePanelUpdate: (t) => this.flowHandler.sendNodePanelUpdate(t),
             sendHooksAsMessage: (t, p) => this.sendHooksAsMessage(t, p),
             triggerReviewRequest: (t, c) => this.flowHandler.triggerReviewRequest(t, c),
             showPlanConfirmation: (t) => this.flowHandler.showPlanConfirmation(t),
@@ -112,20 +90,32 @@ export class KCodePanel {
                 await this.sessionHandler.doPrompt(tid, promptText, handler);
             },
             startAutoGeneration: (tid) => this.sessionHandler.startAutoGeneration(tid),
+            stopGeneration: (tid) => this.flowHandler.handleStopGeneration(tid),
+            loadTask: (tid) => this.loadTask(tid),
+            loadAssistant: () => this.loadAssistant(),
         };
 
         this.sessionHandler = new TaskSessionHandler(ctx);
         this.flowHandler = new TaskFlowHandler(ctx);
 
+        this.assistantHandler = new AssistantHandler(
+            this.store, this.agentService, this.router, this.sessionHandler,
+            (b) => this.setGenerationState(b),
+            () => this.isGenerating,
+            (text, taskId) => this.pendingMessages.push({ text, taskId }),
+            () => this.sendPendingQueueUpdate(),
+            this.refreshSidebarCallback,
+            (taskId) => this.loadTask(taskId),
+        );
+
         this.setupMessageHandler();
 
         const config = vscode.workspace.getConfiguration('kcode');
-        this.acpLogEnabled = config.get<boolean>('acpLogEnabled', false);
-        this.router.PostMessage({ type: 'acpLogState', enabled: this.acpLogEnabled, maxGlobal: config.get<number>('acpLogMaxGlobal', 5000), maxTask: config.get<number>('acpLogMaxTask', 2000) });
+        this.acpLogManager.enabled = config.get<boolean>('acpLogEnabled', false);
+        this.router.PostMessage({ type: 'acpLogState', enabled: this.acpLogManager.enabled, maxGlobal: config.get<number>('acpLogMaxGlobal', 5000), maxTask: config.get<number>('acpLogMaxTask', 2000) });
         this.router.PostMessage({ type: 'updateCategoryDefs', categories: getCategories() });
 
-        this.sendAgentList();
-
+        this.sessionHandler.sendAgentList();
         this.sessionHandler.ensureConnection();
 
         this.loadWorkspaceHooks().then(hooks => this.taskFlow.setWorkspaceHooks(hooks));
@@ -140,7 +130,7 @@ export class KCodePanel {
         this.router.on('cancelTask', (msg) => this.flowHandler.handleCancelTask(msg.taskId));
         this.router.on('approveReview', (msg) => this.flowHandler.handleApproveReview(msg.taskId));
         this.router.on('rejectReview', (msg) => this.flowHandler.handleRejectReview(msg.taskId, msg.reason));
-        this.router.on('showFileDiff', (msg) => this.handleShowFileDiff(msg.original, msg.modified));
+        this.router.on('showFileDiff', (msg) => this.showDiff(msg.original, msg.modified));
         this.router.on('stopGeneration', (msg) => this.flowHandler.handleStopGeneration(msg.taskId));
         this.router.on('openNativeDiff', (msg) => this.flowHandler.handleOpenNativeDiff(msg.original, msg.modified, msg.filePath));
         this.router.on('confirmGoalWithEdit', async (msg) => this.flowHandler.handleConfirmGoalWithEdit(msg.taskId, msg.goal, msg.originalRequest));
@@ -149,7 +139,7 @@ export class KCodePanel {
         this.router.on('rejectPlan', (msg) => this.flowHandler.handleRejectPlan(msg.taskId));
         this.router.on('confirmExecuteDone', async (msg) => this.flowHandler.handleConfirmExecuteDone(msg.taskId));
         this.router.on('partialApproveReview', (msg) => this.flowHandler.handlePartialApproveReview(msg.taskId, msg.passed, msg.failed));
-        this.router.on('toggleAcpLog', (msg) => { this.acpLogEnabled = msg.enabled; vscode.workspace.getConfiguration('kcode').update('acpLogEnabled', msg.enabled, true); });
+        this.router.on('toggleAcpLog', (msg) => { this.acpLogManager.enabled = msg.enabled; vscode.workspace.getConfiguration('kcode').update('acpLogEnabled', msg.enabled, true); });
         this.router.on('newTask', () => vscode.commands.executeCommand('kcode.newTask'));
         this.router.on('openDashboard', () => {
             this.currentTaskId = null;
@@ -159,501 +149,23 @@ export class KCodePanel {
         this.router.on('cancelQueuedMessage', (msg) => { if (msg.index >= 0 && msg.index < this.pendingMessages.length) { this.pendingMessages.splice(msg.index, 1); this.sendPendingQueueUpdate(); } });
         this.router.on('clearPendingQueue', () => { this.pendingMessages = []; this.sendPendingQueueUpdate(); });
         this.router.on('openTerminal', () => vscode.commands.executeCommand('workbench.action.terminal.new'));
-        this.router.on('convertToTask', (msg) => this.handleConvertToTask(msg.taskId));
-        this.router.on('updateHooks', (msg) => { if (msg.phase && Array.isArray(msg.commands)) { this.store.updateTaskHooks(msg.taskId, msg.phase, msg.commands); this.sendTaskInfo(msg.taskId); } });
+        this.router.on('convertToTask', (msg) => this.flowHandler.handleConvertToTask(msg.taskId));
+        this.router.on('updateHooks', (msg) => { if (msg.phase && Array.isArray(msg.commands)) { this.store.updateTaskHooks(msg.taskId, msg.phase, msg.commands); this.flowHandler.sendTaskInfo(msg.taskId); } });
         this.router.on('selectTask', (msg) => { this.loadTask(msg.taskId); this.refreshSidebarCallback?.(); });
-        this.router.on('sendAssistantMessage', async (msg) => { await this.handleAssistantMessage(msg.text); });
-        this.router.on('updateTodoItem', (msg) => { this.handleUpdateTodoItem(msg.taskId, msg.msgId, msg.itemId, msg.checked); });
-        this.router.on('switchAgent', (msg) => { this.handleSwitchAgent(msg.label); });
+        this.router.on('sendAssistantMessage', async (msg) => { await this.assistantHandler.handleMessage(msg.text); });
+        this.router.on('updateTodoItem', (msg) => { this.flowHandler.handleUpdateTodoItem(msg.taskId, msg.msgId, msg.itemId, msg.checked); });
+        this.router.on('switchAgent', (msg) => { this.sessionHandler.handleSwitchAgent(msg.label); });
 
         this.panel.webview.onDidReceiveMessage((message: any) => { this.router.dispatch(message.type, message); }, null, this.context.subscriptions);
     }
 
-    // === Task CRUD helpers ===
-
-    private handleConvertToTask(taskId: string) {
-        const chatTask = this.store.getTask(taskId);
-        if (!chatTask) return;
-        const messages = this.store.getMessages(taskId);
-        const firstUserMsg = messages.find(m => m.role === 'user');
-        const newTask: Task = {
-            id: `task_${Date.now()}`, title: firstUserMsg ? firstUserMsg.content.substring(0, 50).replace(/\n/g, ' ') : '从对话创建的任务',
-            goal: '', type: 'task', status: 'pending', phase: 'demand', confirmedItems: [], pendingItems: [], planSteps: [], createdAt: Date.now(), pinned: false
-        };
-        this.store.addTask(newTask);
-        const newId = newTask.id;
-        for (const msg of messages) {
-            this.store.addMessage({ id: this.store.nextMessageId(newId), taskId: newId, role: msg.role, content: msg.content, type: msg.type, timestamp: msg.timestamp });
-        }
-        this.loadTask(newId);
-        this.refreshSidebarCallback?.();
+    storeMessage(taskId: string, role: 'user' | 'agent', content: string): string {
+        const id = this.store.nextMessageId(taskId);
+        this.store.addMessage({ id, taskId, role, content, timestamp: Date.now() });
+        return id;
     }
 
-    private handleTodoUpdate(taskId: string, items: TodoItem[], action: string) {
-        const messages = this.store.getMessages(taskId);
-        const existingTodoMsgs = messages.filter(m => m.type === 'todo');
-
-        if (action === 'replace') {
-            const msgId = this.store.nextMessageId(taskId);
-            this.store.addMessage({
-                id: msgId, taskId, role: 'agent', type: 'todo',
-                content: JSON.stringify(items), timestamp: Date.now()
-            });
-        } else if (action === 'add' && existingTodoMsgs.length > 0) {
-            const last = existingTodoMsgs[existingTodoMsgs.length - 1];
-            const existing: TodoItem[] = JSON.parse(last.content || '[]');
-            const merged = [...existing];
-            for (const item of items) {
-                const idx = merged.findIndex(i => i.id === item.id);
-                if (idx >= 0) merged[idx] = item;
-                else merged.push(item);
-            }
-            this.store.updateMessageContent(taskId, last.id, JSON.stringify(merged));
-        } else if (action === 'update' && existingTodoMsgs.length > 0) {
-            const last = existingTodoMsgs[existingTodoMsgs.length - 1];
-            const existing: TodoItem[] = JSON.parse(last.content || '[]');
-            for (const item of items) {
-                const idx = existing.findIndex(i => i.id === item.id);
-                if (idx >= 0) existing[idx].status = item.status;
-            }
-            this.store.updateMessageContent(taskId, last.id, JSON.stringify(existing));
-        } else {
-            const msgId = this.store.nextMessageId(taskId);
-            this.store.addMessage({
-                id: msgId, taskId, role: 'agent', type: 'todo',
-                content: JSON.stringify(items), timestamp: Date.now()
-            });
-        }
-
-        const t = this.store.getTask(taskId);
-        this.router.PostMessage({ type: 'loadMessages', messages: this.store.getMessages(taskId), taskId, taskStatus: t?.status });
-        this.sendOutputPanelUpdate(taskId);
-    }
-
-    private handleTaskDelegated(parentTaskId: string, payload: any) {
-        const parentTask = this.store.getTask(parentTaskId);
-        if (!parentTask) return;
-        const fullGoal = payload.relevantSnippets ? `${payload.goal}\n\n技术上下文：${payload.relevantSnippets}` : payload.goal;
-        const newTask: Task = {
-            id: `task_${Date.now()}`, title: payload.title, goal: fullGoal, type: 'task', status: 'pending', phase: 'demand',
-            confirmedItems: payload.confirmedItems || [], pendingItems: [], planSteps: [], createdAt: Date.now(),
-            pinned: false, source: parentTask.source, containerId: parentTask.containerId, group: parentTask.group,
-        };
-        this.store.addTask(newTask);
-        this.store.addMessage({ id: this.store.nextMessageId(parentTaskId), taskId: parentTaskId, role: 'agent', type: 'stop_message', content: `📤 已委派新任务「${payload.title}」`, timestamp: Date.now() });
-        this.router.PostMessage({ type: 'addSystemMessage', content: `📤 已委派新任务「${payload.title}」`, taskId: parentTaskId });
-        this.refreshSidebarCallback?.();
-    }
-
-    // === Task info display ===
-
-    private sendTaskInfo(taskId: string) {
-        const task = this.store.getTask(taskId);
-        if (!task) return;
-        this.router.PostMessage({
-            type: 'updateTaskInfo', title: task.title, goal: task.goal, goalHint: task.goal ? '🎯 ' + task.goal : '',
-            status: task.status, phase: task.phase, phaseLabel: ({ demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收' } as Record<string, string>)[task.phase] || task.phase,
-            taskType: task.type, createdAt: task.createdAt, pendingReviewFiles: 0,
-            confirmedItems: task.confirmedItems, pendingItems: task.pendingItems, planSteps: task.planSteps,
-            hooks: task.hooks || {}, workspaceHooks: this.taskFlow['workspaceHooks'] || {},
-            messageCount: this.store.getMessages(taskId).length, executeFinished: this.taskFlow.isExecuteFinished(taskId)
-        });
-        this.sendOutputPanelUpdate(taskId);
-    }
-
-    private sendOutputPanelUpdate(taskId: string) {
-        const changes = this.store.getReviewChanges(taskId);
-        const messages = this.store.getMessages(taskId);
-        const todos: TodoItem[] = [];
-        const toolCalls: { toolCallId: string; title: string; kind: string; status: string; output?: string }[] = [];
-        const knowledgeItems: { content: string; source: string }[] = [];
-        const seenToolCalls = new Set<string>();
-        for (const msg of messages) {
-            if (msg.type === 'todo') {
-                try { todos.push(...JSON.parse(msg.content || '[]')); } catch {}
-            } else if (msg.type === 'tool_call') {
-                try {
-                    const info = JSON.parse(msg.content);
-                    if (info.kind === 'todowrite' && info.output) {
-                        const raw = parseTodosFromOutput(info.output);
-                        for (let idx = 0; idx < raw.length; idx++) {
-                            todos.push({ id: String(idx), content: String(raw[idx].content || ''), status: raw[idx].status === 'completed' ? 'completed' : 'pending' });
-                        }
-                    } else if (info.toolCallId && !seenToolCalls.has(info.toolCallId)) {
-                        seenToolCalls.add(info.toolCallId);
-                        toolCalls.push({ toolCallId: info.toolCallId, title: info.title || '', kind: info.kind || '', status: info.status || '', output: info.output || '' });
-                    }
-                } catch {}
-            }
-        }
-        this.router.PostMessage({ type: 'updateOutputPanel', taskInfo: { planSteps: this.store.getTask(taskId)?.planSteps, todos, toolCalls, knowledgeItems }, changes });
-    }
-
-    private createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string) {
-        let reasoningText = '';
-        let reasoningActive = false;
-        let currentReasoningId = '';
-
-        const completeReasoning = () => {
-            if (!reasoningActive) return;
-            reasoningActive = false;
-            const full = reasoningText;
-            reasoningText = '';
-            this.flushAcpRecvBuffer(tid);
-            if (full) {
-                this.sendAcpLog(tid, 'recv', full);
-                this.flushAcpRecvBuffer(tid);
-            }
-            const rc = this.activeToolCalls.get(currentReasoningId);
-            if (rc) rc.status = 'completed';
-            sendToolCallUpdate(currentReasoningId, '推理过程', 'thinking', 'completed', full);
-        };
-
-        const onError = (error: string) => {
-            this.setGenerationState(false);
-            this.taskFlow.getCleanText(tid);
-            if (!isGoalFormatting) {
-                this.panel.webview.postMessage({
-                    type: 'agentStreamUpdate',
-                    text: `\n\n[错误: ${error}]`
-                });
-            }
-            this.storeMessage(tid, 'agent', `错误: ${error}`);
-        };
-
-        const sendDisplayUpdate = () => {
-            if (isGoalFormatting) return;
-            const displayText = this.taskFlow.getCleanText(tid) + this.taskFlow.buildPlanSection(tid);
-            this.panel.webview.postMessage({
-                type: 'agentStreamUpdate',
-                text: displayText
-            });
-        };
-
-        const sendToolCallUpdate = (toolCallId: string, title: string, kind: string, status: string, content?: string) => {
-            if (isGoalFormatting) return;
-            this.panel.webview.postMessage({
-                type: 'toolCallUpdate',
-                toolCallId,
-                title,
-                kind,
-                status,
-                content
-            });
-        };
-
-        return {
-            onText: (chunk: string) => {
-                completeReasoning();
-                this.sendAcpLog(tid, 'recv', chunk);
-                this.taskFlow.processChunk(tid, chunk);
-                sendDisplayUpdate();
-            },
-            onReasoning: (text: string) => {
-                if (!reasoningActive) {
-                    currentReasoningId = 'reasoning_' + this.store.nextMessageId(tid);
-                    reasoningActive = true;
-                    this.activeToolCalls.set(currentReasoningId, { title: '推理', kind: 'thinking', status: 'running' });
-                    sendToolCallUpdate(currentReasoningId, '推理', 'thinking', 'running', '');
-                }
-                reasoningText += text;
-                const tc = this.activeToolCalls.get(currentReasoningId);
-                if (tc) tc.output = reasoningText;
-                sendToolCallUpdate(currentReasoningId, '推理', 'thinking', 'running', reasoningText);
-            },
-            onToolCall: (toolCallId: string, title: string, kind: string, status: string) => {
-                completeReasoning();
-                this.activeToolCalls.set(toolCallId, { title, kind, status });
-                sendToolCallUpdate(toolCallId, title, kind, status);
-            },
-            onToolCallUpdate: (toolCallId: string, status: string, content?: string, title?: string, kind?: string) => {
-                const tc = this.activeToolCalls.get(toolCallId);
-                if (tc) {
-                    tc.status = status;
-                    if (content) tc.output = content;
-                    if (title) tc.title = title;
-                    if (kind) tc.kind = kind;
-                }
-                sendToolCallUpdate(toolCallId, tc?.title || '', tc?.kind || '', status, content);
-            },
-            onPlan: (entries: { content: string; priority: string; status: string }[]) => {
-                this.taskFlow.setPlanEntries(tid, entries);
-                sendDisplayUpdate();
-                this.sendNodePanelUpdate(tid);
-            },
-            onError,
-            onDone: (stopReason?: string) => {
-                completeReasoning();
-                this.setGenerationState(false);
-                this.flushAcpRecvBuffer(tid);
-                const cleanedText = this.taskFlow.getCleanText(tid);
-
-                if (stopReason === 'cancelled') {
-                    this.activeToolCalls.clear();
-                    if (cleanedText && !isGoalFormatting) {
-                        this.storeMessage(tid, 'agent', cleanedText);
-                    }
-                    this.taskFlow.resetGeneration(tid);
-                    const task = this.store.getTask(tid);
-                    this.panel.webview.postMessage({
-                        type: 'loadMessages',
-                        messages: this.store.getMessages(tid),
-                        taskId: tid,
-                        taskStatus: task?.status
-                    });
-                    return;
-                }
-                if (!isGoalFormatting) {
-                    let firstToolMsgId: string | null = null;
-                    for (const [toolCallId, tc] of this.activeToolCalls) {
-                        const msgId = this.store.nextMessageId(tid);
-                        if (!firstToolMsgId) firstToolMsgId = msgId;
-                        this.store.addMessage({
-                            id: msgId,
-                            taskId: tid,
-                            role: 'tool',
-                            type: 'tool_call',
-                            content: JSON.stringify({
-                                toolCallId,
-                                title: tc.title,
-                                kind: tc.kind,
-                                status: tc.status,
-                                output: tc.output || ''
-                            }),
-                            timestamp: Date.now()
-                        });
-                    }
-                    if (firstToolMsgId && !this.hasSetExecuteMessage) {
-                        this.store.updateTaskNodeMessageId(tid, 'execute', firstToolMsgId);
-                        this.hasSetExecuteMessage = true;
-                    }
-                }
-                if (isGoalFormatting) {
-                    this.taskFlow.processGoalProposal(tid, this.taskFlow.getCleanText(tid), originalText, originalText);
-                } else {
-                    const task = this.store.getTask(tid);
-                    const genResult = this.taskFlow.getGenResult(tid);
-
-                    if (task?.type === 'task' && this.taskFlow.isGoalProposed(tid) && task.phase === 'demand') {
-                        this.taskFlow.processGoalProposal(tid, cleanedText, '', '');
-                    } else if (task?.type === 'task' && task?.phase === 'review') {
-                        this.flowHandler.triggerReviewRequest(tid, cleanedText);
-                    } else if (genResult.planProposed && task?.type === 'task' && task?.phase === 'plan') {
-                        const cardShown = this.flowHandler.showPlanConfirmation(tid);
-                        if (cleanedText) {
-                            const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
-                            if (agentMsgId && !this.hasSetPlanMessage) {
-                                this.store.updateTaskNodeMessageId(tid, 'plan', agentMsgId);
-                                this.hasSetPlanMessage = true;
-                            }
-                        }
-                        this.sendNodePanelUpdate(tid);
-                        if (!cardShown) {
-                            const t = this.store.getTask(tid);
-                            this.panel.webview.postMessage({
-                                type: 'loadMessages',
-                                messages: this.store.getMessages(tid),
-                                taskId: tid,
-                                taskStatus: t?.status
-                            });
-                        }
-                    } else if (genResult.executeFinished && task?.type === 'task' && task?.phase === 'execute') {
-                        if (cleanedText) {
-                            this.storeMessage(tid, 'agent', cleanedText);
-                        }
-                        this.taskFlow.confirmExecuteDone(tid);
-                        this.sendTaskInfo(tid);
-                        this.sendNodePanelUpdate(tid);
-                        const t = this.store.getTask(tid);
-                        this.panel.webview.postMessage({
-                            type: 'loadMessages',
-                            messages: this.store.getMessages(tid),
-                            taskId: tid,
-                            taskStatus: t?.status
-                        });
-                        setTimeout(() => this.sessionHandler.startAutoGeneration(tid), 100);
-                    } else if (genResult.selfVerifyFinished && task?.type === 'task' && task?.phase === 'self_verify') {
-                        this.taskFlow.confirmSelfVerifyDone(tid);
-                        this.sendHooksAsMessage(tid, 'review').catch(() => {});
-                        this.flowHandler.triggerReviewRequest(tid, cleanedText || '自验完成，请验收变更');
-                    } else {
-                        const agentMsgId = this.storeMessage(tid, 'agent', cleanedText);
-                        if (agentMsgId && !this.hasSetPlanMessage) {
-                            this.store.updateTaskNodeMessageId(tid, 'plan', agentMsgId);
-                            this.hasSetPlanMessage = true;
-                        }
-                        this.sendNodePanelUpdate(tid);
-                        const t = this.store.getTask(tid);
-                        this.panel.webview.postMessage({
-                            type: 'loadMessages',
-                            messages: this.store.getMessages(tid),
-                            taskId: tid,
-                            taskStatus: t?.status
-                        });
-                    }
-                }
-                this.activeToolCalls.clear();
-                this.taskFlow.resetGeneration(tid);
-            }
-        };
-    }
-
-    private async handleConfirmGoal(tid: string, originalRequest: string) {
-        const confirmMsg = '✅ 确认目标';
-        this.store.addMessage({
-            id: this.store.nextMessageId(tid),
-            taskId: tid,
-            role: 'user',
-            content: confirmMsg,
-            timestamp: Date.now()
-        });
-        this.panel.webview.postMessage({ type: 'addUserMessage', content: confirmMsg });
-
-        this.taskFlow.confirmGoal(tid);
-        await this.sendHooksAsMessage(tid, 'plan');
-
-        const promptText = this.taskFlow.buildPhaseTransitionPrompt(tid, originalRequest);
-        const handler = this.createAgentResponseHandler(tid, false, originalRequest);
-
-        this.taskFlow.resetGeneration(tid);
-        this.activeToolCalls.clear();
-        this.setGenerationState(true);
-        this.sendAcpLog(tid, 'send', promptText);
-        await this.agentService.sendPrompt(tid, promptText, handler);
-    }
-
-    private handleReviseGoal(tid: string) {
-        const reviseMsg = '↩️ 修改需求';
-        this.store.addMessage({
-            id: this.store.nextMessageId(tid),
-            taskId: tid,
-            role: 'user',
-            content: reviseMsg,
-            timestamp: Date.now()
-        });
-        this.panel.webview.postMessage({ type: 'addUserMessage', content: reviseMsg });
-        this.store.updateTaskStatus(tid, 'pending');
-        this.store.updateTaskGoal(tid, '');
-        this.refreshSidebarCallback?.();
-        this.sendNodePanelUpdate(tid);
-    }
-
-    private handleCancelTask(tid: string) {
-        const cancelMsg = '✕ 已取消任务';
-        this.store.addMessage({
-            id: this.store.nextMessageId(tid),
-            taskId: tid,
-            role: 'user',
-            content: cancelMsg,
-            timestamp: Date.now()
-        });
-        this.panel.webview.postMessage({ type: 'addUserMessage', content: cancelMsg });
-        this.store.updateTaskStatus(tid, 'cancelled');
-        this.refreshSidebarCallback?.();
-        this.sendNodePanelUpdate(tid);
-        this.setGenerationState(false);
-    }
-
-    private sendNodePanelUpdate(taskId: string) {
-        this.router.PostMessage({ type: 'updateNodePanel', nodes: this.flowHandler.deriveNodes(taskId), taskType: this.store.getTask(taskId)?.type || 'task' });
-    }
-
-    loadAssistant() {
-        this.currentTaskId = null;
-        this.pendingMessages = [];
-        const messages = this.store.getAssistantMessages();
-        this.router.PostMessage({
-            type: 'loadMessages',
-            messages,
-            taskId: '',
-            taskType: 'assistant',
-        });
-        this.router.PostMessage({ type: 'updateNodePanel', nodes: [], taskType: 'assistant' });
-        this.router.PostMessage({ type: 'updateTaskInfo', title: '💬 小助手', taskType: 'assistant', goal: '', status: '', phase: '', phaseLabel: '', confirmedItems: [], pendingItems: [], planSteps: [], hooks: {}, workspaceHooks: {}, messageCount: 0, executeFinished: false });
-        this.refreshSidebarCallback?.();
-        this.sessionHandler.ensureConnection();
-    }
-
-    private async handleAssistantMessage(text: string) {
-        const tid = '__assistant__';
-        if (text.trim().startsWith('/go')) {
-            const messages = this.store.getAssistantMessages();
-            const context = messages.slice(-10).map(m =>
-                `${m.role === 'user' ? '用户' : 'AI'}: ${m.content.substring(0, 200)}`
-            ).join('\n');
-            const newTask: Task = {
-                id: `task_${Date.now()}`,
-                title: context ? context.split('\n')[0].replace(/^[^:]*:\s*/, '').substring(0, 50) : '从助手创建',
-                goal: context,
-                type: 'task',
-                status: 'pending',
-                phase: 'demand',
-                confirmedItems: [],
-                pendingItems: [],
-                planSteps: [],
-                createdAt: Date.now(),
-                pinned: false,
-            };
-            this.store.addTask(newTask);
-            this.loadTask(newTask.id);
-            this.refreshSidebarCallback?.();
-            return;
-        }
-
-        if (this.isGenerating) {
-            this.pendingMessages.push({ text, taskId: tid });
-            this.sendPendingQueueUpdate();
-            return;
-        }
-
-        const msgId = this.store.nextAssistantMessageId();
-        this.store.addAssistantMessage({ id: msgId, role: 'user', content: text, timestamp: Date.now() });
-        this.router.PostMessage({ type: 'addUserMessage', content: text });
-
-        const messages = this.store.getAssistantMessages();
-        this.router.PostMessage({ type: 'loadMessages', messages, taskId: '', taskType: 'assistant' });
-
-        if (!this.agentService.isConnected) {
-            await this.sessionHandler.ensureConnection();
-            if (!this.agentService.isConnected) {
-                this.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n[错误: 请配置并启动 Agent]` });
-                return;
-            }
-        }
-
-        const assistantHandler = this.createAssistantResponseHandler();
-        this.setGenerationState(true);
-        await this.agentService.sendPrompt(tid, text, assistantHandler);
-    }
-
-    private createAssistantResponseHandler(): AcpMessageHandler {
-        let buffer = '';
-        return {
-            onText: (chunk: string) => {
-                buffer += chunk;
-                this.router.PostMessage({ type: 'agentStreamUpdate', text: buffer });
-            },
-            onReasoning: (text: string) => {},
-            onToolCall: () => {},
-            onToolCallUpdate: () => {},
-            onPlan: () => {},
-            onError: (error: string) => {
-                this.setGenerationState(false);
-                this.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n[错误: ${error}]` });
-            },
-            onDone: (stopReason?: string) => {
-                this.setGenerationState(false);
-                if (stopReason === 'cancelled') return;
-                if (buffer.trim()) {
-                    const id = this.store.nextAssistantMessageId();
-                    this.store.addAssistantMessage({ id, role: 'agent', content: buffer, timestamp: Date.now() });
-                }
-                const msgs = this.store.getAssistantMessages();
-                this.router.PostMessage({ type: 'loadMessages', messages: msgs, taskId: '', taskType: 'assistant' });
-                buffer = '';
-            },
-        };
-    }
+    // === Task loading ===
 
     loadTask(taskId: string) {
         this.currentTaskId = taskId;
@@ -663,25 +175,20 @@ export class KCodePanel {
         this.hasSetPlanMessage = !!task?.nodeMessageIds?.plan;
         this.hasSetExecuteMessage = !!task?.nodeMessageIds?.execute;
         this.sendCategoryDefs();
-        this.sendTaskMessages(taskId);
-        this.sendTaskInfo(taskId);
-        this.sendNodePanelUpdate(taskId);
-        this.sendOutputPanelUpdate(taskId);
+        this.flowHandler.sendTaskMessages(taskId);
+        this.flowHandler.sendTaskInfo(taskId);
+        this.flowHandler.sendNodePanelUpdate(taskId);
         this.sessionHandler.ensureSession(taskId);
         this.loadWorkspaceHooks().then(hooks => this.taskFlow.setWorkspaceHooks(hooks));
     }
 
-    private sendTaskMessages(taskId: string) {
-        const messages = this.store.getMessages(taskId);
-        const task = this.store.getTask(taskId);
-        const reviewChanges = this.store.getReviewChanges(taskId);
-        let acceptanceCriteria: string[] | undefined;
-        if (task?.category && task?.subType && task?.status === 'in_review') {
-            acceptanceCriteria = getTemplate(task.category, task.subType)?.acceptanceCriteria;
-        } else if (task?.category && task?.status === 'in_review') {
-            acceptanceCriteria = getCategory(task.category)?.acceptanceCriteria;
-        }
-        this.router.PostMessage({ type: 'loadMessages', messages, taskId, taskType: task?.type, taskStatus: task?.status, reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined, acceptanceCriteria });
+    loadAssistant() {
+        this.currentTaskId = null;
+        this.pendingMessages = [];
+        this.assistantHandler.showLanding();
+        this.assistantHandler.loadMessages();
+        this.refreshSidebarCallback?.();
+        this.sessionHandler.ensureConnection();
     }
 
     autoSendGoal(taskId: string, text: string) { this.sessionHandler.handleSendMessage(text, taskId); }
@@ -691,29 +198,7 @@ export class KCodePanel {
         this.router.PostMessage({ type: 'startTemplateFlow', taskId });
     }
 
-    // === ACP logging + generation state ===
-
-    private sendAcpLog(taskId: string, direction: 'send' | 'recv', text: string) {
-        if (!this.acpLogEnabled) return;
-        if (direction === 'recv') {
-            this.acpRecvBuffer += text;
-            const lines = this.acpRecvBuffer.split('\n');
-            this.acpRecvBuffer = lines.pop() || '';
-            for (const line of lines) this.router.PostMessage({ type: 'acpLogEntry', direction, text: line, timestamp: Date.now(), taskId });
-            clearTimeout(this.recvFlushTimer);
-            this.recvFlushTimer = setTimeout(() => { if (this.acpRecvBuffer.trim()) { this.router.PostMessage({ type: 'acpLogEntry', direction, text: this.acpRecvBuffer, timestamp: Date.now(), taskId }); this.acpRecvBuffer = ''; } }, 300);
-        } else {
-            this.router.PostMessage({ type: 'acpLogEntry', direction, text, timestamp: Date.now(), taskId });
-        }
-    }
-
-    private flushAcpRecvBuffer(taskId?: string) {
-        clearTimeout(this.recvFlushTimer);
-        if (this.acpRecvBuffer.trim()) {
-            this.router.PostMessage({ type: 'acpLogEntry', direction: 'recv', text: this.acpRecvBuffer, timestamp: Date.now(), taskId });
-            this.acpRecvBuffer = '';
-        }
-    }
+    // === Generation state ===
 
     setGenerationState(generating: boolean) {
         this.isGenerating = generating;
@@ -732,55 +217,6 @@ export class KCodePanel {
         this.router.PostMessage({ type: 'pendingQueueUpdate', count: this.pendingMessages.length, items: this.pendingMessages.map(p => ({ text: p.text.substring(0, 60) })) });
     }
 
-    private handleUpdateTodoItem(taskId: string, msgId: string, itemId: string, checked: boolean) {
-        const messages = this.store.getMessages(taskId);
-        let msg = messages.find(m => m.id === msgId);
-
-        if (!msg && msgId.startsWith('tool_')) {
-            const toolCallId = msgId.slice(5);
-            msg = messages.find(m => {
-                if (m.type !== 'tool_call') return false;
-                try {
-                    const info = JSON.parse(m.content);
-                    return info.toolCallId === toolCallId;
-                } catch { return false; }
-            });
-        }
-
-        if (!msg) return;
-        try {
-            if (msg.type === 'todo') {
-                const items: TodoItem[] = JSON.parse(msg.content || '[]');
-                const item = items.find(i => i.id === itemId);
-                if (item) {
-                    item.status = checked ? 'completed' : 'pending';
-                    this.store.updateMessageContent(taskId, msg.id, JSON.stringify(items));
-                }
-            } else if (msg.type === 'tool_call') {
-                const info = JSON.parse(msg.content);
-                const rawOutput = info.output || '';
-                const todos = parseTodosFromOutput(rawOutput);
-                const idx = parseInt(itemId, 10);
-                const item = !isNaN(idx) && idx >= 0 && idx < todos.length ? todos[idx] : todos.find((i: any) => String(i.id) === itemId);
-                if (item) {
-                    item.status = checked ? 'completed' : 'pending';
-                    const newOutput = replaceTodosInOutput(rawOutput, todos);
-                    info.output = newOutput;
-                    this.store.updateMessageContent(taskId, msg.id, JSON.stringify(info));
-                }
-            }
-            const t = this.store.getTask(taskId);
-            this.router.PostMessage({ type: 'loadMessages', messages: this.store.getMessages(taskId), taskId, taskStatus: t?.status });
-            this.sendOutputPanelUpdate(taskId);
-        } catch {}
-    }
-
-    storeMessage(taskId: string, role: 'user' | 'agent', content: string): string {
-        const id = this.store.nextMessageId(taskId);
-        this.store.addMessage({ id, taskId, role, content, timestamp: Date.now() });
-        return id;
-    }
-
     // === Public UI methods ===
 
     reveal() { this.panel.reveal(); }
@@ -789,10 +225,11 @@ export class KCodePanel {
     toggleRightPanel() { this.router.PostMessage({ type: 'toggleRightPanel' }); }
     showDiff(o: string, m: string) { this.router.PostMessage({ type: 'showDiff', original: o, modified: m }); }
     showWebView(url: string) { this.router.PostMessage({ type: 'showWebView', url }); }
-    private handleShowFileDiff(original: string, modified: string) { this.showDiff(original, modified); }
     getCurrentTaskId(): string | null { return this.currentTaskId; }
     setRefreshSidebarCallback(cb: () => void) { this.refreshSidebarCallback = cb; }
     onDidDispose(callback: () => void) { this.onDisposeCallback = callback; }
+
+    // === Private helpers ===
 
     private sendCategoryDefs() {
         this.router.PostMessage({ type: 'updateCategoryDefs', categories: getCategories() });
@@ -815,31 +252,6 @@ export class KCodePanel {
         } catch { return {}; }
     }
 
-    private sendAgentList(): void {
-        this.router.PostMessage({
-            type: 'agentList',
-            agents: [
-                { label: 'Kilo', type: 'kilo' },
-                { label: 'OpenCode', type: 'opencode' },
-            ],
-        });
-    }
-
-    private async handleSwitchAgent(label: string): Promise<void> {
-        if (this.isGenerating) {
-            await this.flowHandler.handleStopGeneration(this.currentTaskId || '');
-        }
-        await this.agentService.disconnect();
-        this.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: '正在切换 Agent...', agentName: '' });
-        const connected = await this.agentService.connectByLabel(label);
-        if (connected) {
-            const displayName = this.agentService.agentName;
-            this.router.PostMessage({ type: 'agentStatus', status: 'connected', message: `已切换到 ${label}`, agentName: displayName });
-        } else {
-            this.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: this.agentService.lastError || 'Agent 切换失败', agentName: '' });
-        }
-    }
-
     private async sendHooksAsMessage(tid: string, phase: string): Promise<void> {
         if (!tid) return;
         const task = this.store.getTask(tid);
@@ -847,15 +259,13 @@ export class KCodePanel {
         const hooksStr = this.taskFlow.getPhaseHooksString(phase, task);
         if (!hooksStr) return;
         if (this.agentService.isConnected) {
-            this.sendAcpLog(tid, 'send', hooksStr);
+            this.acpLogManager.send(tid, 'send', hooksStr);
             await this.agentService.sendPrompt(tid, hooksStr, { onText: () => {}, onReasoning: () => {}, onToolCall: () => {}, onToolCallUpdate: () => {}, onPlan: () => {}, onError: () => {}, onDone: () => {} });
         }
     }
 
     dispose() {
-        clearTimeout(this.recvFlushTimer);
+        this.acpLogManager.dispose();
         this.agentService.disconnect();
-        this.disposables.forEach(d => d.dispose());
-        this.disposables = [];
     }
 }

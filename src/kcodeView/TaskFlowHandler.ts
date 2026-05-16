@@ -2,8 +2,31 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import type { KCodePanelContext } from './PanelContext';
-import type { Task, FileChange, ProgressNode } from '../types';
+import type { Task, FileChange, ProgressNode, TodoItem } from '../types';
 import { getTemplate, getCategory } from '../taskflow/templates';
+
+function parseTodosFromOutput(output: string): any[] {
+    const titleMatch = output.match(/<title>\s*\d+\s*todos?\s*<\/title>\s*(\[[\s\S]*?\])\s*/);
+    if (titleMatch) {
+        try { return JSON.parse(titleMatch[1]); } catch {}
+    }
+    try {
+        const arr = JSON.parse(output);
+        if (Array.isArray(arr)) return arr;
+    } catch {}
+    if (output.trim().startsWith('[')) {
+        try { return JSON.parse(output.trim()); } catch {}
+    }
+    return [];
+}
+
+function replaceTodosInOutput(output: string, todos: any[]): string {
+    const titleMatch = output.match(/^(<title>\s*\d+\s*todos?\s*<\/title>\s*)/i);
+    if (titleMatch) {
+        return titleMatch[1] + JSON.stringify(todos, null, 2);
+    }
+    return JSON.stringify(todos, null, 2);
+}
 
 export class TaskFlowHandler {
     constructor(private ctx: KCodePanelContext) {}
@@ -210,6 +233,36 @@ export class TaskFlowHandler {
             hooks: task.hooks || {}, workspaceHooks: ctx.taskFlow['workspaceHooks'] || {},
             messageCount: ctx.store.getMessages(taskId).length, executeFinished: ctx.taskFlow.isExecuteFinished(taskId)
         });
+        this.sendOutputPanelUpdate(taskId);
+    }
+
+    sendOutputPanelUpdate(taskId: string) {
+        const { ctx } = this;
+        const changes = ctx.store.getReviewChanges(taskId);
+        const messages = ctx.store.getMessages(taskId);
+        const todos: any[] = [];
+        const toolCalls: { toolCallId: string; title: string; kind: string; status: string; output?: string }[] = [];
+        const knowledgeItems: { content: string; source: string }[] = [];
+        const seenToolCalls = new Set<string>();
+        for (const msg of messages) {
+            if (msg.type === 'todo') {
+                try { todos.push(...JSON.parse(msg.content || '[]')); } catch {}
+            } else if (msg.type === 'tool_call') {
+                try {
+                    const info = JSON.parse(msg.content);
+                    if (info.kind === 'todowrite' && info.output) {
+                        const raw = parseTodosFromOutput(info.output);
+                        for (let idx = 0; idx < raw.length; idx++) {
+                            todos.push({ id: String(idx), content: String(raw[idx].content || ''), status: raw[idx].status === 'completed' ? 'completed' : 'pending' });
+                        }
+                    } else if (info.toolCallId && !seenToolCalls.has(info.toolCallId)) {
+                        seenToolCalls.add(info.toolCallId);
+                        toolCalls.push({ toolCallId: info.toolCallId, title: info.title || '', kind: info.kind || '', status: info.status || '', output: info.output || '' });
+                    }
+                } catch {}
+            }
+        }
+        ctx.router.PostMessage({ type: 'updateOutputPanel', taskInfo: { planSteps: ctx.store.getTask(taskId)?.planSteps, todos, toolCalls, knowledgeItems }, changes });
     }
 
     sendTaskMessages(taskId: string) {
@@ -278,6 +331,121 @@ export class TaskFlowHandler {
             vscode.Uri.file(path.join(os.tmpdir(), `kcode_${baseName}_${timestamp}_original${ext}`)),
             vscode.Uri.file(path.join(os.tmpdir(), `kcode_${baseName}_${timestamp}_modified${ext}`)),
             `变更对比: ${baseName}${ext}`);
+    }
+
+    handleConvertToTask(taskId: string) {
+        const { ctx } = this;
+        const chatTask = ctx.store.getTask(taskId);
+        if (!chatTask) return;
+        const messages = ctx.store.getMessages(taskId);
+        const firstUserMsg = messages.find(m => m.role === 'user');
+        const newTask: Task = {
+            id: `task_${Date.now()}`, title: firstUserMsg ? firstUserMsg.content.substring(0, 50).replace(/\n/g, ' ') : '从对话创建的任务',
+            goal: '', type: 'task', status: 'pending', phase: 'demand', confirmedItems: [], pendingItems: [], planSteps: [], createdAt: Date.now(), pinned: false
+        };
+        ctx.store.addTask(newTask);
+        const newId = newTask.id;
+        for (const msg of messages) {
+            ctx.store.addMessage({ id: ctx.store.nextMessageId(newId), taskId: newId, role: msg.role, content: msg.content, type: msg.type, timestamp: msg.timestamp });
+        }
+        ctx.loadTask(newId);
+        ctx.refreshSidebarCallback?.();
+    }
+
+    handleTodoUpdate(taskId: string, items: TodoItem[], action: string) {
+        const { ctx } = this;
+        const messages = ctx.store.getMessages(taskId);
+        const existingTodoMsgs = messages.filter(m => m.type === 'todo');
+
+        if (action === 'replace') {
+            const msgId = ctx.store.nextMessageId(taskId);
+            ctx.store.addMessage({ id: msgId, taskId, role: 'agent', type: 'todo', content: JSON.stringify(items), timestamp: Date.now() });
+        } else if (action === 'add' && existingTodoMsgs.length > 0) {
+            const last = existingTodoMsgs[existingTodoMsgs.length - 1];
+            const existing: TodoItem[] = JSON.parse(last.content || '[]');
+            const merged = [...existing];
+            for (const item of items) {
+                const idx = merged.findIndex(i => i.id === item.id);
+                if (idx >= 0) merged[idx] = item;
+                else merged.push(item);
+            }
+            ctx.store.updateMessageContent(taskId, last.id, JSON.stringify(merged));
+        } else if (action === 'update' && existingTodoMsgs.length > 0) {
+            const last = existingTodoMsgs[existingTodoMsgs.length - 1];
+            const existing: TodoItem[] = JSON.parse(last.content || '[]');
+            for (const item of items) {
+                const idx = existing.findIndex(i => i.id === item.id);
+                if (idx >= 0) existing[idx].status = item.status;
+            }
+            ctx.store.updateMessageContent(taskId, last.id, JSON.stringify(existing));
+        } else {
+            const msgId = ctx.store.nextMessageId(taskId);
+            ctx.store.addMessage({ id: msgId, taskId, role: 'agent', type: 'todo', content: JSON.stringify(items), timestamp: Date.now() });
+        }
+
+        const t = ctx.store.getTask(taskId);
+        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(taskId), taskId, taskStatus: t?.status });
+        this.sendOutputPanelUpdate(taskId);
+    }
+
+    handleUpdateTodoItem(taskId: string, msgId: string, itemId: string, checked: boolean) {
+        const { ctx } = this;
+        const messages = ctx.store.getMessages(taskId);
+        let msg = messages.find(m => m.id === msgId);
+
+        if (!msg && msgId.startsWith('tool_')) {
+            const toolCallId = msgId.slice(5);
+            msg = messages.find(m => {
+                if (m.type !== 'tool_call') return false;
+                try {
+                    const info = JSON.parse(m.content);
+                    return info.toolCallId === toolCallId;
+                } catch { return false; }
+            });
+        }
+
+        if (!msg) return;
+        try {
+            if (msg.type === 'todo') {
+                const items: TodoItem[] = JSON.parse(msg.content || '[]');
+                const item = items.find(i => i.id === itemId);
+                if (item) {
+                    item.status = checked ? 'completed' : 'pending';
+                    ctx.store.updateMessageContent(taskId, msg.id, JSON.stringify(items));
+                }
+            } else if (msg.type === 'tool_call') {
+                const info = JSON.parse(msg.content);
+                const rawOutput = info.output || '';
+                const todos = parseTodosFromOutput(rawOutput);
+                const idx = parseInt(itemId, 10);
+                const item = !isNaN(idx) && idx >= 0 && idx < todos.length ? todos[idx] : todos.find((i: any) => String(i.id) === itemId);
+                if (item) {
+                    item.status = checked ? 'completed' : 'pending';
+                    const newOutput = replaceTodosInOutput(rawOutput, todos);
+                    info.output = newOutput;
+                    ctx.store.updateMessageContent(taskId, msg.id, JSON.stringify(info));
+                }
+            }
+            const t = ctx.store.getTask(taskId);
+            ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(taskId), taskId, taskStatus: t?.status });
+            this.sendOutputPanelUpdate(taskId);
+        } catch {}
+    }
+
+    handleTaskDelegated(parentTaskId: string, payload: any) {
+        const { ctx } = this;
+        const parentTask = ctx.store.getTask(parentTaskId);
+        if (!parentTask) return;
+        const fullGoal = payload.relevantSnippets ? `${payload.goal}\n\n技术上下文：${payload.relevantSnippets}` : payload.goal;
+        const newTask: Task = {
+            id: `task_${Date.now()}`, title: payload.title, goal: fullGoal, type: 'task', status: 'pending', phase: 'demand',
+            confirmedItems: payload.confirmedItems || [], pendingItems: [], planSteps: [], createdAt: Date.now(),
+            pinned: false, source: parentTask.source, containerId: parentTask.containerId, group: parentTask.group,
+        };
+        ctx.store.addTask(newTask);
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(parentTaskId), taskId: parentTaskId, role: 'agent', type: 'stop_message', content: `📤 已委派新任务「${payload.title}」`, timestamp: Date.now() });
+        ctx.router.PostMessage({ type: 'addSystemMessage', content: `📤 已委派新任务「${payload.title}」`, taskId: parentTaskId });
+        ctx.refreshSidebarCallback?.();
     }
 
 }
