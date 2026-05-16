@@ -94,6 +94,12 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     this._store.moveContainer(message.containerId, message.direction);
                     this.refresh();
                     break;
+                case 'reorderTasks':
+                    for (const taskId of message.taskIds) {
+                        this._store.moveTask(taskId, message.targetTaskId, message.position, null);
+                    }
+                    this.refresh();
+                    break;
                 case 'updateContainer':
                     this._store.updateContainer(message.containerId, message.updates);
                     this.refresh();
@@ -309,6 +315,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         }
         .project-body { padding: 0 4px 2px 8px; }
         .project-body.hidden { display: none; }
+        .section-body { min-height: 4px; }
 
         /* --- Task Group --- */
         .group-header {
@@ -340,6 +347,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
 
         /* --- Task Item --- */
         .task-item {
+            position: relative;
             padding: 4px 8px 4px 24px;
             cursor: pointer;
             border-radius: 3px;
@@ -349,7 +357,23 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             gap: 5px;
             margin: 1px 4px;
         }
-        .task-item:not(.active):hover { background: #252526; }
+        .task-item:not(.active):not(.selected):hover { background: #252526; }
+        .task-item.selected { background: rgba(14, 99, 156, 0.25); }
+        .task-item.selected.active { background: #0E364B; }
+        .task-item.dragging { opacity: 0.5; }
+        .task-item.drop-before::before,
+        .task-item.drop-after::after {
+            content: '';
+            position: absolute;
+            left: 16px;
+            right: 16px;
+            height: 2px;
+            background: var(--vscode-button-background, #0e639c);
+            pointer-events: none;
+            z-index: 1;
+        }
+        .task-item.drop-before::before { top: -1px; }
+        .task-item.drop-after::after { bottom: -1px; }
         .task-item.active {
             background: #0E364B;
             color: #ffffff;

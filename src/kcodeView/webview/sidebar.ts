@@ -171,6 +171,7 @@ declare function acquireVsCodeApi(): any;
         for (const task of tasks) {
             zone.appendChild(createTaskItem(task, activeTaskId));
         }
+        makeDropTarget(zone, '');
         body.appendChild(zone);
         section.appendChild(body);
 
@@ -249,6 +250,7 @@ declare function acquireVsCodeApi(): any;
         for (const task of directTasks) {
             zone.appendChild(createTaskItem(task, activeTaskId));
         }
+        makeDropTarget(zone, project.id);
         body.appendChild(zone);
 
         section.appendChild(body);
@@ -364,6 +366,7 @@ declare function acquireVsCodeApi(): any;
 
         const body = document.createElement('div');
         body.className = 'group-body';
+        body.dataset.container = containerId || '';
         if (tasks.length === 0) {
             const hint = document.createElement('div');
             hint.className = 'placeholder-text';
@@ -373,6 +376,7 @@ declare function acquireVsCodeApi(): any;
         for (const task of tasks) {
             body.appendChild(createTaskItem(task, activeTaskId));
         }
+        makeDropTarget(body, containerId || null);
         section.appendChild(body);
 
         if (collapsed) {
@@ -441,10 +445,49 @@ declare function acquireVsCodeApi(): any;
         }
     }
 
+    function updateSelectionVisual() {
+        document.querySelectorAll('.task-item').forEach(el => {
+            const id = (el as HTMLElement).dataset.taskId;
+            el.classList.toggle('selected', id ? selectedTaskIds.has(id) : false);
+        });
+    }
+
+    function clearDropIndicators() {
+        document.querySelectorAll('.task-item').forEach(el => {
+            el.classList.remove('drop-before', 'drop-after');
+        });
+    }
+
+    function parseDragTaskIds(e: DragEvent): string[] {
+        const raw = e.dataTransfer?.getData('text/plain');
+        if (!raw) return [];
+        try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [raw];
+        } catch {
+            return [raw];
+        }
+    }
+
+    function makeDropTarget(el: HTMLElement, containerId: string | null) {
+        el.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
+        el.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const taskIds = parseDragTaskIds(e);
+            if (taskIds.length === 0) return;
+            for (const id of taskIds) {
+                vscode.postMessage({ type: 'updateTaskContainer', taskId: id, containerId });
+            }
+        });
+    }
+
     function createTaskItem(task: any, activeTaskId?: string): HTMLElement {
         const item = document.createElement('div');
         item.className = 'task-item';
         if (task.id === activeTaskId) item.classList.add('active');
+        if (selectedTaskIds.has(task.id)) item.classList.add('selected');
+        item.draggable = true;
         item.dataset.taskId = task.id;
 
         // Type icon: 📝 for task, 💬 for chat
@@ -467,6 +510,58 @@ declare function acquireVsCodeApi(): any;
         label.textContent = escapeHtml(task.title);
         item.appendChild(label);
 
+        // Drag events
+        item.addEventListener('dragstart', (e) => {
+            const ids = selectedTaskIds.size > 0 ? [...selectedTaskIds] : [task.id];
+            e.dataTransfer?.setData('text/plain', JSON.stringify(ids));
+            draggedTaskId = task.id;
+            item.classList.add('dragging');
+        });
+        item.addEventListener('dragend', () => {
+            draggedTaskId = null;
+            item.classList.remove('dragging');
+            clearDropIndicators();
+        });
+        item.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const rect = item.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            const position = y < rect.height / 2 ? 'before' : 'after';
+            clearDropIndicators();
+            item.classList.add(position === 'before' ? 'drop-before' : 'drop-after');
+        });
+        item.addEventListener('dragleave', (e) => {
+            if (!item.contains(e.relatedTarget as Node)) {
+                item.classList.remove('drop-before', 'drop-after');
+            }
+        });
+        item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            clearDropIndicators();
+            const taskIds = parseDragTaskIds(e);
+            if (taskIds.length === 0) return;
+            const rect = item.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            const position = y < rect.height / 2 ? 'before' : 'after';
+            const container = item.closest('.group-body, .section-body') as HTMLElement;
+            const cid = container?.dataset?.container !== undefined ? (container.dataset.container || undefined) : undefined;
+            vscode.postMessage({
+                type: 'reorderTasks',
+                taskIds,
+                targetTaskId: item.dataset.taskId,
+                position,
+            });
+            for (const id of taskIds) {
+                vscode.postMessage({ type: 'updateTaskContainer', taskId: id, containerId: cid });
+            }
+        });
+
         item.addEventListener('click', (e) => {
             if (e.ctrlKey || e.metaKey) {
                 if (selectedTaskIds.has(task.id)) {
@@ -475,6 +570,7 @@ declare function acquireVsCodeApi(): any;
                     selectedTaskIds.add(task.id);
                 }
                 anchorTaskId = task.id;
+                updateSelectionVisual();
                 e.preventDefault();
             } else if (e.shiftKey) {
                 if (anchorTaskId) {
@@ -493,10 +589,12 @@ declare function acquireVsCodeApi(): any;
                     selectedTaskIds.add(task.id);
                     anchorTaskId = task.id;
                 }
+                updateSelectionVisual();
                 e.preventDefault();
             } else {
                 selectedTaskIds.clear();
                 anchorTaskId = task.id;
+                updateSelectionVisual();
                 document.querySelectorAll('.task-item').forEach(t => t.classList.remove('active'));
                 item.classList.add('active');
                 vscode.postMessage({
