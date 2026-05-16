@@ -1975,4 +1975,54 @@ tags: database, architecture
 
 **验收标准**：右栏知识区显示当前任务的知识条目列表，条目可点击跳转到 KnowledgePanel 详情阅读。
 
+---
 
+## Phase 15: 随心聊 — Chat 与 Task 分离
+
+_目标：将自由对话从"伪装成任务的异常存在"提升为"与任务并列的一等公民"，两个入口对应两种工作模式。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P15-01 | 随心聊 — 侧边栏固定条目 + 主面板自由对话 | ⬜ 未开始 |
+
+### P15-01: 随心聊 — 侧边栏固定条目 + 主面板自由对话
+
+**产品设计**:
+
+```
+侧边栏
+├── 💬 随心聊          ← 自由对话，无阶段约束（默认打开状态）
+├── 📦 未分类任务        ← 结构化任务
+├── 🏗️ 项目A
+└── 🏗️ 项目B
+```
+
+| | 随心聊 | 新建任务 |
+|---|---|---|
+| **场景** | "帮我看看这个报错" / "解释下这段代码" | "实现 OAuth 登录" |
+| **生命周期** | 持久对话，无终点 | demand→goal→plan→execute→self_verify→review |
+| **有 Goal 吗** | 没有 | 有 |
+| **有验收吗** | 没有 | 有 |
+| **存储** | `__free_chat__` 固定 ID | 普通 Task ID |
+
+**涉及文件**:
+
+- `src/kcodeView/webview/sidebar.ts` — 新增「💬 随心聊」固定条目，排在最上方（未分类任务之上），点击发送 `selectFreeChat`
+- `src/kcodeView/KCodeSidebarProvider.ts` — 处理 `selectFreeChat` 消息；`createNewTask()` 默认 `type` 改为 `'task'`
+- `src/kcodeView/KCodePanel.ts` — 新增 `loadFreeChat()` 方法：加载 `__free_chat__` 消息、隐藏任务 UI、建立 session；构造函数中默认调用 `loadFreeChat()` 替代 Dashboard
+- `src/kcodeView/webview/app.ts` — 新增 `enterFreeChatMode()` — 隐藏 task header、node panel、goal 区域、右栏；显示对话输入区
+- `src/extension.ts` — `kcode.newTask` / `kcode.newTaskFromTemplate` 默认 `type` 改为 `'task'`
+- `src/kcodeView/templates/chatPanelHtml.ts` — 确保无任务选中时输入区可正常显示（当前空闲态可能隐藏输入框）
+
+**实现要点**:
+
+1. **固定 ID**: 随心聊用 `__free_chat__` 作为消息存储 key，`TaskStore.getMessages()` 无需改动
+2. **单线程**: 只有一个随心聊，不需要多个自由对话窗口
+3. **默认打开**: 启动 KCode / `KCode: Open` → 主面板默认显示随心聊，侧边栏「💬 随心聊」高亮
+4. **可转任务**: `handleConvertToTask()` 已有能力，随心聊可一键转为正式 task
+5. **已有 chat 任务**: 保留（产品未发布），不做迁移
+6. **侧边栏条目**: 固定排在第一位，不可拖拽、不可右键菜单、不可删除、不可归档
+
+**状态**: ⬜ 未开始
+
+**验收标准**：打开 KCode 默认进入随心聊，可立即输入对话；侧边栏第一个条目为「💬 随心聊」且始终可见；点击任务可切到任务对话；点击随心聊可切回自由对话；消息持久化存储。
