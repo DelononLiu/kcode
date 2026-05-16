@@ -43,6 +43,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
     sidebarProvider.setFlashInputCallback(() => panel?.flashInput());
     sidebarProvider.setToggleRightPanelCallback(() => panel?.toggleRightPanel());
+    sidebarProvider.setSelectAssistantCallback(() => { if (panel) { panel.loadAssistant(); refreshSidebar(); } });
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
             KCodeSidebarProvider.viewType,
@@ -51,10 +52,11 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    // Auto-create the main panel when KCode is activated (shows dashboard by default)
+    // Auto-create the main panel when KCode is activated (shows assistant by default)
     panel = new KCodePanel(context, store!);
     panel.onDidDispose(() => { panel = undefined; });
     panel.setRefreshSidebarCallback(refreshSidebar);
+    panel.loadAssistant();
 
     // Open/focus the sidebar view and reveal the main panel
     const openCmd = vscode.commands.registerCommand('kcode.open', async () => {
@@ -79,7 +81,7 @@ export function activate(context: vscode.ExtensionContext) {
             id: `task_${Date.now()}`,
             title: 'New Task',
             goal: '',
-            type: 'chat',
+            type: 'task',
             status: 'pending',
             phase: 'demand',
             confirmedItems: [],
@@ -109,7 +111,7 @@ export function activate(context: vscode.ExtensionContext) {
             id: `task_${Date.now()}`,
             title: 'New Task',
             goal: '',
-            type: 'chat',
+            type: 'task',
             status: 'pending',
             phase: 'demand',
             confirmedItems: [],

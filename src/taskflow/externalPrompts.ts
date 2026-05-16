@@ -29,7 +29,7 @@ export function loadPhaseSection(fileName: string, phase: string): string {
 }
 
 export function loadExternalPrompt(
-    taskType: 'task' | 'chat',
+    taskType: 'task',
     category: string | undefined,
     subType: string | undefined,
     phase: string

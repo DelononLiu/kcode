@@ -228,7 +228,7 @@ export class TaskFlowHandler {
 
     deriveNodes(taskId: string): ProgressNode[] {
         const task = this.ctx.store.getTask(taskId);
-        if (!task || task.type === 'chat') return [];
+        if (!task) return [];
 
         const msgs = this.ctx.store.getMessages(taskId);
         const phase = task.phase;

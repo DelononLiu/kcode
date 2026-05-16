@@ -89,7 +89,7 @@ class MockTaskStore implements ITaskStore {
 
     updateTaskTitle(_taskId: string, _title: string): void {}
 
-    updateTaskType(taskId: string, type: 'task' | 'chat'): void {
+    updateTaskType(taskId: string, type: 'task'): void {
         const t = this.tasks.get(taskId);
         if (t) t.type = type;
     }
@@ -166,8 +166,8 @@ describe('buildPrompt', () => {
         }
     });
 
-    it('chat 类型带有系统提示词', () => {
-        const { flow, pid } = makeFlow({ type: 'chat' });
+    it('task 类型带有系统提示词', () => {
+        const { flow, pid } = makeFlow({ type: 'task' });
         const result = flow.buildPrompt(pid, 'hello');
         expect(result).toContain('AI 编程助手');
         expect(result).toContain('hello');
@@ -312,11 +312,11 @@ describe('edge cases', () => {
         expect(clean).toContain('后置文本');
     });
 
-    it('buildInitialPrompt 对 chat 类型用裸文本', () => {
-        const { flow, pid } = makeFlow({ type: 'chat' });
+    it('buildInitialPrompt 含协议提示', () => {
+        const { flow, pid } = makeFlow({ type: 'task' });
         const result = flow.buildInitialPrompt(pid, 'hi');
         expect(result).toContain('AI 编程助手');
-        expect(result).not.toContain('TASK_UPDATE');
+        expect(result).toContain('TASK_UPDATE');
     });
 
     it('isPlanProposed 初始为 false', () => {
@@ -385,11 +385,11 @@ describe('external prompts', () => {
         expect(result).toContain('task基底规则');
     });
 
-    it('chat 类型不加载外部 prompt', () => {
-        fs.writeFileSync(path.join(tmpDir, 'task.md'), '<execute>不应出现</execute>', 'utf-8');
-        const { flow, pid } = makeFlow({ type: 'chat', phase: 'execute' });
+    it('task 类型加载外部 prompt', () => {
+        fs.writeFileSync(path.join(tmpDir, 'task.md'), '<execute>应出现</execute>', 'utf-8');
+        const { flow, pid } = makeFlow({ type: 'task', phase: 'execute' });
         const result = flow.buildPrompt(pid, 'hello');
-        expect(result).not.toContain('不应出现');
+        expect(result).toContain('应出现');
     });
 
     it('文件不存在时静默 fallback，不报错', () => {

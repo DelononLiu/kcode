@@ -85,8 +85,7 @@ export class TaskSessionHandler {
         const hasGoal = !!task.goal;
 
         if (isFirstMessage && !hasGoal) {
-            ctx.store.updateTaskType(tid, intent);
-            if (intent === 'chat') ctx.store.updateTaskStatus(tid, 'active');
+            ctx.store.updateTaskType(tid, intent === 'chat' ? 'task' : intent);
         }
 
         const isGoalFormatting = isFirstMessage && task.status === 'pending' && intent === 'task' && !hasGoal;
@@ -113,7 +112,7 @@ export class TaskSessionHandler {
                     const rawTitle = text.length > 27 ? text.substring(0, 27) + '...' : text;
                     ctx.store.updateTaskTitle(tid, `${label}: ${rawTitle}`);
                 } else {
-                    const prefix = intent === 'task' ? 'Task: ' : 'Chat: ';
+                    const prefix = 'Task: ';
                     const rawTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
                     ctx.store.updateTaskTitle(tid, prefix + rawTitle);
                 }

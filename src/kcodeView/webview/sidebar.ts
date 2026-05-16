@@ -9,53 +9,44 @@ declare function acquireVsCodeApi(): any;
     const _collapsed = new Map<string, boolean>();
 
     (function () {
-        const settingsBtn = document.getElementById('btn-settings');
-        if (settingsBtn) {
-            settingsBtn.addEventListener('click', () => {
-                vscode.postMessage({ type: 'openSettings' });
+        // Assistant entry
+        const assistantEntry = document.getElementById('assistant-entry');
+        if (assistantEntry) {
+            assistantEntry.addEventListener('click', () => {
+                vscode.postMessage({ type: 'selectAssistant' });
             });
         }
 
-        const myTasksBtn = document.getElementById('btn-my-tasks');
-        if (myTasksBtn) {
-            myTasksBtn.addEventListener('click', () => {
-                vscode.postMessage({ type: 'showMyTasks' });
-            });
-        }
-
-        const knowledgeBtn = document.getElementById('btn-knowledge');
-        if (knowledgeBtn) {
-            knowledgeBtn.addEventListener('click', () => {
-                vscode.postMessage({ type: 'showKnowledgeBase' });
-            });
-        }
-
+        // New task action buttons
         const newTaskBtn = document.getElementById('btn-new-task');
         if (newTaskBtn) {
-            newTaskBtn.addEventListener('click', () => {
-                vscode.postMessage({ type: 'newTask' });
-            });
+            newTaskBtn.addEventListener('click', () => vscode.postMessage({ type: 'newTask' }));
         }
-
         const importBtn = document.getElementById('btn-import-task');
         if (importBtn) {
-            importBtn.addEventListener('click', () => {
-                vscode.postMessage({ type: 'importGitHubIssue' });
-            });
+            importBtn.addEventListener('click', () => vscode.postMessage({ type: 'importGitHubIssue' }));
         }
-
-        const myProjectsBtn = document.getElementById('btn-my-projects');
-        if (myProjectsBtn) {
-            myProjectsBtn.addEventListener('click', () => {
-                vscode.postMessage({ type: 'showMyProjects' });
-            });
-        }
-
         const templateBtn = document.getElementById('btn-template-task');
         if (templateBtn) {
-            templateBtn.addEventListener('click', () => {
-                vscode.postMessage({ type: 'newTaskFromTemplate' });
-            });
+            templateBtn.addEventListener('click', () => vscode.postMessage({ type: 'newTaskFromTemplate' }));
+        }
+
+        // Footer buttons
+        const settingsBtn = document.getElementById('btn-settings');
+        if (settingsBtn) {
+            settingsBtn.addEventListener('click', () => vscode.postMessage({ type: 'openSettings' }));
+        }
+        const myTasksBtn = document.getElementById('btn-my-tasks');
+        if (myTasksBtn) {
+            myTasksBtn.addEventListener('click', () => vscode.postMessage({ type: 'showMyTasks' }));
+        }
+        const knowledgeBtn = document.getElementById('btn-knowledge');
+        if (knowledgeBtn) {
+            knowledgeBtn.addEventListener('click', () => vscode.postMessage({ type: 'showKnowledgeBase' }));
+        }
+        const myProjectsBtn = document.getElementById('btn-my-projects');
+        if (myProjectsBtn) {
+            myProjectsBtn.addEventListener('click', () => vscode.postMessage({ type: 'showMyProjects' }));
         }
 
         document.addEventListener('click', (e) => {
@@ -88,6 +79,12 @@ declare function acquireVsCodeApi(): any;
         const projectList = document.getElementById('project-list');
         if (!projectList) return;
 
+        // Highlight assistant entry when active
+        const assistantEntry = document.getElementById('assistant-entry');
+        if (assistantEntry) {
+            assistantEntry.classList.toggle('active', activeTaskId === '__assistant__');
+        }
+
         const validIds = new Set(tasks.map((t: any) => t.id));
         for (const id of Array.from(selectedTaskIds)) {
             if (!validIds.has(id)) selectedTaskIds.delete(id);
@@ -97,7 +94,7 @@ declare function acquireVsCodeApi(): any;
         if (dataEl) {
             dataEl.dataset.tasks = JSON.stringify(tasks);
             dataEl.dataset.containers = JSON.stringify(containers);
-            dataEl.dataset.activeTaskId = activeTaskId || '';
+            dataEl.dataset.activeTaskId = (activeTaskId === '__assistant__' ? '' : activeTaskId) || '';
         }
 
         projectList.innerHTML = '';
@@ -432,7 +429,6 @@ declare function acquireVsCodeApi(): any;
     }
 
     function getStatusIndicator(task: any): { text: string; className: string } {
-        if (task.type === 'chat') return { text: '○', className: 's-chat' };
         switch (task.status) {
             case 'completed': return { text: '\u2713', className: 's-completed' };
             case 'cancelled': return { text: '\u2715', className: 's-cancelled' };
@@ -490,10 +486,9 @@ declare function acquireVsCodeApi(): any;
         item.draggable = true;
         item.dataset.taskId = task.id;
 
-        // Type icon: 📝 for task, 💬 for chat
         const typeIcon = document.createElement('span');
         typeIcon.className = 'task-type-icon';
-        typeIcon.textContent = task.type === 'chat' ? '💬' : '📝';
+        typeIcon.textContent = '📝';
         item.appendChild(typeIcon);
 
         // Status indicator: circle-letter for active, checkmark for completed, etc.

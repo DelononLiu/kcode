@@ -177,9 +177,28 @@ function initMessageHandler() {
                 activeTaskId = message.taskId;
                 activeTaskStatus = message.taskStatus || '';
                 activeTaskType = message.taskType || '';
+
+                if (message.taskType === 'assistant') {
+                    const header = document.getElementById('chat-header');
+                    if (header) header.style.display = 'none';
+                    const gutter = document.getElementById('node-timeline-gutter');
+                    if (gutter) gutter.classList.add('hidden');
+                    const outputPanel = document.getElementById('right-output-panel');
+                    if (outputPanel) outputPanel.style.display = 'none';
+                    const dashboardPanel = document.getElementById('dashboard-panel');
+                    if (dashboardPanel) dashboardPanel.classList.add('hidden');
+                    renderMessages(message.messages || []);
+                    const input = document.getElementById('chat-input') as HTMLTextAreaElement;
+                    if (input) input.placeholder = '与小助手对话... (/go 开始任务)';
+                    break;
+                }
+
                 renderAcpLog();
                 const gutter = document.getElementById('node-timeline-gutter');
                 if (gutter) gutter.classList.remove('hidden');
+                // Restore UI elements for task mode
+                const outPanel = document.getElementById('right-output-panel');
+                if (outPanel) outPanel.style.display = '';
                 if (message.reviewChanges && message.reviewChanges.length > 0) {
                     reviewChangesMap.set(message.taskId, message.reviewChanges);
                     (window as any).updateOutputPanel?.({}, message.reviewChanges);
@@ -214,6 +233,24 @@ function initMessageHandler() {
                 showAgentThinking();
                 break;
             case 'updateTaskInfo':
+                if (message.taskType === 'assistant') {
+                    activeTaskStatus = '';
+                    activeTaskPhase = '';
+                    const titleEl = document.querySelector('.task-info-title');
+                    if (titleEl) titleEl.textContent = '💬 小助手';
+                    const chatHeader = document.getElementById('chat-header');
+                    if (chatHeader) chatHeader.style.display = 'none';
+                    const gutter = document.getElementById('node-timeline-gutter');
+                    if (gutter) gutter.classList.add('hidden');
+                    const outPanel = document.getElementById('right-output-panel');
+                    if (outPanel) outPanel.style.display = 'none';
+                    break;
+                }
+                // Restore task mode UI elements (was hidden by assistant)
+                const ch = document.getElementById('chat-header');
+                if (ch) ch.style.removeProperty('display');
+                const op = document.getElementById('right-output-panel');
+                if (op) op.style.removeProperty('display');
                 updateTaskInfo(message);
                 break;
             case 'flashInput':
@@ -552,6 +589,10 @@ function initChat() {
         input.value = '';
         input.focus();
 
+        if (activeTaskType === 'assistant' || !activeTaskId) {
+            vscode.postMessage({ type: 'sendAssistantMessage', text });
+            return;
+        }
         const msg: any = { type: 'sendMessage', text, taskId: activeTaskId };
         if (selectedCategory) {
             msg.category = selectedCategory;
@@ -1026,10 +1067,9 @@ function renderDashboardPanel(allTasks: any[]) {
 
     dashboardPanel.classList.remove('hidden');
 
-    const taskOnly = (t: any) => t.type !== 'chat';
-    const inReview = allTasks.filter((t: any) => t.status === 'in_review' && taskOnly(t));
-    const active = allTasks.filter((t: any) => t.status === 'active' && taskOnly(t));
-    const completed = allTasks.filter((t: any) => t.status === 'completed' && taskOnly(t)).slice(0, 10);
+    const inReview = allTasks.filter((t: any) => t.status === 'in_review');
+    const active = allTasks.filter((t: any) => t.status === 'active');
+    const completed = allTasks.filter((t: any) => t.status === 'completed').slice(0, 10);
 
     const renderSection = (sectionId: string, listId: string, tasks: any[]) => {
         const section = document.getElementById(sectionId);
@@ -1080,7 +1120,7 @@ function createDashboardPanelItem(task: any): HTMLElement {
 
     const typeEl = document.createElement('span');
     typeEl.className = 'dp-item-type';
-    typeEl.textContent = task.type === 'chat' ? '💬' : '📝';
+    typeEl.textContent = '📝';
     item.appendChild(typeEl);
 
     const time = document.createElement('span');
@@ -1187,36 +1227,7 @@ function renderMessages(messages: any[]) {
 }
 
 function updateLastMsgConvertBtn() {
-    const container = document.getElementById('chat-messages');
-    if (!container) return;
-    const existingBtn = document.getElementById('chat-convert-btn');
-    if (activeTaskType !== 'chat') {
-        existingBtn?.remove();
-        return;
-    }
-    const msgs = container.querySelectorAll('.chat-msg');
-    if (msgs.length === 0) {
-        existingBtn?.remove();
-        return;
-    }
-    const lastMsg = msgs[msgs.length - 1];
-    const row = lastMsg.querySelector('.msg-row');
-    if (!row) {
-        existingBtn?.remove();
-        return;
-    }
-    if (existingBtn && row.contains(existingBtn)) return;
-    existingBtn?.remove();
-    const btn = document.createElement('button');
-    btn.id = 'chat-convert-btn';
-    btn.className = 'convert-msg-btn';
-    btn.textContent = '转为任务';
-    btn.title = '将对话转为正式任务';
-    btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        vscode.postMessage({ type: 'convertToTask', taskId: activeTaskId });
-    });
-    row.appendChild(btn);
+    // Convert-to-task button removed in Phase 15 — replaced by /go in assistant mode
 }
 
 function getCategoryDef(catKey: string): any {

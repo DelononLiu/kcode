@@ -31,7 +31,7 @@ export interface ITaskStore {
     updateMessageType(taskId: string, messageId: string, type?: ChatMessage['type']): void;
     updateMessageContent(taskId: string, messageId: string, content: string): void;
     updateTaskTitle(taskId: string, title: string): void;
-    updateTaskType(taskId: string, type: 'task' | 'chat'): void;
+    updateTaskType(taskId: string, type: 'task'): void;
     updateTaskHooks(taskId: string, phase: string, commands: string[]): void;
 }
 

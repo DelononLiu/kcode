@@ -46,6 +46,14 @@ export interface TodoItem {
     priority?: 'low' | 'medium' | 'high';
 }
 
+export interface AssistantMessage {
+    id: string;
+    role: 'user' | 'agent' | 'tool';
+    type?: string;
+    content: string;
+    timestamp: number;
+}
+
 export interface PlanStep {
     content: string;
     status: 'pending' | 'active' | 'completed';
@@ -55,7 +63,7 @@ export interface Task {
     id: string;
     title: string;
     goal: string;
-    type: 'task' | 'chat';
+    type: 'task';
     category?: TaskCategory;
     subType?: string;
     status: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';

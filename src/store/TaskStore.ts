@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Task, ChatMessage, FileChange, ContainerEntity } from '../types';
+import { Task, ChatMessage, FileChange, ContainerEntity, AssistantMessage } from '../types';
 
 export class TaskStore {
     private state: vscode.Memento;
@@ -106,7 +106,7 @@ export class TaskStore {
         }
     }
 
-    updateTaskType(taskId: string, type: 'task' | 'chat'): void {
+    updateTaskType(taskId: string, type: 'task'): void {
         const tasks = this.getTasks();
         const idx = tasks.findIndex(t => t.id === taskId);
         if (idx !== -1) {
@@ -361,6 +361,25 @@ export class TaskStore {
 
     reorderGroups(groupNames: string[]): void {
         this.state.update('groups', groupNames);
+    }
+
+    // ===== Assistant Messages =====
+
+    getAssistantMessages(): AssistantMessage[] {
+        return this.state.get<AssistantMessage[]>('assistant_messages', []);
+    }
+
+    addAssistantMessage(msg: AssistantMessage): void {
+        const messages = this.getAssistantMessages();
+        messages.push(msg);
+        this.state.update('assistant_messages', messages);
+    }
+
+    nextAssistantMessageId(): string {
+        const key = 'assistant_msgCounter';
+        const next = (this.state.get<number>(key, 0)) + 1;
+        this.state.update(key, next);
+        return `amsg_${next}`;
     }
 
     // ===== Container CRUD (Group/Project tree) =====

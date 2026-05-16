@@ -13,6 +13,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     private _onTaskSelected: (taskId: string) => void;
     private _onFlashInput?: () => void;
     private _onToggleRightPanel?: () => void;
+    private _onSelectAssistant?: () => void;
     private _activeTaskId: string | null = null;
 
     constructor(
@@ -128,6 +129,9 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                 case 'importGitHubIssue':
                     vscode.commands.executeCommand('kcode.importGitHubIssue');
                     break;
+                case 'selectAssistant':
+                    this._onSelectAssistant?.();
+                    break;
             }
         });
     }
@@ -153,6 +157,10 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         });
     }
 
+    setSelectAssistantCallback(cb: () => void) {
+        this._onSelectAssistant = cb;
+    }
+
     setFlashInputCallback(cb: () => void) {
         this._onFlashInput = cb;
     }
@@ -173,7 +181,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             id: `task_${Date.now()}`,
             title: 'New Task',
             goal: '',
-            type: 'chat',
+            type: 'task',
             status: 'pending',
             phase: 'demand',
             confirmedItems: [],
@@ -197,12 +205,13 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         const groups = this._store.getGroups();
         const containers = this._store.getContainers();
         this._activeTaskId = activeTaskId !== undefined ? activeTaskId : this._activeTaskId;
+        const resolvedActiveId = this._activeTaskId === null ? '__assistant__' : this._activeTaskId;
         this._view.webview.postMessage({
             type: 'updateTaskList',
             tasks,
             groups,
             containers,
-            activeTaskId: this._activeTaskId,
+            activeTaskId: resolvedActiveId,
             editingGroupName,
         });
     }
@@ -243,14 +252,34 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         }
         #sidebar-content{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
 
-        /* --- Action Bar --- */
-        .action-bar {
-            padding: 6px 8px;
+        /* --- Assistant Entry --- */
+        .assistant-entry {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            cursor: pointer;
+            border-radius: 3px;
+            margin: 2px 4px;
+            font-weight: 600;
+            font-size: 13px;
+            user-select: none;
+        }
+        .assistant-entry:hover { background: #252526; }
+        .assistant-entry.active {
+            background: #0E364B;
+            color: #ffffff;
+        }
+        .assistant-entry .assistant-icon { font-size: 15px; flex-shrink: 0; }
+
+        /* --- New Task Actions --- */
+        .new-task-actions {
+            padding: 2px 8px 6px;
+            border-bottom: 1px solid var(--vscode-sideBar-border, #3c3c3c);
+            margin-bottom: 2px;
             display: flex;
             flex-direction: column;
-            gap: 2px;
-            border-bottom: 1px solid var(--vscode-sideBar-border, #3c3c3c);
-            margin-bottom: 4px;
+            gap: 1px;
         }
         .sidebar-btn {
             width: 100%;
@@ -266,13 +295,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             border-radius: 3px;
             font-family: inherit;
         }
-        .sidebar-btn .sidebar-btn-icon {
-            font-size: 15px;
-            width: 18px;
-            text-align: center;
-            flex-shrink: 0;
-            line-height: 1;
-        }
+        .sidebar-btn .sidebar-btn-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; line-height: 1; }
         .sidebar-btn:hover { background: #252526; }
 
         /* --- Project Section --- */
@@ -501,31 +524,36 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     </style>
     <title>KCode</title>
 </head>
-<body>
-    <div id="sidebar-content">
-        <div class="action-bar">
-            <button id="btn-new-task" class="sidebar-btn"><span class="sidebar-btn-icon">+</span> 新建任务</button>
-            <button id="btn-import-task" class="sidebar-btn"><span class="sidebar-btn-icon">⤓</span> 导入任务</button>
-            <button id="btn-template-task" class="sidebar-btn"><span class="sidebar-btn-icon">📋</span> 任务模板</button>
+    <body>
+        <div id="sidebar-content">
+            <div id="assistant-entry" class="assistant-entry">
+                <span class="assistant-icon">💬</span>
+                <span>小助手</span>
+            </div>
+
+            <div class="new-task-actions">
+                <button id="btn-new-task" class="sidebar-btn"><span class="sidebar-btn-icon">📝</span> 新建任务</button>
+                <button id="btn-import-task" class="sidebar-btn"><span class="sidebar-btn-icon">⤓</span> 导入任务</button>
+                <button id="btn-template-task" class="sidebar-btn"><span class="sidebar-btn-icon">📋</span> 根据模板新建</button>
+            </div>
+
+            <div id="project-list"></div>
         </div>
 
-        <div id="project-list"></div>
-    </div>
-
-    <div id="sidebar-footer">
-        <button class="footer-btn" id="btn-my-projects"><span class="footer-btn-icon">🏗️</span> 我的项目</button>
-        <button class="footer-btn" id="btn-my-tasks"><span class="footer-btn-icon">📋</span> 我的任务</button>
-        <button class="footer-btn" id="btn-knowledge"><span class="footer-btn-icon">📚</span> 我的知识库</button>
-        <button class="footer-btn" id="btn-settings"><span class="footer-btn-icon">⚙️</span> 设置</button>
-    </div>
-    <div id="__sidebarData"
-         data-tasks="${this.escapeAttr(JSON.stringify(this._store.getTasks()))}"
-         data-groups="${this.escapeAttr(JSON.stringify(this._store.getGroups()))}"
-         data-containers="${this.escapeAttr(JSON.stringify(this._store.getContainers()))}"
-         data-active-task-id="${this._activeTaskId || ''}"
-         style="display:none"></div>
-    <script src="${scriptUri}"></script>
-</body>
-</html>`;
+        <div id="sidebar-footer">
+            <button class="footer-btn" id="btn-my-projects"><span class="footer-btn-icon">🏗️</span> 我的项目</button>
+            <button class="footer-btn" id="btn-my-tasks"><span class="footer-btn-icon">📋</span> 我的任务</button>
+            <button class="footer-btn" id="btn-knowledge"><span class="footer-btn-icon">📚</span> 我的知识库</button>
+            <button class="footer-btn" id="btn-settings"><span class="footer-btn-icon">⚙️</span> 设置</button>
+        </div>
+        <div id="__sidebarData"
+             data-tasks="${this.escapeAttr(JSON.stringify(this._store.getTasks()))}"
+             data-groups="${this.escapeAttr(JSON.stringify(this._store.getGroups()))}"
+             data-containers="${this.escapeAttr(JSON.stringify(this._store.getContainers()))}"
+             data-active-task-id="${this._activeTaskId || ''}"
+             style="display:none"></div>
+        <script src="${scriptUri}"></script>
+    </body>
+    </html>`;
     }
 }
