@@ -239,6 +239,10 @@ export class TaskStore {
         return this.state.get<FileChange[]>(`reviewChanges_${taskId}`, []);
     }
 
+    clearReviewChanges(taskId: string): void {
+        this.state.update(`reviewChanges_${taskId}`, undefined);
+    }
+
     clearMessages(taskId: string): void {
         this.state.update(`messages_${taskId}`, []);
     }
@@ -372,6 +376,9 @@ export class TaskStore {
     addAssistantMessage(msg: AssistantMessage): void {
         const messages = this.getAssistantMessages();
         messages.push(msg);
+        if (messages.length > 200) {
+            messages.splice(0, messages.length - 200);
+        }
         this.state.update('assistant_messages', messages);
     }
 

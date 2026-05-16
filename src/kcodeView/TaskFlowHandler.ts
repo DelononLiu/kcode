@@ -55,6 +55,7 @@ export class TaskFlowHandler {
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✕ 已取消任务', timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'addUserMessage', content: '✕ 已取消任务' });
         ctx.store.updateTaskStatus(tid, 'cancelled');
+        ctx.store.clearReviewChanges(tid);
         ctx.refreshSidebarCallback?.();
         ctx.sendNodePanelUpdate(tid);
         ctx.setGenerationState(false);
@@ -180,7 +181,8 @@ export class TaskFlowHandler {
         let report = `🎉 任务已完成，《任务完成报告》如下：\n\n📋 **任务**：${task?.title || ''}\n`;
         if (changes.length > 0) report += `📄 **变更文件**：${changes.length} 个\n${changes.map(c => `  - \`${c.filePath}\``).join('\n')}`;
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', content: report, timestamp: Date.now() });
-        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskStatus: 'completed', reviewChanges: ctx.store.getReviewChanges(tid) });
+        ctx.store.clearReviewChanges(tid);
+        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskStatus: 'completed', reviewChanges: [] });
     }
 
     async handlePartialApproveReview(tid: string, passed: string[], failed: string[]) {
@@ -189,6 +191,7 @@ export class TaskFlowHandler {
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: approveMsg, timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'addUserMessage', content: approveMsg });
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', content: `✅ 部分验收通过（${passed.length}/${passed.length + failed.length}）`, timestamp: Date.now() });
+        ctx.store.clearReviewChanges(tid);
 
         if (failed.length === 0) {
             ctx.taskFlow.finishReview(tid);
@@ -209,6 +212,7 @@ export class TaskFlowHandler {
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: rejectMsg, timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'addUserMessage', content: rejectMsg });
         ctx.taskFlow.rejectReview(tid);
+        ctx.store.clearReviewChanges(tid);
         await ctx.sendHooksAsMessage(tid, 'execute');
         await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, rejectMsg), false, rejectMsg);
     }
