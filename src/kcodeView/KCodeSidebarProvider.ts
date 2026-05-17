@@ -118,13 +118,10 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     vscode.commands.executeCommand('kcode.newTask');
                     break;
                 case 'showMyTasks':
-                    vscode.commands.executeCommand('kcode.open');
-                    break;
-                case 'showMyProjects':
-                    vscode.commands.executeCommand('kcode.open');
+                    vscode.commands.executeCommand('kcode.openMyTasks');
                     break;
                 case 'showKnowledgeBase':
-                    vscode.window.showInformationMessage('我的知识库即将推出');
+                    vscode.window.showInformationMessage('📚 我的知识库即将推出');
                     break;
                 case 'importGitHubIssue':
                     vscode.commands.executeCommand('kcode.importGitHubIssue');
@@ -541,7 +538,6 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         </div>
 
         <div id="sidebar-footer">
-            <button class="footer-btn" id="btn-my-projects"><span class="footer-btn-icon">🏗️</span> 我的项目</button>
             <button class="footer-btn" id="btn-my-tasks"><span class="footer-btn-icon">📋</span> 我的任务</button>
             <button class="footer-btn" id="btn-knowledge"><span class="footer-btn-icon">📚</span> 我的知识库</button>
             <button class="footer-btn" id="btn-settings"><span class="footer-btn-icon">⚙️</span> 设置</button>

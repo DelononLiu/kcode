@@ -5,7 +5,7 @@ function escapeAttr(str: string): string {
     return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&#62;');
 }
 
-export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, allTasks?: any[], agents?: { label: string; type: string }[]): string {
+export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, agents?: { label: string; type: string }[]): string {
     const scriptUri = (name: string) => webview.asWebviewUri(
         vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', `${name}.js`)
     ).toString();
@@ -90,35 +90,10 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     </svg>
                 </button>
             </div>
-            <div id="dashboard-panel" class="hidden">
-                <div class="dashboard-title">📊 KCode 工作台</div>
-                <div id="dashboard-review-section" class="dp-section" style="display:none">
-                    <div class="dp-section-header">⚠️ 待验收</div>
-                    <div id="dashboard-review-list" class="dp-list"></div>
-                </div>
-                <div id="dashboard-active-section" class="dp-section" style="display:none">
-                    <div class="dp-section-header dp-collapsible" data-target="dashboard-active-body">
-                        <span class="dp-arrow">▶</span> 进行中
-                    </div>
-                    <div id="dashboard-active-body" class="dp-body">
-                        <div id="dashboard-active-list" class="dp-list"></div>
-                    </div>
-                </div>
-                <div id="dashboard-completed-section" class="dp-section" style="display:none">
-                    <div class="dp-section-header dp-collapsible" data-target="dashboard-completed-body">
-                        <span class="dp-arrow">▶</span> 最近完成
-                    </div>
-                    <div id="dashboard-completed-body" class="dp-body">
-                        <div id="dashboard-completed-list" class="dp-list"></div>
-                    </div>
-                </div>
-                <div id="dashboard-empty-msg" class="dp-empty" style="display:none">暂无任务，点击下方按钮创建</div>
-            </div>
             </div>
 
             <div id="chat-bottom">
                 <div id="chat-toolbar">
-                    <button id="btn-dashboard" class="toolbar-btn" title="打开工作台">📊 工作台</button>
                     <button id="btn-knowledge-extract" class="toolbar-btn hidden" title="从当前任务萃取知识">📚 知识萃取</button>
                     <button id="acp-log-btn" class="toolbar-btn" title="查看 ACP 协议日志">🔍 查看日志</button>
                     <button id="btn-terminal" class="toolbar-btn" title="打开终端">💻 打开终端</button>
@@ -226,7 +201,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
     </div>
 
     <div id="__panelData"
-         data-all-tasks="${escapeAttr(JSON.stringify(allTasks || []))}"
          data-available-agents="${escapeAttr(JSON.stringify(agents || []))}"
          style="display:none"></div>
     <script src="${scriptUri('app.bundle')}"></script>

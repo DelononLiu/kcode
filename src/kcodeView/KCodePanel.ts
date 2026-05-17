@@ -142,11 +142,6 @@ export class KCodePanel {
         this.router.on('partialApproveReview', (msg) => this.flowHandler.handlePartialApproveReview(msg.taskId, msg.passed, msg.failed));
         this.router.on('toggleAcpLog', (msg) => { this.acpLogManager.enabled = msg.enabled; this.configService.set('log.acpLogEnabled', msg.enabled); this.configService.save(); });
         this.router.on('newTask', () => vscode.commands.executeCommand('kcode.newTask'));
-        this.router.on('openDashboard', () => {
-            this.currentTaskId = null;
-            this.router.PostMessage({ type: 'showDashboard', allTasks: this.store.getTasks().filter(t => !t.archived) });
-            this.refreshSidebarCallback?.();
-        });
         this.router.on('cancelQueuedMessage', (msg) => { if (msg.index >= 0 && msg.index < this.pendingMessages.length) { this.pendingMessages.splice(msg.index, 1); this.sendPendingQueueUpdate(); } });
         this.router.on('clearPendingQueue', () => { this.pendingMessages = []; this.sendPendingQueueUpdate(); });
         this.router.on('openTerminal', () => vscode.commands.executeCommand('workbench.action.terminal.new'));
@@ -240,12 +235,11 @@ export class KCodePanel {
     }
 
     private getWebviewContent(): string {
-        const allTasks = this.store.getTasks().filter(t => !t.archived);
         const agents = [
             { label: 'Kilo', type: 'kilo' },
             { label: 'OpenCode', type: 'opencode' },
         ];
-        return getTemplateHtml(this.panel.webview, this.context.extensionUri, allTasks, agents);
+        return getTemplateHtml(this.panel.webview, this.context.extensionUri, agents);
     }
 
     private async loadWorkspaceHooks(): Promise<Record<string, string[]>> {

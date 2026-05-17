@@ -71,26 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavButtons();
     (window as any).initOutputPanel?.();
 
-    // Dashboard collapsible sections
-    document.querySelectorAll('.dp-section-header.dp-collapsible').forEach(header => {
-        header.addEventListener('click', () => {
-            const targetId = (header as HTMLElement).dataset.target;
-            const body = document.getElementById(targetId!);
-            const arrow = header.querySelector('.dp-arrow');
-            if (body && arrow) {
-                body.classList.toggle('hidden');
-                arrow.classList.toggle('collapsed');
-            }
-        });
-    });
-
-    // Auto-show dashboard on first open (no active task)
     const dataEl = document.getElementById('__panelData');
     if (dataEl) {
-        const allTasks = JSON.parse(dataEl.dataset.allTasks || '[]');
-        if (allTasks.length >= 0) {
-            renderDashboardPanel(allTasks);
-        }
         const agents = JSON.parse(dataEl.dataset.availableAgents || '[]');
         if (agents.length > 0) {
             initAgentSelector(agents);
@@ -185,8 +167,6 @@ function initMessageHandler() {
                     if (gutter) gutter.classList.add('hidden');
                     const outputPanel = document.getElementById('right-output-panel');
                     if (outputPanel) outputPanel.style.display = 'none';
-                    const dashboardPanel = document.getElementById('dashboard-panel');
-                    if (dashboardPanel) dashboardPanel.classList.add('hidden');
                     renderMessages(message.messages || []);
                     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
                     if (input) input.placeholder = '与小助手对话... (/go 开始任务)';
@@ -208,9 +188,6 @@ function initMessageHandler() {
         acceptanceCheckedState.delete(message.taskId);
     }
     renderMessages(message.messages);
-                break;
-            case 'showDashboard':
-                renderDashboardPanel(message.allTasks);
                 break;
             case 'showDiff':
                 if ((window as any).showDiff) {
@@ -672,11 +649,6 @@ function initChat() {
         }
     });
 
-    const btnDashboard = document.getElementById('btn-dashboard');
-    btnDashboard?.addEventListener('click', () => {
-        vscode.postMessage({ type: 'openDashboard' });
-    });
-
     const btnKnowledgeExtract = document.getElementById('btn-knowledge-extract');
     btnKnowledgeExtract?.addEventListener('click', () => {
         vscode.window.showInformationMessage?.('知识萃取功能即将推出');
@@ -1049,95 +1021,7 @@ function collectChangedFiles(messages: any[], startIdx: number): string[] {
     return files;
 }
 
-function renderDashboardPanel(allTasks: any[]) {
-    const scrollContainer = document.getElementById('chat-scroll');
-    const dashboardPanel = document.getElementById('dashboard-panel');
-    if (!scrollContainer || !dashboardPanel) return;
 
-    AppState.activeTaskId = null;
-    AppState.activeTaskStatus = '';
-    AppState.activeTaskType = '';
-
-    scrollContainer.classList.add('chat-empty');
-    document.getElementById('chat-header')?.style.setProperty('display', 'none');
-    document.getElementById('chat-body')?.classList.remove('showing-categories');
-
-    const gutter = document.getElementById('node-timeline-gutter');
-    if (gutter) gutter.classList.add('hidden');
-
-    dashboardPanel.classList.remove('hidden');
-
-    const inReview = allTasks.filter((t: any) => t.status === 'in_review');
-    const active = allTasks.filter((t: any) => t.status === 'active');
-    const completed = allTasks.filter((t: any) => t.status === 'completed').slice(0, 10);
-
-    const renderSection = (sectionId: string, listId: string, tasks: any[]) => {
-        const section = document.getElementById(sectionId);
-        const list = document.getElementById(listId);
-        if (!section || !list) return;
-        section.style.display = tasks.length > 0 ? '' : 'none';
-        list.innerHTML = '';
-        for (const task of tasks) {
-            const item = createDashboardPanelItem(task);
-            list.appendChild(item);
-        }
-    };
-
-    renderSection('dashboard-review-section', 'dashboard-review-list', inReview);
-    renderSection('dashboard-active-section', 'dashboard-active-list', active);
-    renderSection('dashboard-completed-section', 'dashboard-completed-list', completed);
-
-    const emptyEl = document.getElementById('dashboard-empty-msg');
-    if (emptyEl) {
-        emptyEl.style.display = allTasks.length === 0 ? '' : 'none';
-    }
-
-    const navBtns = document.getElementById('chat-nav-btns');
-    if (navBtns) navBtns.classList.add('hidden');
-}
-
-function createDashboardPanelItem(task: any): HTMLElement {
-    const item = document.createElement('div');
-    item.className = 'dp-item';
-    item.addEventListener('click', () => {
-        vscode.postMessage({ type: 'selectTask', taskId: task.id });
-    });
-
-    const icon = document.createElement('span');
-    icon.className = 'dp-item-icon';
-    switch (task.status) {
-        case 'in_review': icon.textContent = '🟡'; break;
-        case 'active': icon.textContent = '🟢'; break;
-        case 'completed': icon.textContent = '✅'; break;
-        default: icon.textContent = '⚪'; break;
-    }
-    item.appendChild(icon);
-
-    const title = document.createElement('span');
-    title.className = 'dp-item-title';
-    title.textContent = task.title || '未命名任务';
-    item.appendChild(title);
-
-    const typeEl = document.createElement('span');
-    typeEl.className = 'dp-item-type';
-    typeEl.textContent = '📝';
-    item.appendChild(typeEl);
-
-    const time = document.createElement('span');
-    time.className = 'dp-item-time';
-    const now = Date.now();
-    const diff = now - task.createdAt;
-    if (diff < 3600000) {
-        time.textContent = Math.round(diff / 60000) + 'm';
-    } else if (diff < 86400000) {
-        time.textContent = Math.round(diff / 3600000) + 'h';
-    } else {
-        time.textContent = Math.round(diff / 86400000) + 'd';
-    }
-    item.appendChild(time);
-
-    return item;
-}
 
 function renderMessages(messages: any[]) {
     resetTabGroup();
@@ -1147,8 +1031,6 @@ function renderMessages(messages: any[]) {
     if (!container || !scrollContainer) return;
 
     const existingIndicator = document.getElementById('working-indicator');
-    const dashboardPanel = document.getElementById('dashboard-panel');
-    if (dashboardPanel) dashboardPanel.classList.add('hidden');
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) (placeholder as HTMLElement).style.display = '';
 

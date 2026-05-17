@@ -44,11 +44,6 @@ declare function acquireVsCodeApi(): any;
         if (knowledgeBtn) {
             knowledgeBtn.addEventListener('click', () => vscode.postMessage({ type: 'showKnowledgeBase' }));
         }
-        const myProjectsBtn = document.getElementById('btn-my-projects');
-        if (myProjectsBtn) {
-            myProjectsBtn.addEventListener('click', () => vscode.postMessage({ type: 'showMyProjects' }));
-        }
-
         document.addEventListener('click', (e) => {
             hideContextMenu();
         });
