@@ -61,6 +61,29 @@ _目标：提升交互体验。_
 
 _注：P3-02 验收流程已被 Phase 5 的新状态模型覆盖，不再独立实现。_
 
+---
+
+### P3-07: MyTasks 页面增加"我的项目"功能
+
+**涉及文件**:
+- `src/kcodeView/MyTasksProvider.ts` — 接受 TaskStore，发送容器数据到 WebView，处理 newProject/deleteProject
+- `src/kcodeView/webview/myTasksApp.ts` — 渲染项目列表，"新建项目"/删除项目操作
+- `src/extension.ts` — 传递 store 给 MyTasksProvider
+
+**调研结果**:
+- 容器系统（ContainerEntity）已完整实现，存储于 workspaceState 全局共享
+- TaskStore 已包含完整的容器 CRUD（addContainer/deleteContainer/moveContainer 等）
+- MyTasksProvider 原为独立 WebViewPanel，使用 mock 数据展示跨工作区任务
+- 侧边栏已有项目渲染能力（createProjectSection），但 MyTasks 页缺少项目展示
+
+**实现说明**:
+- `MyTasksProvider.ts` — 构造时接受 TaskStore；新增 `_sendProjectData()` 发送 containers 到 WebView；`_setupMessageHandler` 处理 `ready`/`newProject`/`deleteProject` 消息；HTML 改为 Tab 布局：主Tab栏「📋 我的任务 / 📁 我的项目」，任务内容包含二级Tab（进行中/待验收/已归档/全部）
+- `myTasksApp.ts` — 新增 `switchPrimaryTab()` 切换任务/项目视图；项目Tab隐藏搜索栏，标题改为"📁 我的项目"；项目列表展示 📦 名称+✕ 删除；WebView 监听 `updateProjects` 消息更新
+- `extension.ts` — `MyTasksProvider` 构造传入 `store!`
+- 项目数据跨目录共享（workspaceState）；侧边栏项目列表保持不变；新建入口仅出现在 MyTasks 页面的"我的项目"Tab
+
+**状态**: ✅ 已完成
+
 **验收标准**：侧边栏支持分组和折叠。
 
 ---

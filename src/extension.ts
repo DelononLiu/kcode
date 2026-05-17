@@ -149,7 +149,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     const myTasksCmd = vscode.commands.registerCommand('kcode.openMyTasks', async () => {
         if (!myTasksProvider) {
-            myTasksProvider = new MyTasksProvider(context);
+            myTasksProvider = new MyTasksProvider(context, store!);
             myTasksProvider.onDidDispose(() => { myTasksProvider = undefined; });
         }
         myTasksProvider.reveal();
