@@ -155,7 +155,11 @@ function renderProjects() {
         renameItem.addEventListener('click', (e) => {
             e.stopPropagation();
             hideProjectContextMenu();
-            vscode().postMessage({ type: 'renameProject', containerId: projectId });
+            const row = tbody?.querySelector(`.project-row[data-id="${projectId}"]`);
+            const nameEl = row?.querySelector('.p-name') as HTMLElement | null;
+            if (nameEl) {
+                makeProjectNameEditable(nameEl, projectId, _projects.find(p => p.id === projectId)?.name || '');
+            }
         });
         menu.appendChild(renameItem);
 
@@ -169,9 +173,7 @@ function renderProjects() {
         deleteItem.addEventListener('click', (e) => {
             e.stopPropagation();
             hideProjectContextMenu();
-            if (confirm('确定删除该项目及其所有任务？')) {
-                vscode().postMessage({ type: 'deleteProject', containerId: projectId });
-            }
+            vscode().postMessage({ type: 'deleteProject', containerId: projectId });
         });
         menu.appendChild(deleteItem);
 
@@ -184,6 +186,33 @@ function renderProjects() {
             contextMenuEl.remove();
             contextMenuEl = null;
         }
+    }
+
+    function makeProjectNameEditable(nameEl: HTMLElement, projectId: string, originalName: string) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = originalName;
+        input.style.cssText = 'width:100%;background:var(--input-bg);color:var(--input-fg);border:1px solid var(--focus-border);outline:none;padding:2px 4px;font-size:13px;border-radius:2px;';
+
+        nameEl.textContent = '';
+        nameEl.appendChild(input);
+        input.focus();
+        input.select();
+
+        const finish = (save: boolean) => {
+            const newName = input.value.trim();
+            if (save && newName && newName !== originalName) {
+                vscode().postMessage({ type: 'renameProject', containerId: projectId, name: newName });
+            } else {
+                nameEl.textContent = `📦 ${escapeHtml(originalName)}`;
+            }
+        };
+
+        input.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+            else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+        input.addEventListener('blur', () => finish(true));
     }
 
     tbody.innerHTML = _projects.map(p => {

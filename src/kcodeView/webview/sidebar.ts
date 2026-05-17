@@ -278,13 +278,6 @@ declare function acquireVsCodeApi(): any;
 
         addSeparator(menu);
 
-        const renameItem = createMenuItem('重命名', () => {
-            vscode.postMessage({ type: 'renameContainer', containerId: project.id, name: project.name });
-        });
-        menu.appendChild(renameItem);
-
-        addSeparator(menu);
-
         const upItem = createMenuItem('上移', () => {
             vscode.postMessage({ type: 'moveContainer', containerId: project.id, direction: 'up' });
         });
@@ -294,25 +287,6 @@ declare function acquireVsCodeApi(): any;
             vscode.postMessage({ type: 'moveContainer', containerId: project.id, direction: 'down' });
         });
         menu.appendChild(downItem);
-
-        addSeparator(menu);
-
-        const projectTasks = tasks.filter((t: any) => t.containerId === project.id);
-        const deleteItem = document.createElement('div');
-        deleteItem.className = 'context-menu-item';
-        if (projectTasks.length > 0) {
-            deleteItem.textContent = `删除项目（${projectTasks.length} 个任务需先移出）`;
-            deleteItem.style.color = '#888';
-            deleteItem.style.cursor = 'not-allowed';
-        } else {
-            deleteItem.textContent = '删除项目';
-            deleteItem.addEventListener('click', (e) => {
-                e.stopPropagation();
-                hideContextMenu();
-                vscode.postMessage({ type: 'deleteContainer', containerId: project.id });
-            });
-        }
-        menu.appendChild(deleteItem);
 
         document.body.appendChild(menu);
         contextMenuEl = menu;

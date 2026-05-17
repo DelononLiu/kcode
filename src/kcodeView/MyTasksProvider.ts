@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { TaskStore } from '../store/TaskStore';
 
+const _output = vscode.window.createOutputChannel('KCode MyTasks');
+
 export class MyTasksProvider {
     static readonly viewType = 'kcode.myTasksPanel';
     readonly panel: vscode.WebviewPanel;
@@ -43,6 +45,7 @@ export class MyTasksProvider {
 
     private _setupMessageHandler(): void {
         this.panel.webview.onDidReceiveMessage(async (msg: any) => {
+            _output.appendLine('[MyTasksProvider] onDidReceiveMessage: type=' + msg.type);
             switch (msg.type) {
                 case 'ready': {
                     this._sendProjectData();
@@ -63,11 +66,30 @@ export class MyTasksProvider {
                     break;
                 }
                 case 'renameProject': {
-                    this._renameProject(msg.containerId);
+                    if (msg.name) {
+                        const trimmed = msg.name.trim();
+                        if (trimmed) {
+                            this._store.updateContainer(msg.containerId, { name: trimmed });
+                            this._sendProjectData();
+                        }
+                    } else {
+                        this._renameProject(msg.containerId);
+                    }
                     break;
                 }
                 case 'deleteProject': {
-                    this._deleteProjectWithTasks(msg.containerId);
+                    const container = this._store.getContainer(msg.containerId);
+                    if (container) {
+                        vscode.window.showWarningMessage(
+                            `确定删除项目「${container.name}」及其所有关联任务？`,
+                            { modal: true },
+                            '确定删除'
+                        ).then(choice => {
+                            if (choice === '确定删除') {
+                                this._deleteProjectWithTasks(msg.containerId);
+                            }
+                        });
+                    }
                     break;
                 }
             }
@@ -118,13 +140,19 @@ export class MyTasksProvider {
 
     private _sendProjectData(): void {
         const containers = this._store.getContainers();
+        const projects = containers.filter(c => c.type === 'project');
         const currentWorkspace = vscode.workspace.workspaceFolders?.[0]?.name || '';
-        this.panel.webview.postMessage({
-            type: 'updateProjects',
-            containers,
-            projects: containers.filter(c => c.type === 'project'),
-            currentWorkspace,
-        });
+        _output.appendLine(`[MyTasksProvider] _sendProjectData: ${projects.length} projects, ${containers.length} containers`);
+        try {
+            this.panel.webview.postMessage({
+                type: 'updateProjects',
+                containers,
+                projects,
+                currentWorkspace,
+            });
+        } catch (err) {
+            _output.appendLine('[MyTasksProvider] postMessage error: ' + err);
+        }
     }
 
     private _getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {

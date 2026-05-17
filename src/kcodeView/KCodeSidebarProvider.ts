@@ -88,8 +88,20 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     this.refresh();
                     break;
                 case 'renameContainer':
-                    this._store.updateContainer(message.containerId, { name: message.name });
-                    this.refresh();
+                    if (message.name) {
+                        this._store.updateContainer(message.containerId, { name: message.name });
+                        this.refresh();
+                    } else {
+                        const container = this._store.getContainer(message.containerId);
+                        if (container) {
+                            vscode.window.showInputBox({ prompt: '重命名', value: container.name }).then(name => {
+                                if (name && name.trim()) {
+                                    this._store.updateContainer(message.containerId, { name: name.trim() });
+                                    this.refresh();
+                                }
+                            });
+                        }
+                    }
                     break;
                 case 'moveContainer':
                     this._store.moveContainer(message.containerId, message.direction);
