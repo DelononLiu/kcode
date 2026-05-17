@@ -13,6 +13,7 @@ export class AgentService implements IAgentService {
     private agentType: 'acp' | 'openai' | null = null;
     private workspaceRoot: string;
     private logCallback: ((direction: 'send' | 'recv', text: string) => void) | null = null;
+    private connectPromise: Promise<boolean> | null = null;
 
     get isConnected(): boolean { return this._isConnected; }
     get lastError(): string { return this._lastError; }
@@ -45,24 +46,26 @@ export class AgentService implements IAgentService {
 
     async connect(agentName: string, agentArgs: string[] = []): Promise<boolean> {
         if (this._isConnected) return true;
+        if (this.connectPromise) return this.connectPromise;
 
+        this.connectPromise = this._doConnect(agentName, agentArgs);
+        return await this.connectPromise;
+    }
+
+    private async _doConnect(agentName: string, agentArgs: string[]): Promise<boolean> {
         try {
-            // Kilo agent via stdio ACP (kilo acp)
             if (agentName === 'kilo') {
                 return await this.connectKilo();
             }
 
-            // OpenCode agent via stdio ACP
             if (agentName === 'opencode') {
                 return await this.connectOpenCode();
             }
 
-            // OpenAI Agent
             if (agentName === 'openai') {
                 return this.connectOpenAI();
             }
 
-            // Generic ACP stdio subprocess
             if (agentName && agentName !== 'npx') {
                 return await this.connectGenericACP(agentName, agentArgs);
             }
@@ -73,6 +76,8 @@ export class AgentService implements IAgentService {
             this._lastError = err?.message || 'Agent 连接失败';
             this._isConnected = false;
             return false;
+        } finally {
+            this.connectPromise = null;
         }
     }
 

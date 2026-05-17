@@ -118,7 +118,6 @@ export class KCodePanel {
         this.router.PostMessage({ type: 'updateCategoryDefs', categories: getCategories() });
 
         this.sessionHandler.sendAgentList();
-        this.sessionHandler.ensureConnection();
 
         this.loadWorkspaceHooks().then(hooks => this.taskFlow.setWorkspaceHooks(hooks));
 
