@@ -9,10 +9,16 @@ export interface StorageBackend {
 
 export class TaskStore {
     private state: StorageBackend;
+    private globalState: StorageBackend;
     private _tasksCache: Task[] | null = null;
 
-    constructor(state: StorageBackend) {
+    constructor(state: StorageBackend, globalState?: StorageBackend) {
         this.state = state;
+        this.globalState = globalState || state;
+    }
+
+    private get _gs(): StorageBackend {
+        return this.globalState;
     }
 
     // ===== Task CRUD =====
@@ -398,7 +404,7 @@ export class TaskStore {
     // ===== Container CRUD (Group/Project tree) =====
 
     getContainers(): ContainerEntity[] {
-        return this.state.get<ContainerEntity[]>('containers', []);
+        return this._gs.get<ContainerEntity[]>('containers', []);
     }
 
     getContainer(id: string): ContainerEntity | undefined {
@@ -409,8 +415,9 @@ export class TaskStore {
         return this.getContainers().find(c => c.name === name);
     }
 
-    addContainer(name: string, type: ContainerEntity['type'], parentId?: string): ContainerEntity {
+    addContainer(name: string, type: ContainerEntity['type'], parentId?: string): ContainerEntity | null {
         const containers = this.getContainers();
+        if (containers.some(c => c.name === name)) return null;
         const container: ContainerEntity = {
             id: `cnt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             name,
@@ -419,15 +426,18 @@ export class TaskStore {
             createdAt: Date.now(),
         };
         containers.push(container);
-        this.state.update('containers', containers);
+        this._gs.update('containers', containers);
         return container;
     }
 
-    updateContainer(id: string, updates: Partial<Pick<ContainerEntity, 'name' | 'parentId'>>): void {
-        const containers = this.getContainers().map(c =>
+    updateContainer(id: string, updates: Partial<Pick<ContainerEntity, 'name' | 'parentId'>>): boolean {
+        const containers = this.getContainers();
+        if (updates.name && containers.some(c => c.name === updates.name && c.id !== id)) return false;
+        const updated = containers.map(c =>
             c.id === id ? { ...c, ...updates } : c
         );
-        this.state.update('containers', containers);
+        this._gs.update('containers', updated);
+        return true;
     }
 
     deleteContainer(id: string): void {
@@ -441,7 +451,7 @@ export class TaskStore {
         };
         collectChildren(id);
         const remaining = containers.filter(c => !idsToRemove.has(c.id));
-        this.state.update('containers', remaining);
+        this._gs.update('containers', remaining);
         const tasks = this.getTasks();
         for (const task of tasks) {
             if (task.containerId && idsToRemove.has(task.containerId)) {
@@ -487,7 +497,7 @@ export class TaskStore {
         } else {
             return;
         }
-        this.state.update('containers', containers);
+        this._gs.update('containers', containers);
     }
 
     getProjectContainers(): ContainerEntity[] {

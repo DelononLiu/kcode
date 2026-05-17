@@ -48,7 +48,8 @@ export async function activate(context: vscode.ExtensionContext) {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
     fileStorage = new FileStorage(workspaceRoot);
     fileStorage.migrateFromMemento(context.workspaceState);
-    store = new TaskStore(fileStorage);
+    const globalStorage = new FileStorage('__kcode_global__');
+    store = new TaskStore(fileStorage, globalStorage);
 
     configService = new ConfigService(workspaceRoot);
     ConfigService.setInstance(configService);

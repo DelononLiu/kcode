@@ -15,6 +15,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     private _onToggleRightPanel?: () => void;
     private _onSelectAssistant?: () => void;
     private _activeTaskId: string | null = null;
+    private _messageListener?: vscode.Disposable;
 
     constructor(
         context: vscode.ExtensionContext,
@@ -43,7 +44,8 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.html = this.getHtml();
 
-        webviewView.webview.onDidReceiveMessage(async (message: any) => {
+        this._messageListener?.dispose();
+        this._messageListener = webviewView.webview.onDidReceiveMessage(async (message: any) => {
             _output.appendLine('[KCodeSidebarProvider] onDidReceiveMessage: type=' + message.type);
             switch (message.type) {
                 case 'debugLog':
@@ -77,7 +79,9 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     this.createNewGroupInProject(message.projectId);
                     break;
                 case 'addContainer':
-                    this._store.addContainer(message.name, message.containerType, message.parentId);
+                    if (!this._store.addContainer(message.name, message.containerType, message.parentId)) {
+                        vscode.window.showWarningMessage(`名称「${message.name}」已存在`);
+                    }
                     this.refresh();
                     if (message.parentId) {
                         this._view?.webview.postMessage({ type: 'expandContainer', containerId: message.parentId });
@@ -93,14 +97,19 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     break;
                 case 'renameContainer':
                     if (message.name) {
-                        this._store.updateContainer(message.containerId, { name: message.name });
+                        if (!this._store.updateContainer(message.containerId, { name: message.name })) {
+                            vscode.window.showWarningMessage(`名称「${message.name}」已存在`);
+                        }
                         this.refresh();
                     } else {
                         const container = this._store.getContainer(message.containerId);
                         if (container) {
                             vscode.window.showInputBox({ prompt: '重命名', value: container.name }).then(name => {
                                 if (name && name.trim()) {
-                                    this._store.updateContainer(message.containerId, { name: name.trim() });
+                                    const trimmed = name.trim();
+                                    if (!this._store.updateContainer(message.containerId, { name: trimmed })) {
+                                        vscode.window.showWarningMessage(`名称「${trimmed}」已存在`);
+                                    }
                                     this.refresh();
                                 }
                             });
@@ -118,7 +127,9 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     this.refresh();
                     break;
                 case 'updateContainer':
-                    this._store.updateContainer(message.containerId, message.updates);
+                    if (!this._store.updateContainer(message.containerId, message.updates)) {
+                        vscode.window.showWarningMessage(`名称已被使用`);
+                    }
                     this.refresh();
                     break;
                 case 'openSettings':
@@ -152,7 +163,10 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     private createNewProject(): void {
         vscode.window.showInputBox({ prompt: '项目名称', placeHolder: '输入项目名称...' }).then(name => {
             if (name && name.trim()) {
-                this._store.addContainer(name.trim(), 'project');
+                const trimmed = name.trim();
+                if (!this._store.addContainer(trimmed, 'project')) {
+                    vscode.window.showWarningMessage(`项目「${trimmed}」已存在`);
+                }
                 this.refresh();
             }
         });
@@ -163,7 +177,10 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         const hint = project ? `在「${project.name}」中新建分组` : '分组名称';
         vscode.window.showInputBox({ prompt: hint, placeHolder: '输入分组名称...' }).then(name => {
             if (name && name.trim()) {
-                this._store.addContainer(name.trim(), 'group', projectId);
+                const trimmed = name.trim();
+                if (!this._store.addContainer(trimmed, 'group', projectId)) {
+                    vscode.window.showWarningMessage(`分组「${trimmed}」已存在`);
+                }
                 this.refresh();
                 this._view?.webview.postMessage({ type: 'expandContainer', containerId: projectId });
             }
@@ -450,7 +467,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
 
         /* --- Placeholder --- */
         .placeholder-text {
-            padding: 24px 16px;
+            padding: 4px 16px;
             font-size: 12px;
             color: var(--vscode-descriptionForeground, #6b6b6b);
             text-align: center;

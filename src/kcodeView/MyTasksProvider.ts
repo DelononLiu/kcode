@@ -93,7 +93,9 @@ export class MyTasksProvider {
                     if (msg.name) {
                         const trimmed = msg.name.trim();
                         if (trimmed) {
-                            this._store.addContainer(trimmed, 'project');
+                            if (!this._store.addContainer(trimmed, 'project')) {
+                                vscode.window.showWarningMessage(`项目「${trimmed}」已存在`);
+                            }
                             this._sendProjectData();
                             this._sendTaskData();
                             this._onRefreshSidebar();
@@ -105,7 +107,9 @@ export class MyTasksProvider {
                     if (msg.name) {
                         const trimmed = msg.name.trim();
                         if (trimmed) {
-                            this._store.updateContainer(msg.containerId, { name: trimmed });
+                            if (!this._store.updateContainer(msg.containerId, { name: trimmed })) {
+                                vscode.window.showWarningMessage(`名称「${trimmed}」已被使用`);
+                            }
                             this._sendProjectData();
                             this._sendTaskData();
                             this._onRefreshSidebar();
@@ -138,7 +142,10 @@ export class MyTasksProvider {
     private _createNewProject(): void {
         vscode.window.showInputBox({ prompt: '项目名称', placeHolder: '输入项目名称...' }).then(name => {
             if (name && name.trim()) {
-                this._store.addContainer(name.trim(), 'project');
+                const trimmed = name.trim();
+                if (!this._store.addContainer(trimmed, 'project')) {
+                    vscode.window.showWarningMessage(`项目「${trimmed}」已存在`);
+                }
                 this._sendProjectData();
                 this._sendTaskData();
                 this._onRefreshSidebar();
@@ -151,7 +158,10 @@ export class MyTasksProvider {
         if (!container) return;
         vscode.window.showInputBox({ prompt: '项目名称', value: container.name }).then(name => {
             if (name && name.trim()) {
-                this._store.updateContainer(containerId, { name: name.trim() });
+                const trimmed = name.trim();
+                if (!this._store.updateContainer(containerId, { name: trimmed })) {
+                    vscode.window.showWarningMessage(`名称「${trimmed}」已被使用`);
+                }
                 this._sendProjectData();
             }
         });
@@ -262,10 +272,11 @@ export class MyTasksProvider {
         .tab-btn.active { color: var(--text); border-bottom-color: var(--btn-bg); }
         .tab-btn .tab-count { margin-left: 6px; font-size: 11px; opacity: .7; }
         #content { flex: 1; overflow: auto; }
+        #content table { table-layout: fixed; }
         table { width: 100%; border-collapse: collapse; }
         thead { position: sticky; top: 0; background: var(--bg); z-index: 1; }
-        th { text-align: left; padding: 8px 16px; font-size: 12px; color: var(--text-secondary); font-weight: 500; border-bottom: 1px solid var(--border); white-space: nowrap; user-select: none; }
-        th.col-title { width: auto; }
+        th { text-align: left; padding: 8px 16px; font-size: 12px; color: var(--text-secondary); font-weight: 500; border-bottom: 1px solid var(--border); white-space: nowrap; user-select: none; overflow: hidden; text-overflow: ellipsis; }
+        th.col-title { width: 180px; }
         th.col-project { width: 80px; }
         th.col-workspace { width: 90px; }
         th.col-status { width: 65px; }
@@ -273,6 +284,7 @@ export class MyTasksProvider {
         th.col-time { width: 75px; }
         th.col-action { width: 60px; }
         td { padding: 8px 16px; border-bottom: 1px solid rgba(128,128,128,.08); font-size: 13px; }
+        #table-body td:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         tr:hover td { background: var(--table-row-hover); }
         tr.active td { background: var(--table-row-active); }
         .task-title { color: var(--text-link); cursor: pointer; }
@@ -334,7 +346,6 @@ export class MyTasksProvider {
         }
         #search-input:focus { border-color: var(--focus-border); }
         #task-toolbar .spacer { flex: 1; }
-        #project-toolbar .toolbar-label { font-size: 15px; font-weight: 600; flex: 1; }
         .badge { display: inline-block; padding: 1px 8px; font-size: 11px; border-radius: 3px; background: var(--badge-bg); color: var(--badge-fg); }
 
         /* --- Sub Tab Bar (task filters) --- */
@@ -355,8 +366,10 @@ export class MyTasksProvider {
         #btn-new-project:hover { background: var(--btn-hover); }
         #project-body { flex: 1; overflow-y: auto; }
         #project-body table { width: 100%; border-collapse: collapse; }
-        #project-body th { text-align: left; padding: 8px 16px; font-size: 12px; color: var(--text-secondary); font-weight: 500; border-bottom: 1px solid var(--border); white-space: nowrap; position: sticky; top: 0; background: var(--bg); z-index: 1; }
-        #project-body th:first-child { width: auto; }
+        #project-body table { table-layout: fixed; }
+        #project-body th { text-align: left; padding: 8px 16px; font-size: 12px; color: var(--text-secondary); font-weight: 500; border-bottom: 1px solid var(--border); white-space: nowrap; position: sticky; top: 0; background: var(--bg); z-index: 1; overflow: hidden; text-overflow: ellipsis; }
+        #project-body th:first-child { width: 160px; }
+        #project-body td:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         #project-body th:nth-child(2) { width: 120px; }
         #project-body th:nth-child(3) { width: 60px; }
         #project-body td { padding: 8px 16px; border-bottom: 1px solid rgba(128,128,128,.08); font-size: 13px; }
@@ -420,7 +433,6 @@ export class MyTasksProvider {
         <button class="btn-action btn-restore" id="btn-refresh" title="刷新">↻ 刷新</button>
     </div>
     <div id="project-toolbar" style="display:none">
-        <span class="toolbar-label">📦 我的项目</span>
         <button id="btn-new-project">+ 新建项目</button>
     </div>
     <div id="task-content">

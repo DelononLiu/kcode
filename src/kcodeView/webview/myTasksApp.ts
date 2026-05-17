@@ -106,7 +106,10 @@ function insertNewProjectRow() {
     input.placeholder = '\u65b0\u9879\u76ee\u540d\u79f0...';
     input.style.cssText = 'width:100%;background:var(--input-bg);color:var(--input-fg);border:1px solid var(--focus-border);outline:none;padding:2px 6px;font-size:13px;border-radius:2px;';
 
+    let submitted = false;
     const submit = () => {
+        if (submitted) return;
+        submitted = true;
         const name = input.value.trim();
         if (name) {
             vscode.postMessage({ type: 'createProject', name });
@@ -221,7 +224,10 @@ function renderProjects() {
         input.focus();
         input.select();
 
+    let finished = false;
     const finish = (save: boolean) => {
+        if (finished) return;
+        finished = true;
         const newName = input.value.trim();
         console.log(`[MyTasks] finish save=${save} newName="${newName}" original="${originalName}"`);
         if (save && newName && newName !== originalName) {
