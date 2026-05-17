@@ -5,7 +5,6 @@ import {
   parse,
   modify,
   applyEdits,
-  findNodeAtLocation,
   JSONPath,
   ModificationOptions,
 } from 'jsonc-parser';
@@ -13,7 +12,7 @@ import {
   KCodeConfig,
   getDefaultConfig,
   CONFIG_FILENAME,
-  CONFIG_FILE_PATHS,
+  splitConfigByScope,
 } from '../types/config';
 
 const MIGRATED_MARKER_KEY = 'kcode.configMigrated';
@@ -47,7 +46,7 @@ export class ConfigService {
     const xdg = process.env['XDG_CONFIG_HOME'] || path.join(os.homedir(), '.config');
     this._globalPath = path.join(xdg, 'kcode', CONFIG_FILENAME);
     if (workspaceRoot) {
-      this._projectPath = path.join(workspaceRoot, '.kilo', CONFIG_FILENAME);
+      this._projectPath = path.join(workspaceRoot, '.kcode', CONFIG_FILENAME);
     }
   }
 
@@ -82,55 +81,23 @@ export class ConfigService {
   async load(): Promise<KCodeConfig> {
     let globalConfig = await this._readFile(this._globalPath);
     let projectConfig: KCodeConfig = {};
-    if (this._projectPath) {
-      projectConfig = await this._readFile(this._projectPath);
+
+    const projectPath = await this._findProjectConfigPath();
+    if (projectPath) {
+      this._projectPath = projectPath;
+      projectConfig = await this._readFile(projectPath);
     }
+
     if (!globalConfig || Object.keys(globalConfig).length === 0) {
       globalConfig = await this._migrateFromVSCode();
     }
-    this._config = this._merge(getDefaultConfig(), globalConfig, projectConfig);
+
+    const envConfig = this._readEnvVars();
+    this._config = this._merge(getDefaultConfig(), globalConfig, projectConfig, envConfig);
     this._draft = { ...this._config };
     this._isDirty = false;
     this._notify();
     return this._config;
-  }
-
-  private async _migrateFromVSCode(): Promise<KCodeConfig> {
-    try {
-      const vscCfg = vscode.workspace.getConfiguration('kcode');
-      const hasAny = vscCfg.keys?.()?.length > 0;
-      if (!hasAny) return {};
-
-      const migrated: KCodeConfig = {
-        agentName: vscCfg.get<string>('agentName') || undefined,
-        agentArgs: vscCfg.get<string[]>('agentArgs') || undefined,
-        agentPath: vscCfg.get<string>('agentPath') || undefined,
-        provider: {
-          openai: {
-            apiKey: vscCfg.get<string>('openaiApiKey') || undefined,
-            model: vscCfg.get<string>('openaiModel') || undefined,
-            baseUrl: vscCfg.get<string>('openaiBaseUrl') || undefined,
-          },
-        },
-        log: {
-          acpLogEnabled: vscCfg.get<boolean>('acpLogEnabled', false),
-          acpLogMaxGlobal: vscCfg.get<number>('acpLogMaxGlobal', 5000),
-          acpLogMaxTask: vscCfg.get<number>('acpLogMaxTask', 2000),
-        },
-        github: {
-          token: vscCfg.get<string>('githubToken') || undefined,
-        },
-      };
-
-      const hasValues = Object.values(migrated).some(v => v !== undefined && v !== null && !(typeof v === 'object' && Object.keys(v).length === 0));
-      if (!hasValues) return {};
-
-      await this._writeFile(this._globalPath, migrated);
-      return migrated;
-    } catch (e) {
-      console.warn('[ConfigService] Migration failed:', e);
-      return {};
-    }
   }
 
   get<T>(key: string, defaultValue?: T): T {
@@ -160,7 +127,14 @@ export class ConfigService {
 
   async save(): Promise<void> {
     const merged = this._merge({}, this._config, this._draft);
-    await this._writeFile(this._projectPath || this._globalPath, merged);
+    await this._writeFile(this._globalPath, merged);
+
+    const existingProjectPath = await this._findProjectConfigPath();
+    if (existingProjectPath) {
+      const { project: projectPart } = splitConfigByScope(merged);
+      await this._writeFile(existingProjectPath, projectPart);
+    }
+
     this._config = merged;
     this._draft = { ...merged };
     this._isDirty = false;
@@ -208,15 +182,6 @@ export class ConfigService {
       if (!parsed || typeof parsed !== 'object') {
         return { ok: false, error: '配置格式无效：期望一个 JSON 对象' };
       }
-      const knownKeys = new Set([
-        'agentName', 'agentArgs', 'agentPath', 'provider', 'log',
-        'github', 'ui', '_meta',
-      ]);
-      for (const key of Object.keys(parsed)) {
-        if (!knownKeys.has(key) && key !== '_meta') {
-          return { ok: false, error: `未知配置项: ${key}` };
-        }
-      }
       const { _meta, ...config } = parsed;
       this.updateDraft(config as Partial<KCodeConfig>);
       return { ok: true };
@@ -236,6 +201,96 @@ export class ConfigService {
       await this.load();
     }
   }
+
+  // ── 项目文件自动发现 ──────────────────────────────────
+
+  private async _findProjectConfigPath(): Promise<string | undefined> {
+    const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
+    if (!wsRoot) return undefined;
+
+    let current = wsRoot;
+    while (true) {
+      const candidate = path.join(current, '.kcode', CONFIG_FILENAME);
+      try {
+        await vscode.workspace.fs.stat(vscode.Uri.file(candidate));
+        return candidate;
+      } catch {}
+      const parent = path.dirname(current);
+      if (parent === current) break;
+      current = parent;
+    }
+    return undefined;
+  }
+
+  private async _findOrCreateProjectPath(): Promise<string | undefined> {
+    const existing = await this._findProjectConfigPath();
+    if (existing) return existing;
+
+    const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
+    if (!wsRoot) return undefined;
+    return path.join(wsRoot, '.kcode', CONFIG_FILENAME);
+  }
+
+  // ── 环境变量读取 ──────────────────────────────────────
+
+  private _readEnvVars(): KCodeConfig {
+    const env: KCodeConfig = {};
+
+    const apiKey = process.env['OPENAI_API_KEY'];
+    const model = process.env['OPENAI_MODEL'];
+    const baseUrl = process.env['OPENAI_BASE_URL'];
+    if (apiKey || model || baseUrl) {
+      env.provider = {};
+      env.provider['openai'] = {};
+      if (apiKey) env.provider['openai'].apiKey = apiKey;
+      if (model) env.provider['openai'].model = model;
+      if (baseUrl) env.provider['openai'].baseUrl = baseUrl;
+    }
+
+    return env;
+  }
+
+  // ── VS Code 迁移 ──────────────────────────────────────
+
+  private async _migrateFromVSCode(): Promise<KCodeConfig> {
+    try {
+      const vscCfg = vscode.workspace.getConfiguration('kcode');
+      const hasAny = vscCfg.keys?.()?.length > 0;
+      if (!hasAny) return {};
+
+      const migrated: KCodeConfig = {
+        agentName: vscCfg.get<string>('agentName') || undefined,
+        agentArgs: vscCfg.get<string[]>('agentArgs') || undefined,
+        agentPath: vscCfg.get<string>('agentPath') || undefined,
+        provider: {
+          openai: {
+            apiKey: vscCfg.get<string>('openaiApiKey') || undefined,
+            model: vscCfg.get<string>('openaiModel') || undefined,
+            baseUrl: vscCfg.get<string>('openaiBaseUrl') || undefined,
+          },
+        },
+        log: {
+          acpLogEnabled: vscCfg.get<boolean>('acpLogEnabled', false),
+          acpLogMaxGlobal: vscCfg.get<number>('acpLogMaxGlobal', 5000),
+          acpLogMaxTask: vscCfg.get<number>('acpLogMaxTask', 2000),
+        },
+        github: {
+          token: vscCfg.get<string>('githubToken') || undefined,
+        },
+      };
+
+      const hasValues = Object.values(migrated).some(v => v !== undefined && v !== null && !(typeof v === 'object' && Object.keys(v).length === 0));
+      if (!hasValues) return {};
+
+      await this._writeFile(this._globalPath, migrated);
+      return migrated;
+    } catch (e) {
+      console.warn('[ConfigService] Migration failed:', e);
+      return {};
+    }
+  }
+
+  // ── 文件读写 ──────────────────────────────────────────
 
   private async _readFile(filePath: string): Promise<KCodeConfig> {
     try {
@@ -257,7 +312,7 @@ export class ConfigService {
     try {
       await vscode.workspace.fs.createDirectory(vscode.Uri.file(dir));
     } catch {}
-    let existing = '';
+    let existing = '{}';
     try {
       existing = (await vscode.workspace.fs.readFile(vscode.Uri.file(filePath))).toString();
     } catch {}

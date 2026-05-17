@@ -87,10 +87,10 @@
                     <p class="desc">配置文件使用 JSONC 格式（支持注释和尾逗号），存储在以下位置：</p>
                     <div id="file-links">
                         <span class="file-link" data-target="global">🌐 全局配置: ~/.config/kcode/kcode.jsonc</span>
-                        <span class="file-link" data-target="project">📁 项目配置: .kilo/kcode.jsonc</span>
+                        <span class="file-link" data-target="project">📁 项目配置: .kcode/kcode.jsonc</span>
                     </div>
                     <hr>
-                    <p class="desc">设置面板通过 ${Object.keys(TAB_CONFIGS).length - 1} 个标签页组织配置项，修改后需点击「保存」按钮写入文件。</p>
+                    <p class="desc">设置面板通过 ${Object.keys(TAB_CONFIGS).length - 1} 个标签页组织配置项。UI 展示一份完整配置，保存时按作用域自动拆分：Agent/Provider 写入项目文件，ACP Log/UI 写入全局文件。</p>
                 `;
                 panel.querySelectorAll('.file-link').forEach(el => {
                     el.addEventListener('click', () => {
