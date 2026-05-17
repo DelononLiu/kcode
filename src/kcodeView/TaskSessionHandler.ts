@@ -121,7 +121,7 @@ export class TaskSessionHandler {
                     const rawTitle = text.length > 27 ? text.substring(0, 27) + '...' : text;
                     ctx.store.updateTaskTitle(tid, `${label}: ${rawTitle}`);
                 } else {
-                    const prefix = 'Task: ';
+                    const prefix = '';
                     const rawTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
                     ctx.store.updateTaskTitle(tid, prefix + rawTitle);
                 }

@@ -22,10 +22,10 @@ describe('sidebar renderSidebar', () => {
         }
     });
 
-    it('empty state shows placeholder text', () => {
+    it('empty state renders unassigned section header', () => {
         (window as any).renderSidebar([], []);
         const el = document.getElementById('project-list');
-        expect(el?.innerHTML).toContain('暂无任务');
+        expect(el?.textContent).toContain('未分类任务');
     });
 
     it('renders unassigned tasks as virtual project', () => {

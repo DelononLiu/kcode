@@ -34,6 +34,7 @@ export class KCodePanel {
 
     private context: vscode.ExtensionContext;
     private onDisposeCallback?: () => void;
+    private ctx: KCodePanelContext;
     readonly configService: ConfigService;
 
     constructor(context: vscode.ExtensionContext, store: TaskStore, configService?: ConfigService) {
@@ -97,6 +98,7 @@ export class KCodePanel {
             loadTask: (tid) => this.loadTask(tid),
             loadAssistant: () => this.loadAssistant(),
         };
+        this.ctx = ctx;
 
         this.sessionHandler = new TaskSessionHandler(ctx);
         this.flowHandler = new TaskFlowHandler(ctx);
@@ -226,7 +228,7 @@ export class KCodePanel {
     showDiff(o: string, m: string) { this.router.PostMessage({ type: 'showDiff', original: o, modified: m }); }
     showWebView(url: string) { this.router.PostMessage({ type: 'showWebView', url }); }
     getCurrentTaskId(): string | null { return this.currentTaskId; }
-    setRefreshSidebarCallback(cb: () => void) { this.refreshSidebarCallback = cb; }
+    setRefreshSidebarCallback(cb: () => void) { this.refreshSidebarCallback = cb; this.ctx.refreshSidebarCallback = cb; }
     onDidDispose(callback: () => void) { this.onDisposeCallback = callback; }
 
     // === Private helpers ===

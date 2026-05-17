@@ -115,17 +115,13 @@ declare function acquireVsCodeApi(): any;
         // Only show projects that have tasks in current workspace
         const projects = allProjects.filter((p: any) => projectHasWorkspaceTask(p.id));
 
-        if (projects.length === 0 && visible.filter((t: any) => !t.containerId).length === 0) {
-            projectList.innerHTML = '<div class="placeholder-text">暂无任务</div>';
-            return;
-        }
-
-        // Render "未分配" section as a virtual project — always shown
-        const unassigned = visible.filter((t: any) => !t.containerId);
-        if (unassigned.length > 0) {
-            const section = createVirtualProjectSection(unassigned, activeTaskId);
-            projectList.appendChild(section);
-        }
+        // Render "未分类" section — always shown, tasks filtered by workspace
+        const allUnassigned = visible.filter((t: any) => !t.containerId);
+        const unassigned = currentWorkspace
+            ? allUnassigned.filter((t: any) => !t.workspace || t.workspace === currentWorkspace)
+            : allUnassigned;
+        const unassignedSection = createVirtualProjectSection(unassigned, activeTaskId);
+        projectList.appendChild(unassignedSection);
 
         for (const project of projects) {
             const section = createProjectSection(project, containers, visible, activeTaskId);
