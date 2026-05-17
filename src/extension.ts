@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { KCodePanel } from './kcodeView/KCodePanel';
 import { KCodeSidebarProvider } from './kcodeView/KCodeSidebarProvider';
 import { TaskStore } from './store/TaskStore';
-import { FileStorage, setFileStorageLogger } from './store/FileStorage';
+import { ProjectFs } from './store/ProjectFs';
 import { Task } from './types';
 import { importGitHubIssue } from './commands/importGitHubIssue';
 import { ConfigService } from './core/ConfigService';
@@ -15,7 +15,6 @@ let sidebarProvider: KCodeSidebarProvider | undefined;
 let configService: ConfigService | undefined;
 let settingsProvider: SettingsProvider | undefined;
 let myTasksProvider: MyTasksProvider | undefined;
-let fileStorage: FileStorage | undefined;
 
 function openTaskInPanel(context: vscode.ExtensionContext, taskId: string, autoSendGoal?: string) {
     if (panel) {
@@ -42,14 +41,9 @@ function refreshSidebar() {
 export async function activate(context: vscode.ExtensionContext) {
     console.log('KCode is now active!');
 
-    const _fsOut = vscode.window.createOutputChannel('KCode FileStorage');
-    setFileStorageLogger((msg) => { _fsOut.appendLine(msg); console.log(msg); });
-
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
-    fileStorage = new FileStorage(workspaceRoot);
-    fileStorage.migrateFromMemento(context.workspaceState);
-    const globalStorage = new FileStorage('__kcode_global__');
-    store = new TaskStore(fileStorage, globalStorage);
+    const projectFs = new ProjectFs();
+    store = new TaskStore(projectFs);
 
     configService = new ConfigService(workspaceRoot);
     ConfigService.setInstance(configService);

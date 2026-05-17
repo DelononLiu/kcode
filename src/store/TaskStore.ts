@@ -1,4 +1,8 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { Task, ChatMessage, FileChange, ContainerEntity, AssistantMessage } from '../types';
+import { ProjectFs } from './ProjectFs';
 
 export interface StorageBackend {
     get<T>(key: string): T | undefined;
@@ -7,30 +11,23 @@ export interface StorageBackend {
     keys(): readonly string[];
 }
 
+function kcodeRoot(): string {
+    return path.join(os.homedir(), '.local', 'share', 'kcode');
+}
+
 export class TaskStore {
-    private state: StorageBackend;
-    private globalState: StorageBackend;
-    private _tasksCache: Task[] | null = null;
+    private fs: ProjectFs;
+    private _msgCounterCache: Map<string, number> = new Map();
 
-    constructor(state: StorageBackend, globalState?: StorageBackend) {
-        this.state = state;
-        this.globalState = globalState || state;
-    }
-
-    private get _gs(): StorageBackend {
-        return this.globalState;
+    constructor(fs: ProjectFs) {
+        this.fs = fs;
     }
 
     // ===== Task CRUD =====
 
-    private _invalidateCache(): void {
-        this._tasksCache = null;
-    }
-
     getTasks(): Task[] {
-        if (this._tasksCache) return this._tasksCache;
-        const tasks = this.state.get<Task[]>('tasks', []);
-        this._tasksCache = tasks.map(t => ({
+        const tasks = this.fs.getAllTasks();
+        return tasks.map(t => ({
             ...t,
             phase: t.phase || ('demand' as const),
             confirmedItems: t.confirmedItems || [],
@@ -38,440 +35,311 @@ export class TaskStore {
             planSteps: t.planSteps || [],
             hooks: t.hooks || {},
         }));
-        return this._tasksCache;
     }
 
     addTask(task: Task): void {
-        const tasks = this.state.get<Task[]>('tasks', []);
-        tasks.unshift(task);
-        this.state.update('tasks', tasks);
-        this._invalidateCache();
+        this.fs.addTask(task);
     }
 
     updateTaskPhase(taskId: string, phase: Task['phase']): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].phase = phase;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
-        }
+        this.fs.updateTask(taskId, { phase });
     }
 
     updateConfirmedItems(taskId: string, items: string[]): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].confirmedItems = items;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
-        }
+        this.fs.updateTask(taskId, { confirmedItems: items });
     }
 
     updatePendingItems(taskId: string, items: string[]): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].pendingItems = items;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
-        }
+        this.fs.updateTask(taskId, { pendingItems: items });
     }
 
     updatePlanSteps(taskId: string, steps: Task['planSteps']): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].planSteps = steps;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
-        }
+        this.fs.updateTask(taskId, { planSteps: steps });
     }
 
     updatePlanStepStatus(taskId: string, index: number, status: Task['planSteps'][0]['status']): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1 && tasks[idx].planSteps[index]) {
-            tasks[idx].planSteps[index].status = status;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
+        const task = this.fs.getTask(taskId);
+        if (task && task.planSteps[index]) {
+            const steps = [...task.planSteps];
+            steps[index] = { ...steps[index], status };
+            this.fs.updateTask(taskId, { planSteps: steps });
         }
     }
 
     updateTaskStatus(taskId: string, status: Task['status']): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].status = status;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
-        }
+        this.fs.updateTask(taskId, { status });
     }
 
     updateTaskTitle(taskId: string, title: string): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].title = title;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
-        }
+        this.fs.updateTask(taskId, { title });
     }
 
     updateTaskType(taskId: string, type: 'task'): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].type = type;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
-        }
+        this.fs.updateTask(taskId, { type });
     }
 
     updateTaskGoal(taskId: string, goal: string): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].goal = goal;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
-        }
+        this.fs.updateTask(taskId, { goal });
     }
 
     updateTaskCategory(taskId: string, category: Task['category']): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].category = category;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
-        }
+        this.fs.updateTask(taskId, { category } as any);
     }
 
     updateTaskSubType(taskId: string, subType: Task['subType']): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].subType = subType;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
-        }
+        this.fs.updateTask(taskId, { subType } as any);
     }
 
     updateTaskPin(taskId: string, pinned: boolean): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].pinned = pinned;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
-        }
+        this.fs.updateTask(taskId, { pinned });
     }
 
     getTask(taskId: string): Task | undefined {
-        return this.getTasks().find(t => t.id === taskId);
+        return this.fs.getTask(taskId);
     }
 
     // ===== Chat Messages =====
 
     getMessages(taskId: string): ChatMessage[] {
-        const key = `messages_${taskId}`;
-        return this.state.get<ChatMessage[]>(key, []);
+        return this.fs.getMessages(taskId);
     }
 
     addMessage(msg: ChatMessage): void {
-        const messages = this.getMessages(msg.taskId);
-        messages.push(msg);
-        this.state.update(`messages_${msg.taskId}`, messages);
+        this.fs.addMessage(msg);
     }
 
     nextMessageId(taskId: string): string {
-        const key = `msgCounter_${taskId}`;
-        const next = (this.state.get<number>(key, 0)) + 1;
-        this.state.update(key, next);
+        if (!this._msgCounterCache.has(taskId)) {
+            this._msgCounterCache.set(taskId, this.fs.getNextMessageId(taskId));
+        }
+        const next = this._msgCounterCache.get(taskId)! + 1;
+        this._msgCounterCache.set(taskId, next);
         return `msg_${next}`;
     }
 
     deleteTask(taskId: string): void {
-        const tasks = this.getTasks().filter(t => t.id !== taskId);
-        this.state.update('tasks', tasks);
-        this._invalidateCache();
-        this.state.update(`messages_${taskId}`, []);
-        this.state.update(`msgCounter_${taskId}`, undefined);
-        this.state.update(`reviewChanges_${taskId}`, undefined);
+        this.fs.setMessages(taskId, []);
+        this.fs.deleteTask(taskId);
+        this._msgCounterCache.delete(taskId);
     }
 
     deleteTasks(taskIds: string[]): void {
-        const idSet = new Set(taskIds);
-        const tasks = this.getTasks().filter(t => !idSet.has(t.id));
-        this.state.update('tasks', tasks);
-        this._invalidateCache();
         for (const id of taskIds) {
-            this.state.update(`messages_${id}`, []);
-            this.state.update(`msgCounter_${id}`, undefined);
-            this.state.update(`reviewChanges_${id}`, undefined);
+            this.fs.setMessages(id, []);
+            this.fs.deleteTask(id);
+            this._msgCounterCache.delete(id);
         }
     }
 
     updateTasksPin(taskIds: string[], pinned: boolean): void {
-        const idSet = new Set(taskIds);
-        const tasks = this.getTasks();
-        for (const task of tasks) {
-            if (idSet.has(task.id)) {
-                task.pinned = pinned;
-            }
+        for (const id of taskIds) {
+            this.fs.updateTask(id, { pinned });
         }
-        this.state.update('tasks', tasks);
-        this._invalidateCache();
     }
 
     updateMessageContent(taskId: string, messageId: string, content: string): void {
-        const messages = this.getMessages(taskId);
+        const messages = this.fs.getMessages(taskId);
         const idx = messages.findIndex(m => m.id === messageId);
         if (idx !== -1) {
             messages[idx].content = content;
-            this.state.update(`messages_${taskId}`, messages);
+            this.fs.setMessages(taskId, messages);
         }
     }
 
     updateMessageType(taskId: string, messageId: string, type: ChatMessage['type']): void {
-        const messages = this.getMessages(taskId);
+        const messages = this.fs.getMessages(taskId);
         const idx = messages.findIndex(m => m.id === messageId);
         if (idx !== -1) {
             messages[idx].type = type;
-            this.state.update(`messages_${taskId}`, messages);
+            this.fs.setMessages(taskId, messages);
         }
     }
 
     storeReviewChanges(taskId: string, changes: FileChange[]): void {
-        this.state.update(`reviewChanges_${taskId}`, changes);
+        this.fs.storeReviewChanges(taskId, changes);
     }
 
     getReviewChanges(taskId: string): FileChange[] {
-        return this.state.get<FileChange[]>(`reviewChanges_${taskId}`, []);
+        return this.fs.getReviewChanges(taskId);
     }
 
     clearReviewChanges(taskId: string): void {
-        this.state.update(`reviewChanges_${taskId}`, undefined);
+        this.fs.clearReviewChanges(taskId);
     }
 
     clearMessages(taskId: string): void {
-        this.state.update(`messages_${taskId}`, []);
+        this.fs.setMessages(taskId, []);
+        this._msgCounterCache.delete(taskId);
     }
 
-    // ===== Group CRUD =====
+    // ===== Group CRUD (legacy, using containers) =====
 
     getGroups(): string[] {
-        return this.state.get<string[]>('groups', []);
+        const containers = this.fs.getAllContainers();
+        return containers.filter(c => c.type === 'group').map(c => c.name);
     }
 
     addGroup(name: string): void {
-        const groups = this.getGroups();
-        if (!groups.includes(name)) {
-            groups.push(name);
-            this.state.update('groups', groups);
+        if (!this.getGroups().includes(name)) {
+            const containers = this.fs.getAllContainers();
+            const inboxProject = containers.find(c => c.type === 'project' && c.name === '未分类');
+            if (inboxProject) {
+                this.fs.addGroup(inboxProject.id, name);
+            }
         }
     }
 
     updateTaskGroup(taskId: string, group: string | null): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].group = group ?? undefined;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
+        // legacy: group was a string name; now we use containerId
+        if (group) {
+            const containers = this.fs.getAllContainers();
+            const g = containers.find(c => c.type === 'group' && c.name === group);
+            if (g) {
+                this.fs.moveTaskToContainer(taskId, g.id);
+            }
+        } else {
+            this.fs.moveTaskToContainer(taskId, undefined);
         }
     }
 
     deleteGroup(name: string): void {
-        const groups = this.getGroups().filter(g => g !== name);
-        this.state.update('groups', groups);
-        const tasks = this.getTasks();
-        for (const task of tasks) {
-            if (task.group === name) {
-                task.group = undefined;
+        const containers = this.fs.getAllContainers();
+        const g = containers.find(c => c.type === 'group' && c.name === name);
+        if (g && g.parentId) {
+            const tasks = this.fs.getProjectTasks(g.parentId).filter(t => t.containerId === g.id);
+            for (const task of tasks) {
+                this.fs.moveTaskToContainer(task.id, g.parentId);
             }
+            this.fs.deleteGroup(g.parentId, g.id);
         }
-        this.state.update('tasks', tasks);
-        this._invalidateCache();
     }
 
     renameGroup(oldName: string, newName: string): void {
-        const groups = this.getGroups();
-        const idx = groups.indexOf(oldName);
-        if (idx !== -1) {
-            groups[idx] = newName;
-            this.state.update('groups', groups);
+        const containers = this.fs.getAllContainers();
+        const g = containers.find(c => c.type === 'group' && c.name === oldName);
+        if (g && g.parentId) {
+            this.fs.updateGroup(g.parentId, g.id, { name: newName });
         }
-        const tasks = this.getTasks();
-        for (const task of tasks) {
-            if (task.group === oldName) {
-                task.group = newName;
-            }
-        }
-        this.state.update('tasks', tasks);
-        this._invalidateCache();
     }
 
     moveGroup(groupName: string, direction: 'up' | 'down'): void {
-        const groups = this.getGroups();
-        const idx = groups.indexOf(groupName);
-        if (idx === -1) return;
-        if (direction === 'up' && idx > 0) {
-            [groups[idx - 1], groups[idx]] = [groups[idx], groups[idx - 1]];
-        } else if (direction === 'down' && idx < groups.length - 1) {
-            [groups[idx], groups[idx + 1]] = [groups[idx + 1], groups[idx]];
-        } else {
-            return;
+        // groups don't have ordering in the new system
+        const containers = this.fs.getAllContainers();
+        const g = containers.find(c => c.type === 'group' && c.name === groupName);
+        if (g) {
+            this.fs.moveContainer(g.id, direction);
         }
-        this.state.update('groups', groups);
+    }
+
+    reorderGroups(groupNames: string[]): void {
+        // no-op in new system
     }
 
     updateTaskHooks(taskId: string, phase: string, commands: string[]): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            if (!tasks[idx].hooks) {
-                tasks[idx].hooks = {};
-            }
-            (tasks[idx].hooks as Record<string, string[]>)[phase] = commands;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
+        const task = this.fs.getTask(taskId);
+        if (task) {
+            const hooks = task.hooks ? { ...task.hooks } : {} as Record<string, string[]>;
+            hooks[phase] = commands;
+            this.fs.updateTask(taskId, { hooks } as any);
         }
     }
 
     updateTaskNodeMessageId(taskId: string, nodeType: string, messageId: string): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            if (!tasks[idx].nodeMessageIds) {
-                tasks[idx].nodeMessageIds = {};
-            }
-            (tasks[idx].nodeMessageIds as Record<string, string>)[nodeType] = messageId;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
+        const task = this.fs.getTask(taskId);
+        if (task) {
+            const nodeMessageIds = task.nodeMessageIds ? { ...task.nodeMessageIds } : {} as Record<string, string>;
+            nodeMessageIds[nodeType] = messageId;
+            this.fs.updateTask(taskId, { nodeMessageIds } as any);
         }
     }
 
     updateTaskArchive(taskId: string, archived: boolean): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].archived = archived;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
-        }
+        this.fs.updateTask(taskId, { archived });
     }
 
     updateTasksArchive(taskIds: string[], archived: boolean): void {
-        const idSet = new Set(taskIds);
-        const tasks = this.getTasks();
-        for (const task of tasks) {
-            if (idSet.has(task.id)) {
-                task.archived = archived;
-            }
+        for (const id of taskIds) {
+            this.fs.updateTask(id, { archived });
         }
-        this.state.update('tasks', tasks);
-        this._invalidateCache();
-    }
-
-    reorderGroups(groupNames: string[]): void {
-        this.state.update('groups', groupNames);
     }
 
     // ===== Assistant Messages =====
 
     getAssistantMessages(): AssistantMessage[] {
-        return this.state.get<AssistantMessage[]>('assistant_messages', []);
+        return this.fs.getAssistantMessages();
     }
 
     addAssistantMessage(msg: AssistantMessage): void {
-        const messages = this.getAssistantMessages();
-        messages.push(msg);
-        if (messages.length > 200) {
-            messages.splice(0, messages.length - 200);
-        }
-        this.state.update('assistant_messages', messages);
+        this.fs.addAssistantMessage(msg);
     }
 
     nextAssistantMessageId(): string {
-        const key = 'assistant_msgCounter';
-        const next = (this.state.get<number>(key, 0)) + 1;
-        this.state.update(key, next);
-        return `amsg_${next}`;
+        const msgs = this.fs.getAssistantMessages();
+        const max = msgs.reduce((m, msg) => {
+            const num = parseInt(msg.id.replace('amsg_', ''), 10);
+            return num > m ? num : m;
+        }, 0);
+        return `amsg_${max + 1}`;
     }
 
     // ===== Container CRUD (Group/Project tree) =====
 
     getContainers(): ContainerEntity[] {
-        return this._gs.get<ContainerEntity[]>('containers', []);
+        return this.fs.getAllContainers();
     }
 
     getContainer(id: string): ContainerEntity | undefined {
-        return this.getContainers().find(c => c.id === id);
+        return this.fs.getContainer(id);
     }
 
     getContainerByName(name: string): ContainerEntity | undefined {
-        return this.getContainers().find(c => c.name === name);
+        return this.fs.getContainerByName(name);
     }
 
     addContainer(name: string, type: ContainerEntity['type'], parentId?: string): ContainerEntity | null {
-        const containers = this.getContainers();
-        if (containers.some(c => c.name === name)) return null;
-        const container: ContainerEntity = {
-            id: `cnt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            name,
-            type,
-            parentId,
-            createdAt: Date.now(),
-        };
-        containers.push(container);
-        this._gs.update('containers', containers);
-        return container;
+        if (type === 'project') {
+            return this.fs.addProject(name);
+        } else if (type === 'group' && parentId) {
+            return this.fs.addGroup(parentId, name);
+        }
+        return null;
     }
 
     updateContainer(id: string, updates: Partial<Pick<ContainerEntity, 'name' | 'parentId'>>): boolean {
-        const containers = this.getContainers();
-        if (updates.name && containers.some(c => c.name === updates.name && c.id !== id)) return false;
-        const updated = containers.map(c =>
-            c.id === id ? { ...c, ...updates } : c
-        );
-        this._gs.update('containers', updated);
-        return true;
+        const c = this.fs.getContainer(id);
+        if (!c) return false;
+        if (c.type === 'project') {
+            return this.fs.updateProject(id, updates);
+        } else if (c.type === 'group' && c.parentId) {
+            return this.fs.updateGroup(c.parentId, id, updates);
+        }
+        return false;
     }
 
     deleteContainer(id: string): void {
-        const containers = this.getContainers();
-        const idsToRemove = new Set<string>();
-        const collectChildren = (parentId: string) => {
-            idsToRemove.add(parentId);
-            for (const c of containers) {
-                if (c.parentId === parentId) collectChildren(c.id);
-            }
-        };
-        collectChildren(id);
-        const remaining = containers.filter(c => !idsToRemove.has(c.id));
-        this._gs.update('containers', remaining);
-        const tasks = this.getTasks();
-        for (const task of tasks) {
-            if (task.containerId && idsToRemove.has(task.containerId)) {
-                task.containerId = undefined;
-            }
+        const c = this.fs.getContainer(id);
+        if (!c) return;
+        if (c.type === 'project') {
+            this.fs.deleteProject(id);
+        } else if (c.type === 'group' && c.parentId) {
+            this.fs.deleteGroup(c.parentId, id);
         }
-        this.state.update('tasks', tasks);
-        this._invalidateCache();
     }
 
     getChildren(parentId: string): ContainerEntity[] {
-        return this.getContainers().filter(c => c.parentId === parentId);
+        const c = this.fs.getContainer(parentId);
+        if (!c) return [];
+        if (c.type === 'project') {
+            return this.fs.getGroups(parentId);
+        }
+        return [];
     }
 
     getAncestors(id: string): ContainerEntity[] {
-        const containers = this.getContainers();
         const result: ContainerEntity[] = [];
-        let current = containers.find(c => c.id === id);
+        let current = this.fs.getContainer(id);
         while (current?.parentId) {
-            const parent = containers.find(c => c.id === current!.parentId);
+            const parent = this.fs.getContainer(current.parentId);
             if (parent) {
                 result.unshift(parent);
                 current = parent;
@@ -483,89 +351,85 @@ export class TaskStore {
     }
 
     getRootContainers(): ContainerEntity[] {
-        return this.getContainers().filter(c => !c.parentId);
+        return this.fs.getProjects();
     }
 
     moveContainer(id: string, direction: 'up' | 'down'): void {
-        const containers = this.getContainers();
-        const idx = containers.findIndex(c => c.id === id);
-        if (idx === -1) return;
-        if (direction === 'up' && idx > 0) {
-            [containers[idx - 1], containers[idx]] = [containers[idx], containers[idx - 1]];
-        } else if (direction === 'down' && idx < containers.length - 1) {
-            [containers[idx], containers[idx + 1]] = [containers[idx + 1], containers[idx]];
-        } else {
-            return;
-        }
-        this._gs.update('containers', containers);
+        this.fs.moveContainer(id, direction);
     }
 
     getProjectContainers(): ContainerEntity[] {
-        return this.getContainers().filter(c => c.type === 'project');
+        return this.fs.getProjects();
     }
 
     getProjectTasks(projectId: string): Task[] {
-        const containers = this.getContainers();
-        const containerIds = new Set<string>();
-        const collectDescendants = (parentId: string) => {
-            containerIds.add(parentId);
-            for (const c of containers) {
-                if (c.parentId === parentId) collectDescendants(c.id);
-            }
-        };
-        collectDescendants(projectId);
-        return this.getTasks().filter(t => t.containerId && containerIds.has(t.containerId));
+        return this.fs.getProjectTasks(projectId);
     }
 
     getProjectProgress(projectId: string): { completed: number; total: number } {
-        const tasks = this.getProjectTasks(projectId).filter(t => t.status !== 'cancelled');
+        const tasks = this.fs.getProjectTasks(projectId).filter(t => t.status !== 'cancelled');
         const total = tasks.length;
         const completed = tasks.filter(t => t.status === 'completed').length;
         return { completed, total };
     }
 
     getContainerTasks(containerId: string): Task[] {
+        const c = this.fs.getContainer(containerId);
+        if (!c) return [];
+        if (c.type === 'project') {
+            return this.fs.getProjectTasks(containerId);
+        }
         return this.getTasks().filter(t => t.containerId === containerId);
     }
 
     updateTaskContainer(taskId: string, containerId: string | undefined): void {
-        const tasks = this.getTasks();
-        const idx = tasks.findIndex(t => t.id === taskId);
-        if (idx !== -1) {
-            tasks[idx].containerId = containerId;
-            this.state.update('tasks', tasks);
-        this._invalidateCache();
-        }
+        this.fs.moveTaskToContainer(taskId, containerId);
     }
 
     moveTask(taskId: string, targetTaskId: string | null, position: 'before' | 'after' | null, group: string | null): void {
-        const tasks = this.getTasks();
-        const fromIdx = tasks.findIndex(t => t.id === taskId);
-        if (fromIdx === -1) return;
+        const task = this.fs.getTask(taskId);
+        if (!task) return;
 
-        const [task] = tasks.splice(fromIdx, 1);
-        task.group = group ?? undefined;
-
-        if (targetTaskId) {
-            const toIdx = tasks.findIndex(t => t.id === targetTaskId);
-            if (toIdx !== -1) {
-                tasks.splice(toIdx + (position === 'after' ? 1 : 0), 0, task);
-            } else {
-                tasks.unshift(task);
+        if (group !== null && group !== undefined) {
+            const containers = this.fs.getAllContainers();
+            const g = containers.find(c => c.type === 'group' && c.name === group);
+            if (g) {
+                this.fs.moveTaskToContainer(taskId, g.id);
             }
-        } else {
-            let insertIdx = tasks.length;
-            for (let i = tasks.length - 1; i >= 0; i--) {
-                if (tasks[i].group === task.group) {
-                    insertIdx = i + 1;
-                    break;
-                }
-            }
-            tasks.splice(insertIdx, 0, task);
         }
 
-        this.state.update('tasks', tasks);
-        this._invalidateCache();
+        if (targetTaskId && position) {
+            this._reorderWithinContainer(task, targetTaskId, position);
+        }
+    }
+
+    private _reorderWithinContainer(task: Task, targetTaskId: string, position: 'before' | 'after'): void {
+        const containerId = task.containerId || undefined;
+        const orderFile = this._taskOrderPath(containerId);
+        let order: string[] = [];
+        try { order = JSON.parse(fs.readFileSync(orderFile, 'utf-8')); } catch {}
+        order = order.filter((id: string) => id !== task.id);
+        const insertAt = order.indexOf(targetTaskId) + (position === 'after' ? 1 : 0);
+        order.splice(insertAt < 0 ? order.length : insertAt, 0, task.id);
+        const dir = path.dirname(orderFile);
+        try { fs.mkdirSync(dir, { recursive: true }); } catch {}
+        fs.writeFileSync(orderFile, JSON.stringify(order, null, 2), 'utf-8');
+    }
+
+    private _taskOrderPath(containerId: string | undefined): string {
+        const root = kcodeRoot();
+        if (!containerId) {
+            return path.join(root, 'inbox', '_order.json');
+        }
+        const c = this.fs.getContainer(containerId);
+        if (!c) return path.join(root, 'inbox', '_order.json');
+        if (c.type === 'project') {
+            return path.join(root, 'projects', containerId, 'tasks', '_order.json');
+        }
+        if (c.parentId) {
+            return path.join(root, 'projects', c.parentId, 'task-groups', containerId, 'tasks', '_order.json');
+        }
+        return path.join(root, 'inbox', '_order.json');
     }
 
     findEmptyTask(): Task | undefined {

@@ -1,26 +1,24 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { TaskStore } from '../TaskStore';
+import { ProjectFs } from '../ProjectFs';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import type { Task, ChatMessage } from '../../types';
-
-class MockMemento {
-    private data = new Map<string, any>();
-
-    get<T>(key: string, defaultValue: T): T {
-        return this.data.has(key) ? this.data.get(key) : defaultValue;
-    }
-
-    update(key: string, value: any): void {
-        this.data.set(key, value);
-    }
-}
 
 describe('TaskStore', () => {
     let store: TaskStore;
-    let memento: MockMemento;
+    let pfs: ProjectFs;
+    let tempRoot: string;
 
     beforeEach(() => {
-        memento = new MockMemento();
-        store = new TaskStore(memento as any);
+        tempRoot = path.join(os.tmpdir(), `kcode-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        pfs = new ProjectFs(tempRoot);
+        store = new TaskStore(pfs);
+    });
+
+    afterEach(() => {
+        try { fs.rmSync(tempRoot, { recursive: true, force: true }); } catch {}
     });
 
     it('starts with empty tasks', () => {
@@ -75,7 +73,7 @@ describe('TaskStore', () => {
         store.addTask(task);
 
         const m1: any = { id: 'm1', taskId: 't4', role: 'user', content: 'hello', timestamp: 1 };
-        const m2: any = { id: 'm2', taskId: 't4', role: 'assistant', content: 'world', timestamp: 2 };
+        const m2: any = { id: 'm2', taskId: 't4', role: 'agent', content: 'world', timestamp: 2 };
         store.addMessage(m1);
         store.addMessage(m2);
 
