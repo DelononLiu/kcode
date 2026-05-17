@@ -218,7 +218,8 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             pendingItems: [],
             planSteps: [],
             createdAt: Date.now(),
-            pinned: false
+            pinned: false,
+            workspace: vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,
         };
         this._store.addTask(task);
         this._onTaskSelected(task.id);
@@ -236,6 +237,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         const containers = this._store.getContainers();
         this._activeTaskId = activeTaskId !== undefined ? activeTaskId : this._activeTaskId;
         const resolvedActiveId = this._activeTaskId === null ? '__assistant__' : this._activeTaskId;
+        const currentWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
         this._view.webview.postMessage({
             type: 'updateTaskList',
             tasks,
@@ -243,6 +245,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             containers,
             activeTaskId: resolvedActiveId,
             editingGroupName,
+            currentWorkspace,
         });
     }
 
@@ -253,6 +256,8 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         const scriptUri = webview.asWebviewUri(
             vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', 'sidebar.js')
         );
+
+        const currentWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || '';
 
         return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -580,6 +585,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
              data-groups="${this.escapeAttr(JSON.stringify(this._store.getGroups()))}"
              data-containers="${this.escapeAttr(JSON.stringify(this._store.getContainers()))}"
              data-active-task-id="${this._activeTaskId || ''}"
+             data-current-workspace="${this.escapeAttr(currentWorkspace)}"
              style="display:none"></div>
         <script src="${scriptUri}"></script>
     </body>

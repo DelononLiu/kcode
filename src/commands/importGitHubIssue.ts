@@ -295,6 +295,7 @@ export async function importGitHubIssue(
         pendingItems: [],
         planSteps: [],
         createdAt: Date.now(),
+        workspace: vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,
         source,
     };
     store.addTask(task);

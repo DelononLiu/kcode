@@ -105,7 +105,8 @@ export async function activate(context: vscode.ExtensionContext) {
             confirmedItems: [],
             pendingItems: [],
             planSteps: [],
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            workspace: workspaceRoot,
         };
         store.addTask(task);
         refreshSidebar();
@@ -135,7 +136,8 @@ export async function activate(context: vscode.ExtensionContext) {
             confirmedItems: [],
             pendingItems: [],
             planSteps: [],
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            workspace: workspaceRoot,
         };
         store.addTask(task);
         refreshSidebar();

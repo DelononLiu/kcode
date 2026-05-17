@@ -345,7 +345,8 @@ export class TaskFlowHandler {
         const firstUserMsg = messages.find(m => m.role === 'user');
         const newTask: Task = {
             id: `task_${Date.now()}`, title: firstUserMsg ? firstUserMsg.content.substring(0, 50).replace(/\n/g, ' ') : '从对话创建的任务',
-            goal: '', type: 'task', status: 'pending', phase: 'demand', confirmedItems: [], pendingItems: [], planSteps: [], createdAt: Date.now(), pinned: false
+            goal: '', type: 'task', status: 'pending', phase: 'demand', confirmedItems: [], pendingItems: [], planSteps: [], createdAt: Date.now(), pinned: false,
+            workspace: vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,
         };
         ctx.store.addTask(newTask);
         const newId = newTask.id;
@@ -445,6 +446,7 @@ export class TaskFlowHandler {
             id: `task_${Date.now()}`, title: payload.title, goal: fullGoal, type: 'task', status: 'pending', phase: 'demand',
             confirmedItems: payload.confirmedItems || [], pendingItems: [], planSteps: [], createdAt: Date.now(),
             pinned: false, source: parentTask.source, containerId: parentTask.containerId, group: parentTask.group,
+            workspace: vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,
         };
         ctx.store.addTask(newTask);
         ctx.store.addMessage({ id: ctx.store.nextMessageId(parentTaskId), taskId: parentTaskId, role: 'agent', type: 'stop_message', content: `📤 已委派新任务「${payload.title}」`, timestamp: Date.now() });

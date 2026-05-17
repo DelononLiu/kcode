@@ -72,6 +72,7 @@ export interface Task {
     pendingItems: string[];
     planSteps: PlanStep[];
     createdAt: number;
+    workspace?: string;
     pinned?: boolean;
     archived?: boolean;
     group?: string;

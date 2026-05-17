@@ -17,6 +17,7 @@ export class AssistantHandler {
         private sendPendingQueueUpdate: () => void,
         private refreshSidebar?: () => void,
         private loadTask?: (taskId: string) => void,
+        private workspaceRoot?: string,
     ) {}
 
     loadMessages() {
@@ -48,6 +49,7 @@ export class AssistantHandler {
                 planSteps: [],
                 createdAt: Date.now(),
                 pinned: false,
+                workspace: this.workspaceRoot,
             };
             this.store.addTask(newTask);
             this.loadTask?.(newTask.id);

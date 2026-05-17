@@ -52,7 +52,7 @@ declare function acquireVsCodeApi(): any;
             const message = event.data;
             switch (message.type) {
                 case 'updateTaskList':
-                    renderSidebar(message.tasks, message.containers || [], message.activeTaskId);
+                    renderSidebar(message.tasks, message.containers || [], message.activeTaskId, message.currentWorkspace);
                     break;
                 case 'expandContainer':
                     _collapsed.delete(message.containerId);
@@ -67,10 +67,11 @@ declare function acquireVsCodeApi(): any;
         const groups = JSON.parse(dataEl.dataset.groups || '[]');
         const containers = JSON.parse(dataEl.dataset.containers || '[]');
         const activeTaskId = dataEl.dataset.activeTaskId || undefined;
-        renderSidebar(tasks, containers, activeTaskId);
+        const currentWorkspace = dataEl.dataset.currentWorkspace || undefined;
+        renderSidebar(tasks, containers, activeTaskId, currentWorkspace);
     }
 
-    function renderSidebar(tasks: any[], containers: any[], activeTaskId?: string) {
+    function renderSidebar(tasks: any[], containers: any[], activeTaskId?: string, currentWorkspace?: string) {
         const projectList = document.getElementById('project-list');
         if (!projectList) return;
 
@@ -90,20 +91,37 @@ declare function acquireVsCodeApi(): any;
             dataEl.dataset.tasks = JSON.stringify(tasks);
             dataEl.dataset.containers = JSON.stringify(containers);
             dataEl.dataset.activeTaskId = (activeTaskId === '__assistant__' ? '' : activeTaskId) || '';
+            dataEl.dataset.currentWorkspace = currentWorkspace || '';
         }
 
         projectList.innerHTML = '';
 
         const visible = tasks.filter((t: any) => !t.archived);
-        const projects = containers.filter((c: any) => c.type === 'project');
-        const unassigned = visible.filter((t: any) => !t.containerId);
+        const allProjects = containers.filter((c: any) => c.type === 'project');
 
-        if (projects.length === 0 && unassigned.length === 0) {
+        function projectHasWorkspaceTask(projectId: string): boolean {
+            const containerIds = new Set<string>();
+            containerIds.add(projectId);
+            for (const c of containers) {
+                if (c.parentId === projectId) containerIds.add(c.id);
+            }
+            return visible.some((t: any) => {
+                if (!t.containerId || !containerIds.has(t.containerId)) return false;
+                if (!currentWorkspace) return true;
+                return t.workspace === currentWorkspace || !t.workspace;
+            });
+        }
+
+        // Only show projects that have tasks in current workspace
+        const projects = allProjects.filter((p: any) => projectHasWorkspaceTask(p.id));
+
+        if (projects.length === 0 && visible.filter((t: any) => !t.containerId).length === 0) {
             projectList.innerHTML = '<div class="placeholder-text">暂无任务</div>';
             return;
         }
 
-        // Render "未分配" section as a virtual project
+        // Render "未分配" section as a virtual project — always shown
+        const unassigned = visible.filter((t: any) => !t.containerId);
         if (unassigned.length > 0) {
             const section = createVirtualProjectSection(unassigned, activeTaskId);
             projectList.appendChild(section);

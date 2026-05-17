@@ -14,6 +14,7 @@ interface MetaFile {
 	status?: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
 	phase?: 'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
 	createdAt?: number;
+	workspace?: string;
 	pinned?: boolean;
 	archived?: boolean;
 	containerId?: string;
@@ -470,6 +471,7 @@ export class ProjectFs {
 			pendingItems: (meta.pendingItems as string[]) || [],
 			planSteps: (meta.planSteps as Task['planSteps']) || [],
 			createdAt: (meta.createdAt as number) || 0,
+			workspace: (meta.workspace as string) || undefined,
 			pinned: (meta.pinned as boolean) || false,
 			archived: (meta.archived as boolean) || false,
 			category: (meta.category as Task['category']) || undefined,
@@ -493,6 +495,7 @@ export class ProjectFs {
 			pinned: task.pinned || false,
 			archived: task.archived || false,
 		};
+		if (task.workspace) meta.workspace = task.workspace;
 		if (task.category) meta.category = task.category;
 		if (task.subType) meta.subType = task.subType;
 		if (task.confirmedItems.length) meta.confirmedItems = task.confirmedItems;

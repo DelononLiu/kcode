@@ -109,6 +109,7 @@ export class KCodePanel {
             () => this.sendPendingQueueUpdate(),
             this.refreshSidebarCallback,
             (taskId) => this.loadTask(taskId),
+            vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,
         );
 
         this.setupMessageHandler();
