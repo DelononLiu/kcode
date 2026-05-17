@@ -1,15 +1,13 @@
 declare function acquireVsCodeApi(): any;
 
-interface MockTask {
+interface TaskData {
     id: string;
     title: string;
     status: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
     phase: 'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
-    workspace: string;
-    projectName?: string;
     containerId?: string;
     createdAt: number;
-    archived: boolean;
+    archived?: boolean;
 }
 
 interface ContainerEntity {
@@ -20,33 +18,15 @@ interface ContainerEntity {
     createdAt: number;
 }
 
-const MOCK_TASKS: MockTask[] = [
-    { id: 't1', title: 'P17-01 文件存储层 — TaskStore 迁移', status: 'active', phase: 'execute', workspace: 'kcode', projectName: 'KCode', createdAt: Date.now() - 2 * 3600000, archived: false },
-    { id: 't2', title: 'P17-02 跨工作区任务索引', status: 'active', phase: 'plan', workspace: 'kcode', projectName: 'KCode', createdAt: Date.now() - 4 * 3600000, archived: false },
-    { id: 't3', title: 'P16-02 ConfigService 实现', status: 'completed', phase: 'review', workspace: 'kcode', projectName: 'KCode', createdAt: Date.now() - 86400000, archived: false },
-    { id: 't4', title: 'P16-05 配置迁移兼容', status: 'completed', phase: 'review', workspace: 'kcode', projectName: 'KCode', createdAt: Date.now() - 2 * 86400000, archived: false },
-    { id: 't5', title: 'P15-01 小助手独立实体', status: 'completed', phase: 'review', workspace: 'kcode', projectName: 'KCode', createdAt: Date.now() - 3 * 86400000, archived: false },
-    { id: 't6', title: 'P13-01 稳定性与 Bug 修复', status: 'in_review', phase: 'review', workspace: 'kcode', projectName: 'KCode', createdAt: Date.now() - 3600000, archived: false },
-    { id: 't7', title: 'P13-05 Todo 卡片实现', status: 'completed', phase: 'review', workspace: 'kcode', projectName: 'KCode', createdAt: Date.now() - 5 * 86400000, archived: false },
-    { id: 't8', title: 'Bug fix: OAuth token 过期未刷新', status: 'active', phase: 'execute', workspace: 'auth-service', createdAt: Date.now() - 8 * 3600000, archived: false },
-    { id: 't9', title: '实现用户注册页面', status: 'in_review', phase: 'review', workspace: 'auth-service', createdAt: Date.now() - 12 * 3600000, archived: false },
-    { id: 't10', title: '数据库连接池优化', status: 'active', phase: 'execute', workspace: 'data-platform', createdAt: Date.now() - 86400000, archived: false },
-    { id: 't11', title: 'API 文档自动生成', status: 'active', phase: 'demand', workspace: 'data-platform', createdAt: Date.now() - 3 * 86400000, archived: false },
-    { id: 't12', title: 'CI/CD 流水线搭建', status: 'completed', phase: 'review', workspace: 'devops', createdAt: Date.now() - 7 * 86400000, archived: false },
-    { id: 't13', title: '旧版 Dashboard 移除', status: 'completed', phase: 'review', workspace: 'kcode', projectName: 'KCode', createdAt: Date.now() - 86400000, archived: true },
-    { id: 't14', title: 'Phase 6 Markdown 渲染', status: 'completed', phase: 'review', workspace: 'kcode', projectName: 'KCode', createdAt: Date.now() - 14 * 86400000, archived: true },
-    { id: 't15', title: 'P10-01 任务类型分类模板', status: 'completed', phase: 'review', workspace: 'kcode', projectName: 'KCode', createdAt: Date.now() - 20 * 86400000, archived: true },
-];
-
 const PHASE_LABELS: Record<string, string> = {
-    demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收',
+    demand: '\u9700\u6c42', goal: '\u76ee\u6807', plan: '\u8ba1\u5212', execute: '\u6267\u884c', self_verify: '\u81ea\u9a8c', review: '\u9a8c\u6536',
 };
 const PHASE_CLASS: Record<string, string> = {
     demand: 'phase-demand', goal: 'phase-goal', plan: 'phase-plan',
     execute: 'phase-execute', self_verify: 'phase-self_verify', review: 'phase-review',
 };
 const STATUS_LABELS: Record<string, string> = {
-    pending: '待开始', active: '进行中', in_review: '待验收', completed: '已完成', cancelled: '已取消',
+    pending: '\u5f85\u5f00\u59cb', active: '\u8fdb\u884c\u4e2d', in_review: '\u5f85\u9a8c\u6536', completed: '\u5df2\u5b8c\u6210', cancelled: '\u5df2\u53d6\u6d88',
 };
 const STATUS_CLASS: Record<string, string> = {
     pending: 'status-pending', active: 'status-active', in_review: 'status-in_review',
@@ -58,13 +38,14 @@ let searchQuery = '';
 let _currentWorkspace = '';
 let _filterByWorkspace = true;
 
-function vscode() {
-    try { return acquireVsCodeApi(); } catch { return { postMessage: () => {} }; }
-}
+let _tasks: TaskData[] = [];
+let _containers: ContainerEntity[] = [];
+
+const vscode = acquireVsCodeApi();
 
 function formatTime(ts: number): string {
     const diff = Date.now() - ts;
-    if (diff < 60000) return '刚刚';
+    if (diff < 60000) return '\u521a\u521a';
     if (diff < 3600000) return `${Math.round(diff / 60000)}m`;
     if (diff < 86400000) return `${Math.round(diff / 3600000)}h`;
     if (diff < 7 * 86400000) return `${Math.round(diff / 86400000)}d`;
@@ -80,7 +61,6 @@ function formatStartTime(ts: number): string {
     return `${month}-${day} ${hour}:${min}`;
 }
 
-// ===== Primary tab state =====
 let _primaryTab: 'tasks' | 'projects' = 'tasks';
 
 function switchPrimaryTab(tab: 'tasks' | 'projects') {
@@ -110,21 +90,61 @@ function switchPrimaryTab(tab: 'tasks' | 'projects') {
     }
 }
 
-// ===== Project state =====
-let _projects: ContainerEntity[] = [];
+function insertNewProjectRow() {
+    const tbody = document.getElementById('project-table-body');
+    const empty = document.getElementById('project-empty');
+    if (!tbody) return;
 
-function getProjectTaskCounts(projectId: string, projectName: string): { workspace: string; count: number }[] {
+    empty!.style.display = 'none';
+
+    const row = document.createElement('tr');
+    row.className = 'project-row project-row-new';
+
+    const nameCell = document.createElement('td');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = '\u65b0\u9879\u76ee\u540d\u79f0...';
+    input.style.cssText = 'width:100%;background:var(--input-bg);color:var(--input-fg);border:1px solid var(--focus-border);outline:none;padding:2px 6px;font-size:13px;border-radius:2px;';
+
+    const submit = () => {
+        const name = input.value.trim();
+        if (name) {
+            vscode.postMessage({ type: 'createProject', name });
+        }
+        row.remove();
+    };
+
+    input.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter') { e.preventDefault(); submit(); }
+        else if (e.key === 'Escape') { e.preventDefault(); row.remove(); }
+    });
+    input.addEventListener('blur', () => submit());
+
+    nameCell.appendChild(input);
+    row.appendChild(nameCell);
+
+    const wsCell = document.createElement('td');
+    wsCell.innerHTML = `<span class="ws-tag">${escapeHtml(_currentWorkspace || '-')}</span>`;
+    row.appendChild(wsCell);
+
+    const countCell = document.createElement('td');
+    countCell.textContent = '0';
+    row.appendChild(countCell);
+
+    tbody.insertBefore(row, tbody.firstChild);
+    input.focus();
+}
+
+function getProjectTaskCounts(projectId: string): { workspace: string; count: number }[] {
     const counts = new Map<string, number>();
-    for (const t of MOCK_TASKS) {
-        const matches = t.projectName === projectName || t.containerId === projectId;
-        if (matches) {
-            counts.set(t.workspace, (counts.get(t.workspace) || 0) + 1);
+    for (const t of _tasks) {
+        if (t.containerId === projectId) {
+            const ws = _currentWorkspace || '-';
+            counts.set(ws, (counts.get(ws) || 0) + 1);
         }
     }
     const entries = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-    if (entries.length === 0) {
-        return [{ workspace: '-', count: 0 }];
-    }
+    if (entries.length === 0) return [{ workspace: '-', count: 0 }];
     return entries.map(([ws, c]) => ({ workspace: ws, count: c }));
 }
 
@@ -133,7 +153,9 @@ function renderProjects() {
     const empty = document.getElementById('project-empty');
     if (!tbody || !empty) return;
 
-    if (_projects.length === 0) {
+    const projects = _containers.filter(c => c.type === 'project');
+
+    if (projects.length === 0) {
         tbody.innerHTML = '';
         empty.style.display = '';
         return;
@@ -151,14 +173,14 @@ function renderProjects() {
 
         const renameItem = document.createElement('div');
         renameItem.className = 'project-context-menu-item';
-        renameItem.textContent = '✏️ 重命名';
+        renameItem.textContent = '\u270F\uFE0F \u91cd\u547d\u540d';
         renameItem.addEventListener('click', (e) => {
             e.stopPropagation();
             hideProjectContextMenu();
             const row = tbody?.querySelector(`.project-row[data-id="${projectId}"]`);
             const nameEl = row?.querySelector('.p-name') as HTMLElement | null;
             if (nameEl) {
-                makeProjectNameEditable(nameEl, projectId, _projects.find(p => p.id === projectId)?.name || '');
+                makeProjectNameEditable(nameEl, projectId, projects.find(p => p.id === projectId)?.name || '');
             }
         });
         menu.appendChild(renameItem);
@@ -169,11 +191,11 @@ function renderProjects() {
 
         const deleteItem = document.createElement('div');
         deleteItem.className = 'project-context-menu-item';
-        deleteItem.textContent = '🗑️ 删除';
+        deleteItem.textContent = '\uD83D\uDDD1\uFE0F \u5220\u9664';
         deleteItem.addEventListener('click', (e) => {
             e.stopPropagation();
             hideProjectContextMenu();
-            vscode().postMessage({ type: 'deleteProject', containerId: projectId });
+            vscode.postMessage({ type: 'deleteProject', containerId: projectId });
         });
         menu.appendChild(deleteItem);
 
@@ -199,14 +221,23 @@ function renderProjects() {
         input.focus();
         input.select();
 
-        const finish = (save: boolean) => {
-            const newName = input.value.trim();
-            if (save && newName && newName !== originalName) {
-                vscode().postMessage({ type: 'renameProject', containerId: projectId, name: newName });
-            } else {
-                nameEl.textContent = `📦 ${escapeHtml(originalName)}`;
+    const finish = (save: boolean) => {
+        const newName = input.value.trim();
+        console.log(`[MyTasks] finish save=${save} newName="${newName}" original="${originalName}"`);
+        if (save && newName && newName !== originalName) {
+            nameEl.textContent = `\uD83D\uDCE6 ${escapeHtml(newName)}`;
+            try {
+                vscode.postMessage({ type: 'renameProject', containerId: projectId, name: newName });
+            } catch (e) {
+                try { vscode.postMessage({ type: 'debugLog', text: `renameProject error: ${e}` }); } catch {}
+                return;
             }
-        };
+            try { vscode.postMessage({ type: 'debugLog', text: `renameProject sent: id=${projectId} name=${newName}` }); } catch {}
+        } else {
+            nameEl.textContent = `\uD83D\uDCE6 ${escapeHtml(originalName)}`;
+            console.log(`[MyTasks] save=false or name unchanged, resetting`);
+        }
+    };
 
         input.addEventListener('keydown', (e: KeyboardEvent) => {
             if (e.key === 'Enter') { e.preventDefault(); finish(true); }
@@ -215,8 +246,8 @@ function renderProjects() {
         input.addEventListener('blur', () => finish(true));
     }
 
-    tbody.innerHTML = _projects.map(p => {
-        const wsCounts = getProjectTaskCounts(p.id, p.name);
+    tbody.innerHTML = projects.map(p => {
+        const wsCounts = getProjectTaskCounts(p.id);
         const wsCells = wsCounts.map(wc =>
             `<span class="ws-tag">${escapeHtml(wc.workspace)}</span>`
         ).join(' ');
@@ -224,7 +255,7 @@ function renderProjects() {
             `<span>${wc.count}</span>`
         ).join(' ');
         return `<tr class="project-row" data-id="${p.id}">
-            <td><span class="p-name">📦 ${escapeHtml(p.name)}</span></td>
+            <td><span class="p-name">\uD83D\uDCE6 ${escapeHtml(p.name)}</span></td>
             <td>${wsCells}</td>
             <td>${countCells}</td>
         </tr>`;
@@ -243,10 +274,8 @@ function renderProjects() {
     document.addEventListener('click', () => hideProjectContextMenu());
 }
 
-// ===== Task functions =====
-
-function getFilteredTasks(): MockTask[] {
-    let tasks = MOCK_TASKS;
+function getFilteredTasks(): TaskData[] {
+    let tasks = _tasks;
     if (currentTab === 'active') {
         tasks = tasks.filter(t => !t.archived && (t.status === 'active' || t.status === 'pending'));
     } else if (currentTab === 'review') {
@@ -255,9 +284,6 @@ function getFilteredTasks(): MockTask[] {
         tasks = tasks.filter(t => t.archived);
     } else {
         tasks = tasks.filter(t => !t.archived);
-    }
-    if (_filterByWorkspace && _currentWorkspace) {
-        tasks = tasks.filter(t => t.workspace === _currentWorkspace);
     }
     if (searchQuery.trim()) {
         const q = searchQuery.trim().toLowerCase();
@@ -276,20 +302,18 @@ function render() {
     if (tasks.length === 0) {
         tbody.innerHTML = '';
         empty.style.display = 'flex';
-        countEl.textContent = '0 个任务';
+        countEl.textContent = '0 \u4e2a\u4efb\u52a1';
         wsEl.textContent = '';
         return;
     }
     empty.style.display = 'none';
 
-    const workspaces = new Set(tasks.map(t => t.workspace));
-    countEl.textContent = `共 ${tasks.length} 个任务`;
-    wsEl.textContent = `· ${workspaces.size} 个工作区`;
+    countEl.textContent = `\u5171 ${tasks.length} \u4e2a\u4efb\u52a1`;
+    wsEl.textContent = '';
 
-    function getProjectName(t: MockTask): string {
-        if (t.projectName) return t.projectName;
+    function getProjectName(t: TaskData): string {
         if (t.containerId) {
-            const p = _projects.find(c => c.id === t.containerId);
+            const p = _containers.find(c => c.id === t.containerId);
             if (p) return p.name;
         }
         return '';
@@ -302,14 +326,14 @@ function render() {
         const projName = getProjectName(t);
         return `<tr data-task-id="${t.id}">
             <td><span class="task-title" data-id="${t.id}">${escapeHtml(t.title)}</span></td>
-            <td>${projName ? `<span class="ws-tag">📦 ${escapeHtml(projName)}</span>` : ''}</td>
-            <td><span class="ws-tag">${escapeHtml(t.workspace)}</span></td>
+            <td>${projName ? `<span class="ws-tag">\u{1F4E6} ${escapeHtml(projName)}</span>` : ''}</td>
+            <td><span class="ws-tag">${escapeHtml(_currentWorkspace)}</span></td>
             <td><span class="status-dot ${statusCls}">${statusLabel}</span></td>
             <td><span class="phase-tag ${phaseCls}">${PHASE_LABELS[t.phase] || t.phase}</span></td>
             <td style="color:var(--text-secondary);font-size:12px">${formatStartTime(t.createdAt)}</td>
             <td>${t.archived
-                ? `<button class="btn-action btn-restore" data-id="${t.id}">恢复</button>`
-                : `<button class="btn-action btn-archive" data-id="${t.id}">归档</button>`
+                ? `<button class="btn-action btn-restore" data-id="${t.id}">\u6062\u590d</button>`
+                : `<button class="btn-action btn-archive" data-id="${t.id}">\u5f52\u6863</button>`
             }</td>
         </tr>`;
     }).join('');
@@ -317,9 +341,8 @@ function render() {
     tbody.querySelectorAll('.task-title').forEach(el => {
         el.addEventListener('click', () => {
             const id = (el as HTMLElement).dataset.id;
-            const task = MOCK_TASKS.find(t => t.id === id);
-            if (task) {
-                vscode().postMessage({ type: 'openTask', taskId: task.id, title: task.title });
+            if (id) {
+                vscode.postMessage({ type: 'openTask', taskId: id });
             }
         });
     });
@@ -328,8 +351,7 @@ function render() {
         el.addEventListener('click', (e) => {
             e.stopPropagation();
             const id = (el as HTMLElement).dataset.id;
-            const task = MOCK_TASKS.find(t => t.id === id);
-            if (task) { task.archived = true; render(); }
+            vscode.postMessage({ type: 'archiveTask', taskId: id, archived: true });
         });
     });
 
@@ -337,8 +359,7 @@ function render() {
         el.addEventListener('click', (e) => {
             e.stopPropagation();
             const id = (el as HTMLElement).dataset.id;
-            const task = MOCK_TASKS.find(t => t.id === id);
-            if (task) { task.archived = false; render(); }
+            vscode.postMessage({ type: 'archiveTask', taskId: id, archived: false });
         });
     });
 
@@ -346,13 +367,7 @@ function render() {
 }
 
 function updateTabCounts() {
-    function filterBase(tasks: MockTask[]): MockTask[] {
-        if (_filterByWorkspace && _currentWorkspace) {
-            return tasks.filter(t => t.workspace === _currentWorkspace);
-        }
-        return tasks;
-    }
-    const base = filterBase(MOCK_TASKS);
+    const base = _tasks;
     const counts = {
         active: base.filter(t => !t.archived && (t.status === 'active' || t.status === 'pending')).length,
         review: base.filter(t => !t.archived && t.status === 'in_review').length,
@@ -370,15 +385,13 @@ function escapeHtml(str: string): string {
 }
 
 (function () {
-    // Project: new project button
     const newProjectBtn = document.getElementById('btn-new-project');
     if (newProjectBtn) {
         newProjectBtn.addEventListener('click', () => {
-            vscode().postMessage({ type: 'newProject' });
+            insertNewProjectRow();
         });
     }
 
-    // Workspace filter checkbox
     const wsFilter = document.getElementById('workspace-filter') as HTMLInputElement;
     if (wsFilter) {
         wsFilter.addEventListener('change', () => {
@@ -388,21 +401,24 @@ function escapeHtml(str: string): string {
         });
     }
 
-    // Listen for extension messages
     window.addEventListener('message', (event) => {
         const msg = event.data;
         switch (msg.type) {
             case 'updateProjects':
-                _projects = msg.projects || [];
+                _containers = msg.containers || [];
                 if (msg.currentWorkspace) _currentWorkspace = msg.currentWorkspace;
                 if (_primaryTab === 'projects') renderProjects();
+                break;
+            case 'updateTasks':
+                _tasks = msg.tasks || [];
+                if (msg.containers) _containers = msg.containers;
+                if (msg.currentWorkspace) _currentWorkspace = msg.currentWorkspace;
                 updateTabCounts();
                 render();
                 break;
         }
     });
 
-    // Primary tab bar
     const tabBar = document.getElementById('tab-bar')!;
     tabBar.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -413,7 +429,6 @@ function escapeHtml(str: string): string {
         });
     });
 
-    // Sub tab bar (task filters)
     const subTabBar = document.getElementById('sub-tab-bar')!;
     subTabBar.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -424,7 +439,6 @@ function escapeHtml(str: string): string {
         });
     });
 
-    // Search
     const searchInput = document.getElementById('search-input') as HTMLInputElement;
     searchInput.addEventListener('input', () => {
         searchQuery = searchInput.value;
@@ -435,9 +449,5 @@ function escapeHtml(str: string): string {
         render();
     });
 
-    // Notify extension that we're ready to receive data
-    vscode().postMessage({ type: 'ready' });
-
-    updateTabCounts();
-    render();
+    vscode.postMessage({ type: 'ready' });
 })();

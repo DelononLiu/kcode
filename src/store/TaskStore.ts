@@ -1,11 +1,17 @@
-import * as vscode from 'vscode';
 import { Task, ChatMessage, FileChange, ContainerEntity, AssistantMessage } from '../types';
 
+export interface StorageBackend {
+    get<T>(key: string): T | undefined;
+    get<T>(key: string, defaultValue: T): T;
+    update(key: string, value: any): Thenable<void>;
+    keys(): readonly string[];
+}
+
 export class TaskStore {
-    private state: vscode.Memento;
+    private state: StorageBackend;
     private _tasksCache: Task[] | null = null;
 
-    constructor(state: vscode.Memento) {
+    constructor(state: StorageBackend) {
         this.state = state;
     }
 
@@ -418,12 +424,10 @@ export class TaskStore {
     }
 
     updateContainer(id: string, updates: Partial<Pick<ContainerEntity, 'name' | 'parentId'>>): void {
-        const containers = this.getContainers();
-        const idx = containers.findIndex(c => c.id === id);
-        if (idx !== -1) {
-            Object.assign(containers[idx], updates);
-            this.state.update('containers', containers);
-        }
+        const containers = this.getContainers().map(c =>
+            c.id === id ? { ...c, ...updates } : c
+        );
+        this.state.update('containers', containers);
     }
 
     deleteContainer(id: string): void {

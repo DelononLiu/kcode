@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { KCodePanel } from './kcodeView/KCodePanel';
 import { KCodeSidebarProvider } from './kcodeView/KCodeSidebarProvider';
 import { TaskStore } from './store/TaskStore';
+import { FileStorage, setFileStorageLogger } from './store/FileStorage';
 import { Task } from './types';
 import { importGitHubIssue } from './commands/importGitHubIssue';
 import { ConfigService } from './core/ConfigService';
@@ -14,6 +15,7 @@ let sidebarProvider: KCodeSidebarProvider | undefined;
 let configService: ConfigService | undefined;
 let settingsProvider: SettingsProvider | undefined;
 let myTasksProvider: MyTasksProvider | undefined;
+let fileStorage: FileStorage | undefined;
 
 function openTaskInPanel(context: vscode.ExtensionContext, taskId: string, autoSendGoal?: string) {
     if (panel) {
@@ -39,9 +41,15 @@ function refreshSidebar() {
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('KCode is now active!');
-    store = new TaskStore(context.workspaceState);
+
+    const _fsOut = vscode.window.createOutputChannel('KCode FileStorage');
+    setFileStorageLogger((msg) => { _fsOut.appendLine(msg); console.log(msg); });
 
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
+    fileStorage = new FileStorage(workspaceRoot);
+    fileStorage.migrateFromMemento(context.workspaceState);
+    store = new TaskStore(fileStorage);
+
     configService = new ConfigService(workspaceRoot);
     ConfigService.setInstance(configService);
     await configService.load();
@@ -149,7 +157,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     const myTasksCmd = vscode.commands.registerCommand('kcode.openMyTasks', async () => {
         if (!myTasksProvider) {
-            myTasksProvider = new MyTasksProvider(context, store!);
+            myTasksProvider = new MyTasksProvider(context, store!, (taskId) => openTaskInPanel(context, taskId), refreshSidebar);
             myTasksProvider.onDidDispose(() => { myTasksProvider = undefined; });
         }
         myTasksProvider.reveal();

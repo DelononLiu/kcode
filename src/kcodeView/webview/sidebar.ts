@@ -595,11 +595,7 @@ declare function acquireVsCodeApi(): any;
 
         const archiveText = task.archived ? '取消归档' : '归档';
         const archiveItem = createMenuItem(archiveText, () => {
-            vscode.postMessage({ type: 'pinTasks', taskIds: targetIds, pinned: false });
-            // Archive via deleteTasks for now — we skip archived semantic since sidebar hides them
-            for (const id of targetIds) {
-                vscode.postMessage({ type: 'deleteTask', taskId: id });
-            }
+            vscode.postMessage({ type: 'archiveTasks', taskIds: targetIds, archived: !task.archived });
         });
         menu.appendChild(archiveItem);
 

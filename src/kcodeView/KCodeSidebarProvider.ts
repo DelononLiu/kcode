@@ -69,6 +69,10 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     this._store.updateTasksPin(message.taskIds, message.pinned);
                     this.refresh();
                     break;
+                case 'archiveTasks':
+                    this._store.updateTasksArchive(message.taskIds, message.archived);
+                    this.refresh();
+                    break;
                 case 'newGroupInProject':
                     this.createNewGroupInProject(message.projectId);
                     break;

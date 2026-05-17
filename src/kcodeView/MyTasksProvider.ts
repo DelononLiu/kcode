@@ -9,9 +9,13 @@ export class MyTasksProvider {
 
     private onDisposeCallback?: () => void;
     private _store: TaskStore;
+    private _onOpenTask: (taskId: string) => void;
+    private _onRefreshSidebar: () => void;
 
-    constructor(context: vscode.ExtensionContext, store: TaskStore) {
+    constructor(context: vscode.ExtensionContext, store: TaskStore, onOpenTask?: (taskId: string) => void, onRefreshSidebar?: () => void) {
         this._store = store;
+        this._onOpenTask = onOpenTask || (() => {});
+        this._onRefreshSidebar = onRefreshSidebar || (() => {});
 
         this.panel = vscode.window.createWebviewPanel(
             MyTasksProvider.viewType,
@@ -47,14 +51,34 @@ export class MyTasksProvider {
         this.panel.webview.onDidReceiveMessage(async (msg: any) => {
             _output.appendLine('[MyTasksProvider] onDidReceiveMessage: type=' + msg.type);
             switch (msg.type) {
+                case 'debugLog': {
+                    _output.appendLine('[WebView] ' + msg.text);
+                    return;
+                }
                 case 'ready': {
                     this._sendProjectData();
+                    this._sendTaskData();
                     break;
                 }
                 case 'openTask': {
-                    vscode.window.showInformationMessage(
-                        `打开任务: ${msg.title}\n（逻辑待 Phase 17 后端实现后接入）`
-                    );
+                    this._openTask(msg.taskId);
+                    break;
+                }
+                case 'archiveTask': {
+                    this._store.updateTaskArchive(msg.taskId, msg.archived);
+                    this._sendTaskData();
+                    break;
+                }
+                case 'renameTask': {
+                    const task = this._store.getTask(msg.taskId);
+                    if (task) {
+                        vscode.window.showInputBox({ prompt: '重命名任务', value: task.title }).then(name => {
+                            if (name && name.trim()) {
+                                this._store.updateTaskTitle(msg.taskId, name.trim());
+                                this._sendTaskData();
+                            }
+                        });
+                    }
                     break;
                 }
                 case 'openSettings': {
@@ -65,12 +89,26 @@ export class MyTasksProvider {
                     this._createNewProject();
                     break;
                 }
+                case 'createProject': {
+                    if (msg.name) {
+                        const trimmed = msg.name.trim();
+                        if (trimmed) {
+                            this._store.addContainer(trimmed, 'project');
+                            this._sendProjectData();
+                            this._sendTaskData();
+                            this._onRefreshSidebar();
+                        }
+                    }
+                    break;
+                }
                 case 'renameProject': {
                     if (msg.name) {
                         const trimmed = msg.name.trim();
                         if (trimmed) {
                             this._store.updateContainer(msg.containerId, { name: trimmed });
                             this._sendProjectData();
+                            this._sendTaskData();
+                            this._onRefreshSidebar();
                         }
                     } else {
                         this._renameProject(msg.containerId);
@@ -87,6 +125,7 @@ export class MyTasksProvider {
                         ).then(choice => {
                             if (choice === '确定删除') {
                                 this._deleteProjectWithTasks(msg.containerId);
+                                this._onRefreshSidebar();
                             }
                         });
                     }
@@ -101,6 +140,8 @@ export class MyTasksProvider {
             if (name && name.trim()) {
                 this._store.addContainer(name.trim(), 'project');
                 this._sendProjectData();
+                this._sendTaskData();
+                this._onRefreshSidebar();
             }
         });
     }
@@ -136,6 +177,27 @@ export class MyTasksProvider {
         }
         this._store.deleteContainer(containerId);
         this._sendProjectData();
+    }
+
+    private _openTask(taskId: string): void {
+        this.panel.dispose();
+        this._onOpenTask(taskId);
+    }
+
+    private _sendTaskData(): void {
+        const tasks = this._store.getTasks();
+        const containers = this._store.getContainers();
+        const currentWorkspace = vscode.workspace.workspaceFolders?.[0]?.name || '';
+        try {
+            this.panel.webview.postMessage({
+                type: 'updateTasks',
+                tasks,
+                containers,
+                currentWorkspace,
+            });
+        } catch (err) {
+            _output.appendLine('[MyTasksProvider] sendTaskData error: ' + err);
+        }
     }
 
     private _sendProjectData(): void {
