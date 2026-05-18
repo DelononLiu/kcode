@@ -1909,7 +1909,7 @@ _当前不排期、留待后续做的任务。_
 | P14-04 | 知识 Wiki 独立面板 — KnowledgePanel | P1 | ✅ 已完成 |
 | P14-05 | 右栏知识索引区 | P2 | ✅ 已完成 |
 | P18-01 | 行内协议解析器抽取 — parseTodoUpdate/parseKnowledgeEntry/parseTaskUpdate 从 TaskFlow 提取为复用模块，供各 StreamHandler 子类按需接入 | P1 | ⬜ 未开始 |
-| P19-00 | 多角色 Agent 编组讨论 — 架构/编码/评审多 Agent 互审互评，合议产出方案。基于 ACP 多 session 能力，TaskFlow 阶段自然映射角色切换 | P0 | ⬜ 未开始 |
+| P21-00 | 多角色 Agent 编组讨论 — 架构/编码/评审多 Agent 互审互评，合议产出方案。基于 ACP 多 session 能力，TaskFlow 阶段自然映射角色切换 | P0 | ⬜ 未开始 |
 
 ### P14-02: 工具聚合原始数据模型
 
