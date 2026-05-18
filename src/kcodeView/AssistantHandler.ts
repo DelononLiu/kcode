@@ -62,31 +62,6 @@ export class AssistantHandler {
 
     async handleMessage(text: string) {
         const tid = '__assistant__';
-        if (text.trim().startsWith('/go')) {
-            const messages = this.store.getAssistantMessages();
-            const context = messages.slice(-10).map(m =>
-                `${m.role === 'user' ? '用户' : 'AI'}: ${m.content.substring(0, 200)}`
-            ).join('\n');
-            const newTask: Task = {
-                id: `task_${Date.now()}`,
-                title: context ? context.split('\n')[0].replace(/^[^:]*:\s*/, '').substring(0, 50) : '从助手创建',
-                goal: context,
-                type: 'task',
-                status: 'pending',
-                phase: 'demand',
-                confirmedItems: [],
-                pendingItems: [],
-                planSteps: [],
-                createdAt: Date.now(),
-                pinned: false,
-                workspace: this.workspaceRoot,
-            };
-            this.store.addTask(newTask);
-            this.loadTask?.(newTask.id);
-            this.refreshSidebar?.();
-            return;
-        }
-
         if (this.isGenerating()) {
             this.pushPending(text, tid);
             this.sendPendingQueueUpdate();

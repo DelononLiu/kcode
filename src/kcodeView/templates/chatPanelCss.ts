@@ -200,6 +200,12 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .agent-dropdown-item{padding:5px 12px;font-size:12px;color:#ccc;cursor:pointer;transition:background .1s}
 .agent-dropdown-item:hover{background:rgba(74,139,181,.2);color:#fff}
 .agent-dropdown-item.active{background:rgba(74,139,181,.15);color:#4a8bb5}
+.slash-context-menu{position:fixed;padding:4px 0;background:#25252a;border:1px solid rgba(255,255,255,.1);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.4);z-index:200;min-width:160px;max-height:260px;overflow-y:auto;list-style:none;font-family:system-ui,'Segoe UI',Roboto,sans-serif}
+.slash-menu-item{padding:5px 12px;font-size:12px;color:#ccc;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .1s;white-space:nowrap}
+.slash-menu-item:hover,.slash-menu-item.hover{background:rgba(74,139,181,.2);color:#fff}
+.slash-menu-item:hover .slash-context-desc,.slash-menu-item.hover .slash-context-desc{color:#aaa}
+.slash-context-name{font-weight:500;color:inherit;flex-shrink:0}
+.slash-context-desc{font-size:11px;color:#777;overflow:hidden;text-overflow:ellipsis}
 #input-template-bar{display:inline-flex;align-items:center;gap:3px}
 .template-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;font-size:12px;color:#666;background:rgba(255,255,255,.03);border-radius:3px;cursor:pointer;user-select:none;transition:all .15s;font-family:inherit;line-height:1.5;white-space:nowrap}
 .template-chip:hover{color:#bbb;background:rgba(255,255,255,.07)}

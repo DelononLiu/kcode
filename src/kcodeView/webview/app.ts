@@ -171,7 +171,7 @@ function initMessageHandler() {
                     if (extractBtn) extractBtn.classList.add('hidden');
                     renderMessages(message.messages || []);
                     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
-                    if (input) input.placeholder = '与小助手对话... (/go 开始任务)';
+                    if (input) input.placeholder = '与小助手对话...';
                     break;
                 }
 
@@ -271,6 +271,9 @@ function initMessageHandler() {
                 break;
             case 'addSystemMessage':
                 addSystemMessage(message.content);
+                break;
+            case 'slashCommandList':
+                slashCommands = message.commands || [];
                 break;
             case 'updateNodePanel':
                 handleNodePanelUpdate(message.nodes, message.taskType);
@@ -529,6 +532,7 @@ let lastAcceptanceCriteria: string[] | null = null;
 const acceptanceCheckedState: Map<string, boolean[]> = new Map();
 let taskHooks: Record<string, string[]> = {};
 let workspaceHooks: Record<string, string[]> = {};
+let slashCommands: { name: string; description: string }[] = [];
 
 function initLayout() {
     const rightPanel = document.getElementById('right-panel')!;
@@ -571,38 +575,50 @@ function initTabs() {
     });
 }
 
+function sendMessageFromInput() {
+    const input = document.getElementById('chat-input') as HTMLTextAreaElement;
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    input.focus();
+    if (text.startsWith('/')) {
+        vscode.postMessage({ type: 'slashCommand', text, taskId: activeTaskId });
+        return;
+    }
+    if (activeTaskType === 'assistant' || !activeTaskId) {
+        vscode.postMessage({ type: 'sendAssistantMessage', text });
+        return;
+    }
+    const msg: any = { type: 'sendMessage', text, taskId: activeTaskId };
+    if (selectedCategory) {
+        msg.category = selectedCategory;
+        selectedCategory = null;
+    }
+    vscode.postMessage(msg);
+}
+
 function initChat() {
     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
     if (!input) return;
 
-    function sendMessage() {
-        const text = input.value.trim();
-        if (!text) return;
-
-        input.value = '';
-        input.focus();
-
-        if (activeTaskType === 'assistant' || !activeTaskId) {
-            vscode.postMessage({ type: 'sendAssistantMessage', text });
-            return;
-        }
-        const msg: any = { type: 'sendMessage', text, taskId: activeTaskId };
-        if (selectedCategory) {
-            msg.category = selectedCategory;
-            selectedCategory = null;
-        }
-        vscode.postMessage(msg);
-    }
-
     input.addEventListener('keydown', (e) => {
+        if (_slashMenuEl && e.key === 'Escape') { hideSlashMenu(); return; }
+        if (_slashMenuEl && e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            const active = _slashMenuEl.querySelector('.slash-menu-item.hover') as HTMLElement;
+            if (active) { active.click(); hideSlashMenu(); return; }
+        }
+        if (_slashMenuEl && e.key === 'ArrowDown') { e.preventDefault(); moveSlashSel(1); return; }
+        if (_slashMenuEl && e.key === 'ArrowUp') { e.preventDefault(); moveSlashSel(-1); return; }
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            sendMessage();
+            sendMessageFromInput();
         }
     });
 
     const sendBtn = document.getElementById('send-btn');
-    sendBtn?.addEventListener('click', sendMessage);
+    sendBtn?.addEventListener('click', sendMessageFromInput);
 
     const stopBtn = document.getElementById('stop-btn');
     stopBtn?.addEventListener('click', () => {
@@ -648,6 +664,25 @@ function initChat() {
             }
         });
         fileInput.click();
+    });
+
+    input.addEventListener('input', () => {
+        const val = input.value;
+        if (val.startsWith('/') && !val.includes(' ')) {
+            const query = val.slice(1).toLowerCase();
+            const matched = !query ? slashCommands : slashCommands.filter(c => c.name.slice(1).toLowerCase().startsWith(query) || c.name.toLowerCase().startsWith('/' + query));
+            if (matched.length > 0) {
+                showSlashMenu(matched);
+                return;
+            }
+        }
+        hideSlashMenu();
+    });
+
+    document.addEventListener('click', (e) => {
+        if (_slashMenuEl && !_slashMenuEl.contains(e.target as Node) && e.target !== input) {
+            hideSlashMenu();
+        }
     });
 
     const scrollContainer = document.getElementById('chat-scroll');
@@ -994,13 +1029,83 @@ function showAgentThinking() {
 
 function addSystemMessage(content: string) {
     const container = document.getElementById('chat-messages');
+    const scrollContainer = document.getElementById('chat-scroll');
     if (!container) return;
     const el = document.createElement('div');
     el.className = 'chat-msg system';
     el.innerHTML = `<div class="msg-bubble system">${content}</div>`;
     container.appendChild(el);
     updateLastMsgConvertBtn();
-    container.scrollTop = container.scrollHeight;
+    if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
+}
+
+let _slashMenuEl: HTMLElement | null = null;
+let _slashSelIdx = -1;
+
+function getCaretPos(textarea: HTMLTextAreaElement): { x: number; y: number } {
+    const pos = textarea.selectionStart;
+    const style = getComputedStyle(textarea);
+    const mirror = document.createElement('div');
+    mirror.style.cssText = `position:fixed;top:0;left:-9999px;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;font:${style.font};fontSize:${style.fontSize};padding:${style.padding};lineHeight:${style.lineHeight};letterSpacing:${style.letterSpacing};border:${style.border}`;
+    mirror.style.width = textarea.clientWidth + 'px';
+    const text = textarea.value.substring(0, pos);
+    mirror.textContent = text;
+    const span = document.createElement('span');
+    span.textContent = '\u200B';
+    mirror.appendChild(span);
+    document.body.appendChild(mirror);
+    const spanRect = span.getBoundingClientRect();
+    const mirrorRect = mirror.getBoundingClientRect();
+    document.body.removeChild(mirror);
+    const taRect = textarea.getBoundingClientRect();
+    return { x: taRect.left + spanRect.left - mirrorRect.left, y: taRect.top + spanRect.top - mirrorRect.top };
+}
+
+function showSlashMenu(commands: { name: string; description: string }[]) {
+    hideSlashMenu();
+    const input = document.getElementById('chat-input') as HTMLTextAreaElement;
+    const caret = getCaretPos(input);
+    const menu = document.createElement('div');
+    menu.className = 'slash-context-menu';
+    menu.style.left = caret.x + 'px';
+    menu.style.top = (caret.y - 4) + 'px';
+
+    commands.forEach((cmd, i) => {
+        const item = document.createElement('div');
+        item.className = 'slash-menu-item';
+        if (i === 0) item.classList.add('hover');
+        item.innerHTML = `<span class="slash-context-name">${cmd.name}</span><span class="slash-context-desc">${cmd.description}</span>`;
+        item.addEventListener('click', () => {
+            input.value = cmd.name + ' ';
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+            hideSlashMenu();
+        });
+        menu.appendChild(item);
+    });
+
+    input.parentElement?.appendChild(menu);
+    const mr = menu.getBoundingClientRect();
+    if (mr.right > window.innerWidth) menu.style.left = (window.innerWidth - mr.width - 8) + 'px';
+    if (mr.bottom > window.innerHeight) menu.style.top = (caret.y - mr.height - 8) + 'px';
+    _slashMenuEl = menu;
+    _slashSelIdx = 0;
+}
+
+function hideSlashMenu() {
+    if (_slashMenuEl) {
+        _slashMenuEl.remove();
+        _slashMenuEl = null;
+    }
+    _slashSelIdx = -1;
+}
+
+function moveSlashSel(dir: number) {
+    if (!_slashMenuEl) return;
+    const items = _slashMenuEl.querySelectorAll('.slash-menu-item');
+    items.forEach(el => el.classList.remove('hover'));
+    _slashSelIdx = Math.max(0, Math.min(items.length - 1, _slashSelIdx + dir));
+    items[_slashSelIdx]?.classList.add('hover');
 }
 
 function addMessage(role: 'user' | 'agent', content: string) {

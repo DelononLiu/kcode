@@ -74,14 +74,12 @@ describe('AssistantHandler', () => {
         });
     });
 
-    it('handleMessage 创建 /go 任务', async () => {
-        mocks.store.getAssistantMessages.mockReturnValue([
-            { id: 'm1', role: 'user', content: '帮我写登录', timestamp: 1 },
-        ]);
+    it('handleMessage 未知命令原样发送', async () => {
+        mocks.agentService.isConnected = true;
+        mocks.agentService.hasSession.mockReturnValue(true);
+        mocks.store.getAssistantMessages.mockReturnValue([]);
         await handler.handleMessage('/go');
-        expect(mocks.store.addTask).toHaveBeenCalled();
-        expect(mocks.loadTask).toHaveBeenCalled();
-        expect(mocks.refreshSidebar).toHaveBeenCalled();
+        expect(mocks.agentService.sendPrompt).toHaveBeenCalledWith('__assistant__', '/go', expect.anything());
     });
 
     it('handleMessage 生成中时入队', async () => {

@@ -81,9 +81,14 @@ export class TaskFlow {
     private accumulatedText: Map<string, string> = new Map();
     private planEntries: Map<string, PlanEntry[]> = new Map();
     private workspaceHooks: Record<string, string[]> = {};
+    private availableCommands: string = '';
 
     setWorkspaceHooks(hooks: Record<string, string[]>): void {
         this.workspaceHooks = hooks;
+    }
+
+    setAvailableCommands(text: string): void {
+        this.availableCommands = text;
     }
 
     constructor(store: ITaskStore, delegate: TaskFlowDelegate) {
@@ -554,6 +559,7 @@ export class TaskFlow {
             this.buildTaskContext(task),
             this.buildPhasePrompt(task),
             this.buildKnowledgeContext(task),
+            this.availableCommands,
         ];
 
         return layers.filter(Boolean).join('\n\n---\n\n') + '\n\n' + userText;

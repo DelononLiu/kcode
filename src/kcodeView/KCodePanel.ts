@@ -11,6 +11,7 @@ import { TaskSessionHandler } from './TaskSessionHandler';
 import { TaskFlowHandler } from './TaskFlowHandler';
 import { AcpLogManager } from './AcpLogManager';
 import { AssistantHandler } from './AssistantHandler';
+import { CommandRegistry } from '../commands/CommandRegistry';
 import type { KCodePanelContext, ToolCallState, PendingMessage } from './PanelContext';
 
 export class KCodePanel {
@@ -36,6 +37,7 @@ export class KCodePanel {
     private onDisposeCallback?: () => void;
     private ctx: KCodePanelContext;
     readonly configService: ConfigService;
+    readonly commandRegistry: CommandRegistry;
 
     constructor(context: vscode.ExtensionContext, store: TaskStore, configService?: ConfigService) {
         this.context = context;
@@ -70,6 +72,20 @@ export class KCodePanel {
         const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
         this.agentService = new AgentService(workspacePath);
         this.agentService.setLogCallback((dir, text) => { const t = this.currentTaskId || ''; if (t) this.acpLogManager.send(t, dir, text); });
+
+        this.commandRegistry = new CommandRegistry();
+        this.commandRegistry.load(workspacePath);
+        this.taskFlow.setAvailableCommands(this.commandRegistry.getPromptInjection());
+        this.commandRegistry.registerSlashCommand('/ai', '切换到小助手模式', () => this.loadAssistant());
+        this.commandRegistry.registerSlashCommand('/totask', '将小助手对话转为任务', async () => { await this.assistantHandler.convertToTask(); });
+        this.commandRegistry.registerSlashCommand('/go', '将小助手对话转为任务', async () => { await this.assistantHandler.convertToTask(); });
+        this.commandRegistry.registerSlashCommand('/confirm', '确认当前阶段操作', async (_a, tid) => { if (tid) await this.handlePhaseConfirm(tid); });
+        this.commandRegistry.registerSlashCommand('/reject', '驳回验收，可附原因', async (args, tid) => { if (tid) await this.flowHandler.handleRejectReview(tid, args || undefined); }, '/reject [原因]');
+        this.commandRegistry.registerSlashCommand('/cancel', '取消当前任务', async (_a, tid) => { if (tid) this.flowHandler.handleCancelTask(tid); });
+        this.commandRegistry.registerSlashCommand('/new', '新建任务', async () => { await vscode.commands.executeCommand('kcode.newTask'); });
+        this.commandRegistry.registerSlashCommand('/tasks', '查看任务概览', (_a, tid) => this.sendTasksSummary(tid));
+
+        this.router.PostMessage({ type: 'slashCommandList', commands: this.getSlashCommandList() });
 
         this.panel.webview.html = this.getWebviewContent();
 
@@ -154,6 +170,7 @@ export class KCodePanel {
         this.router.on('updateHooks', (msg) => { if (msg.phase && Array.isArray(msg.commands)) { this.store.updateTaskHooks(msg.taskId, msg.phase, msg.commands); this.flowHandler.sendTaskInfo(msg.taskId); } });
         this.router.on('selectTask', (msg) => { this.loadTask(msg.taskId); this.refreshSidebarCallback?.(); });
         this.router.on('sendAssistantMessage', async (msg) => { await this.assistantHandler.handleMessage(msg.text); });
+        this.router.on('slashCommand', async (msg) => { await this.handleSlashCommand(msg.text, msg.taskId); });
         this.router.on('updateTodoItem', (msg) => { this.flowHandler.handleUpdateTodoItem(msg.taskId, msg.msgId, msg.itemId, msg.checked); });
         this.router.on('switchAgent', (msg) => { this.sessionHandler.handleSwitchAgent(msg.label); });
         this.router.on('openSettings', () => vscode.commands.executeCommand('kcode.openSettings'));
@@ -206,9 +223,61 @@ export class KCodePanel {
         this.assistantHandler.loadMessages();
         this.refreshSidebarCallback?.();
         this.sessionHandler.ensureConnection();
+        this.router.PostMessage({ type: 'slashCommandList', commands: this.getSlashCommandList() });
     }
 
     autoSendGoal(taskId: string, text: string) { this.sessionHandler.handleSendMessage(text, taskId); }
+
+    private getSlashCommandList(): { name: string; description: string }[] {
+        return [
+            { name: '/ai', description: '切换到小助手模式' },
+            { name: '/totask', description: '将小助手对话转为任务' },
+            { name: '/confirm', description: '确认当前阶段操作' },
+            { name: '/reject', description: '驳回验收并附原因' },
+            { name: '/cancel', description: '取消当前任务' },
+            { name: '/new', description: '新建任务' },
+            { name: '/tasks', description: '查看任务概览' },
+        ];
+    }
+
+    private async handleSlashCommand(text: string, taskId?: string) {
+        const handled = await this.commandRegistry.handleSlash(text, taskId || this.currentTaskId || undefined);
+        if (!handled) {
+            this.router.PostMessage({
+                type: 'addSystemMessage',
+                content: `未知命令，输入 / 查看可用命令`,
+            });
+        }
+    }
+
+    private async handlePhaseConfirm(taskId: string) {
+        const task = this.store.getTask(taskId);
+        if (!task) return;
+        const phase = task.phase;
+        if (phase === 'goal') {
+            await this.flowHandler.handleConfirmGoalFromHeader(taskId);
+        } else if (phase === 'plan') {
+            await this.flowHandler.handleConfirmPlan(taskId);
+        } else if (phase === 'execute') {
+            await this.flowHandler.handleConfirmExecuteDone(taskId);
+        } else {
+            this.router.PostMessage({ type: 'addSystemMessage', content: `当前阶段 "${phase}" 不支持 /confirm 操作` });
+        }
+    }
+
+    private sendTasksSummary(taskId?: string) {
+        const tasks = this.store.getTasks();
+        const total = tasks.length;
+        const review = tasks.filter(t => t.status === 'in_review').length;
+        const active = tasks.filter(t => t.status === 'active').length;
+        const pending = tasks.filter(t => t.status === 'pending').length;
+        const completed = tasks.filter(t => t.status === 'completed').length;
+        const cancelled = tasks.filter(t => t.status === 'cancelled').length;
+        this.router.PostMessage({
+            type: 'addSystemMessage',
+            content: `📊 **任务概览**\n\n总任务: ${total}\n- ⏳ 待确认: ${pending}\n- ⚡ 进行中: ${active}\n- ✅ 待验收: ${review}\n- 🏁 已完成: ${completed}\n- ❌ 已取消: ${cancelled}`,
+        });
+    }
 
     startTemplateFlow(taskId: string) {
         this.loadTask(taskId);
