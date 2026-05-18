@@ -102,4 +102,91 @@ describe('AssistantHandler', () => {
         );
         expect(mocks.agentService.sendPrompt).toHaveBeenCalled();
     });
+
+    describe('createResponseHandler', () => {
+        function getHandler(): Exclude<Parameters<typeof mocks.agentService.sendPrompt>[2], undefined> {
+            const call = mocks.agentService.sendPrompt.mock.calls.find(
+                (c: any[]) => c[0] === '__assistant__'
+            );
+            return call ? call[2] : null;
+        }
+
+        beforeEach(async () => {
+            mocks.agentService.isConnected = true;
+            mocks.store.nextAssistantMessageId
+                .mockReturnValueOnce('msg-u1')
+                .mockReturnValue('msg-a1');
+            await handler.handleMessage('hello');
+        });
+
+        it('onReasoning 发送 thinking toolCallUpdate', () => {
+            const h = getHandler();
+            h.onReasoning?.('思考中');
+            const calls = mocks.postSpy.mock.calls.filter((c: any[]) => c[0]?.type === 'toolCallUpdate');
+            expect(calls.length).toBeGreaterThanOrEqual(1);
+            const first = calls[0][0];
+            expect(first.toolCallId).toMatch(/^reasoning_/);
+            expect(first.kind).toBe('thinking');
+            expect(first.title).toBe('推理');
+            expect(first.status).toBe('running');
+        });
+
+        it('onReasoning 流式追加推理文本', () => {
+            const h = getHandler();
+            const before = mocks.postSpy.mock.calls.filter((c: any[]) =>
+                c[0]?.type === 'toolCallUpdate' && String(c[0]?.toolCallId).startsWith('reasoning_')
+            ).length;
+            h.onReasoning?.('第一步');
+            h.onReasoning?.('第二步');
+            const calls = mocks.postSpy.mock.calls.filter((c: any[]) =>
+                c[0]?.type === 'toolCallUpdate' && String(c[0]?.toolCallId).startsWith('reasoning_')
+            );
+            // 首次激活发送 2 条 (empty init + content)，第二次追加 1 条，共 3 条
+            expect(calls.length - before).toBe(3);
+            const newCalls = calls.slice(before);
+            // 第 1 条是空内容 initialize
+            expect(newCalls[0][0].content).toBe('');
+            expect(newCalls[1][0].content).toBe('第一步');
+            expect(newCalls[2][0].content).toBe('第一步第二步');
+        });
+
+        it('onToolCall 发送 toolCallUpdate', () => {
+            const h = getHandler();
+            h.onToolCall?.('tc-1', '读取文件', 'read', 'running');
+            expect(mocks.postSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'toolCallUpdate', toolCallId: 'tc-1', title: '读取文件', kind: 'read', status: 'running' })
+            );
+        });
+
+        it('onToolCallUpdate 发送 toolCallUpdate', () => {
+            const h = getHandler();
+            h.onToolCallUpdate?.('tc-1', 'completed', '输出内容', '读取文件', 'read');
+            expect(mocks.postSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'toolCallUpdate', toolCallId: 'tc-1', title: '读取文件', kind: 'read', status: 'completed', content: '输出内容' })
+            );
+        });
+
+        it('onText 关闭推理后发送文本', () => {
+            const h = getHandler();
+            h.onReasoning?.('推理内容');
+            h.onText('Hello');
+            const updates = mocks.postSpy.mock.calls.filter((c: any[]) => c[0]?.type === 'agentStreamUpdate');
+            expect(updates.length).toBeGreaterThanOrEqual(1);
+            const completed = mocks.postSpy.mock.calls.filter((c: any[]) =>
+                c[0]?.type === 'toolCallUpdate' && c[0]?.status === 'completed' && c[0]?.kind === 'thinking'
+            );
+            expect(completed.length).toBeGreaterThanOrEqual(1);
+        });
+
+        it('onDone 标记推理完成并存储消息', () => {
+            const h = getHandler();
+            h.onReasoning?.('推理内容');
+            h.onDone?.('completed');
+            const completed = mocks.postSpy.mock.calls.filter((c: any[]) =>
+                c[0]?.type === 'toolCallUpdate' && c[0]?.status === 'completed' && c[0]?.kind === 'thinking'
+            );
+            expect(completed.length).toBeGreaterThanOrEqual(1);
+            expect(mocks.store.addAssistantMessage).toHaveBeenCalled();
+        });
+    });
 });
