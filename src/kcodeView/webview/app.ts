@@ -1109,7 +1109,24 @@ function renderMessages(messages: any[]) {
 }
 
 function updateLastMsgConvertBtn() {
-    // Convert-to-task button removed in Phase 15 — replaced by /go in assistant mode
+    if (activeTaskType !== 'assistant') return;
+    const messages = document.getElementById('chat-messages');
+    if (!messages) return;
+    const agentMsgs = messages.querySelectorAll('.chat-msg.agent');
+    if (agentMsgs.length === 0) return;
+
+    messages.querySelectorAll('.convert-task-btn').forEach(el => el.remove());
+    const lastAgent = agentMsgs[agentMsgs.length - 1] as HTMLElement;
+    const row = lastAgent.querySelector('.msg-row') as HTMLElement;
+    if (!row) return;
+    const btn = document.createElement('button');
+    btn.className = 'convert-task-btn';
+    btn.title = '将当前对话转为正式任务';
+    btn.textContent = '转为任务';
+    btn.addEventListener('click', () => {
+        vscode.postMessage({ type: 'convertAssistantToTask' });
+    });
+    row.appendChild(btn);
 }
 
 function getCategoryDef(catKey: string): any {

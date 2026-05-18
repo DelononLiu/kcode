@@ -109,7 +109,7 @@ export class KCodePanel {
             () => this.isGenerating,
             (text, taskId) => this.pendingMessages.push({ text, taskId }),
             () => this.sendPendingQueueUpdate(),
-            this.refreshSidebarCallback,
+            () => this.refreshSidebarCallback?.(),
             (taskId) => this.loadTask(taskId),
             vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,
         );
@@ -149,6 +149,7 @@ export class KCodePanel {
         this.router.on('clearPendingQueue', () => { this.pendingMessages = []; this.sendPendingQueueUpdate(); });
         this.router.on('openTerminal', () => vscode.commands.executeCommand('workbench.action.terminal.new'));
         this.router.on('convertToTask', (msg) => this.flowHandler.handleConvertToTask(msg.taskId));
+        this.router.on('convertAssistantToTask', () => { this.assistantHandler.convertToTask(); });
         this.router.on('updateHooks', (msg) => { if (msg.phase && Array.isArray(msg.commands)) { this.store.updateTaskHooks(msg.taskId, msg.phase, msg.commands); this.flowHandler.sendTaskInfo(msg.taskId); } });
         this.router.on('selectTask', (msg) => { this.loadTask(msg.taskId); this.refreshSidebarCallback?.(); });
         this.router.on('sendAssistantMessage', async (msg) => { await this.assistantHandler.handleMessage(msg.text); });

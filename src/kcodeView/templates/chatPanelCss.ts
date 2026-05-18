@@ -439,6 +439,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .convert-msg-btn{opacity:0;flex-shrink:0;background:none;border:none;color:#4a8bb5;cursor:pointer;padding:2px 6px;border-radius:3px;line-height:1;font-size:12px;font-family:inherit;transition:opacity .2s,color .2s,background .2s}
 .chat-msg:hover .convert-msg-btn{opacity:1}
 .convert-msg-btn:hover{background:rgba(74,139,181,.12);color:#5a9bc8}
+.convert-task-btn{opacity:0;flex-shrink:0;background:none;border:none;color:#4ec9b0;cursor:pointer;padding:2px 6px;border-radius:3px;line-height:1;font-size:12px;font-family:inherit;transition:opacity .2s,color .2s,background .2s}
+.chat-msg:hover .convert-task-btn{opacity:1}
+.convert-task-btn:hover{background:rgba(78,201,176,.12);color:#7ec8a0}
 .thinking-dots{display:inline-flex;gap:4px;align-items:center;padding:6px 0}
 .thinking-dots .dot{width:5px;height:5px;border-radius:50%;background:#666;animation:dot-bounce 1.4s infinite ease-in-out both}
 .thinking-dots .dot:nth-child(1){animation-delay:-0.32s}

@@ -25,6 +25,35 @@ export class AssistantHandler {
         this.router.PostMessage({ type: 'loadMessages', messages: msgs, taskId: '', taskType: 'assistant' });
     }
 
+    async convertToTask() {
+        const messages = this.store.getAssistantMessages();
+        const firstUserMsg = messages.find(m => m.role === 'user');
+        const context = messages.slice(-10).map(m =>
+            `${m.role === 'user' ? '用户' : 'AI'}: ${m.content.substring(0, 200)}`
+        ).join('\n');
+        const newTask: Task = {
+            id: `task_${Date.now()}`,
+            title: context ? context.split('\n')[0].replace(/^[^:]*:\s*/, '').substring(0, 50) : '从助手创建',
+            goal: context,
+            type: 'task',
+            status: 'pending',
+            phase: 'demand',
+            confirmedItems: [],
+            pendingItems: [],
+            planSteps: [],
+            createdAt: Date.now(),
+            pinned: false,
+            workspace: this.workspaceRoot,
+        };
+        this.store.addTask(newTask);
+        this.loadTask?.(newTask.id);
+        this.refreshSidebar?.();
+        const lastTwo = messages.slice(-2).map(m =>
+            `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`
+        ).join('\n');
+        await this.sessionHandler.handleSendMessage(lastTwo, newTask.id);
+    }
+
     showLanding() {
         this.router.PostMessage({ type: 'updateNodePanel', nodes: [], taskType: 'assistant' });
         this.router.PostMessage({ type: 'updateTaskInfo', title: '💬 小助手', taskType: 'assistant', goal: '', status: '', phase: '', phaseLabel: '', confirmedItems: [], pendingItems: [], planSteps: [], hooks: {}, workspaceHooks: {}, messageCount: 0, executeFinished: false });
