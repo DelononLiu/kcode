@@ -167,6 +167,8 @@ function initMessageHandler() {
                     if (gutter) gutter.classList.add('hidden');
                     const outputPanel = document.getElementById('right-output-panel');
                     if (outputPanel) outputPanel.style.display = 'none';
+                    const extractBtn = document.getElementById('btn-knowledge-extract');
+                    if (extractBtn) extractBtn.classList.add('hidden');
                     renderMessages(message.messages || []);
                     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
                     if (input) input.placeholder = '与小助手对话... (/go 开始任务)';
@@ -179,6 +181,8 @@ function initMessageHandler() {
                 // Restore UI elements for task mode
                 const outPanel = document.getElementById('right-output-panel');
                 if (outPanel) outPanel.style.display = '';
+                const extractBtn = document.getElementById('btn-knowledge-extract');
+                if (extractBtn) extractBtn.classList.remove('hidden');
                 if (message.reviewChanges && message.reviewChanges.length > 0) {
                     reviewChangesMap.set(message.taskId, message.reviewChanges);
                     (window as any).updateOutputPanel?.({}, message.reviewChanges);
@@ -221,8 +225,13 @@ function initMessageHandler() {
                     if (gutter) gutter.classList.add('hidden');
                     const outPanel = document.getElementById('right-output-panel');
                     if (outPanel) outPanel.style.display = 'none';
+                    const _extractBtn2 = document.getElementById('btn-knowledge-extract');
+                    if (_extractBtn2) _extractBtn2.classList.add('hidden');
                     break;
                 }
+                // Show knowledge extract button for task mode
+                const extractBtn2 = document.getElementById('btn-knowledge-extract');
+                if (extractBtn2) extractBtn2.classList.remove('hidden');
                 // Restore task mode UI elements (was hidden by assistant)
                 const ch = document.getElementById('chat-header');
                 if (ch) ch.style.removeProperty('display');
@@ -651,7 +660,7 @@ function initChat() {
 
     const btnKnowledgeExtract = document.getElementById('btn-knowledge-extract');
     btnKnowledgeExtract?.addEventListener('click', () => {
-        vscode.window.showInformationMessage?.('知识萃取功能即将推出');
+        vscode.postMessage({ type: 'extractKnowledge', taskId: activeTaskId });
     });
 
     const btnTerminal = document.getElementById('btn-terminal');

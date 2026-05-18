@@ -159,6 +159,17 @@ export class KCodePanel {
         this.router.on('openSettings', () => vscode.commands.executeCommand('kcode.openSettings'));
         this.router.on('openKnowledgeEntry', (msg) => vscode.commands.executeCommand('kcode.openKnowledgeWiki', msg.entryId));
         this.router.on('openTaskFromKnowledge', (msg) => vscode.commands.executeCommand('kcode.selectTask', msg.taskId));
+        this.router.on('extractKnowledge', async (msg) => {
+            const tid = msg.taskId;
+            if (!tid || this.isGenerating) return;
+            const messages = this.store.getMessages(tid);
+            if (messages.length === 0) return;
+            const extractPrompt = '请分析以上对话内容，提炼本次任务中可复用的经验、技术决策、踩坑记录、代码模式等知识。使用 <KNOWLEDGE_ENTRY> 协议输出，每条知识应包含 type/title/content/tags。如果没有可提炼的知识，请直接说明。';
+            const handler = this.sessionHandler.createAgentResponseHandler(tid, false, '');
+            this.setGenerationState(true);
+            this.router.PostMessage({ type: 'addSystemMessage', content: '🔍 AI 正在分析对话萃取知识...', taskId: tid });
+            await this.sessionHandler.doPrompt(tid, extractPrompt, handler);
+        });
 
         this.panel.webview.onDidReceiveMessage((message: any) => { this.router.dispatch(message.type, message); }, null, this.context.subscriptions);
     }
