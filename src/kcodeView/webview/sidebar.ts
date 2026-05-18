@@ -469,11 +469,6 @@ declare function acquireVsCodeApi(): any;
         item.draggable = true;
         item.dataset.taskId = task.id;
 
-        const typeIcon = document.createElement('span');
-        typeIcon.className = 'task-type-icon';
-        typeIcon.textContent = '📝';
-        item.appendChild(typeIcon);
-
         // Status indicator: circle-letter for active, checkmark for completed, etc.
         const indicator = getStatusIndicator(task);
         if (indicator.text) {

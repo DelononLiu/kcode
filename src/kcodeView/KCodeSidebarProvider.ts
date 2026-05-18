@@ -406,7 +406,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         /* --- Task Item --- */
         .task-item {
             position: relative;
-            padding: 4px 8px 4px 24px;
+            padding: 4px 8px 4px 16px;
             cursor: pointer;
             border-radius: 3px;
             font-size: 13px;
@@ -436,12 +436,6 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             background: #0E364B;
             color: #ffffff;
             font-weight: 600;
-        }
-        .task-type-icon {
-            flex-shrink: 0;
-            font-size: 12px;
-            width: 16px;
-            text-align: center;
         }
         .task-status-icon {
             display: inline-flex;
@@ -562,7 +556,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
     <body>
         <div id="sidebar-content">
             <div id="assistant-entry" class="assistant-entry">
-                <span class="assistant-icon">💬</span>
+                <span class="assistant-icon">🤖</span>
                 <span>小助手</span>
             </div>
 
