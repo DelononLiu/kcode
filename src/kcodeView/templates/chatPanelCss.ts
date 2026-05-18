@@ -358,10 +358,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tab-card-toggle{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:#666;cursor:pointer;transition:transform .2s}
 .tab-card-toggle svg{display:block}
 .tab-card-toggle.collapsed{transform:rotate(-90deg)}
-.tab-card-bodies{display:grid;overflow-y:auto;max-height:250px;transition:max-height .25s ease,padding .25s ease,opacity .2s ease}
-.tab-card-bodies.collapsed{max-height:0;opacity:0;overflow:hidden}
-.tab-card-body{grid-area:1/1;visibility:hidden;padding:8px 12px;font-size:13px;line-height:1.6;color:#d2d2d4}
-.tab-card-body.active{visibility:visible;background:var(--vscode-sideBar-background,#1e1e1e)}
+.tab-card-bodies{position:relative;height:250px;overflow:hidden;transition:height .25s ease,padding .25s ease,opacity .2s ease}
+.tab-card-bodies.collapsed{height:0;opacity:0;overflow:hidden}
+.tab-card-body{position:absolute;top:0;left:0;right:0;bottom:0;display:none;overflow-y:auto;padding:8px 12px;font-size:13px;line-height:1.6;color:#d2d2d4}
+.tab-card-body.active{display:block;background:var(--vscode-sideBar-background,#1e1e1e)}
 .tab-card-body .tool-body-content{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px;color:#9aa;background:transparent;padding:0}
 .tab-card-body.tool-body-bash{background:rgba(0,0,0,.3);border-radius:3px;padding:8px 12px!important}
 .tab-card-body.tool-body-bash .tool-body-content{color:var(--tool-color-bash)}

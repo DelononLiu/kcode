@@ -1983,6 +1983,10 @@ function createTabCardFromTools(toolInfos: any[]): HTMLElement {
 
     card.appendChild(header);
     card.appendChild(bodies);
+    requestAnimationFrame(() => {
+        const activeBody = bodies.querySelector('.tab-card-body.active') as HTMLElement;
+        if (activeBody) activeBody.scrollTop = activeBody.scrollHeight;
+    });
     return card;
 }
 
