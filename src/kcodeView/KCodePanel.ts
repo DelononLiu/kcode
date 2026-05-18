@@ -187,6 +187,23 @@ export class KCodePanel {
             this.router.PostMessage({ type: 'addSystemMessage', content: '🔍 AI 正在分析对话萃取知识...', taskId: tid });
             await this.sessionHandler.doPrompt(tid, extractPrompt, handler);
         });
+        this.router.on('exportToWiki', async (msg) => {
+            const tid = msg.taskId;
+            if (!tid) return;
+            try {
+                const { WikiExporter } = await import('../export/WikiExporter');
+                const exporter = new WikiExporter(this.store);
+                const result = exporter.writeToWiki(tid);
+                this.router.PostMessage({
+                    type: 'wikiExported',
+                    filePath: result.filePath,
+                    fileName: result.fileName,
+                });
+                vscode.window.showInformationMessage(`✅ 已导出到 .kcode/wiki/${result.fileName}`);
+            } catch (err: any) {
+                vscode.window.showErrorMessage(`导出失败: ${err?.message || String(err)}`);
+            }
+        });
 
         this.panel.webview.onDidReceiveMessage((message: any) => { this.router.dispatch(message.type, message); }, null, this.context.subscriptions);
     }

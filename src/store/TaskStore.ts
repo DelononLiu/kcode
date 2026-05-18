@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { Task, ChatMessage, FileChange, ContainerEntity, AssistantMessage, ToolGroup, ToolItem, KnowledgeEntry } from '../types';
+import { Task, ChatMessage, FileChange, ContainerEntity, AssistantMessage, ToolGroup, ToolItem, KnowledgeEntry, TimelineEntry } from '../types';
 import { ProjectFs } from './ProjectFs';
 
 export interface StorageBackend {
@@ -482,6 +482,22 @@ export class TaskStore {
             e.content.toLowerCase().includes(q) ||
             e.tags.some(t => t.toLowerCase().includes(q))
         );
+    }
+
+    // ===== Timeline =====
+
+    getTaskTimeline(taskId: string): TimelineEntry[] {
+        return this.fs.getTaskTimeline(taskId);
+    }
+
+    addTimelineEntry(taskId: string, entry: TimelineEntry): void {
+        this.fs.addTimelineEntry(taskId, entry);
+    }
+
+    // ===== Wiki Export =====
+
+    getWikiDir(): string {
+        return this.fs.getWikiDir();
     }
 
     findEmptyTask(): Task | undefined {

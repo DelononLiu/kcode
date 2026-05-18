@@ -93,7 +93,7 @@ function updateOutputPanel(taskInfo: any, changes: any[]) {
         }
     }
 
-    // Section 2: Knowledge wiki
+    // Section 2: Knowledge wiki + export
     const knowledgeList = document.getElementById('op-knowledge-list');
     if (knowledgeList) {
         const known = taskInfo?.knowledgeItems;
@@ -110,14 +110,14 @@ function updateOutputPanel(taskInfo: any, changes: any[]) {
                     </div>
                 </div>`;
             }).join('');
-                    knowledgeList.querySelectorAll('.op-knowledge-entry').forEach(el => {
-                        el.addEventListener('click', () => {
-                            const entryId = (el as HTMLElement).dataset.entryId;
-                            if (entryId && _opVscode) {
-                                _opVscode.postMessage({ type: 'openKnowledgeEntry', entryId });
-                            }
-                        });
-                    });
+            knowledgeList.querySelectorAll('.op-knowledge-entry').forEach(el => {
+                el.addEventListener('click', () => {
+                    const entryId = (el as HTMLElement).dataset.entryId;
+                    if (entryId && _opVscode) {
+                        _opVscode.postMessage({ type: 'openKnowledgeEntry', entryId });
+                    }
+                });
+            });
         } else {
             const taskStatus = taskInfo?.status;
             const taskPhase = taskInfo?.phase;
@@ -125,6 +125,19 @@ function updateOutputPanel(taskInfo: any, changes: any[]) {
             knowledgeList.innerHTML = showHint
                 ? '<div class="op-empty">该任务暂无知识沉淀<br/><span style="font-size:10px;color:#555">可在 review 阶段让 AI 自动生成</span></div>'
                 : '<div class="op-empty">暂无知识条目</div>';
+        }
+
+        // Export to Wiki button
+        const exportBtn = document.getElementById('op-export-btn');
+        if (exportBtn) {
+            const taskId = taskInfo?.taskId;
+            const hasContent = taskInfo?.canExport;
+            if (taskId && hasContent && !taskInfo?.isAssistant) {
+                exportBtn.classList.remove('hidden');
+                (exportBtn as HTMLElement).dataset.taskId = taskId;
+            } else {
+                exportBtn.classList.add('hidden');
+            }
         }
     }
 

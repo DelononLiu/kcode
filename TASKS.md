@@ -2254,11 +2254,11 @@ _目标：一键将任务对话内容（消息流 + 知识条目 + 文件变更 
 
 | 任务 | 说明 | 状态 | 优先级 |
 |------|------|------|--------|
-| P19-01 | KnowledgeEntry 模型增强 — 补充 source/phase 字段 | ⬜ 未开始 | P0 |
-| P19-02 | 全链路日志收集 — 任务状态迁移 + 消息流 + 文件变更完整时间线 | ⬜ 未开始 | P0 |
-| P19-03 | Markdown 导出生成器 — 消息流 → 结构化 Wiki 文档 | ⬜ 未开始 | P0 |
-| P19-04 | 项目 Wiki 文件输出 — `.kcode/wiki/` 目录 + 索引 | ⬜ 未开始 | P1 |
-| P19-05 | 一键导出 UI — 输出面板按钮 + 导出确认 | ⬜ 未开始 | P1 |
+| P19-01 | KnowledgeEntry 模型增强 — 补充 source/phase 字段 | ✅ 已完成 | P0 |
+| P19-02 | 全链路日志收集 — 任务状态迁移 + 消息流 + 文件变更完整时间线 | ✅ 已完成 | P0 |
+| P19-03 | Markdown 导出生成器 — 消息流 → 结构化 Wiki 文档 | ✅ 已完成 | P0 |
+| P19-04 | 项目 Wiki 文件输出 — `.kcode/wiki/` 目录 + 索引 | ✅ 已完成 | P1 |
+| P19-05 | 一键导出 UI — 输出面板按钮 + 导出确认 | ✅ 已完成 | P1 |
 
 ---
 
@@ -2273,7 +2273,7 @@ _目标：一键将任务对话内容（消息流 + 知识条目 + 文件变更 
 2. `parseKnowledgeEntry()` 创建条目时填入：`source: \`task:${taskId}\``, `phase: task.phase`
 3. Knowledge Wiki 面板详情区展示 source 和 phase 信息
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 **验收标准**: 新产生的知识条目自动带 source 和 phase，Wiki 面板可查看来源。
 
@@ -2282,20 +2282,20 @@ _目标：一键将任务对话内容（消息流 + 知识条目 + 文件变更 
 ### P19-02: 全链路日志收集 — 任务状态迁移 + 消息流 + 文件变更完整时间线
 
 **涉及文件**:
-- `src/types/index.ts` — 新增 `TaskTimeline` / `TimelineEntry` 接口
+- `src/types/index.ts` — 新增 `TimelineEntry` 接口
 - `src/store/TaskStore.ts` — 新增 `addTimelineEntry()` / `getTaskTimeline()` 方法
 - `src/store/ProjectFs.ts` — 新增 `timeline.json` 文件读写
-- `src/taskflow/TaskFlow.ts` — 阶段迁移时记录 `TimelineEntry`（phase：phase_changed / goal_confirmed / plan_confirmed / execute_finished / review_accepted / review_rejected / cancelled）
-- `src/kcodeView/KCodePanel.ts` — `onKnowledgeEntry` / `sendMessage` 时记录消息时间点；`onDone` 时记录文件变更摘要
+- `src/taskflow/TaskFlow.ts` — 阶段迁移时记录 `TimelineEntry`（phase_change 类型）
+- `src/kcodeView/TaskFlowHandler.ts` — 知识萃取、取消任务、验收通过时记录时间线
 
 **实现说明**:
 1. `TimelineEntry` 包含：`timestamp` / `type` (phase_change / message / file_change / knowledge_extract) / `summary` / `detail`
-2. 阶段迁移时由 TaskFlow 自动记录（`taskId` + `phase` + `from → to`）
-3. 消息发送/接收时由 KCodePanel 记录摘要
-4. 文件变更记录在 onDone 时聚合（从 `FileChange[]` 提取文件名+操作类型）
+2. 阶段迁移时由 TaskFlow 自动记录（confirmGoal/confirmPlan/confirmExecuteDone/finishReview/rejectReview 等方法）
+3. 知识萃取时由 TaskFlowHandler.handleKnowledgeEntry 记录
+4. 文件变更由 TaskFlowHandler.triggerReviewRequest 聚合记录
 5. 存储于 `{taskDir}/timeline.json`，按 timestamp 排序
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 **验收标准**: 任务完成后可查看完整时间线：何时进入哪个阶段、何时发了什么消息、何时改了什么文件。
 
@@ -2305,7 +2305,7 @@ _目标：一键将任务对话内容（消息流 + 知识条目 + 文件变更 
 
 **涉及文件**:
 - `src/export/WikiExporter.ts` — **新建**：核心导出类，组装消息+知识+时间线+变更 → Markdown
-- `src/taskflow/TaskFlow.ts` — `ITaskStore` 新增 `getTaskTimeline()` 接口
+- `src/taskflow/TaskFlow.ts` — `ITaskStore` 新增 `getTaskTimeline()`、`addTimelineEntry()` 接口
 
 **实现说明**:
 1. `WikiExporter.generate(taskId)` 从 store 读取：
@@ -2314,35 +2314,10 @@ _目标：一键将任务对话内容（消息流 + 知识条目 + 文件变更 
    - 对话消息（`getMessages()`）
    - 知识条目（`getTaskKnowledgeEntries()`）
    - 文件变更（`getReviewChanges()`）
-2. Markdown 模板结构：
-   ```markdown
-   # {任务标题}
-   > 状态: {status} | 创建: {date} | 阶段: {phase}
-
-   ## 🎯 目标
-   {goal}
-
-   ## 📋 时间线
-   | 时间 | 事件 | 摘要 |
-   |------|------|------|
-
-   ## 💬 对话记录
-   ### 👤 用户 — HH:mm
-   ...
-   ### 🤖 Agent — HH:mm
-   ...
-
-   ## 📄 文件变更
-   | 文件 | 操作 | 行数变化 |
-   |------|------|----------|
-
-   ## 📚 知识沉淀
-   | 类型 | 标题 | 来源阶段 |
-   |------|------|----------|
-   ```
+2. Markdown 模板输出含：Header → Goal → 计划步骤 → 时间线 → 对话记录 → 文件变更 → 知识沉淀 → Footer
 3. 知识条目详情以折叠 `<details>` 块嵌入
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 **验收标准**: 调用 `WikiExporter.generate(taskId)` 返回完整 Markdown 字符串，含上述 5 个区块。
 
@@ -2353,29 +2328,16 @@ _目标：一键将任务对话内容（消息流 + 知识条目 + 文件变更 
 **涉及文件**:
 - `src/export/WikiExporter.ts` — 新增 `writeToWiki()` 方法
 - `src/export/WikiIndex.ts` — **新建**：Wiki 索引文件管理
-- `src/store/ProjectFs.ts` — 暴露 `wikiDir` 路径
+- `src/store/ProjectFs.ts` — 暴露 `getWikiDir()` 方法
 
 **实现说明**:
 1. **输出目录**: `{workspaceRoot}/.kcode/wiki/`
 2. **文件命名**: `{taskId}_{sanitizedTitle}.md`（sanitize: 去特殊字符，截断 50 字符）
-3. **`WikiExporter.writeToWiki(taskId)`**:
-   - 调用 `generate(taskId)` 生成 markdown
-   - 写入 `.kcode/wiki/{filename}.md`
-   - 调用 `WikiIndex.append()` 更新索引
-4. **`WikiIndex`**:
-   - 维护 `.kcode/wiki/INDEX.md`，按项目分组列出所有任务 Wiki 链接
-   - 格式：
-     ```markdown
-     # KCode Wiki 索引
-     > 最后更新: {timestamp}
-     
-     ## {项目名}
-     - [P19-01 模型增强](P19-01_xxx.md) — ✅ completed
-     - [P19-02 日志收集](P19-02_xxx.md) — 🔵 in_review
-     ```
+3. **`WikiExporter.writeToWiki(taskId)`**: generate → 写入文件 → 更新 INDEX.md
+4. **`WikiIndex.append()`**: 更新 INDEX.md，含任务标题/文件名/状态 emoji
 5. 重复导出时覆盖同名文件（幂等）
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 **验收标准**: 一键导出后 `.kcode/wiki/` 下出现任务 Markdown 文件 + INDEX.md 索引，文件内容完整可读。
 
@@ -2388,15 +2350,17 @@ _目标：一键将任务对话内容（消息流 + 知识条目 + 文件变更 
 - `src/kcodeView/templates/chatPanelCss.ts` — 新增 `.op-export-btn` 样式
 - `src/kcodeView/KCodePanel.ts` — 新增 `exportToWiki` 消息处理 → 调用 `WikiExporter.writeToWiki()`
 - `src/kcodeView/TaskFlowHandler.ts` — `sendOutputPanelUpdate()` 携带可导出标识
+- `src/kcodeView/webview/app.ts` — 新增 `wikiExported` 消息处理和按钮事件绑定
+- `src/kcodeView/templates/chatPanelHtml.ts` — 知识wiki 标题栏内置按钮
 
 **实现说明**:
-1. 知识区块底部新增「📤 导出 Wiki」按钮，与「🔍 AI 萃取知识」同级
-2. 仅在 task 模式下、有消息内容时显示
-3. 点击 → WebView 发送 `exportToWiki` 消息 → KCodePanel 调用 `WikiExporter.writeToWiki(taskId)` → 完成后发送 `wikiExported { filePath }` 通知
-4. 导出成功后 WebView 显示 toast 提示「已导出到 .kcode/wiki/{filename}.md」
-5. 提供"打开文件"按钮，用 VS Code 打开导出的 Markdown
+1. 知识区块标题栏内嵌「📤 导出 Wiki」按钮（`.op-export-btn`），与 AI 萃取按钮共存
+2. 仅在 task 模式下、有消息内容时显示（通过 `canExport` 标识控制 hidde class）
+3. 点击 → WebView 发送 `exportToWiki` 消息 → KCodePanel 动态 import WikiExporter → 调用 `writeToWiki()` → 完成通知
+4. 导出成功后 WebView 显示系统消息「已导出 Wiki 文档」
+5. VS Code 信息弹窗提示具体文件路径
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 **验收标准**: 输出面板「知识wiki」区出现导出按钮；点击后生成 `.kcode/wiki/` 文件 + 弹出成功提示；可一键打开导出的 Markdown。
 

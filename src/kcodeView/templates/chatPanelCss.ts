@@ -221,7 +221,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .output-resize-handle:hover,.output-resize-handle:active{background:rgba(74,139,181,.4)}
 #right-output-content{flex:1;overflow-y:auto;min-height:0;padding:6px 8px}
 .op-section{margin-bottom:4px}
-.op-section-title{font-size:11px;font-weight:600;color:#999;padding:4px 0 3px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:2px}
+.op-section-title{font-size:11px;font-weight:600;color:#999;padding:4px 0 3px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:2px;display:flex;align-items:center;justify-content:space-between}
+.op-export-btn{font-size:10px;color:#4ec9b0;background:rgba(78,201,176,.08);border:1px solid rgba(78,201,176,.15);border-radius:3px;padding:1px 6px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .15s,color .15s}
+.op-export-btn:hover{background:rgba(78,201,176,.18);color:#7edcb0}
+.op-export-btn.hidden{display:none}
 .op-empty{font-size:11px;color:#555;text-align:center;padding:6px 0 10px}
 .op-item{display:flex;align-items:center;gap:5px;padding:3px 4px;border-radius:3px;cursor:pointer;font-size:11px;color:#aaa;transition:background .1s}
 .op-item:hover{background:rgba(255,255,255,.03)}

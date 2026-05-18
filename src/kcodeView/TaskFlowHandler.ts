@@ -56,6 +56,7 @@ export class TaskFlowHandler {
         ctx.router.PostMessage({ type: 'addUserMessage', content: '✕ 已取消任务' });
         ctx.store.updateTaskStatus(tid, 'cancelled');
         ctx.store.clearReviewChanges(tid);
+        ctx.store.addTimelineEntry(tid, { timestamp: Date.now(), type: 'phase_change', summary: '任务取消', detail: '用户主动取消任务' });
         ctx.refreshSidebarCallback?.();
         ctx.sendNodePanelUpdate(tid);
         ctx.setGenerationState(false);
@@ -137,6 +138,10 @@ export class TaskFlowHandler {
         let changes: FileChange[] = ctx.agentService.getReviewChanges(tid);
         if (changes.length === 0) changes = this.collectToolChanges(tid);
 
+        if (changes.length > 0) {
+            ctx.store.addTimelineEntry(tid, { timestamp: Date.now(), type: 'file_change', summary: `变更 ${changes.length} 个文件`, detail: changes.map(c => `${c.filePath}`).join('\n') });
+        }
+
         ctx.store.storeReviewChanges(tid, changes);
 
         const task = ctx.store.getTask(tid);
@@ -178,6 +183,7 @@ export class TaskFlowHandler {
         ctx.taskFlow.finishReview(tid);
         const task = ctx.store.getTask(tid);
         const changes = ctx.store.getReviewChanges(tid);
+        ctx.store.addTimelineEntry(tid, { timestamp: Date.now(), type: 'message', summary: '用户验收通过', detail: '' });
         let report = `🎉 任务已完成，《任务完成报告》如下：\n\n📋 **任务**：${task?.title || ''}\n`;
         if (changes.length > 0) report += `📄 **变更文件**：${changes.length} 个\n${changes.map(c => `  - \`${c.filePath}\``).join('\n')}`;
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', content: report, timestamp: Date.now() });
@@ -273,7 +279,18 @@ export class TaskFlowHandler {
                 } catch {}
             }
         }
-        ctx.router.PostMessage({ type: 'updateOutputPanel', taskInfo: { planSteps: ctx.store.getTask(taskId)?.planSteps, todos, toolCalls, knowledgeItems }, changes });
+        const task = ctx.store.getTask(taskId);
+        ctx.router.PostMessage({ type: 'updateOutputPanel', taskInfo: {
+            taskId,
+            planSteps: task?.planSteps,
+            todos,
+            toolCalls,
+            knowledgeItems,
+            canExport: messages.length > 0,
+            status: task?.status,
+            phase: task?.phase,
+            isAssistant: false,
+        }, changes });
     }
 
     sendTaskMessages(taskId: string) {
@@ -449,6 +466,8 @@ export class TaskFlowHandler {
         for (const entry of entries) {
             ctx.store.addKnowledgeEntry(taskId, entry);
         }
+        const titles = entries.map(e => e.title).join('、');
+        ctx.store.addTimelineEntry(taskId, { timestamp: Date.now(), type: 'knowledge_extract', summary: `萃取知识: ${titles.substring(0, 80)}`, detail: `共 ${entries.length} 条知识条目` });
         ctx.router.PostMessage({ type: 'addSystemMessage', content: `📚 已沉淀 ${entries.length} 条知识条目`, taskId });
         this.sendOutputPanelUpdate(taskId);
     }

@@ -305,6 +305,15 @@ function initMessageHandler() {
             case 'agentList':
                 initAgentSelector(message.agents || []);
                 break;
+            case 'wikiExported':
+                {
+                    const fileName = message.fileName || '';
+                    const filePath = message.filePath || '';
+                    addSystemMessage(`📤 **已导出 Wiki 文档**\n\n文件: \`.kcode/wiki/${fileName}\`\n\n> 可打开文件查看完整内容`);
+                    const btnExport = document.getElementById('op-export-btn');
+                    if (btnExport) btnExport.classList.add('hidden');
+                }
+                break;
         }
     });
 }
@@ -715,6 +724,14 @@ function initChat() {
     const btnKnowledgeExtract = document.getElementById('btn-knowledge-extract');
     btnKnowledgeExtract?.addEventListener('click', () => {
         vscode.postMessage({ type: 'extractKnowledge', taskId: activeTaskId });
+    });
+
+    const btnExportWiki = document.getElementById('op-export-btn');
+    btnExportWiki?.addEventListener('click', () => {
+        const taskId = (btnExportWiki as HTMLElement).dataset.taskId;
+        if (taskId) {
+            vscode.postMessage({ type: 'exportToWiki', taskId });
+        }
     });
 
     const btnTerminal = document.getElementById('btn-terminal');

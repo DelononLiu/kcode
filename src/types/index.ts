@@ -138,6 +138,20 @@ export interface KnowledgeEntry {
     tags: string[];
     createdAt: number;
     source?: string;
+    phase?: 'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
+}
+
+export interface TimelineEntry {
+    timestamp: number;
+    type: 'phase_change' | 'message' | 'file_change' | 'knowledge_extract';
+    summary: string;
+    detail?: string;
+}
+
+export interface FileChangeSummary {
+    filePath: string;
+    operation: 'added' | 'modified' | 'deleted';
+    lines?: number;
 }
 
 export interface ProgressNode {

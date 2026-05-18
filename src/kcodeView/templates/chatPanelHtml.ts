@@ -163,8 +163,11 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     <div class="op-section-title">变更列表</div>
                     <div id="op-code-list"><div class="op-empty">暂无变更</div></div>
                 </div>
-                <div class="op-section">
-                    <div class="op-section-title">知识wiki</div>
+                <div class="op-section" style="padding-bottom:4px">
+                    <div class="op-section-title">
+                        <span>知识wiki</span>
+                        <button id="op-export-btn" class="op-export-btn hidden" title="导出对话内容到项目 Wiki">📤 导出 Wiki</button>
+                    </div>
                     <div id="op-knowledge-list"><div class="op-empty">暂无知识</div></div>
                 </div>
                 <div class="op-section">

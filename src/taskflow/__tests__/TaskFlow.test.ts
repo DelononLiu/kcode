@@ -98,6 +98,8 @@ class MockTaskStore implements ITaskStore {
 
     getTaskKnowledgeEntries(_taskId: string): any[] { return []; }
     getAllKnowledgeEntries(): any[] { return []; }
+    addTimelineEntry(_taskId: string, _entry: any): void {}
+    getTaskTimeline(_taskId: string): any[] { return []; }
 
     addTask(task: Task): void {
         this.tasks.set(task.id, task);

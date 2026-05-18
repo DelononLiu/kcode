@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { Task, ChatMessage, ContainerEntity, FileChange, AssistantMessage, ToolGroup, ToolItem, KnowledgeEntry } from '../types';
+import { Task, ChatMessage, ContainerEntity, FileChange, AssistantMessage, ToolGroup, ToolItem, KnowledgeEntry, TimelineEntry } from '../types';
 
 function defaultRoot(): string {
 	return path.join(os.homedir(), '.local', 'share', 'kcode');
@@ -367,6 +367,32 @@ export class ProjectFs {
 		if (!task) return;
 		const reviewPath = path.join(this._taskDir(task), 'review_changes.json');
 		try { fs.unlinkSync(reviewPath); } catch { /* ignore */ }
+	}
+
+	// ===== Timeline =====
+
+	getTaskTimeline(taskId: string): TimelineEntry[] {
+		const task = this.getTask(taskId);
+		if (!task) return [];
+		const path_ = path.join(this._taskDir(task), 'timeline.json');
+		if (!fs.existsSync(path_)) return [];
+		try { return JSON.parse(fs.readFileSync(path_, 'utf-8')); } catch { return []; }
+	}
+
+	addTimelineEntry(taskId: string, entry: TimelineEntry): void {
+		const task = this.getTask(taskId);
+		if (!task) return;
+		const path_ = path.join(this._taskDir(task), 'timeline.json');
+		const entries = this.getTaskTimeline(taskId);
+		entries.push(entry);
+		fs.writeFileSync(path_, JSON.stringify(entries, null, 2), 'utf-8');
+	}
+
+	// ===== Wiki / Export =====
+
+	getWikiDir(): string {
+		const workspaceRoot = process.env['VSCODE_CWD'] || process.cwd();
+		return path.join(workspaceRoot, '.kcode', 'wiki');
 	}
 
 	// ===== Tool Groups =====

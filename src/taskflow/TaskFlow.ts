@@ -1,4 +1,4 @@
-import type { Task, PlanStep, ChatMessage, TodoItem, KnowledgeEntry } from '../types';
+import type { Task, PlanStep, ChatMessage, TodoItem, KnowledgeEntry, TimelineEntry } from '../types';
 import { BASE_PROMPT } from './prompts/base';
 import { PROTOCOL_PROMPT } from './prompts/protocol';
 import { DEMAND_PROMPT } from './prompts/demand';
@@ -35,6 +35,8 @@ export interface ITaskStore {
     updateTaskHooks(taskId: string, phase: string, commands: string[]): void;
     getTaskKnowledgeEntries(taskId: string): KnowledgeEntry[];
     getAllKnowledgeEntries(): KnowledgeEntry[];
+    addTimelineEntry(taskId: string, entry: TimelineEntry): void;
+    getTaskTimeline(taskId: string): TimelineEntry[];
 }
 
 export interface DelegatePayload {
@@ -264,6 +266,7 @@ export class TaskFlow {
 
     private parseKnowledgeEntry(taskId: string): void {
         let text = this.accumulatedText.get(taskId) || '';
+        const task = this.store.getTask(taskId);
         const regex = /<KNOWLEDGE_ENTRY>([\s\S]*?)<\/KNOWLEDGE_ENTRY>/gi;
         let match;
         while ((match = regex.exec(text)) !== null) {
@@ -279,6 +282,8 @@ export class TaskFlow {
                     content: e.content || '',
                     tags: Array.isArray(e.tags) ? e.tags : [],
                     createdAt: Date.now(),
+                    source: `task:${taskId}`,
+                    phase: task?.phase,
                 }));
                 text = text.replace(match[0], '');
                 this.accumulatedText.set(taskId, text);
@@ -477,6 +482,7 @@ export class TaskFlow {
 
         this.store.updateTaskPhase(taskId, 'plan');
         this.store.updateTaskStatus(taskId, 'active');
+        this.store.addTimelineEntry(taskId, { timestamp: Date.now(), type: 'phase_change', summary: '目标确认 → 计划', detail: '用户确认目标，进入计划阶段' });
         this.delegate.onPhaseChanged(taskId);
     }
 
@@ -497,6 +503,7 @@ export class TaskFlow {
             this.planProposed.set(taskId, false);
             this.store.updateTaskPhase(taskId, 'execute');
             this.store.updateTaskStatus(taskId, 'active');
+            this.store.addTimelineEntry(taskId, { timestamp: Date.now(), type: 'phase_change', summary: '计划确认 → 执行', detail: '用户确认计划，进入执行阶段' });
             this.delegate.onPhaseChanged(taskId);
         }
     }
@@ -509,6 +516,7 @@ export class TaskFlow {
         this.executeFinished.set(taskId, false);
         this.store.updateTaskPhase(taskId, 'self_verify');
         this.store.updateTaskStatus(taskId, 'active');
+        this.store.addTimelineEntry(taskId, { timestamp: Date.now(), type: 'phase_change', summary: '执行完成 → 自验', detail: 'AI 执行完成，进入自验阶段' });
         this.delegate.onPhaseChanged(taskId);
     }
 
@@ -516,6 +524,7 @@ export class TaskFlow {
         this.selfVerifyFinished.set(taskId, false);
         this.store.updateTaskPhase(taskId, 'review');
         this.store.updateTaskStatus(taskId, 'in_review');
+        this.store.addTimelineEntry(taskId, { timestamp: Date.now(), type: 'phase_change', summary: '自验完成 → 验收', detail: 'AI 自验通过，进入验收阶段' });
         this.delegate.onPhaseChanged(taskId);
 
         const msgs = this.store.getMessages(taskId);
@@ -531,6 +540,7 @@ export class TaskFlow {
         }
 
         this.store.updateTaskStatus(taskId, 'completed');
+        this.store.addTimelineEntry(taskId, { timestamp: Date.now(), type: 'phase_change', summary: '验收通过 → 已完成', detail: '用户验收通过，任务完成' });
         this.delegate.onPhaseChanged(taskId);
     }
 
@@ -543,6 +553,7 @@ export class TaskFlow {
 
         this.store.updateTaskPhase(taskId, 'execute');
         this.store.updateTaskStatus(taskId, 'active');
+        this.store.addTimelineEntry(taskId, { timestamp: Date.now(), type: 'phase_change', summary: '验收驳回 → 执行', detail: '用户驳回验收，回到执行阶段' });
         this.delegate.onPhaseChanged(taskId);
     }
 
