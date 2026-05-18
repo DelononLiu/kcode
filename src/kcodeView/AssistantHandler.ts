@@ -95,7 +95,6 @@ export class AssistantHandler {
         const msgId = this.store.nextAssistantMessageId();
         this.store.addAssistantMessage({ id: msgId, role: 'user', content: text, timestamp: Date.now() });
         this.router.PostMessage({ type: 'addUserMessage', content: text });
-        this.loadMessages();
 
         if (!this.agentService.isConnected) {
             await this.sessionHandler.ensureConnection();
@@ -112,20 +111,58 @@ export class AssistantHandler {
 
     createResponseHandler(): AcpMessageHandler {
         let buffer = '';
+        let reasoningText = '';
+        let reasoningActive = false;
+        let currentReasoningId = '';
+
+        const completeReasoning = () => {
+            if (!reasoningActive) return;
+            reasoningActive = false;
+            const full = reasoningText;
+            reasoningText = '';
+            this.router.PostMessage({
+                type: 'toolCallUpdate',
+                toolCallId: currentReasoningId,
+                title: '推理过程',
+                kind: 'thinking',
+                status: 'completed',
+                content: full,
+            });
+        };
+
+        const sendToolCallUpdate = (toolCallId: string, title: string, kind: string, status: string, content?: string) => {
+            this.router.PostMessage({ type: 'toolCallUpdate', toolCallId, title, kind, status, content });
+        };
+
         return {
             onText: (chunk: string) => {
+                completeReasoning();
                 buffer += chunk;
                 this.router.PostMessage({ type: 'agentStreamUpdate', text: buffer });
             },
-            onReasoning: () => {},
-            onToolCall: () => {},
-            onToolCallUpdate: () => {},
+            onReasoning: (text: string) => {
+                if (!reasoningActive) {
+                    currentReasoningId = 'reasoning_' + Date.now();
+                    reasoningActive = true;
+                    sendToolCallUpdate(currentReasoningId, '推理', 'thinking', 'running', '');
+                }
+                reasoningText += text;
+                sendToolCallUpdate(currentReasoningId, '推理', 'thinking', 'running', reasoningText);
+            },
+            onToolCall: (toolCallId, title, kind, status) => {
+                completeReasoning();
+                sendToolCallUpdate(toolCallId, title, kind, status);
+            },
+            onToolCallUpdate: (toolCallId, status, content?, title?, kind?) => {
+                sendToolCallUpdate(toolCallId, title || '', kind || '', status, content);
+            },
             onPlan: () => {},
             onError: (error: string) => {
                 this.setGenerationState(false);
                 this.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n[错误: ${error}]` });
             },
             onDone: (stopReason?: string) => {
+                completeReasoning();
                 this.setGenerationState(false);
                 if (stopReason === 'cancelled') return;
                 if (buffer.trim()) {
