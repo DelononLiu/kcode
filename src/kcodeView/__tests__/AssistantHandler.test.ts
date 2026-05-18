@@ -8,11 +8,16 @@ function makeMocks() {
         addAssistantMessage: vi.fn(),
         nextAssistantMessageId: vi.fn().mockReturnValue('msg-1'),
         addTask: vi.fn(),
+        getAssistantSessionId: vi.fn().mockReturnValue(undefined),
+        setAssistantSessionId: vi.fn(),
     };
     const agentService = {
         isConnected: false,
         connect: vi.fn().mockResolvedValue(true),
         sendPrompt: vi.fn().mockResolvedValue(undefined),
+        hasSession: vi.fn().mockReturnValue(false),
+        createSession: vi.fn().mockResolvedValue('session-1'),
+        lastError: '',
     };
     const router = new MessageRouter();
     const postSpy = vi.fn();

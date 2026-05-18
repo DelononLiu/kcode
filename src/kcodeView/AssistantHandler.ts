@@ -104,6 +104,20 @@ export class AssistantHandler {
             }
         }
 
+        if (!this.agentService.hasSession(tid)) {
+            const existingSessionId = this.store.getAssistantSessionId();
+            const workspacePath = this.workspaceRoot || process.cwd();
+            const sessionId = await this.agentService.createSession(tid, workspacePath, existingSessionId);
+            if (!sessionId) {
+                this.setGenerationState(false);
+                this.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n[错误: ${this.agentService.lastError || 'ACP 会话未就绪'}]` });
+                return;
+            }
+            if (sessionId !== existingSessionId) {
+                this.store.setAssistantSessionId(sessionId);
+            }
+        }
+
         const handler = this.createResponseHandler();
         this.setGenerationState(true);
         await this.agentService.sendPrompt(tid, text, handler);

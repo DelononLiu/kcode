@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockSdk = vi.hoisted(() => ({
     mockInitialize: vi.fn().mockResolvedValue({ protocolVersion: '0.1.0' }),
     mockNewSession: vi.fn().mockResolvedValue({ sessionId: 'session-1' }),
+    mockResumeSession: vi.fn().mockResolvedValue({}),
     mockPrompt: vi.fn().mockResolvedValue({ stopReason: 'end_turn' }),
     mockCancel: vi.fn().mockResolvedValue(undefined),
     mockCloseSession: vi.fn().mockResolvedValue(undefined),
@@ -13,6 +14,7 @@ vi.mock('@agentclientprotocol/sdk', () => {
     const ClientSideConnection = function(this: any, _clientFactory: any, _stream: any) {
         this.initialize = mockSdk.mockInitialize;
         this.newSession = mockSdk.mockNewSession;
+        this.resumeSession = mockSdk.mockResumeSession;
         this.prompt = mockSdk.mockPrompt;
         this.cancel = mockSdk.mockCancel;
         this.closeSession = mockSdk.mockCloseSession;
@@ -84,6 +86,24 @@ describe('AcpClient', () => {
         const result = await client.createSession('task-1', '/cwd');
         expect(result).toBe('session-1');
         expect(client.lastError).toBe('');
+    });
+
+    it('createSession with existingSessionId calls resumeSession on success', async () => {
+        await client.connect('test-agent');
+        const result = await client.createSession('task-1', '/cwd', 'ses_existing_123');
+        expect(mockSdk.mockResumeSession).toHaveBeenCalledWith({ sessionId: 'ses_existing_123', cwd: '/cwd' });
+        expect(mockSdk.mockNewSession).not.toHaveBeenCalled();
+        expect(result).toBe('ses_existing_123');
+        expect(client.getSessionId('task-1')).toBe('ses_existing_123');
+    });
+
+    it('createSession with existingSessionId falls back to newSession when resume fails', async () => {
+        mockSdk.mockResumeSession.mockRejectedValueOnce(new Error('session not found'));
+        await client.connect('test-agent');
+        const result = await client.createSession('task-1', '/cwd', 'ses_stale_456');
+        expect(mockSdk.mockResumeSession).toHaveBeenCalled();
+        expect(mockSdk.mockNewSession).toHaveBeenCalled();
+        expect(result).toBe('session-1');
     });
 
     it('prompt sends text to connection', async () => {

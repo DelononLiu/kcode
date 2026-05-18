@@ -253,6 +253,10 @@ export class TaskStore {
         }
     }
 
+    updateTaskSessionId(taskId: string, sessionId: string): void {
+        this.fs.updateTask(taskId, { sessionId } as any);
+    }
+
     updateTaskArchive(taskId: string, archived: boolean): void {
         this.fs.updateTask(taskId, { archived });
     }
@@ -261,6 +265,16 @@ export class TaskStore {
         for (const id of taskIds) {
             this.fs.updateTask(id, { archived });
         }
+    }
+
+    // ===== Assistant Session =====
+
+    getAssistantSessionId(): string | undefined {
+        return this.fs.getAssistantSessionId();
+    }
+
+    setAssistantSessionId(sessionId: string): void {
+        this.fs.setAssistantSessionId(sessionId);
     }
 
     // ===== Assistant Messages =====

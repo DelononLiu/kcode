@@ -198,3 +198,57 @@ ndJsonStream(
 | `setSessionMode(params)` | 切换模式（ask/code/architect） |
 | `authenticate(params)` | 认证（需 Agent 支持） |
 
+## Session 持久化与恢复
+
+Agent（Kilo/OpenCode）使用 SQLite 持久化 session（位于 `~/.local/share/kilo/kilo.db`），session 在进程重启后不丢失。
+
+KCode 利用此机制实现会话恢复：
+
+### 数据流
+
+```
+首次对话:
+  KCode → session/new → Agent 生成 sessionId (ses_xxx)
+  KCode 将 sessionId 持久化到 Task.meta.yml
+
+重启后恢复:
+  KCode loadTask → 从 Task.meta.yml 读出 sessionId
+  KCode → resumeSession({ sessionId, cwd })
+  Agent 从 SQLite 恢复完整对话上下文
+  KCode 直接继续对话，Agent 记得所有历史
+
+resume 失败时自动 fallback:
+  session 已失效/被删除 → newSession 创建新会话 → 更新 sessionId
+```
+
+### Task 存储
+
+`Task` 接口新增 `sessionId?: string` 字段，通过 `ProjectFs._writeTaskMeta()` 持久化到 `meta.yml`。
+
+### Agent 能力要求
+
+| 能力 | 标志 | Kilo 实现 |
+|------|------|-----------|
+| Session 持久化 | 无（基础能力） | SQLite `kilo.db` |
+| Session 恢复 | `sessionCapabilities.resume` | ✅ `agent.ts:803` |
+| Session 加载 | `agentCapabilities.loadSession` | ✅ `agent.ts:623` |
+| Session 列表 | `sessionCapabilities.list` | ✅ `agent.ts:693` |
+
+### 代码示例
+
+```typescript
+// 首次创建 session
+const { sessionId } = await connection.newSession({ cwd, mcpServers: [] });
+// 持久化 sessionId 到 Task
+taskStore.updateTaskSessionId(taskId, sessionId);
+
+// 恢复已有 session
+try {
+  await connection.resumeSession({ sessionId: storedSessionId, cwd });
+} catch {
+  // session 失效，创建新 session
+  const { sessionId } = await connection.newSession({ cwd, mcpServers: [] });
+  taskStore.updateTaskSessionId(taskId, sessionId);
+}
+```
+

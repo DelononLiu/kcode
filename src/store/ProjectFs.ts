@@ -37,8 +37,9 @@ interface MetaFile {
 	pendingItems?: string[];
 	planSteps?: { content: string; status: string }[];
 	nodeMessageIds?: Record<string, string>;
-	hooks?: Record<string, string[]>;
-	source?: { type: string; url: string; owner: string; repo: string; issueNumber: number };
+    hooks?: Record<string, string[]>;
+    source?: { type: string; url: string; owner: string; repo: string; issueNumber: number };
+    sessionId?: string;
 }
 
 export class ProjectFs {
@@ -454,6 +455,25 @@ export class ProjectFs {
 		fs.writeFileSync(amsgPath, JSON.stringify(messages, null, 2), 'utf-8');
 	}
 
+	// ===== Assistant session =====
+
+	private get _assistantSessionPath(): string {
+		const name = this._workspaceId
+			? `assistant_session_${this._workspaceId}.json`
+			: 'assistant_session.json';
+		return path.join(this._root, name);
+	}
+
+	getAssistantSessionId(): string | undefined {
+		const p = this._assistantSessionPath;
+		if (!fs.existsSync(p)) return undefined;
+		try { return JSON.parse(fs.readFileSync(p, 'utf-8')).sessionId; } catch { return undefined; }
+	}
+
+	setAssistantSessionId(sessionId: string): void {
+		fs.writeFileSync(this._assistantSessionPath, JSON.stringify({ sessionId }, null, 2), 'utf-8');
+	}
+
 	// ===== Container operations (aggregate) =====
 
 	getAllContainers(): ContainerEntity[] {
@@ -563,8 +583,9 @@ export class ProjectFs {
 			subType: (meta.subType as string) || undefined,
 			nodeMessageIds: (meta.nodeMessageIds as Record<string, string>) || undefined,
 			hooks: (meta.hooks as Record<string, string[]>) || undefined,
-			source: (meta.source as Task['source']) || undefined,
-		};
+            source: (meta.source as Task['source']) || undefined,
+            sessionId: (meta.sessionId as string) || undefined,
+        };
 	}
 
 	private _writeTaskMeta(task: Task): void {
@@ -589,7 +610,8 @@ export class ProjectFs {
 		if (task.nodeMessageIds && Object.keys(task.nodeMessageIds).length) meta.nodeMessageIds = task.nodeMessageIds;
 		if (task.hooks && Object.keys(task.hooks).length) meta.hooks = task.hooks;
 		if (task.source) meta.source = task.source;
-		if (task.containerId) meta.containerId = task.containerId;
+        if (task.containerId) meta.containerId = task.containerId;
+        if (task.sessionId) meta.sessionId = task.sessionId;
 		writeYaml(path.join(taskDir, 'meta.yml'), meta);
 	}
 

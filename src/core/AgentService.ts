@@ -177,9 +177,9 @@ export class AgentService implements IAgentService {
         this.agentType = null;
     }
 
-    async createSession(taskId: string, cwd: string): Promise<string | null> {
+    async createSession(taskId: string, cwd: string, existingSessionId?: string): Promise<string | null> {
         if (this.acpClient) {
-            return await this.acpClient.createSession(taskId, cwd);
+            return await this.acpClient.createSession(taskId, cwd, existingSessionId);
         }
         if (this.openaiAgent) {
             return this.openaiAgent.createSession(taskId);

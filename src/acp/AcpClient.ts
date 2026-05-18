@@ -75,11 +75,26 @@ export class AcpClient {
 
     /**
      * Create a new ACP session for a specific task.
+     * If existingSessionId is provided, try resumeSession first.
      */
-    async createSession(taskId: string, cwd: string): Promise<string | null> {
+    async createSession(taskId: string, cwd: string, existingSessionId?: string): Promise<string | null> {
         if (!this.connection) {
             this._lastError = 'ACP 连接尚未建立';
             throw new Error(this._lastError);
+        }
+
+        if (existingSessionId) {
+            try {
+                await this.connection.resumeSession({
+                    sessionId: existingSessionId,
+                    cwd,
+                });
+                this.sessions.set(taskId, existingSessionId);
+                this._lastError = '';
+                return existingSessionId;
+            } catch (err) {
+                console.warn(`[AcpClient] resumeSession failed for ${taskId}, creating new session:`, err);
+            }
         }
 
         try {

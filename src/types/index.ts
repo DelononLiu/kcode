@@ -80,6 +80,7 @@ export interface Task {
     source?: TaskSource;
     nodeMessageIds?: Partial<Record<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string>>;
     hooks?: Partial<Record<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string[]>>;
+    sessionId?: string;  // ACP session ID for agent context persistence
 }
 
 export interface ChatMessage {

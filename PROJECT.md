@@ -408,8 +408,11 @@ KCode (ACP Client)                 Agent (ACP Agent / OpenCode)
       ├── initialize() ──────────────────►│
       │◄─ {capabilities, clientInfo} ─────┤
       │                                   │
-      ├── session/new() ────────────────►│
+      ├── session/new() ────────────────►│      ← 首次: 创建新 session
       │◄─ sessionId ─────────────────────┤
+      │                                   │
+      ├── session/resume() ─────────────►│      ← 恢复: 复用已有 sessionId
+      │◄─ {configOptions, modes} ────────┤          (Kilo SQLite 存储)
       │                                   │
       ├── session/prompt() ─────────────►│
       │◄─ session/update (plan) ─────────┤
@@ -421,6 +424,33 @@ KCode (ACP Client)                 Agent (ACP Agent / OpenCode)
       ├── session/cancel() (optional) ──►│
       ├── session/close() (optional) ───►│
 ```
+
+### ACP Session 持久化与恢复
+
+| 方法 | 能力标志 | 说明 |
+|------|---------|------|
+| `session/new` | 基础 | Agent 创建新 session，返回 server 生成的 `sessionId` (`ses_xxx`) |
+| `session/load` | `agentCapabilities.loadSession` | 加载已有 session，Agent 回放完整历史消息给 client |
+| `session/resume` | `sessionCapabilities.resume` | 恢复 session 上下文，不回放历史，直接继续对话 |
+| `session/list` | `sessionCapabilities.list` | 列出 Agent 侧所有 session 及元信息 |
+| `session/close` | `sessionCapabilities.close` | 关闭 session 释放资源 |
+
+**数据流**：
+
+```
+KCode workspaceState (Task sessionId)          Kilo SQLite (~/.local/share/kilo/kilo.db)
+       │                                                  │
+       │  session/new → 保存 sessionId ──────────────────►│  session 持久化
+       │  loadTask   → 读 sessionId                       │
+       │  resumeSession(sessionId) ─────────────────────►│  从 SQLite 恢复上下文
+       │                                                  │
+```
+
+**实现方式**：
+- Task 对象新增 `sessionId` 字段，通过 `ProjectFs` 持久化到 `meta.yml`
+- `AcpClient.createSession()` 先检查是否传入了已有 `sessionId`，有则优先调 `resumeSession`
+- 若 `resumeSession` 失败（session 已失效），自动 fallback 到 `newSession` 并更新存储
+- 会话恢复无需额外操作，打开任务时自动重连 Agent 的 session
 
 ---
 
