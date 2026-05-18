@@ -7,6 +7,19 @@ function defaultRoot(): string {
 	return path.join(os.homedir(), '.local', 'share', 'kcode');
 }
 
+function workspaceSafeId(workspaceRoot?: string): string {
+	if (!workspaceRoot) return '';
+	const basename = path.basename(workspaceRoot);
+	let hash = 0;
+	for (let i = 0; i < workspaceRoot.length; i++) {
+		const char = workspaceRoot.charCodeAt(i);
+		hash = ((hash << 5) - hash) + char;
+		hash = hash & hash;
+	}
+	const shortHash = Math.abs(hash).toString(36).slice(0, 6);
+	return `${basename}_${shortHash}`;
+}
+
 interface MetaFile {
 	title?: string;
 	goal?: string;
@@ -32,9 +45,11 @@ export class ProjectFs {
 	private _taskCache: Task[] | null = null;
 	private _containerCache: ContainerEntity[] | null = null;
 	private _root: string;
+	private _workspaceId: string;
 
-	constructor(rootDir?: string) {
+	constructor(rootDir?: string, workspaceRoot?: string) {
 		this._root = rootDir || defaultRoot();
+		this._workspaceId = workspaceSafeId(workspaceRoot);
 		fs.mkdirSync(path.join(this._root, 'projects'), { recursive: true });
 		fs.mkdirSync(path.join(this._root, 'inbox'), { recursive: true });
 	}
@@ -418,14 +433,21 @@ export class ProjectFs {
 
 	// ===== Assistant messages =====
 
+	private get _assistantMessagesPath(): string {
+		const name = this._workspaceId
+			? `assistant_messages_${this._workspaceId}.json`
+			: 'assistant_messages.json';
+		return path.join(this._root, name);
+	}
+
 	getAssistantMessages(): AssistantMessage[] {
-		const amsgPath = path.join(this._root, 'assistant_messages.json');
+		const amsgPath = this._assistantMessagesPath;
 		if (!fs.existsSync(amsgPath)) return [];
 		try { return JSON.parse(fs.readFileSync(amsgPath, 'utf-8')); } catch { return []; }
 	}
 
 	addAssistantMessage(msg: AssistantMessage): void {
-		const amsgPath = path.join(this._root, 'assistant_messages.json');
+		const amsgPath = this._assistantMessagesPath;
 		const messages = this.getAssistantMessages();
 		messages.push(msg);
 		if (messages.length > 200) messages.splice(0, messages.length - 200);

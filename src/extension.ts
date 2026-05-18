@@ -44,7 +44,7 @@ export async function activate(context: vscode.ExtensionContext) {
     console.log('KCode is now active!');
 
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
-    const projectFs = new ProjectFs();
+    const projectFs = new ProjectFs(undefined, workspaceRoot);
     store = new TaskStore(projectFs);
 
     configService = new ConfigService(workspaceRoot);
