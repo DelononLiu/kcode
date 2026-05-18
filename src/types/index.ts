@@ -110,6 +110,35 @@ export interface FileChange {
     modified: string;
 }
 
+export interface ToolItem {
+    id: string;
+    groupId: string;
+    toolCallId: string;
+    title: string;
+    kind: string;
+    status: string;
+    detail?: string;
+    createdAt: number;
+}
+
+export interface ToolGroup {
+    id: string;
+    taskId: string;
+    items: ToolItem[];
+    createdAt: number;
+}
+
+export interface KnowledgeEntry {
+    id: string;
+    taskId: string;
+    type: 'decision' | 'pitfall' | 'pattern' | 'code_snippet';
+    title: string;
+    content: string;
+    tags: string[];
+    createdAt: number;
+    source?: string;
+}
+
 export interface ProgressNode {
     id: string;
     type: 'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';

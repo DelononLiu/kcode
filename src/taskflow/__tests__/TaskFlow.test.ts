@@ -96,6 +96,9 @@ class MockTaskStore implements ITaskStore {
 
     updateTaskHooks(_taskId: string, _phase: string, _commands: string[]): void {}
 
+    getTaskKnowledgeEntries(_taskId: string): any[] { return []; }
+    getAllKnowledgeEntries(): any[] { return []; }
+
     addTask(task: Task): void {
         this.tasks.set(task.id, task);
     }
@@ -121,6 +124,7 @@ class MockDelegate implements TaskFlowDelegate {
     onPlanStepUpdate(taskId: string): void { this.planStepUpdated.push(taskId); }
     onTaskDelegated(_taskId: string, _payload: any): void {}
     onTodoUpdate(_taskId: string, _items: any[], _action: string): void {}
+    onKnowledgeEntry(_taskId: string, _entries: any[]): void {}
 }
 
 // ==============================

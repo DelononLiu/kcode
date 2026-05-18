@@ -47,6 +47,25 @@ CONTEXT: 当前 TokenStore 提供 get/set/clear 三个方法，token 存储于 w
   CONFIRMED — 逗号分隔的共识条目，从当前任务继承（可选）
   CONTEXT  — 补充的技术上下文，帮助新任务 AI 理解背景（可选）
 
+[KNOWLEDGE_ENTRY] 知识沉淀协议
+
+在 review 阶段输出 accept 前，你应该输出本次任务的可复用经验知识。
+
+格式：
+<KNOWLEDGE_ENTRY>
+[
+  {
+    "type": "decision",
+    "title": "使用 Promise.all 并行请求而非串行 await",
+    "content": "## 背景\n需要并发拉取多个 API...\n\n## 结论\n使用 Promise.all 将 N 个请求从串行 O(N) 降为并发 O(1)。",
+    "tags": ["async", "performance"]
+  }
+]
+</KNOWLEDGE_ENTRY>
+
+类型：decision（决策）| pitfall（踩坑）| pattern（模式）| code_snippet（代码段）
+系统会自动将知识存储到知识库，并在后续任务中自动注入相关知识。
+
 [TODO_UPDATE] 待办清单协议
 
 你可以在任意阶段输出 TODO_UPDATE 协议块来创建或更新待办清单。系统会自动在对话中渲染为可勾选的 todo 卡片。

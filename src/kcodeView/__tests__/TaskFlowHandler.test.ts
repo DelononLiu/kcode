@@ -34,6 +34,8 @@ function makeMockCtx() {
         updateTaskGoal: vi.fn(),
         storeReviewChanges: vi.fn(),
         getReviewChanges: vi.fn().mockReturnValue([]),
+        getTaskKnowledgeEntries: vi.fn().mockReturnValue([]),
+        getAllKnowledgeEntries: vi.fn().mockReturnValue([]),
     };
     const router = new MessageRouter();
     const postSpy = vi.fn();

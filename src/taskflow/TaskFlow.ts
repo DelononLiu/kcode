@@ -1,4 +1,4 @@
-import type { Task, PlanStep, ChatMessage, TodoItem } from '../types';
+import type { Task, PlanStep, ChatMessage, TodoItem, KnowledgeEntry } from '../types';
 import { BASE_PROMPT } from './prompts/base';
 import { PROTOCOL_PROMPT } from './prompts/protocol';
 import { DEMAND_PROMPT } from './prompts/demand';
@@ -33,6 +33,8 @@ export interface ITaskStore {
     updateTaskTitle(taskId: string, title: string): void;
     updateTaskType(taskId: string, type: 'task'): void;
     updateTaskHooks(taskId: string, phase: string, commands: string[]): void;
+    getTaskKnowledgeEntries(taskId: string): KnowledgeEntry[];
+    getAllKnowledgeEntries(): KnowledgeEntry[];
 }
 
 export interface DelegatePayload {
@@ -53,6 +55,7 @@ export interface TaskFlowDelegate {
     onPlanStepUpdate(taskId: string): void;
     onTaskDelegated(taskId: string, payload: DelegatePayload): void;
     onTodoUpdate(taskId: string, items: TodoItem[], action: string): void;
+    onKnowledgeEntry(taskId: string, entries: KnowledgeEntry[]): void;
 }
 
 export interface GenResult {
@@ -155,6 +158,7 @@ export class TaskFlow {
         this.parseTaskUpdate(taskId);
         this.parseTaskDelegate(taskId);
         this.parseTodoUpdate(taskId);
+        this.parseKnowledgeEntry(taskId);
         return this.getCleanText(taskId);
     }
 
@@ -250,6 +254,34 @@ export class TaskFlow {
 
         if (found) {
             this.accumulatedText.set(taskId, text);
+        }
+    }
+
+    private parseKnowledgeEntry(taskId: string): void {
+        let text = this.accumulatedText.get(taskId) || '';
+        const regex = /<KNOWLEDGE_ENTRY>([\s\S]*?)<\/KNOWLEDGE_ENTRY>/gi;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            try {
+                const raw = match[1].trim();
+                const entries = JSON.parse(raw);
+                if (!Array.isArray(entries)) continue;
+                const knowledge: KnowledgeEntry[] = entries.map((e: any, i: number) => ({
+                    id: `ke_${taskId}_${Date.now()}_${i}`,
+                    taskId,
+                    type: e.type || 'decision',
+                    title: e.title || '',
+                    content: e.content || '',
+                    tags: Array.isArray(e.tags) ? e.tags : [],
+                    createdAt: Date.now(),
+                }));
+                text = text.replace(match[0], '');
+                this.accumulatedText.set(taskId, text);
+                regex.lastIndex = 0;
+                this.delegate.onKnowledgeEntry(taskId, knowledge);
+            } catch {
+                // malformed payload, skip
+            }
         }
     }
 
@@ -521,6 +553,7 @@ export class TaskFlow {
             PROTOCOL_PROMPT,
             this.buildTaskContext(task),
             this.buildPhasePrompt(task),
+            this.buildKnowledgeContext(task),
         ];
 
         return layers.filter(Boolean).join('\n\n---\n\n') + '\n\n' + userText;
@@ -572,6 +605,47 @@ export class TaskFlow {
         }
 
         return lines.length > 0 ? lines.join('\n') : '';
+    }
+
+    private buildKnowledgeContext(task: Task): string {
+        const entries = this.store.getTaskKnowledgeEntries(task.id);
+        const allEntries = this.store.getAllKnowledgeEntries();
+        const related: KnowledgeEntry[] = [];
+
+        const taskKeywords = [task.goal, task.title, task.category, task.subType]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+            .split(/\s+/)
+            .filter(w => w.length > 2);
+
+        for (const e of allEntries) {
+            if (e.taskId === task.id) {
+                related.push(e);
+                continue;
+            }
+            const matchTitle = taskKeywords.some(k => e.title.toLowerCase().includes(k));
+            const matchContent = taskKeywords.some(k => e.content.toLowerCase().includes(k));
+            const matchTags = e.tags.some(t => taskKeywords.some(k => t.toLowerCase().includes(k)));
+            if (matchTitle || matchContent || matchTags) {
+                related.push(e);
+            }
+        }
+
+        if (related.length === 0) return '';
+
+        const lines: string[] = ['## 相关历史知识'];
+        lines.push('以下是从已完成任务中提取的经验，可能与当前任务相关：\n');
+        for (const e of related.slice(0, 8)) {
+            const typeIcon: Record<string, string> = { decision: '📐', pitfall: '🐛', pattern: '🔧', code_snippet: '💻' };
+            lines.push(`### ${typeIcon[e.type] || '📌'} ${e.title}`);
+            const preview = e.content.replace(/<[^>]+>/g, '').substring(0, 200);
+            if (preview) lines.push(`> ${preview}`);
+            if (e.tags.length) lines.push(`\ntags: ${e.tags.join(', ')}`);
+            lines.push('');
+        }
+
+        return lines.join('\n');
     }
 
     private buildPhasePrompt(task: Task): string {

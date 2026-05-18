@@ -225,6 +225,13 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .op-plan-header{font-size:10px;color:#888;margin-bottom:2px}
 .op-plan-bar{height:2px;background:rgba(255,255,255,.06);border-radius:2px;margin-bottom:4px;overflow:hidden}
 .op-plan-fill{height:100%;background:#4a8bb5;border-radius:2px;transition:width .4s ease}
+.op-knowledge-entry{display:flex;align-items:flex-start;gap:5px;padding:4px;border-radius:3px;cursor:pointer;font-size:11px;color:#aaa;transition:background .1s}
+.op-knowledge-entry:hover{background:rgba(78,201,176,.06)}
+.op-knowledge-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.op-knowledge-title{color:#4ec9b0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-knowledge-preview{font-size:10px;color:#777;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-knowledge-tags{display:flex;gap:2px;flex-wrap:wrap;margin-top:1px}
+.op-tag{font-size:9px;color:#5a9bc8;background:rgba(74,139,181,.08);padding:0 4px;border-radius:2px}
 
 /* === Overlay Right Panel — TabCard (Diff / Preview / ACP Log) === */
 #right-panel{position:fixed;right:0;top:0;height:100%;width:500px;background:var(--vscode-sideBar-background,#1e1e1e);border-left:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;z-index:20;box-shadow:-4px 0 16px rgba(0,0,0,.35)}

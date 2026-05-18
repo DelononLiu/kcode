@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import type { KCodePanelContext } from './PanelContext';
-import type { Task, FileChange, ProgressNode, TodoItem } from '../types';
+import type { Task, FileChange, ProgressNode, TodoItem, KnowledgeEntry } from '../types';
 import { getTemplate, getCategory } from '../taskflow/templates';
 
 function parseTodosFromOutput(output: string): any[] {
@@ -246,8 +246,15 @@ export class TaskFlowHandler {
         const messages = ctx.store.getMessages(taskId);
         const todos: any[] = [];
         const toolCalls: { toolCallId: string; title: string; kind: string; status: string; output?: string }[] = [];
-        const knowledgeItems: { content: string; source: string }[] = [];
+        const knowledgeItems: { id: string; type: string; title: string; content: string; tags: string[] }[] = [];
         const seenToolCalls = new Set<string>();
+
+        // Read real knowledge entries from store
+        const storedKnowledge = ctx.store.getTaskKnowledgeEntries(taskId);
+        for (const ke of storedKnowledge) {
+            knowledgeItems.push({ id: ke.id, type: ke.type, title: ke.title, content: ke.content.substring(0, 120), tags: ke.tags });
+        }
+
         for (const msg of messages) {
             if (msg.type === 'todo') {
                 try { todos.push(...JSON.parse(msg.content || '[]')); } catch {}
@@ -435,6 +442,15 @@ export class TaskFlowHandler {
             ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(taskId), taskId, taskStatus: t?.status });
             this.sendOutputPanelUpdate(taskId);
         } catch {}
+    }
+
+    handleKnowledgeEntry(taskId: string, entries: KnowledgeEntry[]) {
+        const { ctx } = this;
+        for (const entry of entries) {
+            ctx.store.addKnowledgeEntry(taskId, entry);
+        }
+        ctx.router.PostMessage({ type: 'addSystemMessage', content: `📚 已沉淀 ${entries.length} 条知识条目`, taskId });
+        this.sendOutputPanelUpdate(taskId);
     }
 
     handleTaskDelegated(parentTaskId: string, payload: any) {

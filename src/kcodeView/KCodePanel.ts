@@ -64,6 +64,7 @@ export class KCodePanel {
             onPlanStepUpdate: (taskId) => { this.flowHandler.sendTaskInfo(taskId); },
             onTaskDelegated: (taskId, payload) => { this.flowHandler.handleTaskDelegated(taskId, payload); },
             onTodoUpdate: (taskId, items, action) => { this.flowHandler.handleTodoUpdate(taskId, items, action); },
+            onKnowledgeEntry: (taskId, entries) => { this.flowHandler.handleKnowledgeEntry(taskId, entries); },
         });
 
         const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
@@ -156,6 +157,8 @@ export class KCodePanel {
         this.router.on('updateTodoItem', (msg) => { this.flowHandler.handleUpdateTodoItem(msg.taskId, msg.msgId, msg.itemId, msg.checked); });
         this.router.on('switchAgent', (msg) => { this.sessionHandler.handleSwitchAgent(msg.label); });
         this.router.on('openSettings', () => vscode.commands.executeCommand('kcode.openSettings'));
+        this.router.on('openKnowledgeEntry', (msg) => vscode.commands.executeCommand('kcode.openKnowledgeWiki', msg.entryId));
+        this.router.on('openTaskFromKnowledge', (msg) => vscode.commands.executeCommand('kcode.selectTask', msg.taskId));
 
         this.panel.webview.onDidReceiveMessage((message: any) => { this.router.dispatch(message.type, message); }, null, this.context.subscriptions);
     }

@@ -1904,10 +1904,10 @@ _当前不排期、留待后续做的任务。取自 Phase 14 中涉及工具数
 
 | 任务 | 说明 | 优先级 |
 |------|------|--------|
-| P14-02 | 工具聚合原始数据模型 | P0 |
-| P14-03 | 知识沉淀 — KnowledgeEntry 协议 + 存储 | P1 |
-| P14-04 | 知识 Wiki 独立面板 — KnowledgePanel | P1 |
-| P14-05 | 右栏知识索引区 | P2 |
+| P14-02 | 工具聚合原始数据模型 | P0 | ✅ 已完成 |
+| P14-03 | 知识沉淀 — KnowledgeEntry 协议 + 存储 | P1 | ✅ 已完成 |
+| P14-04 | 知识 Wiki 独立面板 — KnowledgePanel | P1 | ✅ 已完成 |
+| P14-05 | 右栏知识索引区 | P2 | ✅ 已完成 |
 
 ### P14-02: 工具聚合原始数据模型
 
@@ -1942,158 +1942,84 @@ onText → 标记当前组结束（后续 onToolCall 开启新组）
 - 不存 TabCard 拆分信息、不存头部分段、不存选中态
 - WebView 加载时实时计算：`getTaskToolGroups(taskId)` → 按创建顺序连续分组 → 前端算 TabCard
 
-**状态**: ⏸️ 已延期
+**实现说明**:
 
-**验收标准**：每个 AI 回复的工具调用按组入库，重新打开任务后工具调用记录完整可查，分组边界正确。
+**分组规则**:
+- 同一 AI prompt 回复中连续的工具调用属于一组（`tool_group`）
+- AI 输出文本 → 工具调用 → 工具调用 → 文本 → 工具调用 → 两组
+- 在 TaskSessionHandler 的 `onDone` 中，将 `activeToolCalls` 中的工具调用聚合成一组写入 `tool_groups.json`
+
+**存储流程**:
+```
+onDone → 遍历 activeToolCalls → addToolGroup(taskId, groupId, items)
+```
+
+**存储**: `~/.local/share/kcode/{taskDir}/tool_groups.json`
+
+**状态**: ✅ 已完成
 
 ---
 
 ### P14-03: 知识沉淀 — KnowledgeEntry 协议 + 存储
 
 **涉及文件**:
+- `src/types/index.ts` — 新增 `KnowledgeEntry` 接口
 - `src/store/TaskStore.ts` — 新增 `addKnowledgeEntry()` / `getTaskKnowledgeEntries()` / `searchKnowledgeEntries()` / `getAllKnowledgeEntries()`
-- `src/taskflow/TaskFlow.ts` — 新增 `knowledge_entry` 协议解析；`buildPrompt()` 新增 Layer 6（相关历史知识注入）
+- `src/store/ProjectFs.ts` — 新增 knowledge.json 文件读写方法
+- `src/taskflow/TaskFlow.ts` — 新增 `<KNOWLEDGE_ENTRY>` 协议解析；`buildInitialPrompt()` 新增 Layer 6（相关历史知识注入）；`ITaskStore` 新增知识条目接口
 - `src/taskflow/prompts/review.ts` — review 阶段 prompt 提示 AI 输出知识摘要
 - `src/taskflow/prompts/protocol.ts` — 文档 `<KNOWLEDGE_ENTRY>` 协议格式
-- `src/kcodeView/KCodePanel.ts` — `onKnowledgeEntry` delegate 回调，写入 store + 推送到右栏
-
-**调研步骤**: _待填充_
+- `src/kcodeView/KCodePanel.ts` — `onKnowledgeEntry` delegate 回调
+- `src/kcodeView/TaskFlowHandler.ts` — `handleKnowledgeEntry()` 写入 store + 推送右栏
 
 **实现说明**:
 
-**AI 协议**:
+**AI 协议**: `<KNOWLEDGE_ENTRY>[{ "type":"decision", "title":"...", "content":"...", "tags":[] }]</KNOWLEDGE_ENTRY>`
 
-review 阶段 AI 输出：
+**类型**: decision(决策) / pitfall(踩坑) / pattern(模式) / code_snippet(代码段)
 
-```
-<KNOWLEDGE_ENTRY>
-[
-  {
-    "type": "decision",
-    "title": "使用 Promise.all 并行请求而非串行 await",
-    "content": "## 背景\n需要并发拉取多个 API...\n\n## 结论\n使用 Promise.all 将 N 个请求从串行 O(N) 降为并发 O(1)，错误通过 allSettled 兜底。",
-    "tags": ["async", "performance"]
-  }
-]
-</KNOWLEDGE_ENTRY>
-```
+**自动触发**: review 阶段 prompt 要求 AI 在输出 accept 前同时输出知识摘要
 
-**自动触发时机**:
-- review 阶段 AI 输出 `accept` 时，prompt 要求 AI 同时输出知识摘要
-- 用户也可手动触发（在 KnowledgePanel 中新建）
+**反哺 — Prompt 注入 Layer 6**: `buildKnowledgeContext()` 在 `buildInitialPrompt()` 中注入最多 8 条相关知识（按 goal/title/tags 关键词匹配）
 
-**反哺 — Prompt 注入**（`buildPrompt()` Layer 6）:
-
-```
-## 相关历史知识
-以下是从已完成任务中提取的经验，可能与当前任务相关：
-
-### 📐 使用 Promise.all 并行请求
-> 用 Promise.all 将 N 个请求从串行 O(N) 降为并发 O(1)。
-
-tags: async, performance
-来源: 任务经验沉淀
-```
-
-**检索策略（MVP）**：
-1. 同 project 的知识全部注入
-2. 匹配 task.category / task.subType 的知识优先
-3. 用 task.goal 关键词模糊匹配 title + tags
-
-**状态**: ⏸️ 已延期
-
-**验收标准**：review 阶段 AI 自动输出知识摘要，存入 TaskStore；新任务构建 prompt 时自动注入相关历史知识；右栏知识区显示当前任务关联条目。
+**状态**: ✅ 已完成
 
 ---
 
 ### P14-04: 知识 Wiki 独立面板 — KnowledgePanel
 
 **涉及文件**:
-- `src/kcodeView/KnowledgePanel.ts` — **新建**：WebviewPanel 定义 + 消息处理，类似 KCodePanel
-- `src/kcodeView/webview/knowledge.ts` — **新建**：知识浏览器的 WebView 逻辑（搜索/筛选/分栏/渲染）
-- `src/kcodeView/templates/knowledgeHtml.ts` — **新建**：KnowledgePanel 的 HTML 模板
-- `src/kcodeView/templates/knowledgeCss.ts` — **新建**：知识浏览器的 CSS
+- `src/kcodeView/KnowledgePanel.ts` — **新建**：WebviewPanel
+- `src/kcodeView/webview/knowledge.ts` — **新建**：知识浏览器 WebView（搜索/筛选/分栏/渲染）
+- `src/kcodeView/templates/knowledgeHtml.ts` — **新建**：HTML 模板
+- `src/kcodeView/templates/knowledgeCss.ts` — **新建**：CSS
 - `src/extension.ts` — 注册 `kcode.openKnowledgeWiki` 命令
-
-**调研步骤**: _待填充_
 
 **实现说明**:
 
-**布局** — 左右分栏（类似 Obsidian）：
-
-```
-┌─ 📚 知识百科 ───────────────────────────────────────────┐
-│                                                          │
-│ 🔍 搜索...              全部 │ 决策 │ 踩坑 │ 模式 │ 代码段  │
-│                                                          │
-│ ┌─── 列表 ──────────┐ ┌─── 预览 ──────────────────────┐  │
-│ │ 📐 Promise.all    │ │ 📐 Promise.all 并行请求       │  │
-│ │    #async         │ │                               │  │
-│ │ 🐛 ACP 200ms 缓冲 │ │ ## 背景                       │  │
-│ │    #acp           │ │ ACP 尾部数据丢失...           │  │
-│ │ 🔧 TokenStore     │ │                               │  │
-│ │    #auth          │ │ ## 结论                       │  │
-│ │ 🔄 错误包装       │ │ 使用 200ms 缓冲兜底...        │  │
-│ │    #error         │ │                               │  │
-│ │                   │ │ 📎 P13-01 · ⏱ 2026-05-14    │  │
-│ │                   │ │ ┌──────┐ ┌──────────┐       │  │
-│ │ 共 12 条          │ │ │ 编辑 │ │ 跳转原任务 │       │  │
-│ └───────────────────┘ │ └──────┘ └──────────┘       │  │
-│                       └──────────────────────────────┘  │
-└──────────────────────────────────────────────────────────┘
-```
-
-**消息通信**:
-- WebView → Extension: `searchKnowledge(query, typeFilter)`, `openTask(taskId)`, `editKnowledge(entryId, content)`
-- Extension → WebView: `updateKnowledgeList(entries)`, `showKnowledgeDetail(entry)`
+**布局**: 左右分栏（左侧 300px 列表 + 右侧详情区），顶部搜索栏 + 类型筛选按钮
 
 **打开入口**:
-1. 命令 `kcode.openKnowledgeWiki`（Ctrl+Shift+P 搜索）
-2. 右栏「全部知识」按钮点击
-3. 右栏某条知识条目点击 → 打开并定位到该条
+1. Ctrl+Shift+P → `kcode.openKnowledgeWiki`
+2. 右栏知识条目点击 → 自动打开并定位
 
-**与 KCodePanel 的关系**:
-- `KnowledgePanel` 独立于 `KCodePanel`，不绑定任务
-- 多个 Panel 可同时存在（一个 KCodePanel + 一个 KnowledgePanel）
-- KCodePanel 的右栏点击知识 → `postMessage` → `extension.ts` 打开 KnowledgePanel
+**消息通信**: `ready` → extension 推送 `updateKnowledgeList(entries)`, 可传 `focusId` 定位
 
-**状态**: ⏸️ 已延期
-
-**验收标准**：`kcode.openKnowledgeWiki` 打开独立的知识浏览器面板，支持搜索/分类筛选，左右分栏查看，点击条目显示 Markdown 渲染内容。
+**状态**: ✅ 已完成
 
 ---
 
 ### P14-05: 右栏知识索引区
 
 **涉及文件**:
-- `src/kcodeView/webview/outputPanel.ts` — `updateOutputPanel()` 增加知识条目渲染
-- `src/kcodeView/KCodePanel.ts` — `sendOutputPanelUpdate()` 携带知识条目数据
-- `src/kcodeView/templates/chatPanelHtml.ts` — 确保 `#op-knowledge-list` 容器适配
+- `src/kcodeView/webview/outputPanel.ts` — 增强知识条目渲染（图标/标题/摘要/tags/点击交互）
+- `src/kcodeView/TaskFlowHandler.ts` — `sendOutputPanelUpdate()` 从 store 读取真实 knowledge entries
+- `src/kcodeView/KCodePanel.ts` — 新增 `openKnowledgeEntry` 消息路由
+- `src/kcodeView/templates/chatPanelCss.ts` — 新增 `.op-knowledge-entry/*` 样式
 
-**调研步骤**: _待填充_
+**实现说明**: 右栏知识区从 `TaskStore.getTaskKnowledgeEntries()` 读取真实数据，按类型显示图标，条目可点击跳转 KnowledgePanel 详情。已完成任务无知识时提示「该任务暂无知识沉淀，可在 review 阶段让 AI 自动生成」。
 
-**实现说明**:
-
-右栏「知识wiki」区展示当前任务已沉淀的知识条目，格式：
-
-```html
-<div class="op-knowledge-entry" data-entry-id="xxx">
-    <span class="op-knowledge-icon">📐</span>
-    <span class="op-knowledge-title">Promise.all 并行请求</span>
-    <div class="op-knowledge-tags">
-        <span class="op-tag">#async</span>
-        <span class="op-tag">#performance</span>
-    </div>
-</div>
-```
-
-交互：
-- 点击条目 → `vscode.postMessage({ type: 'openKnowledgeEntry', entryId })` → `extension.ts` 打开 KnowledgePanel 并定位
-- 当任务完成且无知识沉淀时，显示「该任务暂无知识沉淀」+ 提示 AI 在 review 阶段自动生成
-
-**状态**: ⏸️ 已延期
-
-**验收标准**：右栏知识区显示当前任务的知识条目列表，条目可点击跳转到 KnowledgePanel 详情阅读。
+**状态**: ✅ 已完成
 
 ---
 

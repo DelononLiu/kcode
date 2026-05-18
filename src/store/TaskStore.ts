@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { Task, ChatMessage, FileChange, ContainerEntity, AssistantMessage } from '../types';
+import { Task, ChatMessage, FileChange, ContainerEntity, AssistantMessage, ToolGroup, ToolItem, KnowledgeEntry } from '../types';
 import { ProjectFs } from './ProjectFs';
 
 export interface StorageBackend {
@@ -430,6 +430,44 @@ export class TaskStore {
             return path.join(root, 'projects', c.parentId, 'task-groups', containerId, 'tasks', '_order.json');
         }
         return path.join(root, 'inbox', '_order.json');
+    }
+
+    // ===== Tool Groups =====
+
+    getTaskToolGroups(taskId: string): ToolGroup[] {
+        return this.fs.getTaskToolGroups(taskId);
+    }
+
+    addToolGroup(taskId: string, groupId: string, items: ToolItem[]): void {
+        this.fs.addToolGroup(taskId, { id: groupId, taskId, items, createdAt: Date.now() });
+    }
+
+    addToolItem(taskId: string, groupId: string, item: ToolItem): void {
+        this.fs.updateToolGroup(taskId, groupId, item);
+    }
+
+    // ===== Knowledge Entries =====
+
+    addKnowledgeEntry(taskId: string, entry: KnowledgeEntry): void {
+        this.fs.addKnowledgeEntry(taskId, entry);
+    }
+
+    getTaskKnowledgeEntries(taskId: string): KnowledgeEntry[] {
+        return this.fs.getTaskKnowledgeEntries(taskId);
+    }
+
+    getAllKnowledgeEntries(): KnowledgeEntry[] {
+        return this.fs.getAllKnowledgeEntries();
+    }
+
+    searchKnowledgeEntries(query: string): KnowledgeEntry[] {
+        const all = this.fs.getAllKnowledgeEntries();
+        const q = query.toLowerCase();
+        return all.filter(e =>
+            e.title.toLowerCase().includes(q) ||
+            e.content.toLowerCase().includes(q) ||
+            e.tags.some(t => t.toLowerCase().includes(q))
+        );
     }
 
     findEmptyTask(): Task | undefined {

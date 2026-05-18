@@ -277,6 +277,7 @@ export class TaskSessionHandler {
 
                 if (!isGoalFormatting) {
                     let firstToolMsgId: string | null = null;
+                    const toolItems: { toolCallId: string; title: string; kind: string; status: string; output?: string }[] = [];
                     for (const [toolCallId, tc] of ctx.activeToolCalls) {
                         const msgId = ctx.store.nextMessageId(tid);
                         if (!firstToolMsgId) firstToolMsgId = msgId;
@@ -285,6 +286,16 @@ export class TaskSessionHandler {
                             content: JSON.stringify({ toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output || '' }),
                             timestamp: Date.now()
                         });
+                        toolItems.push({ toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output });
+                    }
+                    // persist tool group data
+                    if (toolItems.length > 0) {
+                        const groupId = `tg_${tid}_${Date.now()}`;
+                        ctx.store.addToolGroup(tid, groupId, toolItems.map((ti, i) => ({
+                            id: `ti_${groupId}_${i}`, groupId, toolCallId: ti.toolCallId,
+                            title: ti.title, kind: ti.kind, status: ti.status,
+                            detail: ti.output, createdAt: Date.now()
+                        })));
                     }
                     if (firstToolMsgId && !ctx.hasSetExecuteMessage) {
                         ctx.store.updateTaskNodeMessageId(tid, 'execute', firstToolMsgId);

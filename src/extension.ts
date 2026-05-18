@@ -8,6 +8,7 @@ import { importGitHubIssue } from './commands/importGitHubIssue';
 import { ConfigService } from './core/ConfigService';
 import { SettingsProvider } from './kcodeView/SettingsProvider';
 import { MyTasksProvider } from './kcodeView/MyTasksProvider';
+import { KnowledgePanel } from './kcodeView/KnowledgePanel';
 
 let panel: KCodePanel | undefined;
 let store: TaskStore | undefined;
@@ -15,6 +16,7 @@ let sidebarProvider: KCodeSidebarProvider | undefined;
 let configService: ConfigService | undefined;
 let settingsProvider: SettingsProvider | undefined;
 let myTasksProvider: MyTasksProvider | undefined;
+let knowledgePanel: KnowledgePanel | undefined;
 
 function openTaskInPanel(context: vscode.ExtensionContext, taskId: string, autoSendGoal?: string) {
     if (panel) {
@@ -160,7 +162,20 @@ export async function activate(context: vscode.ExtensionContext) {
         myTasksProvider.reveal();
     });
 
-    context.subscriptions.push(openCmd, newTaskCmd, importGitHubCmd, newTaskFromTemplateCmd, settingsCmd, myTasksCmd);
+    const knowledgeCmd = vscode.commands.registerCommand('kcode.openKnowledgeWiki', async (entryId?: string) => {
+        if (!knowledgePanel) {
+            knowledgePanel = new KnowledgePanel(context, store!);
+            knowledgePanel.onDidDispose(() => { knowledgePanel = undefined; });
+        }
+        if (entryId) {
+            knowledgePanel.focusEntry(entryId);
+        } else {
+            knowledgePanel.reveal();
+            knowledgePanel.refresh();
+        }
+    });
+
+    context.subscriptions.push(openCmd, newTaskCmd, importGitHubCmd, newTaskFromTemplateCmd, settingsCmd, myTasksCmd, knowledgeCmd);
 }
 
 export function deactivate() {

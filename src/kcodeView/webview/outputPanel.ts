@@ -2,6 +2,8 @@ function opEscapeHtml(text: string): string {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+const _opVscode = (window as any).vscode;
+
 function initOutputPanel() {
     const panel = document.getElementById('right-output-panel');
     const handle = document.getElementById('output-resize-handle');
@@ -96,11 +98,33 @@ function updateOutputPanel(taskInfo: any, changes: any[]) {
     if (knowledgeList) {
         const known = taskInfo?.knowledgeItems;
         if (known && known.length > 0) {
-            knowledgeList.innerHTML = known.map((k: any) =>
-                `<div class="op-item"><span class="op-item-icon">📌</span><span class="op-item-name">${opEscapeHtml(k.content)}</span></div>`
-            ).join('');
+            const typeIcons: Record<string, string> = { decision: '📐', pitfall: '🐛', pattern: '🔧', code_snippet: '💻' };
+            knowledgeList.innerHTML = known.map((k: any) => {
+                const icon = typeIcons[k.type] || '📌';
+                return `<div class="op-knowledge-entry" data-entry-id="${opEscapeHtml(k.id || '')}" data-title="${opEscapeHtml(k.title)}">
+                    <span class="op-item-icon">${icon}</span>
+                    <div class="op-knowledge-body">
+                        <span class="op-knowledge-title">${opEscapeHtml(k.title)}</span>
+                        <span class="op-knowledge-preview">${opEscapeHtml(k.content || '').substring(0, 60)}</span>
+                        <div class="op-knowledge-tags">${(k.tags || []).map((t: string) => `<span class="op-tag">#${opEscapeHtml(t)}</span>`).join('')}</div>
+                    </div>
+                </div>`;
+            }).join('');
+                    knowledgeList.querySelectorAll('.op-knowledge-entry').forEach(el => {
+                        el.addEventListener('click', () => {
+                            const entryId = (el as HTMLElement).dataset.entryId;
+                            if (entryId && _opVscode) {
+                                _opVscode.postMessage({ type: 'openKnowledgeEntry', entryId });
+                            }
+                        });
+                    });
         } else {
-            knowledgeList.innerHTML = '<div class="op-empty">暂无知识条目</div>';
+            const taskStatus = taskInfo?.status;
+            const taskPhase = taskInfo?.phase;
+            const showHint = taskStatus === 'completed' || taskPhase === 'review';
+            knowledgeList.innerHTML = showHint
+                ? '<div class="op-empty">该任务暂无知识沉淀<br/><span style="font-size:10px;color:#555">可在 review 阶段让 AI 自动生成</span></div>'
+                : '<div class="op-empty">暂无知识条目</div>';
         }
     }
 

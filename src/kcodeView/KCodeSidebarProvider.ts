@@ -148,7 +148,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
                     vscode.commands.executeCommand('kcode.openMyTasks');
                     break;
                 case 'showKnowledgeBase':
-                    vscode.window.showInformationMessage('📚 我的知识库即将推出');
+                    vscode.commands.executeCommand('kcode.openKnowledgeWiki');
                     break;
                 case 'importGitHubIssue':
                     vscode.commands.executeCommand('kcode.importGitHubIssue');

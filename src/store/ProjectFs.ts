@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { Task, ChatMessage, ContainerEntity, FileChange, AssistantMessage } from '../types';
+import { Task, ChatMessage, ContainerEntity, FileChange, AssistantMessage, ToolGroup, ToolItem, KnowledgeEntry } from '../types';
 
 function defaultRoot(): string {
 	return path.join(os.homedir(), '.local', 'share', 'kcode');
@@ -351,6 +351,69 @@ export class ProjectFs {
 		if (!task) return;
 		const reviewPath = path.join(this._taskDir(task), 'review_changes.json');
 		try { fs.unlinkSync(reviewPath); } catch { /* ignore */ }
+	}
+
+	// ===== Tool Groups =====
+
+	getTaskToolGroups(taskId: string): ToolGroup[] {
+		const task = this.getTask(taskId);
+		if (!task) return [];
+		const path_ = path.join(this._taskDir(task), 'tool_groups.json');
+		if (!fs.existsSync(path_)) return [];
+		try { return JSON.parse(fs.readFileSync(path_, 'utf-8')); } catch { return []; }
+	}
+
+	addToolGroup(taskId: string, group: ToolGroup): void {
+		const task = this.getTask(taskId);
+		if (!task) return;
+		const path_ = path.join(this._taskDir(task), 'tool_groups.json');
+		const groups = this.getTaskToolGroups(taskId);
+		groups.push(group);
+		fs.writeFileSync(path_, JSON.stringify(groups, null, 2), 'utf-8');
+	}
+
+	updateToolGroup(taskId: string, groupId: string, item: ToolItem): void {
+		const task = this.getTask(taskId);
+		if (!task) return;
+		const path_ = path.join(this._taskDir(task), 'tool_groups.json');
+		const groups = this.getTaskToolGroups(taskId);
+		const group = groups.find(g => g.id === groupId);
+		if (group) {
+			const existing = group.items.find(i => i.id === item.id);
+			if (existing) Object.assign(existing, item);
+			else group.items.push(item);
+			fs.writeFileSync(path_, JSON.stringify(groups, null, 2), 'utf-8');
+		}
+	}
+
+	// ===== Knowledge Entries =====
+
+	getTaskKnowledgeEntries(taskId: string): KnowledgeEntry[] {
+		const task = this.getTask(taskId);
+		if (!task) return [];
+		const path_ = path.join(this._taskDir(task), 'knowledge.json');
+		if (!fs.existsSync(path_)) return [];
+		try { return JSON.parse(fs.readFileSync(path_, 'utf-8')); } catch { return []; }
+	}
+
+	addKnowledgeEntry(taskId: string, entry: KnowledgeEntry): void {
+		const task = this.getTask(taskId);
+		if (!task) return;
+		const path_ = path.join(this._taskDir(task), 'knowledge.json');
+		const entries = this.getTaskKnowledgeEntries(taskId);
+		entries.push(entry);
+		fs.writeFileSync(path_, JSON.stringify(entries, null, 2), 'utf-8');
+	}
+
+	getAllKnowledgeEntries(): KnowledgeEntry[] {
+		const all: KnowledgeEntry[] = [];
+		const tasks = this.getAllTasks();
+		for (const task of tasks) {
+			const entries = this.getTaskKnowledgeEntries(task.id);
+			all.push(...entries);
+		}
+		all.sort((a, b) => b.createdAt - a.createdAt);
+		return all;
 	}
 
 	// ===== Assistant messages =====
