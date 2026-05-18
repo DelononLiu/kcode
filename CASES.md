@@ -370,3 +370,72 @@ handler.onDone(result.stopReason || 'end_turn');
 - **逻辑单元应当用 DOM 容器绑定**：视觉上属于同一区域（底部操作区）的元素，应该在 DOM 结构中先包裹为一个容器，再参与上层 flex 布局。试图对多个独立兄弟分别定位是脆弱的设计
 - **flex 布局的贴底策略**：单个 flex 子项用 `margin-top: auto` 最可靠；多个子项应先包裹再贴
 - **`:has()` 不是万能的**：`justify-content: flex-end` + `display:none` 的混合组合在不同渲染环境中表现不一致，不如 DOM 结构调整来得可靠
+
+---
+
+## case006 — 流式输出中用户上滚被强制拉回底部
+
+**分类**: `case:scroll-lock` `case:streaming` `case:ux`
+
+**严重程度**: 中
+
+### 问题描述
+
+AI 流式输出时，用户想向上滚动查看之前的对话内容，但 `scrollTop = scrollHeight` 每 50ms 无条件执行一次，立即可将用户拉回最底部。即使先 `shouldAutoScroll` 计算距离底部阈值，新内容撑大 `scrollHeight` 后 `scrollTop` 不变也会导致误判"用户已离开底部"。
+
+### 根因分析
+
+流式渲染函数 `handleAgentStreamUpdate` 中：
+```ts
+scrollContainer.scrollTop = scrollContainer.scrollHeight;
+```
+每次追加文本都无条件滚到底部，无用户意图判断。
+
+### 涉及文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/kcodeView/webview/app.ts` | `handleAgentStreamUpdate` 流式渲染 + `initChat` 事件监听 |
+
+### 解决方案
+
+**scroll-lock 模式**：用 `_userScrolledUp` flag 跟踪用户是否主动离开底部，流式渲染时仅在未离开底部时才自动跟底。
+
+三个关键机制：
+
+1. **`scroll` 事件** — 监听所有滚动方式（滚轮、拖滚动条、键盘）。根据距底距离（≤16px）更新 `_userScrolledUp` flag
+2. **`_programmaticScroll` flag** — 代码自身 `scrollTop = scrollHeight` 时立旗，`scroll` 事件里跳过，避免程序滚动被误判为用户操作
+3. **新 stream 重置** — 每次新的流式消息开始时 `_userScrolledUp = false`，恢复自动跟底
+
+附 `wheel` 事件做优化：滚轮上滚时不等 `scroll` 事件（有滚动动画延迟），立刻 `_userScrolledUp = true` 锁住。
+
+### 关键改动
+
+```diff
++let _userScrolledUp = false;
++let _programmaticScroll = false;
+
+ // initChat()
++const scrollContainer = document.getElementById('chat-scroll');
++scrollContainer.addEventListener('wheel', (e) => { if (e.deltaY < 0) _userScrolledUp = true; });
++scrollContainer.addEventListener('scroll', () => {
++  if (_programmaticScroll) return;
++  const atBottom = scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - 16;
++  _userScrolledUp = !atBottom;
++});
+
+ // handleAgentStreamUpdate
++if (!streamMessageEl) { _userScrolledUp = false; ... }
+-streamMessageEl.scrollContainer.scrollTop = scrollHeight;
++if (!_userScrolledUp) {
++  _programmaticScroll = true;
++  scrollContainer.scrollTop = scrollContainer.scrollHeight;
++  requestAnimationFrame(() => { _programmaticScroll = false; });
++}
+```
+
+### 教训
+
+- `scrollHeight` 随内容增长而变大，`scrollTop` 值不变 → 不能直接比较 `scrollTop + clientHeight >= scrollHeight` 来判断"在底部"，因为新内容插入后即便用户没动也会出现"不在底部"的假象
+- `scroll` 事件 fires on 所有滚动方式（滚轮、拖滚动条、键盘），比单独监听 `wheel` 更完整
+- 程序滚动必须用 flag 标记跳过，否则会被 `scroll` 事件误判为用户操作

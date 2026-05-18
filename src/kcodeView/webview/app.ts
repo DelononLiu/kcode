@@ -372,6 +372,7 @@ function handleAgentStreamUpdate(text: string) {
     if (placeholder) placeholder.remove();
 
     if (!streamMessageEl) {
+        _userScrolledUp = false;
         hideWorkingIndicator();
 
         const msgDiv = document.createElement('div');
@@ -397,7 +398,11 @@ function handleAgentStreamUpdate(text: string) {
             streamRenderPending = false;
             if (streamMessageEl) {
                 streamMessageEl.innerHTML = renderMarkdown(latestStreamText);
-                scrollContainer.scrollTop = scrollContainer.scrollHeight;
+                if (!_userScrolledUp) {
+                    _programmaticScroll = true;
+                    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+                    requestAnimationFrame(() => { _programmaticScroll = false; });
+                }
             }
         }, 50);
     }
@@ -405,6 +410,8 @@ function handleAgentStreamUpdate(text: string) {
 
 let latestStreamText = '';
 let streamRenderPending = false;
+let _userScrolledUp = false;
+let _programmaticScroll = false;
 
 let _agentSelectorInited = false;
 
@@ -642,6 +649,18 @@ function initChat() {
         });
         fileInput.click();
     });
+
+    const scrollContainer = document.getElementById('chat-scroll');
+    if (scrollContainer) {
+        scrollContainer.addEventListener('wheel', (e) => {
+            if (e.deltaY < 0) _userScrolledUp = true;
+        });
+        scrollContainer.addEventListener('scroll', () => {
+            if (_programmaticScroll) return;
+            const atBottom = scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - 16;
+            _userScrolledUp = !atBottom;
+        });
+    }
 
     const acpLogBtn = document.getElementById('acp-log-btn');
     acpLogBtn?.addEventListener('click', () => {
