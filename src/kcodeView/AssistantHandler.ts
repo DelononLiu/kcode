@@ -57,7 +57,7 @@ export class AssistantHandler {
 
     showLanding() {
         this.router.PostMessage({ type: 'updateNodePanel', nodes: [], taskType: 'assistant' });
-        this.router.PostMessage({ type: 'updateTaskInfo', title: '💬 小助手', taskType: 'assistant', goal: '', status: '', phase: '', phaseLabel: '', confirmedItems: [], pendingItems: [], planSteps: [], hooks: {}, workspaceHooks: {}, messageCount: 0, executeFinished: false });
+        this.router.PostMessage({ type: 'updateTaskInfo', title: '🤖 小助手', taskType: 'assistant', goal: '', status: '', phase: '', phaseLabel: '', confirmedItems: [], pendingItems: [], planSteps: [], hooks: {}, workspaceHooks: {}, messageCount: 0, executeFinished: false });
     }
 
     async handleMessage(text: string) {

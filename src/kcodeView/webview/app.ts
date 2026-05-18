@@ -218,7 +218,7 @@ function initMessageHandler() {
                     activeTaskStatus = '';
                     activeTaskPhase = '';
                     const titleEl = document.querySelector('.task-info-title');
-                    if (titleEl) titleEl.textContent = '💬 小助手';
+                    if (titleEl) titleEl.textContent = '🤖 小助手';
                     const chatHeader = document.getElementById('chat-header');
                     if (chatHeader) chatHeader.style.display = 'none';
                     const gutter = document.getElementById('node-timeline-gutter');

@@ -578,7 +578,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
              data-tasks="${this.escapeAttr(JSON.stringify(this._store.getTasks()))}"
              data-groups="${this.escapeAttr(JSON.stringify(this._store.getGroups()))}"
              data-containers="${this.escapeAttr(JSON.stringify(this._store.getContainers()))}"
-             data-active-task-id="${this._activeTaskId || ''}"
+             data-active-task-id="${this._activeTaskId !== null ? this._activeTaskId : '__assistant__'}"
              data-current-workspace="${this.escapeAttr(currentWorkspace)}"
              style="display:none"></div>
         <script src="${scriptUri}"></script>
