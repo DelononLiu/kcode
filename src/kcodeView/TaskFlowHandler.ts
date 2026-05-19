@@ -82,6 +82,18 @@ export class TaskFlowHandler {
         await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, '计划已确认，请开始执行。'), false, '计划已确认，请开始执行。');
     }
 
+    async handleConfirmPlanWithEdit(tid: string, goal: string, steps: PlanStep[]) {
+        const { ctx } = this;
+        if (goal) ctx.store.updateTaskGoal(tid, goal);
+        if (steps.length > 0) ctx.store.updatePlanSteps(tid, steps);
+        const msgContent = `用户已修改目标和计划\n\n🎯 目标\n${goal}\n\n📋 计划\n${steps.map(s => `- ${s.content}`).join('\n')}`;
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: msgContent, timestamp: Date.now() });
+        ctx.router.PostMessage({ type: 'addUserMessage', content: msgContent });
+        ctx.taskFlow.confirmPlan(tid);
+        await ctx.sendHooksAsMessage(tid, 'execute');
+        await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, '计划已确认，请开始执行。'), false, '计划已确认，请开始执行。');
+    }
+
     async handleConfirmExecuteDone(tid: string) {
         const { ctx } = this;
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认完成，进入自验', timestamp: Date.now() });

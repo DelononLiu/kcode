@@ -2680,18 +2680,129 @@ function handleShowPlanProposal(message: any) {
     const msgDiv = createCardMessageElement(message.taskId);
     const bubble = msgDiv.querySelector('.msg-bubble')!;
 
-    const goalHtml = message.goal
-        ? `<div class="plan-goal-section"><div class="plan-goal-header">🎯 目标</div><div class="plan-goal-body">${escapeHtml(message.goal)}</div></div>`
-        : '';
+    let currentGoal = message.goal || '';
+    let currentSteps = planSteps.map((s: any) => ({ content: s.content, status: s.status }));
+    let dirty = false;
 
-    const stepsHtml = planSteps.map((step: any, i: number) => {
-        const statusIcon = step.status === 'completed' ? '✅' : step.status === 'active' ? '🔄' : '○';
-        return `<div class="plan-step-line"><span class="plan-step-status">${statusIcon}</span><span>${escapeHtml(step.content)}</span></div>`;
-    }).join('');
+    function buildGoalHtml() {
+        return currentGoal
+            ? `<div class="plan-goal-section"><div class="plan-goal-header">🎯 目标</div><div class="plan-goal-body">${escapeHtml(currentGoal)}</div></div>`
+            : '';
+    }
+
+    function buildStepsHtml() {
+        return currentSteps.map((step: any, i: number) => {
+            const statusIcon = step.status === 'completed' ? '✅' : step.status === 'active' ? '🔄' : '○';
+            return `<div class="plan-step-line"><span class="plan-step-status">${statusIcon}</span><span>${escapeHtml(step.content)}</span></div>`;
+        }).join('');
+    }
+
+    function renderCard() {
+        const bodyHtml = `${buildGoalHtml()}<div class="plan-steps-body">${buildStepsHtml()}</div>`;
+        const existingBody = card.querySelector('.msg-card-body');
+        if (existingBody) existingBody.innerHTML = bodyHtml;
+    }
+
+    function switchToEditMode() {
+        card.querySelector('.plan-confirm-actions')?.remove();
+
+        const body = card.querySelector('.msg-card-body') as HTMLElement;
+        body.innerHTML = '';
+
+        const goalLabel = document.createElement('div');
+        goalLabel.className = 'plan-edit-label';
+        goalLabel.textContent = '🎯 目标';
+
+        const goalInput = document.createElement('textarea');
+        goalInput.className = 'plan-edit-goal-input';
+        goalInput.value = currentGoal;
+        goalInput.rows = 3;
+
+        const stepsLabel = document.createElement('div');
+        stepsLabel.className = 'plan-edit-label';
+        stepsLabel.textContent = '📋 计划步骤';
+
+        const stepsContainer = document.createElement('div');
+        stepsContainer.className = 'plan-edit-steps';
+
+        function renderStepInputs() {
+            stepsContainer.innerHTML = '';
+            currentSteps.forEach((step: any, i: number) => {
+                const row = document.createElement('div');
+                row.className = 'plan-edit-step-row';
+
+                const input = document.createElement('input');
+                input.className = 'plan-edit-step-input';
+                input.value = step.content;
+                input.placeholder = `步骤 ${i + 1}`;
+                input.addEventListener('input', () => { currentSteps[i].content = input.value; });
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'plan-edit-step-remove';
+                removeBtn.textContent = '✕';
+                removeBtn.addEventListener('click', () => {
+                    currentSteps.splice(i, 1);
+                    renderStepInputs();
+                });
+
+                row.appendChild(input);
+                row.appendChild(removeBtn);
+                stepsContainer.appendChild(row);
+            });
+        }
+
+        renderStepInputs();
+
+        const addBtn = document.createElement('button');
+        addBtn.className = 'plan-edit-add-step';
+        addBtn.textContent = '+ 添加步骤';
+        addBtn.addEventListener('click', () => {
+            currentSteps.push({ content: '', status: 'pending' });
+            renderStepInputs();
+            stepsContainer.scrollTop = stepsContainer.scrollHeight;
+        });
+
+        const editActions = document.createElement('div');
+        editActions.className = 'plan-edit-actions';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'msg-card-btn primary';
+        saveBtn.textContent = '保存 ✓';
+        saveBtn.addEventListener('click', () => {
+            currentGoal = goalInput.value.trim();
+            currentSteps = currentSteps.filter((s: any) => s.content.trim());
+            dirty = true;
+            renderCard();
+            editActions.remove();
+            card.appendChild(actionsDiv);
+        });
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'msg-card-btn secondary';
+        cancelBtn.textContent = '取消';
+        cancelBtn.addEventListener('click', () => {
+            currentGoal = message.goal || '';
+            currentSteps = planSteps.map((s: any) => ({ content: s.content, status: s.status }));
+            dirty = false;
+            renderCard();
+            editActions.remove();
+            card.appendChild(actionsDiv);
+        });
+
+        editActions.appendChild(saveBtn);
+        editActions.appendChild(cancelBtn);
+
+        body.appendChild(goalLabel);
+        body.appendChild(goalInput);
+        body.appendChild(stepsLabel);
+        body.appendChild(stepsContainer);
+        body.appendChild(addBtn);
+        body.appendChild(editActions);
+    }
 
     const card = createCard({
         headerHtml: '📋 计划方案',
-        bodyHtml: `${goalHtml}<div class="plan-steps-body">${stepsHtml}</div>`,
+        bodyHtml: `${buildGoalHtml()}<div class="plan-steps-body">${buildStepsHtml()}</div>`,
         defaultCollapsed: false,
         borderColor: '#4a8bb5',
         headerBg: '#1e2d3d',
@@ -2701,34 +2812,33 @@ function handleShowPlanProposal(message: any) {
     card.classList.add('plan-confirmation-card');
 
     const actionsDiv = document.createElement('div');
-    actionsDiv.className = 'msg-card-actions';
+    actionsDiv.className = 'msg-card-actions plan-confirm-actions';
 
-    const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'msg-card-btn primary';
-    confirmBtn.textContent = '确认计划 ✓';
-    confirmBtn.addEventListener('click', () => {
+    function handleConfirm() {
         actionsDiv.innerHTML = '';
         const statusEl = document.createElement('div');
         statusEl.className = 'msg-card-status';
         statusEl.textContent = '✅ 已确认，开始执行...';
         actionsDiv.appendChild(statusEl);
-        vscode.postMessage({ type: 'confirmPlan', taskId: message.taskId });
-    });
+        if (dirty) {
+            vscode.postMessage({ type: 'confirmPlanWithEdit', taskId: message.taskId, goal: currentGoal, steps: currentSteps });
+        } else {
+            vscode.postMessage({ type: 'confirmPlan', taskId: message.taskId });
+        }
+    }
 
-    const reviseBtn = document.createElement('button');
-    reviseBtn.className = 'msg-card-btn secondary';
-    reviseBtn.textContent = '调整建议 ↩';
-    reviseBtn.addEventListener('click', () => {
-        actionsDiv.innerHTML = '';
-        const statusEl = document.createElement('div');
-        statusEl.className = 'msg-card-status';
-        statusEl.textContent = '↩️ 已驳回调整';
-        actionsDiv.appendChild(statusEl);
-        vscode.postMessage({ type: 'rejectPlan', taskId: message.taskId });
-    });
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'msg-card-btn primary';
+    confirmBtn.textContent = '确认计划 ✓';
+    confirmBtn.addEventListener('click', handleConfirm);
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'msg-card-btn secondary';
+    editBtn.textContent = '修改 ✏️';
+    editBtn.addEventListener('click', () => switchToEditMode());
 
     actionsDiv.appendChild(confirmBtn);
-    actionsDiv.appendChild(reviseBtn);
+    actionsDiv.appendChild(editBtn);
     card.appendChild(actionsDiv);
 
     bubble.appendChild(card);

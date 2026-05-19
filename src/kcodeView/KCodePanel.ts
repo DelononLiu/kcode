@@ -162,6 +162,7 @@ export class KCodePanel {
         this.router.on('confirmGoalWithEdit', async (msg) => this.flowHandler.handleConfirmGoalWithEdit(msg.taskId, msg.goal, msg.originalRequest));
         this.router.on('confirmGoalFromHeader', async (msg) => this.flowHandler.handleConfirmGoalFromHeader(msg.taskId));
         this.router.on('confirmPlan', async (msg) => this.flowHandler.handleConfirmPlan(msg.taskId));
+        this.router.on('confirmPlanWithEdit', async (msg) => this.flowHandler.handleConfirmPlanWithEdit(msg.taskId, msg.goal, msg.steps));
         this.router.on('rejectPlan', (msg) => this.flowHandler.handleRejectPlan(msg.taskId));
         this.router.on('confirmExecuteDone', async (msg) => this.flowHandler.handleConfirmExecuteDone(msg.taskId));
         this.router.on('partialApproveReview', (msg) => this.flowHandler.handlePartialApproveReview(msg.taskId, msg.passed, msg.failed));

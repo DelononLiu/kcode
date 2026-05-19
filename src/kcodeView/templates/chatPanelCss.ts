@@ -419,6 +419,34 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .plan-confirmation-card{margin:8px 0}
 .plan-goal-section{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #404040}
 
+.plan-confirm-actions .msg-card-btn{margin-right:8px}
+
+.plan-edit-label{font-size:13px;font-weight:600;color:#c0c0c0;margin:8px 0 4px}
+
+.plan-edit-label:first-child{margin-top:0}
+
+.plan-edit-goal-input{width:100%;background:#25252a;border:1px solid rgba(255,255,255,.12);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:13px;padding:8px;resize:vertical;outline:none;min-height:60px;line-height:1.5;box-sizing:border-box}
+
+.plan-edit-goal-input:focus{border-color:rgba(78,201,176,.4)}
+
+.plan-edit-steps{display:flex;flex-direction:column;gap:4px}
+
+.plan-edit-step-row{display:flex;align-items:center;gap:6px}
+
+.plan-edit-step-input{flex:1;background:#25252a;border:1px solid rgba(255,255,255,.12);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:13px;padding:6px 8px;outline:none;box-sizing:border-box}
+
+.plan-edit-step-input:focus{border-color:rgba(78,201,176,.4)}
+
+.plan-edit-step-remove{background:none;border:none;color:#e06c75;cursor:pointer;font-size:14px;padding:4px;line-height:1;flex-shrink:0}
+
+.plan-edit-step-remove:hover{color:#ff7b89}
+
+.plan-edit-add-step{background:none;border:1px dashed rgba(255,255,255,.15);border-radius:4px;color:#888;cursor:pointer;font-size:12px;padding:6px;margin-top:4px;width:100%;text-align:center}
+
+.plan-edit-add-step:hover{border-color:rgba(78,201,176,.4);color:#4ec9b0}
+
+.plan-edit-actions{display:flex;gap:8px;margin-top:12px}
+
 .plan-goal-header{font-size:13px;font-weight:600;color:#e0c080;margin-bottom:4px}
 
 .plan-goal-body{font-size:13px;color:#b0b0b0;white-space:pre-wrap;line-height:1.5}
