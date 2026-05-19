@@ -23,6 +23,7 @@ export class TaskStreamHandler extends StreamHandlerBase {
         super._emitToolCall(toolCallId, title, kind, status, content);
         if (kind === 'todowrite' && content) {
             this._syncTodoToPlanSteps(content);
+            this.ctx.sendTaskInfo(this.tid);
         }
     }
 
@@ -112,8 +113,10 @@ export class TaskStreamHandler extends StreamHandlerBase {
 
         if (!this.isGoalFormatting) {
             for (const [, tc] of this.activeToolCalls) {
-                if (tc.output && /\[TASK_UPDATE\]/i.test(tc.output)) {
-                    this.ctx.taskFlow.processChunk(this.tid, tc.output);
+                if (tc.output) {
+                    if (/\[TASK_UPDATE\]/i.test(tc.output) || /<TODO_UPDATE>|<\/*title>/i.test(tc.output)) {
+                        this.ctx.taskFlow.processChunk(this.tid, tc.output);
+                    }
                 }
             }
         }

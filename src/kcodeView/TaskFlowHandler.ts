@@ -385,18 +385,15 @@ export class TaskFlowHandler {
     private _syncTodosToPlanSteps(taskId: string) {
         const { ctx } = this;
         const messages = ctx.store.getMessages(taskId);
-        const allItems: TodoItem[] = [];
-        const seenIds = new Set<string>();
+        // 用 Map 替代 Set：后出现的同 id 覆盖之前的状态（修复：之前 seenIds 导致 status 更新被跳过）
+        const itemsMap = new Map<string, TodoItem>();
 
         for (const msg of messages) {
             if (msg.type === 'todo') {
                 try {
                     const items: TodoItem[] = JSON.parse(msg.content || '[]');
                     for (const item of items) {
-                        if (!seenIds.has(item.id)) {
-                            seenIds.add(item.id);
-                            allItems.push(item);
-                        }
+                        itemsMap.set(item.id, item);
                     }
                 } catch {}
             } else if (msg.type === 'tool_call') {
@@ -406,22 +403,19 @@ export class TaskFlowHandler {
                         const raw = parseTodosFromOutput(info.output);
                         for (let idx = 0; idx < raw.length; idx++) {
                             const id = String(raw[idx].id ?? idx);
-                            if (!seenIds.has(id)) {
-                                seenIds.add(id);
-                                allItems.push({
-                                    id,
-                                    content: String(raw[idx].content || ''),
-                                    status: raw[idx].status === 'completed' ? 'completed' : 'pending',
-                                });
-                            }
+                            itemsMap.set(id, {
+                                id,
+                                content: String(raw[idx].content || ''),
+                                status: raw[idx].status === 'completed' ? 'completed' : 'pending',
+                            });
                         }
                     }
                 } catch {}
             }
         }
 
-        if (allItems.length > 0) {
-            const planSteps: PlanStep[] = allItems.map(item => ({
+        if (itemsMap.size > 0) {
+            const planSteps: PlanStep[] = Array.from(itemsMap.values()).map(item => ({
                 content: item.content,
                 status: item.status === 'completed' ? 'completed' : 'pending',
             }));
