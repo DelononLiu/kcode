@@ -7,6 +7,8 @@
     let globalPath = '';
     let projectPath = '';
 
+    let deviceListJson = '';
+
     const TAB_CONFIGS: Record<string, { label: string; fields: FieldDef[] }> = {
         agent: {
             label: 'Agent',
@@ -37,6 +39,10 @@
             fields: [
                 { key: 'github.token', label: 'GitHub Token', desc: 'GitHub Personal Access Token，用于提高 API rate limit', type: 'password', default: '' },
             ],
+        },
+        device: {
+            label: '设备',
+            fields: [],
         },
         about: {
             label: '关于',
@@ -80,7 +86,45 @@
             panel.className = 'settings-panel' + (tabId === 'agent' ? ' active' : '');
             panel.id = `panel-${tabId}`;
 
-            if (tabId === 'about') {
+            if (tabId === 'device') {
+                const devices: any[] = getNested(draft, 'devices') || [];
+                deviceListJson = JSON.stringify(devices, null, 2);
+                panel.innerHTML = `
+                    <h2>📡 设备</h2>
+                    <p class="desc">预配置的设备连接。在 Device 面板中可直接选择已保存的设备快速连接。</p>
+                    <div class="device-list" id="device-list-panel"></div>
+                    <textarea class="device-json-editor" id="device-json-editor" rows="8">${escapeHtml(deviceListJson)}</textarea>
+                    <div class="device-btn-row">
+                        <button class="btn btn-secondary" id="btn-device-add-template">+ 添加模板</button>
+                        <button class="btn btn-secondary" id="btn-device-apply-json">应用 JSON</button>
+                    </div>
+                `;
+                renderDeviceListPreview(devices);
+                panel.querySelector('#btn-device-add-template')?.addEventListener('click', () => {
+                    const devices: any[] = getNested(draft, 'devices') || [];
+                    devices.push({ name: '新设备', type: 'ssh', host: '192.168.1.1', port: 22, username: 'root', password: '' });
+                    setDraftField('devices', devices);
+                    deviceListJson = JSON.stringify(devices, null, 2);
+                    const editor = document.getElementById('device-json-editor') as HTMLTextAreaElement;
+                    if (editor) editor.value = deviceListJson;
+                    renderDeviceListPreview(devices);
+                    updateDirtyState();
+                });
+                panel.querySelector('#btn-device-apply-json')?.addEventListener('click', () => {
+                    const editor = document.getElementById('device-json-editor') as HTMLTextAreaElement;
+                    if (!editor) return;
+                    try {
+                        const parsed = JSON.parse(editor.value);
+                        if (!Array.isArray(parsed)) throw new Error('必须是数组');
+                        setDraftField('devices', parsed);
+                        deviceListJson = editor.value;
+                        renderDeviceListPreview(parsed);
+                        updateDirtyState();
+                    } catch (e: any) {
+                        alert('JSON 格式错误: ' + e.message);
+                    }
+                });
+            } else if (tabId === 'about') {
                 panel.innerHTML = `
                     <h2>关于 KCode</h2>
                     <p class="desc">独立配置系统 — Phase 16</p>
@@ -294,6 +338,34 @@
                 status.className = 'save-status';
             }
         }, 3000);
+    }
+
+    function renderDeviceListPreview(devices: any[]) {
+        const container = document.getElementById('device-list-panel');
+        if (!container) return;
+        if (!devices || devices.length === 0) {
+            container.innerHTML = '<span class="field-desc">暂无已保存的设备。点击"添加模板"或直接编辑下方 JSON。</span>';
+            return;
+        }
+        container.innerHTML = devices.map((d, i) =>
+            `<div class="device-preview-item">
+                <span class="device-preview-icon">${deviceIcon(d.type)}</span>
+                <span class="device-preview-name">${escapeHtml(d.name || '未命名')}</span>
+                <span class="device-preview-addr">${escapeHtml(d.host || '')}:${d.port || ''}</span>
+                <span class="device-preview-user">${d.username ? escapeHtml(d.username) : ''}</span>
+                <span class="device-preview-type tag">${d.type || 'ssh'}</span>
+            </div>`
+        ).join('');
+    }
+
+    function deviceIcon(type: string): string {
+        switch (type) {
+            case 'ssh': return '🔒';
+            case 'telnet': return '🔓';
+            case 'adb': return '📱';
+            case 'local': return '💻';
+            default: return '🖥️';
+        }
     }
 
     vscode.postMessage({ type: 'loadConfig' });

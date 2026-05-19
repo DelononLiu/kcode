@@ -270,6 +270,43 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .close-btn:hover{color:#ddd}
 #right-panel-content{flex:1;overflow:hidden;position:relative;display:flex;flex-direction:column}
 
+/* === Device Tab === */
+#tab-device{display:none;flex-direction:column;overflow:hidden;padding:8px;min-height:0;gap:8px}
+#tab-device.tab-content.active{display:flex}
+#device-connect-form{display:flex;flex-direction:column;gap:6px;padding:8px;background:rgba(0,0,0,.1);border-radius:4px;flex-shrink:0}
+.device-field-row{display:flex;gap:6px;flex-shrink:0}
+.device-field-row select,.device-field-row input{flex:1;background:var(--vscode-input-background,#3c3c3c);color:var(--vscode-input-foreground,#d4d4d4);border:1px solid var(--vscode-input-border,#555);border-radius:3px;padding:5px 8px;font-size:12px;font-family:inherit;outline:none}
+.device-field-row select:focus,.device-field-row input:focus{border-color:#4a9eff}
+#device-preset-select{width:100%;background:var(--vscode-input-background,#3c3c3c);color:var(--vscode-input-foreground,#d4d4d4);border:1px solid var(--vscode-input-border,#555);border-radius:3px;padding:5px 8px;font-size:12px;font-family:inherit;outline:none;cursor:pointer}
+#device-preset-select:focus{border-color:#4a9eff}
+.device-btn-row{display:flex;gap:6px;justify-content:flex-end}
+.device-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#ccc;border-radius:3px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:inherit;transition:background .2s}
+.device-btn:hover{background:rgba(255,255,255,.12)}
+.device-btn.primary{background:#0e639c;border-color:#0e639c;color:#fff}
+.device-btn.primary:hover{background:#1177bb}
+.device-btn.danger{background:#c12;border-color:#c12;color:#fff}
+.device-btn.danger:hover{background:#d23}
+.device-btn.small{padding:3px 10px;font-size:11px}
+#device-connected-view{display:none;flex-direction:column;flex:1;overflow:hidden}
+#device-connected-view.visible{display:flex}
+#device-connected-header{display:flex;align-items:center;gap:8px;padding:4px 0 6px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;font-size:12px}
+.device-status-ok{color:#4ec9b0;font-size:14px}
+.device-status-err{color:#e2777a;font-size:14px}
+#device-connected-label{flex:1;color:#aaa}
+#device-terminal{flex:1;overflow:hidden;display:flex;flex-direction:column;margin-top:4px}
+#device-output{flex:1;overflow-y:auto;background:var(--vscode-editor-background,#0d0d0d);border-radius:4px;padding:8px;font-family:Consolas,monospace;font-size:13px;color:#4ec9b0;white-space:pre-wrap;line-height:1.4}
+#device-input-row{display:flex;gap:4px;padding:6px 0 0;flex-shrink:0;align-items:center}
+#device-input-row span{color:#4ec9b0;font-family:monospace;font-size:13px;flex-shrink:0}
+#device-command-input{flex:1;background:var(--vscode-input-background,#3c3c3c);color:var(--vscode-input-foreground,#d4d4d4);border:1px solid var(--vscode-input-border,#555);border-radius:3px;padding:6px 8px;font-family:monospace;font-size:13px;outline:none}
+#device-command-input:focus{border-color:#4a9eff}
+#device-status-bar{display:flex;align-items:center;gap:4px;padding:4px 0;font-size:11px;color:#666;flex-shrink:0}
+#device-connection-status{color:#888;font-size:11px}
+.device-output-line{padding:1px 0;word-break:break-all}
+.device-output-line.cmd{color:#569cd6}
+.device-output-line.stdout{color:#d4d4d4}
+.device-output-line.stderr{color:#e2777a}
+.device-output-line.info{color:#888;font-style:italic}
+
 /* === Chat Nav Buttons (just inside message area right edge) === */
 #chat-nav-btns{position:absolute;bottom:12px;right:max(36px, calc((100% - 900px) / 2 + 36px));display:flex;flex-direction:column;align-items:center;gap:4px;z-index:20;opacity:0;transition:opacity .2s;pointer-events:none}
 #chat-nav-btns:not(.hidden){opacity:1;pointer-events:auto}

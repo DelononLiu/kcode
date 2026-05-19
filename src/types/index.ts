@@ -169,6 +169,35 @@ export interface AcpLogEntry {
     timestamp: number;
 }
 
+export type DeviceType = 'ssh' | 'telnet' | 'adb' | 'local';
+
+export interface DeviceConfig {
+    type: DeviceType;
+    host: string;
+    port: number;
+    username?: string;
+    password?: string;
+    privateKey?: string;
+}
+
+export interface DeviceConnection {
+    deviceId: string;
+    config: DeviceConfig;
+    status: 'connecting' | 'connected' | 'disconnected' | 'error';
+    connectedAt?: number;
+    error?: string;
+}
+
+export interface IDeviceClient {
+    connect(config: DeviceConfig): Promise<DeviceConnection>;
+    disconnect(): Promise<void>;
+    exec(command: string): Promise<string>;
+    onOutput(callback: (data: string) => void): void;
+    onError(callback: (error: string) => void): void;
+    onDisconnected(callback: () => void): void;
+    getStatus(): DeviceConnection['status'];
+}
+
 export interface AcpMessageHandler {
     onText: (text: string) => void;
     onReasoning?: (text: string) => void;

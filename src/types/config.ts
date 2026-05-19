@@ -19,6 +19,15 @@ export interface UIConfig {
   layout?: 'auto' | 'stretch';
 }
 
+export interface SavedDevice {
+  name: string;
+  type: 'ssh' | 'telnet' | 'adb' | 'local';
+  host: string;
+  port: number;
+  username?: string;
+  password?: string;
+}
+
 export interface KCodeConfig {
   agentName?: string;
   agentArgs?: string[];
@@ -27,6 +36,7 @@ export interface KCodeConfig {
   log?: LogConfig;
   github?: GitHubConfig;
   ui?: UIConfig;
+  devices?: SavedDevice[];
 }
 
 export function getDefaultConfig(): KCodeConfig {
@@ -69,6 +79,7 @@ export const KNOWN_KEYS = [
   'log.acpLogEnabled', 'log.acpLogMaxGlobal', 'log.acpLogMaxTask',
   'github.token',
   'ui.language', 'ui.layout',
+  'devices',
 ] as const;
 
 export type KnownKey = typeof KNOWN_KEYS[number];

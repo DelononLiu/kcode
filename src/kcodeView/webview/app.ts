@@ -4,6 +4,7 @@ import { AppState, type FileChange } from './state';
 
 declare function acquireVsCodeApi(): any;
 const vscode = acquireVsCodeApi();
+(window as any).__vscode = vscode;
 
 marked.use({
     renderer: {
@@ -354,6 +355,18 @@ function initMessageHandler() {
                     if (btnExport) btnExport.classList.add('hidden');
                 }
                 break;
+            case 'deviceConnected':
+                (window as any).handleDeviceConnected?.(message.config);
+                break;
+            case 'deviceOutput':
+                (window as any).handleDeviceOutput?.(message.data);
+                break;
+            case 'deviceStatus':
+                (window as any).handleDeviceStatus?.(message.status, message.message);
+                break;
+            case 'savedDevices':
+                (window as any).handleSavedDevices?.(message.devices || []);
+                break;
         }
     });
 }
@@ -602,6 +615,8 @@ function initInstructionToggle() {
     });
 }
 
+let _deviceTabInited = false;
+
 function initTabs() {
     const tabButtons = document.querySelectorAll('.tab');
     tabButtons.forEach(btn => {
@@ -615,6 +630,15 @@ function initTabs() {
             btn.classList.add('active');
             const content = document.getElementById(`tab-${tabName}`);
             if (content) content.classList.add('active');
+
+            const rp = document.getElementById('right-panel');
+            if (rp?.classList.contains('hidden')) {
+                rp.classList.remove('hidden');
+            }
+
+            if (tabName === 'device') {
+                (window as any).initDeviceTab?.();
+            }
 
             const acpLogBtn = document.getElementById('acp-log-btn');
             if (tabName !== 'acplog') {
