@@ -682,7 +682,7 @@ function initChat() {
         const val = input.value;
         if (val.startsWith('/') && !val.includes(' ')) {
             const query = val.slice(1).toLowerCase();
-            const matched = !query ? slashCommands : slashCommands.filter(c => c.name.slice(1).toLowerCase().startsWith(query) || c.name.toLowerCase().startsWith('/' + query));
+            const matched = !query ? slashCommands : slashCommands.filter(c => c.name.toLowerCase().replace(/^\//, '').startsWith(query) || c.name.toLowerCase().startsWith('/' + query));
             if (matched.length > 0) {
                 showSlashMenu(matched);
                 return;

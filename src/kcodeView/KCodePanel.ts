@@ -246,7 +246,7 @@ export class KCodePanel {
     autoSendGoal(taskId: string, text: string) { this.sessionHandler.handleSendMessage(text, taskId); }
 
     private getSlashCommandList(): { name: string; description: string }[] {
-        return [
+        const builtin = [
             { name: '/ai', description: '切换到小助手模式' },
             { name: '/totask', description: '将小助手对话转为任务' },
             { name: '/confirm', description: '确认当前阶段操作' },
@@ -255,6 +255,11 @@ export class KCodePanel {
             { name: '/new', description: '新建任务' },
             { name: '/tasks', description: '查看任务概览' },
         ];
+        const projectCmds = this.commandRegistry.getKiloCommands().map(c => ({
+            name: c.name,
+            description: c.description,
+        }));
+        return [...builtin, ...projectCmds];
     }
 
     private async handleSlashCommand(text: string, taskId?: string) {
