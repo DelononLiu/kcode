@@ -173,7 +173,21 @@ function initMessageHandler() {
 
                 if (message.taskType === 'assistant') {
                     const header = document.getElementById('chat-header');
-                    if (header) header.style.display = 'none';
+                    if (header) header.style.removeProperty('display');
+                    showHeaderRow('row1', true);
+                    showHeaderRow('sub', true);
+                    showHeaderRow('row2', false);
+                    showHeaderRow('row3', false);
+                    const titleEl = document.querySelector('.task-info-title');
+                    if (titleEl) titleEl.textContent = '🤖 小助手';
+                    const statusBadge = document.getElementById('task-status-badge');
+                    if (statusBadge) statusBadge.classList.add('hidden');
+                    const subEl = document.getElementById('task-info-created');
+                    if (subEl) subEl.textContent = '专业陪聊 · 答疑解惑 · 出谋划策 · 代码评审 · 技术调研 · 问题分析';
+                    const sep = document.getElementById('task-info-sep');
+                    if (sep) sep.classList.add('hidden');
+                    const reviewEl = document.getElementById('task-info-review');
+                    if (reviewEl) reviewEl.classList.add('hidden');
                     const gutter = document.getElementById('node-timeline-gutter');
                     if (gutter) gutter.classList.add('hidden');
                     const outputPanel = document.getElementById('right-output-panel');
@@ -228,16 +242,28 @@ function initMessageHandler() {
                 if (message.taskType === 'assistant') {
                     activeTaskStatus = '';
                     activeTaskPhase = '';
+                    const chatHeader = document.getElementById('chat-header');
+                    if (chatHeader) chatHeader.style.removeProperty('display');
+                    showHeaderRow('row1', true);
+                    showHeaderRow('sub', true);
+                    showHeaderRow('row2', false);
+                    showHeaderRow('row3', false);
                     const titleEl = document.querySelector('.task-info-title');
                     if (titleEl) titleEl.textContent = '🤖 小助手';
-                    const chatHeader = document.getElementById('chat-header');
-                    if (chatHeader) chatHeader.style.display = 'none';
+                    const statusBadge = document.getElementById('task-status-badge');
+                    if (statusBadge) statusBadge.classList.add('hidden');
+                    const subEl = document.getElementById('task-info-created');
+                    if (subEl) subEl.textContent = '专业陪聊 · 答疑解惑 · 出谋划策 · 代码评审 · 技术调研 · 问题分析';
+                    const sep = document.getElementById('task-info-sep');
+                    if (sep) sep.classList.add('hidden');
+                    const reviewEl = document.getElementById('task-info-review');
+                    if (reviewEl) reviewEl.classList.add('hidden');
                     const gutter = document.getElementById('node-timeline-gutter');
                     if (gutter) gutter.classList.add('hidden');
                     const outPanel = document.getElementById('right-output-panel');
                     if (outPanel) outPanel.style.display = 'none';
-                    const _extractBtn2 = document.getElementById('btn-knowledge-extract');
-                    if (_extractBtn2) _extractBtn2.classList.add('hidden');
+                    const extractBtn2 = document.getElementById('btn-knowledge-extract');
+                    if (extractBtn2) extractBtn2.classList.add('hidden');
                     break;
                 }
                 // Show knowledge extract button for task mode
@@ -2659,6 +2685,12 @@ function showGoalConfirmationCard(info: any) {
     bubble.appendChild(card);
     appendToChatMessages(msgDiv);
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
+}
+
+function showHeaderRow(row: string, show: boolean) {
+    const map: Record<string, string> = { row1: 'chat-header-row1', sub: 'chat-header-sub', row2: 'chat-header-row2', row3: 'chat-header-row3' };
+    const el = document.getElementById(map[row]);
+    if (el) el.classList.toggle('hidden', !show);
 }
 
 function removeGoalConfirmationCard() {
