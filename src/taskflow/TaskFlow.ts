@@ -523,6 +523,12 @@ export class TaskFlow {
 
     processGoalProposal(taskId: string, goalText: string, originalRequest: string, userText: string): void {
         this.store.updateTaskGoal(taskId, goalText);
+        const lines = goalText.split('\n').filter(l => l.trim());
+        const firstLine = lines[0] || '';
+        const title = firstLine.replace(/^[#*\s]+/, '').replace(/[^\w\u4e00-\u9fff\s-]/g, '').trim().substring(0, 30);
+        if (title) {
+            this.store.updateTaskTitle(taskId, title);
+        }
         this.store.updateTaskPhase(taskId, 'goal');
         this.store.updateTaskStatus(taskId, 'pending');
         const goalMsgId = this.store.nextMessageId(taskId);

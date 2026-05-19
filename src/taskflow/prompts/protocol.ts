@@ -64,6 +64,7 @@ CONTEXT: 当前 TokenStore 提供 get/set/clear 三个方法，token 存储于 w
 </KNOWLEDGE_ENTRY>
 
 类型：decision（决策）| pitfall（踩坑）| pattern（模式）| code_snippet（代码段）
+标题请简短（15 字以内），不含特殊字符，适合作为文件名。
 系统会自动将知识存储到知识库，并在后续任务中自动注入相关知识。
 
 工作清单使用工具 todowrite 管理，系统自动渲染为带有 checkbox 的待办清单卡片。`;

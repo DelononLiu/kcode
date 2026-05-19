@@ -121,21 +121,8 @@ export class TaskSessionHandler {
         if (isFirstMessage) {
             ctx.store.updateTaskNodeMessageId(tid, 'demand', userMsgId);
             if (task.title === 'New Task') {
-                if (category && subType) {
-                    const template = getTemplate(category as any, subType);
-                    const label = template?.label || subType;
-                    const rawTitle = text.length > 27 ? text.substring(0, 27) + '...' : text;
-                    ctx.store.updateTaskTitle(tid, `${label}: ${rawTitle}`);
-                } else if (category) {
-                    const cat = getCategory(category as any);
-                    const label = cat?.label || category;
-                    const rawTitle = text.length > 27 ? text.substring(0, 27) + '...' : text;
-                    ctx.store.updateTaskTitle(tid, `${label}: ${rawTitle}`);
-                } else {
-                    const prefix = '';
-                    const rawTitle = text.length > 30 ? text.substring(0, 30) + '...' : text;
-                    ctx.store.updateTaskTitle(tid, prefix + rawTitle);
-                }
+                const rawTitle = text.replace(/[^\w\u4e00-\u9fff\s-]/g, '').trim();
+                ctx.store.updateTaskTitle(tid, rawTitle.length > 20 ? rawTitle.substring(0, 20) : rawTitle || 'New Task');
             }
             ctx.refreshSidebarCallback?.();
             ctx.sendTaskInfo(tid);
