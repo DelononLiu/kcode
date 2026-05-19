@@ -175,25 +175,6 @@ function updateOutputPanel(taskInfo: any, changes: any[]) {
         planList.innerHTML = parts.length > 0 ? parts.join('') : '<div class="op-empty">暂无待办</div>';
     }
 
-    // Section 4: Tool call records
-    const toolList = document.getElementById('op-tool-list');
-    if (toolList) {
-        const toolCalls = taskInfo?.toolCalls;
-        if (toolCalls && toolCalls.length > 0) {
-            toolList.innerHTML = toolCalls.map((tc: any) => {
-                const kindIcon: Record<string, string> = { bash: '$', read: '📖', write: '✏️', glob: '🔍', grep: '🔎', thinking: '💭' };
-                const icon = kindIcon[tc.kind] || '🔧';
-                const statusIcon = tc.status === 'completed' ? '✅' : tc.status === 'running' ? '🔄' : '⏳';
-                return `<div class="op-item" title="${opEscapeHtml(tc.title || '')}">
-                    <span class="op-item-icon">${icon}</span>
-                    <span class="op-item-label">${statusIcon}</span>
-                    <span class="op-item-name">${opEscapeHtml(tc.title || tc.kind)}</span>
-                </div>`;
-            }).join('');
-        } else {
-            toolList.innerHTML = '<div class="op-empty">暂无工具调用</div>';
-        }
-    }
 }
 
 (window as any).initOutputPanel = initOutputPanel;

@@ -160,6 +160,10 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         <div id="right-output-panel">
             <div id="right-output-content">
                 <div class="op-section">
+                    <div class="op-section-title">TODO区</div>
+                    <div id="op-plan-list"><div class="op-empty">暂无待办</div></div>
+                </div>
+                <div class="op-section">
                     <div class="op-section-title">变更列表</div>
                     <div id="op-code-list"><div class="op-empty">暂无变更</div></div>
                 </div>
@@ -169,14 +173,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                         <button id="op-export-btn" class="op-export-btn hidden" title="导出对话内容到项目 Wiki">📤 导出 Wiki</button>
                     </div>
                     <div id="op-knowledge-list"><div class="op-empty">暂无知识</div></div>
-                </div>
-                <div class="op-section">
-                    <div class="op-section-title">TODO区</div>
-                    <div id="op-plan-list"><div class="op-empty">暂无待办</div></div>
-                </div>
-                <div class="op-section">
-                    <div class="op-section-title">工具调用</div>
-                    <div id="op-tool-list"><div class="op-empty">暂无工具调用</div></div>
                 </div>
             </div>
         </div>
