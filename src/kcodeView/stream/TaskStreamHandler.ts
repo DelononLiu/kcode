@@ -8,6 +8,7 @@ export class TaskStreamHandler extends StreamHandlerBase {
         private ctx: KCodePanelContext,
         private isGoalFormatting: boolean,
         private originalText: string,
+        private parseTables = false,
     ) {
         super(tid, ctx.router, ctx.setGenerationState,
             (dir, text) => ctx.sendAcpLog(tid, dir, text),
@@ -45,7 +46,7 @@ export class TaskStreamHandler extends StreamHandlerBase {
 
     protected onText(chunk: string): void {
         this.sendAcpLog?.('recv', chunk);
-        this.ctx.taskFlow.processChunk(this.tid, chunk);
+        this.ctx.taskFlow.processChunk(this.tid, chunk, this.parseTables);
         const cleanText = this.ctx.taskFlow.getCleanText(this.tid);
         const planSection = this.ctx.taskFlow.buildPlanSection(this.tid);
         this.sendDisplayUpdate(cleanText + planSection);

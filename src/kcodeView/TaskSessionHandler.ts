@@ -201,8 +201,8 @@ export class TaskSessionHandler {
         await this.doPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, '请自验执行结果'), handler);
     }
 
-    createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string): AcpMessageHandler {
-        const handler = new TaskStreamHandler(tid, this.ctx, isGoalFormatting, originalText);
+    createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string, parseTables = false): AcpMessageHandler {
+        const handler = new TaskStreamHandler(tid, this.ctx, isGoalFormatting, originalText, parseTables);
         return handler.create();
     }
 }

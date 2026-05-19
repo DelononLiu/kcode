@@ -520,6 +520,7 @@ export class TaskFlowHandler {
         ctx.store.addTimelineEntry(taskId, { timestamp: Date.now(), type: 'knowledge_extract', summary: `萃取知识: ${titles.substring(0, 80)}`, detail: `共 ${entries.length} 条知识条目` });
         ctx.router.PostMessage({ type: 'knowledgeExtract', entries, taskId });
         this.sendOutputPanelUpdate(taskId);
+        vscode.commands.executeCommand('kcode.refreshKnowledgePanel');
     }
 
     handleTaskDelegated(parentTaskId: string, payload: any) {

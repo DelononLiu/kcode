@@ -81,6 +81,7 @@ export class TaskFlow {
     private executeFinished: Map<string, boolean> = new Map();
     private selfVerifyFinished: Map<string, boolean> = new Map();
     private accumulatedText: Map<string, string> = new Map();
+    private tableParsed: Set<string> = new Set();
     private planEntries: Map<string, PlanEntry[]> = new Map();
     private workspaceHooks: Record<string, string[]> = {};
     private availableCommands: string = '';
@@ -156,16 +157,17 @@ export class TaskFlow {
     getCleanText(taskId: string): string {
         const text = this.accumulatedText.get(taskId) || '';
         // 剥离 [TASK_UPDATE] 块（仅独立段落：块起始于行首）
-        return text.replace(/(?:^|\n)\s*\[TASK_UPDATE\][\s\S]*?\[\/TASK_UPDATE\]\s*/g, '\n').trim();
+        return text.replace(/\s*\[TASK_UPDATE\][\s\S]*?\[\/TASK_UPDATE\]\s*/g, '\n').trim();
     }
 
-    processChunk(taskId: string, chunk: string): string {
+    processChunk(taskId: string, chunk: string, parseTables = false): string {
         const current = this.accumulatedText.get(taskId) || '';
         this.accumulatedText.set(taskId, current + chunk);
         this.parseTaskUpdate(taskId);
         this.parseTaskDelegate(taskId);
         this.parseTodoUpdate(taskId);
         this.parseKnowledgeEntry(taskId);
+        if (parseTables) this.parseKnowledgeTable(taskId);
         return this.getCleanText(taskId);
     }
 
@@ -295,6 +297,70 @@ export class TaskFlow {
         }
     }
 
+    private parseKnowledgeTable(taskId: string): void {
+        if (this.tableParsed.has(taskId)) return;
+        const text = this.accumulatedText.get(taskId) || '';
+        const task = this.store.getTask(taskId);
+        if (!task) return;
+        const marker = '📚 萃取知识表格';
+        const markerIdx = text.indexOf(marker);
+        if (markerIdx < 0) return;
+        const afterMarker = text.slice(markerIdx + marker.length);
+        const tableRegex = /^\|.+\|\s*$/gm;
+        const lines: string[] = [];
+        let match;
+        while ((match = tableRegex.exec(afterMarker)) !== null) {
+            lines.push(match[0]);
+        }
+        if (lines.length < 3) return;
+        let tableStart = -1;
+        for (let i = 0; i < lines.length; i++) {
+            if (/^\|[\s\-:]+\|[\s\-:]+\|/.test(lines[i]) && i > 0 && i < lines.length - 1) {
+                tableStart = i - 1;
+                break;
+            }
+        }
+        if (tableStart < 0) return;
+        const headerCells = lines[tableStart].split('|').map(s => s.trim()).filter(Boolean);
+        const colIdx = new Map<string, number>();
+        for (const name of ['类型', '标题', '内容', '简介', '标签']) {
+            const colName = name === '类型' ? 'type' : name === '标题' ? 'title' : name === '内容' || name === '简介' ? 'content' : 'tags';
+            const idx = headerCells.findIndex(h => h.includes(name));
+            if (idx >= 0) colIdx.set(colName, idx);
+        }
+        const typeIdx = colIdx.get('type');
+        const titleIdx = colIdx.get('title');
+        if (typeIdx === undefined || titleIdx === undefined) return;
+        const contentIdx = colIdx.get('content');
+        const tagsIdx = colIdx.get('tags');
+        const entries: KnowledgeEntry[] = [];
+        for (let ri = tableStart + 2; ri < lines.length; ri++) {
+            const cells = lines[ri].split('|').map(s => s.trim()).filter(Boolean);
+            if (cells.length < 2) break;
+            const type = (cells[typeIdx] || 'decision') as KnowledgeEntry['type'];
+            const title = cells[titleIdx];
+            const content = contentIdx !== undefined ? cells[contentIdx] : title;
+            const tags = tagsIdx !== undefined
+                ? cells[tagsIdx].split(/[,，、\/]/).map((s: string) => s.trim().replace(/^#/, '')).filter(Boolean)
+                : [];
+            if (!title) continue;
+            entries.push({
+                id: `ke_${taskId}_${Date.now()}_${entries.length}`,
+                taskId, type, title, content, tags,
+                createdAt: Date.now(), source: `task:${taskId}`, phase: task.phase,
+            });
+        }
+        if (entries.length > 0) {
+            this.delegate.onKnowledgeEntry(taskId, entries);
+            this.tableParsed.add(taskId);
+        }
+    }
+
+    extractTableKnowledge(taskId: string): void {
+        this.tableParsed.delete(taskId);
+        this.parseKnowledgeTable(taskId);
+    }
+
     getGenResult(taskId: string): GenResult {
         return {
             planProposed: this.isPlanProposed(taskId),
@@ -309,7 +375,7 @@ export class TaskFlow {
         let text = this.accumulatedText.get(taskId) || '';
 
         // 匹配 [TASK_UPDATE] 块（仅独立段落：起始于行首）
-        const regex = /(?:^|\n)\s*\[TASK_UPDATE\]\s*([\s\S]*?)\s*\[\/TASK_UPDATE\]/g;
+        const regex = /\s*\[TASK_UPDATE\]\s*([\s\S]*?)\s*\[\/TASK_UPDATE\]/g;
         let match;
         while ((match = regex.exec(text)) !== null) {
             try {

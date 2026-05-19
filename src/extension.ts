@@ -175,7 +175,13 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(openCmd, newTaskCmd, importGitHubCmd, newTaskFromTemplateCmd, settingsCmd, myTasksCmd, knowledgeCmd);
+    const refreshKnowledgeCmd = vscode.commands.registerCommand('kcode.refreshKnowledgePanel', () => {
+        if (knowledgePanel) {
+            knowledgePanel.refresh();
+        }
+    });
+
+    context.subscriptions.push(openCmd, newTaskCmd, importGitHubCmd, newTaskFromTemplateCmd, settingsCmd, myTasksCmd, knowledgeCmd, refreshKnowledgeCmd);
 }
 
 export function deactivate() {
