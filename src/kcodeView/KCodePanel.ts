@@ -59,7 +59,12 @@ export class KCodePanel {
         this.taskFlow = new TaskFlow(store, {
             onPhaseChanged: (taskId) => { this.flowHandler.sendTaskInfo(taskId); this.flowHandler.sendNodePanelUpdate(taskId); this.refreshSidebarCallback?.(); },
             onExecuteFinished: (taskId) => { this.flowHandler.sendTaskInfo(taskId); },
-            onGoalFormatted: (taskId, goalText, originalRequest) => { this.router.PostMessage({ type: 'showGoalConfirmation', goal: goalText, originalRequest, taskId }); },
+            onGoalFormatted: async (taskId, goalText, originalRequest) => {
+                this.ctx.taskFlow.confirmGoal(taskId);
+                this.ctx.router.PostMessage({ type: 'addSystemMessage', content: '🎯 目标已自动确认，进入计划阶段...', taskId });
+                await this.ctx.sendHooksAsMessage(taskId, 'plan');
+                await this.ctx.sendAgentPrompt(taskId, this.ctx.taskFlow.buildPhaseTransitionPrompt(taskId, originalRequest), false, originalRequest);
+            },
             onError: (taskId, error) => { this.flowHandler.showAgentError(taskId, error); },
             onSelfVerifyNeeded: (taskId) => { setTimeout(() => this.sessionHandler.startAutoGeneration(taskId), 100); },
             onSelfVerifyFinished: (taskId) => { this.flowHandler.sendTaskInfo(taskId); },

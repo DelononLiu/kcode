@@ -417,8 +417,16 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .goal-edit-textarea{width:100%;background:#25252a;border:1px solid rgba(255,255,255,.12);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:13px;padding:8px;resize:vertical;outline:none;min-height:120px;line-height:1.5}
 .goal-edit-textarea:focus{border-color:rgba(78,201,176,.4)}
 .plan-confirmation-card{margin:8px 0}
+.plan-goal-section{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #404040}
+
+.plan-goal-header{font-size:13px;font-weight:600;color:#e0c080;margin-bottom:4px}
+
+.plan-goal-body{font-size:13px;color:#b0b0b0;white-space:pre-wrap;line-height:1.5}
+
 .plan-steps-body{padding:4px 0}
+
 .plan-step-line{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:#d2d2d4}
+
 .plan-step-status{font-size:12px;width:16px;text-align:center;flex-shrink:0;color:#888}
 .reject-input-area{padding:4px 0;width:100%}
 #partial-approve-btn{background:rgba(78,201,176,.12);color:#4ec9b0;border:1px solid rgba(78,201,176,.25)}

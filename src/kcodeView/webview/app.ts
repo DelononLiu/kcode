@@ -2680,6 +2680,10 @@ function handleShowPlanProposal(message: any) {
     const msgDiv = createCardMessageElement(message.taskId);
     const bubble = msgDiv.querySelector('.msg-bubble')!;
 
+    const goalHtml = message.goal
+        ? `<div class="plan-goal-section"><div class="plan-goal-header">🎯 目标</div><div class="plan-goal-body">${escapeHtml(message.goal)}</div></div>`
+        : '';
+
     const stepsHtml = planSteps.map((step: any, i: number) => {
         const statusIcon = step.status === 'completed' ? '✅' : step.status === 'active' ? '🔄' : '○';
         return `<div class="plan-step-line"><span class="plan-step-status">${statusIcon}</span><span>${escapeHtml(step.content)}</span></div>`;
@@ -2687,7 +2691,7 @@ function handleShowPlanProposal(message: any) {
 
     const card = createCard({
         headerHtml: '📋 计划方案',
-        bodyHtml: `<div class="plan-steps-body">${stepsHtml}</div>`,
+        bodyHtml: `${goalHtml}<div class="plan-steps-body">${stepsHtml}</div>`,
         defaultCollapsed: false,
         borderColor: '#4a8bb5',
         headerBg: '#1e2d3d',

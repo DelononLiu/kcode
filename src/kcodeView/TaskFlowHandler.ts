@@ -67,8 +67,9 @@ export class TaskFlowHandler {
         const task = ctx.store.getTask(tid);
         if (!task || task.planSteps.length === 0) return false;
         const stepsContent = task.planSteps.map(s => `- [${s.status === 'completed' ? 'x' : ' '}] ${s.content}`).join('\n');
+        const goalContent = task.goal ? `🎯 目标\n${task.goal}\n\n` : '';
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', type: 'plan_proposal', content: `📋 计划方案\n\n${stepsContent}`, timestamp: Date.now() });
-        ctx.router.PostMessage({ type: 'showPlanProposal', taskId: tid, planSteps: task.planSteps });
+        ctx.router.PostMessage({ type: 'showPlanProposal', taskId: tid, planSteps: task.planSteps, goal: task.goal });
         return true;
     }
 
