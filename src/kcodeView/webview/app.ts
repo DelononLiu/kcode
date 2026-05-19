@@ -1173,6 +1173,25 @@ function collectChangedFiles(messages: any[], startIdx: number): string[] {
 
 
 
+function _getToolKindFromMsg(msg: any): string {
+    if (msg.role === 'tool' && msg.type === 'tool_call') {
+        try { return JSON.parse(msg.content).kind || ''; }
+        catch { return ''; }
+    }
+    return '';
+}
+
+function _isTodoArray(text: string): boolean {
+    try {
+        const arr = JSON.parse(text.trim());
+        return Array.isArray(arr) && arr.length > 0 && arr.every((item: any) =>
+            item && typeof item.content === 'string' && typeof item.status === 'string'
+        );
+    } catch {
+        return false;
+    }
+}
+
 function renderMessages(messages: any[]) {
     resetTabGroup();
     activeToolCallElements.clear();
@@ -1215,11 +1234,24 @@ function renderMessages(messages: any[]) {
     }
 
     const messageGroups: { type: 'single' | 'tool-group'; msgs: any[]; indices: number[] }[] = [];
+    function _isToolTodo(msg: any): boolean {
+        const kind = _getToolKindFromMsg(msg);
+        if (kind === 'todowrite') return true;
+        try {
+            const info = JSON.parse(msg.content);
+            return _isTodoArray(info.output || '');
+        } catch { return false; }
+    }
     for (let mi = 0; mi < messages.length; mi++) {
         if (messages[mi].role === 'tool' && messages[mi].type === 'tool_call') {
+            if (_isToolTodo(messages[mi])) {
+                messageGroups.push({ type: 'single', msgs: [messages[mi]], indices: [mi] });
+                continue;
+            }
             const groupMsgs = [messages[mi]];
             const groupIndices = [mi];
             while (mi + 1 < messages.length && messages[mi + 1].role === 'tool' && messages[mi + 1].type === 'tool_call') {
+                if (_isToolTodo(messages[mi + 1])) break;
                 mi++;
                 groupMsgs.push(messages[mi]);
                 groupIndices.push(mi);
@@ -2131,6 +2163,27 @@ function createTabCardFromTools(toolInfos: any[]): HTMLElement {
     return card;
 }
 
+function _parseTodoStr(text: string): { items: any[]; done: number; total: number } {
+    let items: any[] = [];
+    const titleMatch = text.match(/<title>\s*\d+\s*todos?\s*<\/title>\s*(\[[\s\S]*?\])\s*/);
+    if (titleMatch) {
+        try { items = JSON.parse(titleMatch[1]); } catch {}
+    } else if (text.trim().startsWith('[')) {
+        try { items = JSON.parse(text.trim()); } catch {}
+    }
+    items = items.map((item: any, idx: number) => ({
+        id: String(idx),
+        content: String(item.content || ''),
+        status: item.status === 'completed' ? 'completed' : 'pending',
+    }));
+    const done = items.filter((i: any) => i.status === 'completed').length;
+    return { items, done, total: items.length };
+}
+
+function _todoHeaderHtml(done: number, total: number): string {
+    return `✅ 待办清单 <span class="todo-header-progress">${done}/${total}</span>`;
+}
+
 function renderTodoCard(msg: any): HTMLElement {
     let items: any[];
     try {
@@ -2138,28 +2191,22 @@ function renderTodoCard(msg: any): HTMLElement {
     } catch {
         items = [];
     }
-    const activeItems = items.filter((i: any) => i.status !== 'completed');
+    items = items.map((item: any, idx: number) => ({
+        id: String(idx),
+        content: String(item.content || ''),
+        status: item.status === 'completed' ? 'completed' : 'pending',
+    }));
     const done = items.filter((i: any) => i.status === 'completed').length;
     const total = items.length;
 
-    if (activeItems.length === 0) {
-        return createCard({
-            headerHtml: '✅ 待办清单',
-            bodyHtml: '<div class="todo-progress" style="border:none;margin:0;padding:4px 0"><span class="todo-progress-label">全部完成 🎉</span></div>',
-            rawData: msg, defaultCollapsed: false,
-            borderColor: '#3c3c3c', headerBg: '#2d2d2d', headerColor: '#e0e0e0',
-        });
-    }
-
-    const bodyHtml = activeItems.map((item: any) => {
-        return `<label class="todo-item"><input type="checkbox" class="todo-checkbox" data-msg-id="${msg.id}" data-item-id="${item.id}"><span class="todo-item-text">${escapeHtml(item.content)}</span></label>`;
+    const bodyHtml = items.map((item: any) => {
+        const isDone = item.status === 'completed';
+        return `<label class="todo-item"><input type="checkbox" class="todo-checkbox" data-msg-id="${msg.id}" data-item-id="${item.id}" ${isDone ? 'checked' : ''}><span class="todo-item-text${isDone ? ' todo-done' : ''}">${escapeHtml(item.content)}</span></label>`;
     }).join('');
 
-    const progressHtml = `<div class="todo-progress"><span class="todo-progress-label">${done}/${total} 已完成</span><div class="todo-progress-bar"><div class="todo-progress-fill" style="width:${total > 0 ? (done / total * 100) : 0}%"></div></div></div>`;
-
     const card = createCard({
-        headerHtml: '✅ 待办清单',
-        bodyHtml: `<div class="todo-list">${bodyHtml}${progressHtml}</div>`,
+        headerHtml: _todoHeaderHtml(done, total),
+        bodyHtml: `<div class="todo-list">${bodyHtml}</div>`,
         rawData: msg,
         defaultCollapsed: false,
         borderColor: '#3c3c3c',
@@ -2180,32 +2227,15 @@ function renderTodoCard(msg: any): HTMLElement {
 }
 
 function buildTodoBodyHtml(output: string, toolCallId: string, taskId: string): string {
-    let items: any[] = [];
-    const titleMatch = output.match(/<title>\s*\d+\s*todos?\s*<\/title>\s*(\[[\s\S]*?\])\s*/);
-    if (titleMatch) {
-        try { items = JSON.parse(titleMatch[1]); } catch {}
-    } else if (output.trim().startsWith('[')) {
-        try { items = JSON.parse(output.trim()); } catch {}
-    }
+    const { items } = _parseTodoStr(output);
     if (items.length === 0) {
         return '<div class="op-empty">无待办项</div>';
     }
-    items = items.map((item: any, idx: number) => ({
-        id: String(idx),
-        content: String(item.content || ''),
-        status: item.status === 'completed' ? 'completed' : 'pending',
-    }));
-    const activeItems = items.filter((i: any) => i.status !== 'completed');
-    const done = items.filter((i: any) => i.status === 'completed').length;
-    const total = items.length;
-    if (activeItems.length === 0) {
-        return '<div class="todo-progress" style="border:none;margin:0;padding:4px 0"><span class="todo-progress-label">全部完成 🎉</span></div>';
-    }
-    const itemsHtml = activeItems.map((item: any) => {
-        return `<label class="todo-item"><input type="checkbox" class="todo-checkbox" data-msg-id="tool_${toolCallId}" data-item-id="${item.id}"><span class="todo-item-text">${escapeHtml(item.content)}</span></label>`;
+    const itemsHtml = items.map((item: any) => {
+        const d = item.status === 'completed';
+        return `<label class="todo-item"><input type="checkbox" class="todo-checkbox" data-msg-id="tool_${toolCallId}" data-item-id="${item.id}" ${d ? 'checked' : ''}><span class="todo-item-text${d ? ' todo-done' : ''}">${escapeHtml(item.content)}</span></label>`;
     }).join('');
-    const progressHtml = `<div class="todo-progress"><span class="todo-progress-label">${done}/${total} 已完成</span><div class="todo-progress-bar"><div class="todo-progress-fill" style="width:${total > 0 ? (done / total * 100) : 0}%"></div></div></div>`;
-    return `<div class="todo-list">${itemsHtml}${progressHtml}</div>`;
+    return `<div class="todo-list">${itemsHtml}</div>`;
 }
 
 function createCardMessageElement(taskId?: string): HTMLElement {
@@ -2676,6 +2706,47 @@ function handleToolCallUpdate(msg: any) {
     if (placeholder) placeholder.remove();
 
     const toolId = msg.toolCallId;
+    const kind = msg.kind || '';
+    const rawContent = msg.content || msg.output || '';
+
+    // todowrite 是重要卡片，不放入 TabCard，始终独立渲染
+    if (kind === 'todowrite' || _isTodoArray(rawContent)) {
+        resetTabGroup();
+        if (activeToolCallElements.has(toolId)) {
+            const existingEl = activeToolCallElements.get(toolId)!;
+            const raw = msg.content || msg.output || '';
+            const body = existingEl.querySelector('.msg-card-body');
+            if (body && raw) {
+                body.innerHTML = buildTodoBodyHtml(raw, toolId, msg.taskId || activeTaskId || '');
+            }
+            const header = existingEl.querySelector('.msg-card-header-text');
+            if (header) {
+                const { done, total } = _parseTodoStr(raw);
+                const svg = '<span class="tool-kind-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v2H2V2zm0 5h12v2H2V7zm0 5h8v2H2v-2z"/></svg></span>';
+                header.innerHTML = svg + '<span class="tool-title-label">待办清单</span> <span class="todo-header-progress">' + done + '/' + total + '</span>';
+            }
+        } else {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-msg tool';
+            msgDiv.dataset.msgId = 'tool_' + toolId;
+            const bubble = document.createElement('div');
+            bubble.className = 'msg-bubble tool-bubble';
+            msgDiv.appendChild(bubble);
+            renderToolBubbleContent(bubble, {
+                toolCallId: toolId,
+                kind: 'todowrite',
+                title: msg.title || '待办清单',
+                status: msg.status || 'running',
+                content: msg.content || msg.output || '',
+                taskId: msg.taskId || activeTaskId || '',
+            });
+            appendToChatMessages(msgDiv);
+            activeToolCallElements.set(toolId, msgDiv);
+        }
+        updateWorkingIndicator(msg);
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        return;
+    }
 
     if (_tabGroup && _tabGroup.elems.has(toolId)) {
         const existing = _tabGroup.elems.get(toolId);
@@ -2781,10 +2852,11 @@ function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
         return card;
     };
 
-    if (kind === 'todowrite') {
+    if (kind === 'todowrite' || _isTodoArray(content)) {
+        const { done, total } = _parseTodoStr(content);
         const todoHtml = buildTodoBodyHtml(content, msg.toolCallId || '', msg.taskId || activeTaskId || '');
         const card = makeCard({
-            headerHtml: '<span class="tool-kind-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v2H2V2zm0 5h12v2H2V7zm0 5h8v2H2v-2z"/></svg></span><span class="tool-title-label">待办清单</span>',
+            headerHtml: '<span class="tool-kind-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v2H2V2zm0 5h12v2H2V7zm0 5h8v2H2v-2z"/></svg></span><span class="tool-title-label">待办清单</span> <span class="todo-header-progress">' + done + '/' + total + '</span>',
             bodyHtml: todoHtml,
             defaultCollapsed: false,
             rawData: msg

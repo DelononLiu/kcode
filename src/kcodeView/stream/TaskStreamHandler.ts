@@ -1,5 +1,6 @@
 import { StreamHandlerBase } from './StreamHandlerBase';
 import type { KCodePanelContext } from '../PanelContext';
+import type { PlanStep } from '../../types';
 
 export class TaskStreamHandler extends StreamHandlerBase {
     constructor(
@@ -15,6 +16,26 @@ export class TaskStreamHandler extends StreamHandlerBase {
 
     protected shouldSuppressToolCallDisplay(): boolean {
         return this.isGoalFormatting;
+    }
+
+    protected _emitToolCall(toolCallId: string, title: string, kind: string, status: string, content?: string): void {
+        super._emitToolCall(toolCallId, title, kind, status, content);
+        if (kind === 'todowrite' && content) {
+            this._syncTodoToPlanSteps(content);
+        }
+    }
+
+    private _syncTodoToPlanSteps(content: string): void {
+        try {
+            const items = JSON.parse(content);
+            if (!Array.isArray(items) || items.length === 0) return;
+            if (!items.every((i: any) => typeof i.content === 'string')) return;
+            const planSteps: PlanStep[] = items.map((item: any) => ({
+                content: String(item.content || ''),
+                status: (item.status === 'completed') ? 'completed' : 'pending',
+            }));
+            this.ctx.store.updatePlanSteps(this.tid, planSteps);
+        } catch {}
     }
 
     protected sendDisplayUpdate(text: string): void {

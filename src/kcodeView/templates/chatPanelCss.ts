@@ -289,8 +289,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .todo-item:hover{color:#fff}
 .todo-checkbox{accent-color:#4ec9b0;cursor:pointer;flex-shrink:0;width:14px;height:14px}
 .todo-item-text{flex:1;min-width:0;line-height:1.4}
-.todo-item-text.todo-done{text-decoration:line-through;color:#666}
+.todo-item-text.todo-done{text-decoration:line-through;color:#666;opacity:.6}
 .todo-progress{display:flex;align-items:center;gap:8px;padding:8px 0 2px;border-top:1px solid rgba(255,255,255,.05);margin-top:4px}
+.todo-header-progress{font-size:11px;color:#888;margin-left:6px;font-weight:400}
 .todo-progress-label{font-size:11px;color:#888;flex-shrink:0}
 .todo-progress-bar{flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
 .todo-progress-fill{height:100%;background:#4ec9b0;border-radius:2px;transition:width .3s ease}

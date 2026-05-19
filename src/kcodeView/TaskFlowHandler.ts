@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import type { KCodePanelContext } from './PanelContext';
-import type { Task, FileChange, ProgressNode, TodoItem, KnowledgeEntry } from '../types';
+import type { Task, FileChange, ProgressNode, TodoItem, PlanStep, KnowledgeEntry } from '../types';
 import { getTemplate, getCategory } from '../taskflow/templates';
 
 function parseTodosFromOutput(output: string): any[] {
@@ -381,6 +381,53 @@ export class TaskFlowHandler {
         ctx.refreshSidebarCallback?.();
     }
 
+    private _syncTodosToPlanSteps(taskId: string) {
+        const { ctx } = this;
+        const messages = ctx.store.getMessages(taskId);
+        const allItems: TodoItem[] = [];
+        const seenIds = new Set<string>();
+
+        for (const msg of messages) {
+            if (msg.type === 'todo') {
+                try {
+                    const items: TodoItem[] = JSON.parse(msg.content || '[]');
+                    for (const item of items) {
+                        if (!seenIds.has(item.id)) {
+                            seenIds.add(item.id);
+                            allItems.push(item);
+                        }
+                    }
+                } catch {}
+            } else if (msg.type === 'tool_call') {
+                try {
+                    const info = JSON.parse(msg.content);
+                    if (info.kind === 'todowrite' && info.output) {
+                        const raw = parseTodosFromOutput(info.output);
+                        for (let idx = 0; idx < raw.length; idx++) {
+                            const id = String(raw[idx].id ?? idx);
+                            if (!seenIds.has(id)) {
+                                seenIds.add(id);
+                                allItems.push({
+                                    id,
+                                    content: String(raw[idx].content || ''),
+                                    status: raw[idx].status === 'completed' ? 'completed' : 'pending',
+                                });
+                            }
+                        }
+                    }
+                } catch {}
+            }
+        }
+
+        if (allItems.length > 0) {
+            const planSteps: PlanStep[] = allItems.map(item => ({
+                content: item.content,
+                status: item.status === 'completed' ? 'completed' : 'pending',
+            }));
+            ctx.store.updatePlanSteps(taskId, planSteps);
+        }
+    }
+
     handleTodoUpdate(taskId: string, items: TodoItem[], action: string) {
         const { ctx } = this;
         const messages = ctx.store.getMessages(taskId);
@@ -412,6 +459,7 @@ export class TaskFlowHandler {
             ctx.store.addMessage({ id: msgId, taskId, role: 'agent', type: 'todo', content: JSON.stringify(items), timestamp: Date.now() });
         }
 
+        this._syncTodosToPlanSteps(taskId);
         const t = ctx.store.getTask(taskId);
         ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(taskId), taskId, taskStatus: t?.status });
         this.sendOutputPanelUpdate(taskId);
@@ -455,6 +503,7 @@ export class TaskFlowHandler {
                     ctx.store.updateMessageContent(taskId, msg.id, JSON.stringify(info));
                 }
             }
+            this._syncTodosToPlanSteps(taskId);
             const t = ctx.store.getTask(taskId);
             ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(taskId), taskId, taskStatus: t?.status });
             this.sendOutputPanelUpdate(taskId);
