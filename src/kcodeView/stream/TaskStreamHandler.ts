@@ -125,7 +125,7 @@ export class TaskStreamHandler extends StreamHandlerBase {
 
             if (task?.type === 'task' && this.ctx.taskFlow.isGoalProposed(this.tid) && task.phase === 'demand') {
                 this.ctx.taskFlow.processGoalProposal(this.tid, cleanedText, '', '');
-            } else if (task?.type === 'task' && task?.phase === 'review') {
+            } else if (task?.type === 'task' && task?.phase === 'review' && task?.status !== 'completed' && task?.status !== 'cancelled') {
                 this.ctx.triggerReviewRequest(this.tid, cleanedText);
             } else if (genResult.planProposed && task?.type === 'task' && task?.phase === 'plan') {
                 const cardShown = this.ctx.showPlanConfirmation(this.tid);

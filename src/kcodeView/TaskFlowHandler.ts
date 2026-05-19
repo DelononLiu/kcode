@@ -130,6 +130,8 @@ export class TaskFlowHandler {
 
     triggerReviewRequest(tid: string, content: string) {
         const { ctx } = this;
+        const task = ctx.store.getTask(tid);
+        if (task?.status === 'completed' || task?.status === 'cancelled') return;
         const reviewMsgId = ctx.store.nextMessageId(tid);
         ctx.store.addMessage({ id: reviewMsgId, taskId: tid, role: 'agent', type: 'review_request', content, timestamp: Date.now() });
         ctx.store.updateTaskNodeMessageId(tid, 'review', reviewMsgId);
@@ -144,7 +146,6 @@ export class TaskFlowHandler {
 
         ctx.store.storeReviewChanges(tid, changes);
 
-        const task = ctx.store.getTask(tid);
         let acceptanceCriteria: string[] | undefined;
         if (task?.category && task?.subType) {
             const template = getTemplate(task.category, task.subType);

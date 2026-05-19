@@ -658,11 +658,6 @@ declare function acquireVsCodeApi(): any;
 
         menu.appendChild(projectTrigger);
 
-        const deleteItem = createMenuItem('删除', () => {
-            vscode.postMessage({ type: 'deleteTasks', taskIds: targetIds });
-        });
-        menu.appendChild(deleteItem);
-
         document.body.appendChild(menu);
         contextMenuEl = menu;
     }
