@@ -88,10 +88,11 @@ document.addEventListener('DOMContentLoaded', () => {
 function initNavButtons() {
     const scrollContainer = document.getElementById('chat-scroll');
     const navBtns = document.getElementById('chat-nav-btns');
+    const topBtn = document.getElementById('nav-top-btn') as HTMLButtonElement;
     const prevBtn = document.getElementById('nav-prev-btn') as HTMLButtonElement;
     const nextBtn = document.getElementById('nav-next-btn') as HTMLButtonElement;
     const bottomBtn = document.getElementById('nav-bottom-btn') as HTMLButtonElement;
-    if (!scrollContainer || !navBtns || !prevBtn || !nextBtn || !bottomBtn) return;
+    if (!scrollContainer || !navBtns || !topBtn || !prevBtn || !nextBtn || !bottomBtn) return;
 
     let currentIdx = -1;
 
@@ -100,6 +101,7 @@ function initNavButtons() {
         const nb = navBtns!;
         const userMsgs = sc.querySelectorAll('.chat-msg.user');
         const hasUserMsgs = userMsgs.length > 0;
+        const atTop = sc.scrollTop < 48;
         const atBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 48;
 
         if (hasUserMsgs && !atBottom) {
@@ -108,6 +110,11 @@ function initNavButtons() {
             nb.classList.add('hidden');
             return;
         }
+
+        topBtn.disabled = atTop;
+        prevBtn.disabled = currentIdx <= 0;
+        nextBtn.disabled = currentIdx >= userMsgs.length - 1 || currentIdx < 0;
+        bottomBtn.disabled = atBottom;
 
         currentIdx = -1;
         const scrollCenter = sc.scrollTop + sc.clientHeight / 2;
@@ -119,6 +126,10 @@ function initNavButtons() {
         prevBtn.disabled = currentIdx <= 0;
         nextBtn.disabled = currentIdx >= userMsgs.length - 1 || currentIdx < 0;
     }
+
+    topBtn.addEventListener('click', () => {
+        scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    });
 
     prevBtn.addEventListener('click', () => {
         const userMsgs = scrollContainer.querySelectorAll('.chat-msg.user');

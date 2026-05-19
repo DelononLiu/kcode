@@ -23,4 +23,12 @@ describe('getInlineStyles', () => {
         expect(css).toContain('--tool-color-bash');
         expect(css).toContain('--tool-color-read');
     });
+
+    it('包含导航按钮样式', () => {
+        const css = getInlineStyles();
+        expect(css).toContain('.nav-top-btn');
+        expect(css).toContain('.nav-bottom-btn');
+        expect(css).toContain('#chat-nav-btns');
+        expect(css).toContain('.chat-nav-btn');
+    });
 });

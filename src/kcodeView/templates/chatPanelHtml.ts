@@ -82,6 +82,11 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                 </div>
             </div>
             <div id="chat-nav-btns" class="hidden">
+                <button id="nav-top-btn" class="chat-nav-btn nav-top-btn" title="回到顶部">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 13V5M4 9l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
                 <button id="nav-prev-btn" class="chat-nav-btn" title="上一条用户消息">↑</button>
                 <button id="nav-next-btn" class="chat-nav-btn" title="下一条用户消息">↓</button>
                 <button id="nav-bottom-btn" class="chat-nav-btn nav-bottom-btn" title="回到底部">

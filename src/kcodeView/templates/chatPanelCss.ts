@@ -277,6 +277,11 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .chat-nav-btn:hover{background:rgba(70,70,70,.9);color:#ddd}
 .chat-nav-btn:disabled{opacity:.25;cursor:default;pointer-events:none}
 .chat-nav-btn:disabled:hover{background:rgba(40,40,40,.88);color:#999}
+.nav-top-btn{width:32px;height:32px;border-radius:50%;background:#4a8bb5;color:#fff;margin-bottom:2px}
+.nav-top-btn:hover{background:#5a9bc8;color:#fff}
+.nav-top-btn:disabled{opacity:.3}
+.nav-top-btn:disabled:hover{background:#4a8bb5;color:#fff}
+.nav-top-btn svg{display:block}
 .nav-bottom-btn{width:32px;height:32px;border-radius:50%;background:#4a8bb5;color:#fff;margin-top:2px}
 .nav-bottom-btn:hover{background:#5a9bc8;color:#fff}
 .nav-bottom-btn:disabled{opacity:.3}
