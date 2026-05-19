@@ -14,12 +14,12 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource}; img-src ${webview.cspSource} data:;">
     <style>${styles}</style>
-    <title>知识百科</title>
+    <title>知识库</title>
 </head>
 <body>
     <div id="container">
         <div id="header">
-            <h1>📚 知识百科</h1>
+            <h1>📚 知识库</h1>
             <div id="search-bar">
                 <input id="search-input" type="text" placeholder="搜索知识条目..." />
                 <div id="type-filter">

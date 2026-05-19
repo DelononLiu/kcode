@@ -14,7 +14,7 @@ export class KnowledgePanel {
 
         this.panel = vscode.window.createWebviewPanel(
             KnowledgePanel.viewType,
-            '📚 知识百科',
+            '📚 知识库',
             vscode.ViewColumn.Beside,
             {
                 enableScripts: true,
