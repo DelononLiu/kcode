@@ -518,7 +518,7 @@ export class TaskFlowHandler {
         }
         const titles = entries.map(e => e.title).join('、');
         ctx.store.addTimelineEntry(taskId, { timestamp: Date.now(), type: 'knowledge_extract', summary: `萃取知识: ${titles.substring(0, 80)}`, detail: `共 ${entries.length} 条知识条目` });
-        ctx.router.PostMessage({ type: 'addSystemMessage', content: `📚 已沉淀 ${entries.length} 条知识条目`, taskId });
+        ctx.router.PostMessage({ type: 'knowledgeExtract', entries, taskId });
         this.sendOutputPanelUpdate(taskId);
     }
 

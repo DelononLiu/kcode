@@ -181,7 +181,7 @@ export class KCodePanel {
             if (!tid || this.isGenerating) return;
             const messages = this.store.getMessages(tid);
             if (messages.length === 0) return;
-            const extractPrompt = '请分析以上对话内容，提炼本次任务中可复用的经验、技术决策、踩坑记录、代码模式等知识。使用 <KNOWLEDGE_ENTRY> 协议输出，每条知识应包含 type/title/content/tags。如果没有可提炼的知识，请直接说明。';
+            const extractPrompt = '请分析以上对话内容，提炼本次任务中可复用的核心经验与关键决策（2-4 条为宜，不求多，每条聚焦一个具体问题或场景）。输出要求：\n1) 用 markdown 表格展示每条知识的类型、标题、标签，供用户阅读；\n2) 在 <KNOWLEDGE_ENTRY> 协议内输出完整 JSON（type/title/content/tags），供系统解析存储——注意不要在其他地方重复输出该 JSON。\n如果没有可提炼的知识，请直接说明。';
             const handler = this.sessionHandler.createAgentResponseHandler(tid, false, '');
             this.setGenerationState(true);
             this.router.PostMessage({ type: 'addSystemMessage', content: '🔍 AI 正在分析对话萃取知识...', taskId: tid });

@@ -305,6 +305,9 @@ function initMessageHandler() {
             case 'agentList':
                 initAgentSelector(message.agents || []);
                 break;
+            case 'knowledgeExtract':
+                handleKnowledgeExtract(message.entries || []);
+                break;
             case 'wikiExported':
                 {
                     const fileName = message.fileName || '';
@@ -1042,6 +1045,33 @@ function showAgentThinking() {
         container.appendChild(indicator);
     }
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
+}
+
+function handleKnowledgeExtract(entries: any[]) {
+    const container = document.getElementById('chat-messages');
+    const scrollContainer = document.getElementById('chat-scroll');
+    if (!container || !scrollContainer || entries.length === 0) return;
+    scrollContainer.classList.remove('chat-empty');
+    const placeholder = container.querySelector('.chat-placeholder');
+    if (placeholder) placeholder.remove();
+    const typeIcons: Record<string, string> = { decision: '📐', pitfall: '🐛', pattern: '🔧', code_snippet: '💻' };
+    const headerIcon = '<span class="tool-kind-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4l.5-.5h3.5L7 4.5h6.5l.5.5v9l-.5.5h-11l-.5-.5V4zm1 1v8h10V6H7l-1-1H3z"/></svg></span>';
+    let bodyHtml = '<div style="padding:2px 0"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="border-bottom:1px solid var(--border-weak,rgba(255,255,255,.1))"><th style="padding:4px 6px;text-align:left;color:var(--text-weak,#888)">类型</th><th style="padding:4px 6px;text-align:left;color:var(--text-weak,#888)">标题</th><th style="padding:4px 6px;text-align:left;color:var(--text-weak,#888)">标签</th></tr></thead><tbody>';
+    for (const entry of entries) {
+        const icon = typeIcons[entry.type] || '📌';
+        const tags = (entry.tags || []).map((t: string) => `<span class="op-tag">${escapeHtml(t)}</span>`).join('');
+        bodyHtml += `<tr style="border-bottom:1px solid rgba(255,255,255,.04)"><td style="padding:4px 6px">${icon}</td><td style="padding:4px 6px">${escapeHtml(entry.title)}</td><td style="padding:4px 6px">${tags}</td></tr>`;
+    }
+    bodyHtml += '</tbody></table></div>';
+    const card = createCard({ headerHtml: headerIcon + '<span class="tool-title-label">知识萃取</span> <span class="todo-header-progress">' + entries.length + '条</span>', bodyHtml, defaultCollapsed: false });
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chat-msg tool';
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.appendChild(card);
+    msgDiv.appendChild(bubble);
+    appendToChatMessages(msgDiv);
+    if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
 
 function addSystemMessage(content: string) {
