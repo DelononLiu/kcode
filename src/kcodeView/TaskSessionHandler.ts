@@ -109,9 +109,15 @@ export class TaskSessionHandler {
         }
 
         const isGoalFormatting = isFirstMessage && task.status === 'pending' && intent === 'task' && !hasGoal;
+
+        let promptUserText = text;
+        if (!isFirstMessage && task.phase === 'plan') {
+            promptUserText = `还需继续讨论计划，请根据理解重新以 TASK_UPDATE 格式输出任务计划。\n\n用户谈论计划：\n${text}`;
+        }
+
         const promptText = isFirstMessage
             ? ctx.taskFlow.buildInitialPrompt(tid, text)
-            : ctx.taskFlow.buildPhaseTransitionPrompt(tid, text);
+            : ctx.taskFlow.buildPhaseTransitionPrompt(tid, promptUserText);
 
         const userMsgId = ctx.store.nextMessageId(tid);
         ctx.store.addMessage({

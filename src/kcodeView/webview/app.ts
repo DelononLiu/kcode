@@ -2706,12 +2706,6 @@ function handleShowPlanProposal(message: any) {
     const container = document.getElementById('chat-messages')!;
     const scrollContainer = document.getElementById('chat-scroll')!;
 
-    const existing = container.querySelector('.plan-confirmation-card');
-    if (existing) return;
-
-    const msgDiv = createCardMessageElement(message.taskId);
-    const bubble = msgDiv.querySelector('.msg-bubble')!;
-
     let currentGoal = message.goal || '';
     let currentSteps = planSteps.map((s: any) => ({ content: s.content, status: s.status }));
     let dirty = false;
@@ -2728,6 +2722,9 @@ function handleShowPlanProposal(message: any) {
             return `<div class="plan-step-line"><span class="plan-step-status">${statusIcon}</span><span>${escapeHtml(step.content)}</span></div>`;
         }).join('');
     }
+
+    const msgDiv = createCardMessageElement(message.taskId);
+    const bubble = msgDiv.querySelector('.msg-bubble')!;
 
     function renderCard() {
         const bodyHtml = `${buildGoalHtml()}<div class="plan-steps-body">${buildStepsHtml()}</div>`;

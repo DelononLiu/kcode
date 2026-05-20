@@ -213,14 +213,14 @@ describe('processChunk', () => {
         expect(flow.isExecuteFinished(pid)).toBe(true);
     });
 
-    it('嵌入文本的 TASK_UPDATE 块不被剥离（独立块约束）', () => {
+    it('嵌入文本的 TASK_UPDATE 块也能被剥离和解析', () => {
         const { flow, pid } = makeFlow({ phase: 'goal' });
         const result = flow.processChunk(pid,
             '文本[TASK_UPDATE]\nACTION: propose_goal\nCONFIRMED:\n  - A\n[/TASK_UPDATE]继续'
         );
-        // 块嵌入句中，不符合独立段落约束，保持原样
-        expect(result).toContain('[TASK_UPDATE]');
-        expect(result).toContain('ACTION: propose_goal');
+        expect(result).not.toContain('[TASK_UPDATE]');
+        expect(result).not.toContain('ACTION: propose_goal');
+        expect(result).toBe('文本继续');
     });
 });
 

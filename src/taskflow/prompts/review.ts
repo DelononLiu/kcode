@@ -6,6 +6,11 @@ export const REVIEW_PROMPT = `当前阶段：验收（Review）
 3. 用户提出修改意见时，按需修改
 4. 在输出 accept 前，请总结本次任务的可复用经验，使用 <KNOWLEDGE_ENTRY> 协议输出知识条目
 
+用户讨论处理：
+- 用户打字输入的是修改意见或讨论，不是拒绝
+- 根据用户意见进行修改，修改完成后再次展示变更等待验收
+- 当用户明确说"通过""可以""没问题""验收通过"等确认词时，系统会自动处理 accept
+
 <KNOWLEDGE_ENTRY> 协议格式：
 <KNOWLEDGE_ENTRY>
 [
