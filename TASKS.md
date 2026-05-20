@@ -2594,3 +2594,102 @@ _目标：以 Windows VSCode 插件为主力载体，适配双场景（本地/Re
 | P23-06 | 本机数据存储 — 配置文件/设备列表/任务数据存储 Windows 本地目录 | ⬜ 未开始 | P1 |
 | P23-07 | 衍生独立 CLI 工具 — 脱离插件独立完成批量设备运维 | ⬜ 未开始 | P2 |
 
+---
+
+## Phase 24: 任务导入 + Agent 扩展体系
+
+_目标：支持通过用户 JS 脚本导入外部任务（GitHub Issue / Jira / 自定义格式），同时重构 Agent 接入层为接口化模块，新 Agent 只需实现固定接口即可接入。_
+
+| 任务 | 说明 | 状态 | 优先级 |
+|------|------|------|--------|
+| P24-01 | 任务导入框架 — 定义导入器接口 `ITaskImporter`，支持注册自定义 JS 导入器 | ⬜ 未开始 | P0 |
+| P24-02 | 示例导入器 — 内置 `GitHubIssueImporter` (JS)，从 Issue URL 拉取标题/描述/label 创建任务 | ⬜ 未开始 | P0 |
+| P24-03 | 导入 UI — 命令面板「导入任务」→ 文件选择器选 `.js` → 执行导入脚本 → 预览确认 → 创建 | ⬜ 未开始 | P1 |
+| P24-04 | Agent 接口抽象 — 定义 `IAgentAdapter` 固定接口，抽离 ACP/OpenAI 差异 | ⬜ 未开始 | P0 |
+| P24-05 | Agent 注册机制 — 通过配置或插件动态注册新 Agent 类型，无需改核心代码 | ⬜ 未开始 | P0 |
+| P24-06 | 旧 Agent 迁移 — 将 Kilo / OpenCode / OpenAI 现有接入迁移到新接口 | ⬜ 未开始 | P1 |
+
+---
+
+### P24-01: 任务导入框架 — ITaskImporter 接口
+
+**涉及文件**: _待调研_
+
+**调研步骤**:
+1. 分析现有 Task 结构（`src/types/index.ts` 中 Task interface）确定导入所需字段
+2. 设计 `ITaskImporter` 接口（输入：原始数据 → 输出：`Partial<Task>[]`）
+
+**调研结果**: _待填充_
+
+**状态**: ⬜ 未开始
+
+---
+
+### P24-02: 示例导入器 — GitHubIssueImporter
+
+**涉及文件**: _待调研_
+
+**调研步骤**:
+1. 确认 GitHub REST API 调用方式（直接在 JS 中 fetch，或通过 KCode 内置请求）
+2. 确认 Issue → Task 字段映射规则
+
+**调研结果**: _待填充_
+
+**状态**: ⬜ 未开始
+
+---
+
+### P24-03: 导入 UI
+
+**涉及文件**: _待调研_
+
+**调研步骤**:
+1. 确认 VS Code 文件选择器（`vscode.window.showOpenDialog`）的使用方式
+2. 确认 WebView 中预览确认的 UI 布局
+
+**调研结果**: _待填充_
+
+**状态**: ⬜ 未开始
+
+---
+
+### P24-04: Agent 接口抽象 — IAgentAdapter
+
+**涉及文件**: _待调研_
+
+**调研步骤**:
+1. 读 `src/core/AgentService.ts`、`src/acp/AcpClient.ts`、`src/acp/OpenAIAgent.ts` 提取公共方法签名
+2. 定义 `IAgentAdapter` 接口（connect/disconnect/createSession/prompt/cancel/reviewChanges/sessionId）
+
+**调研结果**: _待填充_
+
+**状态**: ⬜ 未开始
+
+---
+
+### P24-05: Agent 注册机制
+
+**涉及文件**: _待调研_
+
+**调研步骤**:
+1. 确认现有 Agent 连接路由（`AgentService.connectByLabel` 的 switch-case）
+2. 设计注册表模式：`AgentRegistry.register('name', factoryFn)`，配置中声明 `agentName` 即可使用
+
+**调研结果**: _待填充_
+
+**状态**: ⬜ 未开始
+
+---
+
+### P24-06: 旧 Agent 迁移到新接口
+
+**涉及文件**: _待调研_
+
+**调研步骤**:
+1. 梳理 Kilo / OpenCode / OpenAI 三条现有连接路径
+2. 各自封装为 `IAgentAdapter` 实现类
+
+**调研结果**: _待填充_
+
+**状态**: ⬜ 未开始
+
