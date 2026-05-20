@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initMessageHandler();
     initNodePanel();
     initNavButtons();
+    initTlFilterBar();
     (window as any).initOutputPanel?.();
 
     const dataEl = document.getElementById('__panelData');
@@ -430,6 +431,7 @@ function appendToChatMessages(el: Element) {
 
 function handleAgentStreamUpdate(text: string) {
     resetTabGroup();
+    flushMerge();
     const container = document.getElementById('chat-messages')!;
     const scrollContainer = document.getElementById('chat-scroll')!;
     scrollContainer.classList.remove('chat-empty');
@@ -582,6 +584,29 @@ const activeToolCallElements: Map<string, HTMLElement> = new Map();
 
 let _tabGroup: { elems: Map<string, any>; element: HTMLElement } | null = null;
 function resetTabGroup() { _tabGroup = null; }
+
+let _mergeState: { thinkingId: string; thinkingTitle: string; thinkingBody: string; tools: any[] } | null = null;
+
+function flushMerge() {
+    if (!_mergeState) return;
+    const { thinkingTitle, thinkingBody, tools } = _mergeState;
+    if (tools.length > 0) {
+        const mergedEntry = createMergedTimelineEntry({ title: thinkingTitle, content: thinkingBody }, tools);
+        const thinkingEntry = document.querySelector(`.tl-entry[data-tl-id="${_mergeState.thinkingId}"]`);
+        if (thinkingEntry) {
+            const thinkingMsgDiv = thinkingEntry.closest('.chat-msg');
+            if (thinkingMsgDiv) thinkingMsgDiv.remove();
+        }
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'chat-msg tool';
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+        bubble.appendChild(mergedEntry);
+        msgDiv.appendChild(bubble);
+        appendToChatMessages(msgDiv);
+    }
+    _mergeState = null;
+}
 
 let activeTaskId: string | null = null;
 let activeTaskStatus: string = '';
@@ -1285,6 +1310,7 @@ function _isTodoArray(text: string): boolean {
 
 function renderMessages(messages: any[]) {
     resetTabGroup();
+    _mergeState = null;
     activeToolCallElements.clear();
     const container = document.getElementById('chat-messages');
     const scrollContainer = document.getElementById('chat-scroll');
@@ -1353,28 +1379,74 @@ function renderMessages(messages: any[]) {
         }
     }
 
-    const maxTabs = getTabCardMaxTabs();
+    let hasTlEntries = false;
     for (const group of messageGroups) {
-        if (group.type === 'tool-group' && group.msgs.length > 1) {
-            const toolInfos = group.msgs.map(msg => {
-                try { return JSON.parse(msg.content); }
-                catch { return { title: msg.content, kind: '', status: '', output: '' }; }
-            });
-            for (let ci = 0; ci < toolInfos.length; ci += maxTabs) {
-                const chunk = toolInfos.slice(ci, ci + maxTabs);
-                const tabCardEl = createTabCardFromTools(chunk);
+        if (group.type === 'tool-group' && group.msgs.length > 0) {
+            let pendingThinking: any = null;
+            let mergedTools: any[] = [];
+            for (const msg of group.msgs) {
+                let info: any;
+                try { info = JSON.parse(msg.content); } catch { continue; }
+                if (info.kind === 'todowrite' || _isToolTodo(msg)) {
+                    addMessageElement(msg, changedFilesMap.get(msg.id));
+                    continue;
+                }
+                if (info.kind === 'thinking') {
+                    if (mergedTools.length > 0 && pendingThinking) {
+                        const mergedEntry = createMergedTimelineEntry({ title: pendingThinking.title || '思考', content: pendingThinking.output || pendingThinking.content || '' }, mergedTools);
+                        const msgDiv = document.createElement('div');
+                        msgDiv.className = 'chat-msg tool';
+                        const bubble = document.createElement('div');
+                        bubble.className = 'msg-bubble';
+                        bubble.appendChild(mergedEntry);
+                        msgDiv.appendChild(bubble);
+                        appendToChatMessages(msgDiv);
+                        hasTlEntries = true;
+                    }
+                    pendingThinking = info;
+                    mergedTools = [];
+                    continue;
+                }
+                if (pendingThinking) {
+                    mergedTools.push({ toolCallId: info.toolCallId || '', kind: info.kind || '', title: info.title || '', status: info.status || 'completed', content: info.output || info.content || '', taskId: msg.taskId });
+                } else {
+                    const entry = createTimelineEntry({ toolCallId: info.toolCallId || '', kind: info.kind || '', title: info.title || '', status: info.status || 'completed', content: info.output || info.content || '', taskId: msg.taskId });
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'chat-msg tool';
+                    const bubble = document.createElement('div');
+                    bubble.className = 'msg-bubble';
+                    bubble.appendChild(entry);
+                    msgDiv.appendChild(bubble);
+                    appendToChatMessages(msgDiv);
+                    hasTlEntries = true;
+                }
+            }
+            if (pendingThinking && mergedTools.length > 0) {
+                const mergedEntry = createMergedTimelineEntry({ title: pendingThinking.title || '思考', content: pendingThinking.output || pendingThinking.content || '' }, mergedTools);
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'chat-msg tool';
                 const bubble = document.createElement('div');
                 bubble.className = 'msg-bubble';
-                bubble.appendChild(tabCardEl);
+                bubble.appendChild(mergedEntry);
                 msgDiv.appendChild(bubble);
                 appendToChatMessages(msgDiv);
+                hasTlEntries = true;
+            } else if (pendingThinking && mergedTools.length === 0) {
+                const entry = createTimelineEntry({ toolCallId: '', kind: 'thinking', title: pendingThinking.title || '思考', status: 'completed', content: pendingThinking.output || pendingThinking.content || '' });
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'chat-msg tool';
+                const bubble = document.createElement('div');
+                bubble.className = 'msg-bubble';
+                bubble.appendChild(entry);
+                msgDiv.appendChild(bubble);
+                appendToChatMessages(msgDiv);
+                hasTlEntries = true;
             }
         } else {
             addMessageElement(group.msgs[0], changedFilesMap.get(group.indices[0]));
         }
     }
+    if (hasTlEntries) showTlFilterBar();
 
     updateLastMsgConvertBtn();
 
@@ -2150,110 +2222,6 @@ function createCard(config: {
     return card;
 }
 
-const TAB_WIDTH = 200;
-function getTabCardMaxTabs(): number {
-    const el = document.getElementById('chat-messages');
-    const w = el?.clientWidth || 600;
-    return Math.max(1, Math.floor(w / TAB_WIDTH));
-}
-
-function createTabCardFromTools(toolInfos: any[]): HTMLElement {
-    const card = document.createElement('div');
-    card.className = 'tab-card';
-
-    const header = document.createElement('div');
-    header.className = 'tab-card-header';
-
-    const tabs = document.createElement('div');
-    tabs.className = 'tab-card-tabs';
-
-    const bodies = document.createElement('div');
-    bodies.className = 'tab-card-bodies';
-
-    let activeIdx = toolInfos.length - 1;
-
-    toolInfos.forEach((info, i) => {
-        const tab = document.createElement('button');
-        tab.className = 'tab-card-tab' + (i === activeIdx ? ' active' : '');
-        tab.dataset.index = String(i);
-
-        const kind = info.kind || '';
-        const title = info.title || '';
-        tab.innerHTML = getToolKindIcon(kind) + formatToolTitle(kind, title);
-
-        if (info.status === 'running' || info.status === 'pending') {
-            const sp = document.createElement('span');
-            sp.className = 'tool-spinner';
-            sp.style.marginLeft = '4px';
-            tab.appendChild(sp);
-        } else if (info.status === 'completed') {
-            const chk = document.createElement('span');
-            chk.textContent = ' ✓';
-            chk.style.color = '#5a9d6b';
-            chk.style.marginLeft = 'auto';
-            tab.appendChild(chk);
-        }
-
-        const activateTab = () => {
-            tabs.querySelectorAll('.tab-card-tab').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            bodies.querySelectorAll('.tab-card-body').forEach(b => b.classList.remove('active'));
-            const body = bodies.children[i] as HTMLElement;
-            if (body) body.classList.add('active');
-        };
-        tab.addEventListener('mouseenter', activateTab);
-        tab.addEventListener('click', activateTab);
-
-        tabs.appendChild(tab);
-
-        const body = document.createElement('div');
-        body.className = 'tab-card-body' + (i === activeIdx ? ' active' : '');
-
-        const output = info.output || info.content || '';
-        if (kind === 'thinking') {
-            body.innerHTML = output ? '<pre class="tool-body-content" style="white-space:pre-wrap;font-style:italic;color:#777">' + escapeHtml(output) + '</pre>' : '';
-            body.classList.add('tool-thinking');
-        } else if (kind === 'todowrite') {
-            body.innerHTML = buildTodoBodyHtml(output, info.toolCallId || '', info.taskId || activeTaskId || '');
-            body.addEventListener('change', (e) => {
-                const target = e.target as HTMLInputElement;
-                if (!target.classList.contains('todo-checkbox')) return;
-                const itemId = target.dataset.itemId;
-                const checked = target.checked;
-                vscode.postMessage({ type: 'updateTodoItem', taskId: info.taskId || activeTaskId, msgId: 'tool_' + (info.toolCallId || ''), itemId, checked });
-            });
-        } else {
-            let preClass = 'tool-body-content';
-            if (kind === 'bash' || kind === 'command' || kind === 'terminal') preClass += ' tool-bash-output';
-            else if (kind === 'write' || kind === 'edit') preClass += ' tool-body-diff';
-            body.innerHTML = output ? '<pre class="' + preClass + '">' + escapeHtml(output) + '</pre>' : '';
-            if (kind === 'bash' || kind === 'command' || kind === 'terminal') body.classList.add('tool-body-bash');
-        }
-
-        bodies.appendChild(body);
-    });
-
-    header.appendChild(tabs);
-
-    const toggle = document.createElement('span');
-    toggle.className = 'tab-card-toggle';
-    toggle.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    toggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        bodies.classList.toggle('collapsed');
-        toggle.classList.toggle('collapsed');
-    });
-    header.appendChild(toggle);
-
-    card.appendChild(header);
-    card.appendChild(bodies);
-    requestAnimationFrame(() => {
-        const activeBody = bodies.querySelector('.tab-card-body.active') as HTMLElement;
-        if (activeBody) activeBody.scrollTop = activeBody.scrollHeight;
-    });
-    return card;
-}
-
 function _parseTodoStr(text: string): { items: any[]; done: number; total: number } {
     let items: any[] = [];
     const titleMatch = text.match(/<title>\s*\d+\s*todos?\s*<\/title>\s*(\[[\s\S]*?\])\s*/);
@@ -2906,6 +2874,241 @@ function handleRemovePlanProposal() {
     });
 }
 
+function getTlKind(kind: string): string {
+    if (kind === 'thinking') return 'thinking';
+    if (kind === 'read' || kind === 'write' || kind === 'edit' || kind === 'todowrite' || kind === 'todo') return 'file';
+    if (kind === 'bash' || kind === 'command' || kind === 'terminal') return 'command';
+    if (kind === 'grep' || kind === 'search' || kind === 'glob') return 'search';
+    if (kind === 'device') return 'device';
+    return 'command';
+}
+
+function getTlIcon(kind: string): string {
+    const k = getTlKind(kind);
+    if (k === 'thinking') return '💭';
+    if (k === 'file') return kind === 'read' ? '📖' : kind === 'write' || kind === 'edit' ? '✏️' : '📄';
+    if (k === 'command') return '💻';
+    if (k === 'search') return '🔍';
+    if (k === 'device') return '🔧';
+    return '⚙️';
+}
+
+function getTlColor(kind: string): string {
+    const map: Record<string, string> = { thinking: '#888', file: '#4a8bb5', command: '#5a9d6b', search: '#8b5cf6', device: '#e6b422' };
+    return map[getTlKind(kind)] || '#666';
+}
+
+function createTimelineEntry(msg: any): HTMLElement {
+    const kind = msg.kind || '';
+    const title = msg.title || '';
+    const output = msg.content || msg.output || '';
+    const status = msg.status || 'completed';
+    const tlKind = getTlKind(kind);
+    const icon = getTlIcon(kind);
+    const color = getTlColor(kind);
+    const taskId = msg.taskId || activeTaskId || '';
+
+    const entry = document.createElement('div');
+    entry.className = 'tl-entry';
+    entry.dataset.tlKind = tlKind;
+
+    const bar = document.createElement('div');
+    bar.className = 'tl-entry-bar';
+    bar.style.background = color;
+
+    const main = document.createElement('div');
+    main.className = 'tl-entry-main';
+
+    const header = document.createElement('div');
+    header.className = 'tl-entry-header';
+
+    const iconEl = document.createElement('span');
+    iconEl.className = 'tl-entry-icon';
+    iconEl.textContent = icon;
+
+    const titleEl = document.createElement('span');
+    titleEl.className = 'tl-entry-title' + (tlKind === 'command' ? ' mono' : '') + (tlKind === 'thinking' ? ' em' : '');
+    titleEl.textContent = title;
+
+    const statusEl = document.createElement('span');
+    statusEl.className = 'tl-entry-status';
+    if (status === 'running' || status === 'pending') {
+        statusEl.className += ' running';
+        statusEl.textContent = '🔄 运行中';
+    } else if (status === 'failed' || status === 'error') {
+        statusEl.className += ' fail';
+        statusEl.textContent = '❌';
+    } else {
+        statusEl.className += ' ok';
+    }
+
+    const expandEl = document.createElement('span');
+    expandEl.className = 'tl-entry-expand';
+    expandEl.textContent = '▶';
+
+    const body = document.createElement('div');
+    body.className = 'tl-entry-body';
+
+    if (output) {
+        if (tlKind === 'file') {
+            const isDiff = kind === 'write' || kind === 'edit';
+            const pre = document.createElement('pre');
+            if (isDiff) pre.className = 'tl-body-diff';
+            pre.textContent = output;
+            body.appendChild(pre);
+        } else if (tlKind === 'command' || tlKind === 'device') {
+            const wrap = document.createElement('div');
+            wrap.className = 'tl-body-bash';
+            const pre = document.createElement('pre');
+            pre.textContent = output;
+            wrap.appendChild(pre);
+            body.appendChild(wrap);
+        } else if (tlKind === 'thinking') {
+            const pre = document.createElement('pre');
+            pre.className = 'tl-body-thinking';
+            pre.textContent = output;
+            body.appendChild(pre);
+        } else {
+            const pre = document.createElement('pre');
+            pre.textContent = output;
+            body.appendChild(pre);
+        }
+    }
+
+    const autoExpand = status === 'running' || status === 'pending' || status === 'failed' || status === 'error';
+    if (output && autoExpand) {
+        body.classList.add('open');
+        expandEl.classList.add('open');
+    }
+
+    header.appendChild(iconEl);
+    header.appendChild(titleEl);
+    if (statusEl.textContent) header.appendChild(statusEl);
+    header.appendChild(expandEl);
+
+    header.addEventListener('click', () => {
+        body.classList.toggle('open');
+        expandEl.classList.toggle('open');
+    });
+
+    main.appendChild(header);
+    main.appendChild(body);
+    entry.appendChild(bar);
+    entry.appendChild(main);
+
+    return entry;
+}
+
+function createMergedTimelineEntry(thinkingMsg: any, tools: any[]): HTMLElement {
+    const firstTool = tools[0] || {};
+    const kind = firstTool.kind || '';
+    const status = firstTool.status || 'completed';
+    const tlKind = getTlKind(kind);
+    const color = getTlColor(kind);
+    const toolOutputs = tools.map(t => t.content || t.output || '').filter(Boolean).join('\n');
+    const statuses = tools.map(t => t.status || 'completed');
+    const hasRunning = statuses.some(s => s === 'running' || s === 'pending');
+    const hasFailed = statuses.some(s => s === 'failed' || s === 'error');
+
+    const entry = document.createElement('div');
+    entry.className = 'tl-entry tl-merged';
+    entry.dataset.tlKind = tlKind;
+
+    const bar = document.createElement('div');
+    bar.className = 'tl-entry-bar';
+    bar.style.background = color;
+
+    const main = document.createElement('div');
+    main.className = 'tl-entry-main';
+
+    const header = document.createElement('div');
+    header.className = 'tl-entry-header';
+
+    const iconEl = document.createElement('span');
+    iconEl.className = 'tl-entry-icon';
+    iconEl.textContent = '💭';
+
+    const titleEl = document.createElement('span');
+    titleEl.className = 'tl-entry-title';
+    const thinkText = (thinkingMsg.title || '思考').substring(0, 20);
+    let titleHtml = `<span style="color:#888;font-style:italic">${escapeHtml(thinkText)}</span>`;
+    for (const t of tools) {
+        const tIcon = getTlIcon(t.kind || '');
+        const tTitle = escapeHtml(t.title || '');
+        titleHtml += ` <span class="tl-arrow">→</span> ${tIcon} ${tTitle}`;
+    }
+    titleEl.innerHTML = titleHtml;
+
+    const statusEl = document.createElement('span');
+    statusEl.className = 'tl-entry-status';
+    if (hasRunning) {
+        statusEl.className += ' running';
+        statusEl.textContent = '🔄 运行中';
+    } else if (hasFailed) {
+        statusEl.className += ' fail';
+        statusEl.textContent = '❌';
+    } else {
+        statusEl.className += ' ok';
+    }
+
+    const expandEl = document.createElement('span');
+    expandEl.className = 'tl-entry-expand';
+    expandEl.textContent = '▶';
+
+    const body = document.createElement('div');
+    body.className = 'tl-entry-body';
+
+    const thinkingOutput = thinkingMsg.content || '';
+    if (thinkingOutput) {
+        const thinkingPre = document.createElement('pre');
+        thinkingPre.className = 'tl-body-thinking';
+        thinkingPre.textContent = thinkingOutput;
+        body.appendChild(thinkingPre);
+    }
+    for (const t of tools) {
+        const tOutput = t.content || t.output || '';
+        if (!tOutput) continue;
+        const tKind = t.kind || '';
+        const tTlKind = getTlKind(tKind);
+        if (tTlKind === 'command') {
+            const wrap = document.createElement('div');
+            wrap.className = 'tl-body-bash';
+            const pre = document.createElement('pre');
+            pre.textContent = tOutput;
+            wrap.appendChild(pre);
+            body.appendChild(wrap);
+        } else {
+            const pre = document.createElement('pre');
+            if (tKind === 'write' || tKind === 'edit') pre.className = 'tl-body-diff';
+            pre.textContent = tOutput;
+            body.appendChild(pre);
+        }
+    }
+
+    const autoExpand = status === 'running' || status === 'pending' || status === 'failed' || status === 'error';
+    if (autoExpand) {
+        body.classList.add('open');
+        expandEl.classList.add('open');
+    }
+
+    header.appendChild(iconEl);
+    header.appendChild(titleEl);
+    if (statusEl.textContent) header.appendChild(statusEl);
+    header.appendChild(expandEl);
+
+    header.addEventListener('click', () => {
+        body.classList.toggle('open');
+        expandEl.classList.toggle('open');
+    });
+
+    main.appendChild(header);
+    main.appendChild(body);
+    entry.appendChild(bar);
+    entry.appendChild(main);
+
+    return entry;
+}
+
 function handleToolCallUpdate(msg: any) {
     const container = document.getElementById('chat-messages')!;
     const scrollContainer = document.getElementById('chat-scroll')!;
@@ -2917,16 +3120,15 @@ function handleToolCallUpdate(msg: any) {
     const kind = msg.kind || '';
     const rawContent = msg.content || msg.output || '';
 
-    // todowrite 是重要卡片，不放入 TabCard，始终独立渲染
+    // todowrite — keep as interactive card
     if (kind === 'todowrite' || _isTodoArray(rawContent)) {
-        resetTabGroup();
+        flushMerge();
+        _tabGroup = null;
         if (activeToolCallElements.has(toolId)) {
             const existingEl = activeToolCallElements.get(toolId)!;
             const raw = msg.content || msg.output || '';
             const body = existingEl.querySelector('.msg-card-body');
-            if (body && raw) {
-                body.innerHTML = buildTodoBodyHtml(raw, toolId, msg.taskId || activeTaskId || '');
-            }
+            if (body && raw) body.innerHTML = buildTodoBodyHtml(raw, toolId, msg.taskId || activeTaskId || '');
             const header = existingEl.querySelector('.msg-card-header-text');
             if (header) {
                 const { done, total } = _parseTodoStr(raw);
@@ -2941,11 +3143,8 @@ function handleToolCallUpdate(msg: any) {
             bubble.className = 'msg-bubble tool-bubble';
             msgDiv.appendChild(bubble);
             renderToolBubbleContent(bubble, {
-                toolCallId: toolId,
-                kind: 'todowrite',
-                title: msg.title || '待办清单',
-                status: msg.status || 'running',
-                content: msg.content || msg.output || '',
+                toolCallId: toolId, kind: 'todowrite', title: msg.title || '待办清单',
+                status: msg.status || 'running', content: msg.content || msg.output || '',
                 taskId: msg.taskId || activeTaskId || '',
             });
             appendToChatMessages(msgDiv);
@@ -2956,62 +3155,177 @@ function handleToolCallUpdate(msg: any) {
         return;
     }
 
-    if (_tabGroup && _tabGroup.elems.has(toolId)) {
-        const existing = _tabGroup.elems.get(toolId);
-        if (msg.status) existing.status = msg.status;
-        if (msg.title) existing.title = msg.title;
-        if (msg.kind) existing.kind = msg.kind;
-        if (msg.content) existing.output = msg.content;
-        if (msg.output) existing.output = msg.output;
-        _tabGroup.elems.set(toolId, existing);
-        const newCard = createTabCardFromTools(Array.from(_tabGroup.elems.values()));
-        _tabGroup.element.replaceWith(newCard);
-        _tabGroup.element = newCard;
-    } else if (_tabGroup) {
-        const maxTabs = getTabCardMaxTabs();
-        if (_tabGroup.elems.size >= maxTabs) {
-            _tabGroup = { elems: new Map(), element: null! };
-            _tabGroup.elems.set(toolId, {
-                toolCallId: toolId, title: msg.title || '', kind: msg.kind || '',
-                status: msg.status || '', output: msg.content || msg.output || ''
+    // Thinking entry — save for merge with subsequent tools
+    if (kind === 'thinking') {
+        flushMerge();
+        const existingEntry = document.querySelector(`.tl-entry[data-tl-id="${toolId}"]`);
+        if (existingEntry) {
+            const body = existingEntry.querySelector('.tl-entry-body pre');
+            if (body) body.textContent = msg.content || msg.output || '';
+            if (msg.status === 'completed') {
+                const statusEl = existingEntry.querySelector('.tl-entry-status');
+                if (statusEl) { statusEl.className = 'tl-entry-status ok'; statusEl.textContent = ''; }
+            }
+        } else {
+            const entry = createTimelineEntry({
+                toolCallId: toolId, kind, title: msg.title || '',
+                status: msg.status || '', content: msg.content || msg.output || '',
+                taskId: msg.taskId || activeTaskId || '',
             });
-            const tabCard = createTabCardFromTools(Array.from(_tabGroup.elems.values()));
-            _tabGroup.element = tabCard;
+            entry.dataset.tlId = toolId;
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-msg tool';
+            msgDiv.dataset.msgId = 'tool_' + toolId;
+            const bubble = document.createElement('div');
+            bubble.className = 'msg-bubble';
+            bubble.appendChild(entry);
+            msgDiv.appendChild(bubble);
+            appendToChatMessages(msgDiv);
+            showTlFilterBar();
+        }
+        _mergeState = {
+            thinkingId: toolId,
+            thinkingTitle: existingEntry
+                ? (existingEntry.querySelector('.tl-entry-title')?.textContent || '思考')
+                : (msg.title || '思考'),
+            thinkingBody: msg.content || msg.output || '',
+            tools: [],
+        };
+        updateWorkingIndicator(msg);
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        return;
+    }
+
+    // Non-thinking tool — merge with pending thinking, or add to ongoing merge
+    if (_mergeState) {
+        const toolInfo = { kind, title: msg.title || '', content: msg.content || msg.output || '', status: msg.status || '' };
+        // If this is an update to an existing tool in the merge, update in place
+        const existingIdx = _mergeState.tools.findIndex(t => t.toolId === toolId);
+        if (existingIdx >= 0) {
+            _mergeState.tools[existingIdx] = { ..._mergeState.tools[existingIdx], ...toolInfo };
+            const status = msg.status || '';
+            if (status === 'running' || status === 'failed' || status === 'error') {
+                const mergedEntry = createMergedTimelineEntry(
+                    { title: _mergeState.thinkingTitle, content: _mergeState.thinkingBody },
+                    _mergeState.tools
+                );
+                const existingMerge = document.querySelector('.tl-entry.tl-merged');
+                if (existingMerge) {
+                    const msgDiv = existingMerge.closest('.chat-msg');
+                    if (msgDiv) msgDiv.remove();
+                }
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'chat-msg tool';
+                const bubble = document.createElement('div');
+                bubble.className = 'msg-bubble';
+                bubble.appendChild(mergedEntry);
+                msgDiv.appendChild(bubble);
+                appendToChatMessages(msgDiv);
+            }
+        } else {
+            // New tool — add to merge list
+            _mergeState.tools.push({ toolId, ...toolInfo });
+            // Remove standalone thinking entry
+            const thinkingEntry = document.querySelector(`.tl-entry[data-tl-id="${_mergeState.thinkingId}"]`);
+            if (thinkingEntry) {
+                const thinkingMsgDiv = thinkingEntry.closest('.chat-msg');
+                if (thinkingMsgDiv) thinkingMsgDiv.remove();
+            }
+            // Remove any existing partial merge entry
+            const existingMerge = document.querySelector('.tl-entry.tl-merged');
+            if (existingMerge) {
+                const msgDiv = existingMerge.closest('.chat-msg');
+                if (msgDiv) msgDiv.remove();
+            }
+            // Create full merge entry with all tools
+            const mergedEntry = createMergedTimelineEntry(
+                { title: _mergeState.thinkingTitle, content: _mergeState.thinkingBody },
+                _mergeState.tools
+            );
             const msgDiv = document.createElement('div');
             msgDiv.className = 'chat-msg tool';
             const bubble = document.createElement('div');
             bubble.className = 'msg-bubble';
-            bubble.appendChild(tabCard);
+            bubble.appendChild(mergedEntry);
             msgDiv.appendChild(bubble);
             appendToChatMessages(msgDiv);
-        } else {
-            _tabGroup.elems.set(toolId, {
-                toolCallId: toolId, title: msg.title || '', kind: msg.kind || '',
-                status: msg.status || '', output: msg.content || msg.output || ''
-            });
-            const newCard = createTabCardFromTools(Array.from(_tabGroup.elems.values()));
-            _tabGroup.element.replaceWith(newCard);
-            _tabGroup.element = newCard;
+        }
+        showTlFilterBar();
+        updateWorkingIndicator(msg);
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        return;
+    }
+
+    // Timeline entry for all other tools (no merge)
+    const existingEntry = document.querySelector(`.tl-entry[data-tl-id="${toolId}"]`);
+    if (existingEntry) {
+        // Update existing entry
+        const statusEl = existingEntry.querySelector('.tl-entry-status');
+        if (statusEl) {
+            if (msg.status === 'running' || msg.status === 'pending') {
+                statusEl.className = 'tl-entry-status running';
+                statusEl.textContent = '🔄 运行中';
+            } else if (msg.status === 'failed' || msg.status === 'error') {
+                statusEl.className = 'tl-entry-status fail';
+                statusEl.textContent = '❌';
+            } else {
+                statusEl.className = 'tl-entry-status ok';
+                statusEl.textContent = '';
+            }
+        }
+        const body = existingEntry.querySelector('.tl-entry-body');
+        const newContent = msg.content || msg.output || '';
+        if (body && newContent) {
+            const pre = body.querySelector('pre');
+            if (pre) pre.textContent = newContent;
+            const autoExpand = msg.status === 'running' || msg.status === 'pending' || msg.status === 'failed' || msg.status === 'error';
+            if (autoExpand && !body.classList.contains('open')) {
+                body.classList.add('open');
+                const expand = existingEntry.querySelector('.tl-entry-expand');
+                if (expand) expand.classList.add('open');
+            }
         }
     } else {
-        _tabGroup = { elems: new Map(), element: null! };
-        _tabGroup.elems.set(toolId, {
-            toolCallId: toolId, title: msg.title || '', kind: msg.kind || '',
-            status: msg.status || '', output: msg.content || msg.output || ''
+        const entry = createTimelineEntry({
+            toolCallId: toolId, kind, title: msg.title || '',
+            status: msg.status || '', content: msg.content || msg.output || '',
+            taskId: msg.taskId || activeTaskId || '',
         });
-        const tabCard = createTabCardFromTools(Array.from(_tabGroup.elems.values()));
-        _tabGroup.element = tabCard;
+        entry.dataset.tlId = toolId;
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg tool';
+        msgDiv.dataset.msgId = 'tool_' + toolId;
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble';
-        bubble.appendChild(tabCard);
+        bubble.appendChild(entry);
         msgDiv.appendChild(bubble);
         appendToChatMessages(msgDiv);
+        showTlFilterBar();
     }
 
     updateWorkingIndicator(msg);
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
+}
+
+function showTlFilterBar() {
+    const bar = document.getElementById('tl-filter-bar');
+    if (bar) bar.classList.remove('hidden');
+}
+
+function initTlFilterBar() {
+    const bar = document.getElementById('tl-filter-bar');
+    if (!bar) return;
+    bar.addEventListener('click', (e) => {
+        const btn = (e.target as HTMLElement).closest('.tl-filter-btn') as HTMLElement;
+        if (!btn) return;
+        bar.querySelectorAll('.tl-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const filter = btn.dataset.tlFilter || 'all';
+        document.querySelectorAll('.tl-entry').forEach(el => {
+            const kind = (el as HTMLElement).dataset.tlKind || '';
+            el.classList.toggle('hidden', filter !== 'all' && kind !== filter);
+        });
+    });
 }
 
 
@@ -3034,7 +3348,7 @@ function formatToolTitle(kind: string, title: string): string {
         case 'grep':
         case 'search': label = '搜索'; detail = title; break;
         case 'glob': label = '查找'; detail = title; break;
-        case 'thinking': label = '推理'; detail = ''; break;
+        case 'thinking': label = '思考'; detail = ''; break;
         default: label = kind; detail = title; break;
     }
     if (detail) {

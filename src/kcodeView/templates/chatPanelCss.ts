@@ -399,27 +399,64 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tool-spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.08);border-top-color:var(--tool-color-bash);border-radius:50%;animation:tool-spin .8s linear infinite;flex-shrink:0}
 @keyframes tool-spin{to{transform:rotate(360deg)}}
 
-/* === TabCard Component — header 对齐普通卡片, tab 固定 200px === */
-.tab-card{border:var(--card-border);border-radius:var(--card-radius);overflow:hidden;margin-bottom:6px}
-.tab-card:last-child{margin-bottom:0}
-.tab-card-header{display:flex;align-items:center;min-height:34px;padding:3px 10px;font-size:12px;user-select:none;gap:var(--card-gap);color:#bbb;background:var(--card-header-bg);border-left:3px solid transparent;cursor:default}
-.tab-card-tabs{display:flex;flex:1;gap:0;min-width:0}
-.tab-card-tab{width:200px;flex:none;padding:0 8px;background:transparent;border:none;color:#666;font-size:12px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .15s;font-family:inherit;display:flex;align-items:center;gap:4px;height:100%}
-.tab-card-tab:hover{color:#999}
-.tab-card-tab.active{color:#ddd;font-weight:500;background:var(--vscode-sideBar-background,#1e1e1e)}
-.tab-card-tab .tool-kind-icon{font-size:11px}
-.tab-card-toggle{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:#666;cursor:pointer;transition:transform .2s}
-.tab-card-toggle svg{display:block}
-.tab-card-toggle.collapsed{transform:rotate(-90deg)}
-.tab-card-bodies{position:relative;height:250px;overflow:hidden;transition:height .25s ease,padding .25s ease,opacity .2s ease}
-.tab-card-bodies.collapsed{height:0;opacity:0;overflow:hidden}
-.tab-card-body{position:absolute;top:0;left:0;right:0;bottom:0;display:none;overflow-y:auto;padding:8px 12px;font-size:13px;line-height:1.6;color:#d2d2d4}
-.tab-card-body.active{display:block;background:var(--vscode-sideBar-background,#1e1e1e)}
-.tab-card-body .tool-body-content{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12px;color:#9aa;background:transparent;padding:0}
-.tab-card-body.tool-body-bash{background:rgba(0,0,0,.3);border-radius:3px;padding:8px 12px!important}
-.tab-card-body.tool-body-bash .tool-body-content{color:var(--tool-color-bash)}
-.tab-card-body.tool-thinking{background:rgba(0,0,0,.25)}
-.tab-card-body.tool-thinking .tool-body-content{font-size:11.5px;font-style:italic;color:#777}
+/* === Timeline Entry — 时序流内联排布，替代 TabCard === */
+:root{--tl-color-thinking:#888;--tl-color-file:#4a8bb5;--tl-color-write:#d4a84b;--tl-color-command:#5a9d6b;--tl-color-search:#8b5cf6;--tl-color-device:#e6b422;--tl-color-fail:#e06c75}
+
+.tl-filter-bar{display:flex;gap:4px;padding:4px 0 6px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.04);margin-bottom:4px}
+
+.tl-filter-btn{background:rgba(255,255,255,.04);border:1px solid transparent;border-radius:3px;color:#888;font-size:11px;padding:2px 8px;cursor:pointer;font-family:inherit;transition:all .15s}
+
+.tl-filter-btn:hover{color:#bbb;background:rgba(255,255,255,.08)}
+
+.tl-filter-btn.active{color:#ddd;border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.06)}
+
+.tl-filter-bar.hidden{display:none}
+
+.tl-entry{display:flex;gap:8px;margin:1px 0;transition:opacity .15s}
+
+.tl-entry-bar{width:3px;border-radius:2px;flex-shrink:0;min-height:24px;align-self:stretch;opacity:.6}
+
+.tl-entry-main{flex:1;min-width:0}
+
+.tl-entry-header{display:flex;align-items:center;gap:6px;cursor:pointer;padding:2px 0;user-select:none;min-height:22px}
+
+.tl-entry-header:hover .tl-entry-expand{opacity:1}
+
+.tl-entry-icon{flex-shrink:0;font-size:12px;width:16px;text-align:center}
+
+.tl-entry-title{flex:1;font-size:12px;color:#c0c0c0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.tl-arrow{color:#ff9800;font-weight:700;margin:0 2px;font-size:14px}
+
+.tl-entry-title.mono{font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:11.5px;color:#b0b0b0}
+
+.tl-entry-title.em{font-style:italic;color:#888}
+
+.tl-entry-status{flex-shrink:0;font-size:10px;color:#666;white-space:nowrap}
+
+.tl-entry-status.ok{color:#5a9d6b}
+
+.tl-entry-status.fail{color:#e06c75}
+
+.tl-entry-status.running{color:#4a8bb5}
+
+.tl-entry-expand{flex-shrink:0;font-size:9px;color:#555;opacity:0;transition:opacity .15s,transform .2s;width:12px;text-align:center}
+
+.tl-entry-expand.open{opacity:.6;transform:rotate(90deg)}
+
+.tl-entry-body{font-size:12px;line-height:1.5;color:#999;overflow:hidden;max-height:0;transition:max-height .2s ease,opacity .15s,padding .15s;opacity:0;padding:0 0 0 22px}
+
+.tl-entry-body.open{max-height:500px;opacity:1;padding:2px 0 4px 22px}
+
+.tl-entry-body pre{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:11.5px;color:#9aa;line-height:1.5}
+
+.tl-entry-body .tl-body-bash{background:rgba(0,0,0,.25);border-radius:3px;padding:6px 8px}
+
+.tl-entry-body .tl-body-bash pre{color:#5a9d6b}
+
+.tl-entry-body .tl-body-diff{color:#d2d2d4;padding:2px 0}
+
+.tl-entry-body .tl-body-thinking{font-style:italic;color:#777;font-size:11px}
 
 /* === Review / Diff / Plan === */
 .review-changes{padding:6px 0 0;border-top:1px solid rgba(255,255,255,.04);margin-top:6px}

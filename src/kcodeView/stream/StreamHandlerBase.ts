@@ -42,7 +42,7 @@ export abstract class StreamHandlerBase {
         this.flushAcpRecvBuffer?.();
         const rc = this.activeToolCalls.get(this.currentReasoningId);
         if (rc) rc.status = 'completed';
-        this._emitToolCall(this.currentReasoningId, '推理过程', 'thinking', 'completed', full);
+        this._emitToolCall(this.currentReasoningId, '思考', 'thinking', 'completed', full);
     }
 
     protected _emitToolCall(toolCallId: string, title: string, kind: string, status: string, content?: string): void {
@@ -60,13 +60,13 @@ export abstract class StreamHandlerBase {
                 if (!this.reasoningActive) {
                     this.currentReasoningId = 'reasoning_' + Date.now();
                     this.reasoningActive = true;
-                    this.activeToolCalls.set(this.currentReasoningId, { title: '推理', kind: 'thinking', status: 'running' });
-                    this._emitToolCall(this.currentReasoningId, '推理', 'thinking', 'running', '');
+                    this.activeToolCalls.set(this.currentReasoningId, { title: '思考', kind: 'thinking', status: 'running' });
+                    this._emitToolCall(this.currentReasoningId, '思考', 'thinking', 'running', '');
                 }
                 this.reasoningText += text;
                 const tc = this.activeToolCalls.get(this.currentReasoningId);
                 if (tc) tc.output = this.reasoningText;
-                this._emitToolCall(this.currentReasoningId, '推理', 'thinking', 'running', this.reasoningText);
+                this._emitToolCall(this.currentReasoningId, '思考', 'thinking', 'running', this.reasoningText);
             },
             onToolCall: (toolCallId: string, title: string, kind: string, status: string) => {
                 this.completeReasoning();
