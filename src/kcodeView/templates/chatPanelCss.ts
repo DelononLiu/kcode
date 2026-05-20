@@ -412,29 +412,29 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
 .tl-filter-bar.hidden{display:none}
 
-.tl-entry{display:flex;gap:8px;margin:1px 0;transition:opacity .15s}
+.tl-entry{display:flex;gap:8px;margin:0;transition:opacity .15s}
 
-.tl-entry-bar{width:3px;border-radius:2px;flex-shrink:0;min-height:24px;align-self:stretch;opacity:.6}
+.tl-entry-bar{width:3px;border-radius:2px;flex-shrink:0;min-height:20px;align-self:stretch;opacity:.6}
 
 .tl-entry-main{flex:1;min-width:0}
 
-.tl-entry-header{display:flex;align-items:center;gap:6px;cursor:pointer;padding:2px 0;user-select:none;min-height:22px}
+.tl-entry-header{display:flex;align-items:center;gap:6px;cursor:pointer;padding:1px 0;user-select:none;min-height:20px}
 
+.tl-entry-body{font-size:12px;line-height:1.4;color:#999;overflow:hidden;max-height:0;transition:max-height .2s ease,opacity .15s,padding .15s;opacity:0;padding:0 0 0 22px}
 
+.tl-entry-body.open{max-height:500px;opacity:1;padding:1px 0 2px 22px}
 
-.tl-entry-body{font-size:12px;line-height:1.5;color:#999;overflow:hidden;max-height:0;transition:max-height .2s ease,opacity .15s,padding .15s;opacity:0;padding:0 0 0 22px}
+.tl-entry-body>:not(:last-child){margin-bottom:1px}
 
-.tl-entry-body.open{max-height:500px;opacity:1;padding:2px 0 4px 22px}
+.tl-entry-body pre{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:11.5px;color:#9aa;line-height:1.4}
 
-.tl-entry-body pre{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:11.5px;color:#9aa;line-height:1.5}
-
-.tl-entry-body .tl-body-bash{background:rgba(0,0,0,.25);border-radius:3px;padding:6px 8px}
+.tl-entry-body .tl-body-bash{background:rgba(0,0,0,.25);border-radius:3px;padding:1px 8px}
 
 .tl-entry-body .tl-body-bash pre{color:#5a9d6b}
 
-.tl-entry-body .tl-body-diff{color:#d2d2d4;padding:2px 0}
+.tl-entry-body .tl-body-diff{color:#d2d2d4;padding:0}
 
-.tl-entry-body .tl-body-thinking{font-style:italic;color:#777;font-size:11px;margin-bottom:8px}
+.tl-entry-body .tl-body-thinking{font-style:italic;color:#777;font-size:11px;margin-bottom:2px}
 
 .tl-thinking-preview{padding:2px 0 2px 22px;font-size:11.5px;font-style:italic;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;min-height:18px}
 
@@ -520,7 +520,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .reject-btn-row{display:flex;gap:6px;padding:6px 0 0;justify-content:flex-end}
 .msg-sender{display:flex;align-items:center;gap:4px}
 .msg-timestamp{font-size:10px;color:#555;font-weight:400}
-.chat-msg.tool{padding:6px 0}
+.chat-msg.tool{padding:3px 0}
 .chat-msg.tool .msg-bubble{font-size:13px;line-height:1.5;color:#b5c9a8}
 .agent-diff-summary{margin-top:10px;padding:6px 10px;background:rgba(78,201,176,.04);border-left:2px solid #4ec9b0;border-radius:3px;font-size:12px;line-height:1.6;color:#9aa}
 .review-inline-actions{display:flex;gap:8px;padding:8px 0 2px}

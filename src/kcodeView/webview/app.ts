@@ -2934,18 +2934,6 @@ function createTimelineEntry(msg: any): HTMLElement {
     titleEl.className = 'tl-entry-title' + (tlKind === 'command' ? ' mono' : '') + (tlKind === 'thinking' ? ' em' : '');
     titleEl.textContent = title;
 
-    const statusEl = document.createElement('span');
-    statusEl.className = 'tl-entry-status';
-    if (status === 'running' || status === 'pending') {
-        statusEl.className += ' running';
-        statusEl.textContent = '🔄 运行中';
-    } else if (status === 'failed' || status === 'error') {
-        statusEl.className += ' fail';
-        statusEl.textContent = '❌';
-    } else {
-        statusEl.className += ' ok';
-    }
-
     const body = document.createElement('div');
     body.className = 'tl-entry-body';
 
@@ -2980,7 +2968,6 @@ function createTimelineEntry(msg: any): HTMLElement {
 
     header.appendChild(iconEl);
     header.appendChild(titleEl);
-    if (statusEl.textContent) header.appendChild(statusEl);
 
     header.addEventListener('click', () => body.classList.toggle('open'));
 
@@ -2998,10 +2985,6 @@ function createMergedTimelineEntry(thinkingMsg: any, tools: any[]): HTMLElement 
     const status = firstTool.status || 'completed';
     const tlKind = getTlKind(kind);
     const color = getTlColor(kind);
-    const toolOutputs = tools.map(t => t.content || t.output || '').filter(Boolean).join('\n');
-    const statuses = tools.map(t => t.status || 'completed');
-    const hasRunning = statuses.some(s => s === 'running' || s === 'pending');
-    const hasFailed = statuses.some(s => s === 'failed' || s === 'error');
 
     const entry = document.createElement('div');
     entry.className = 'tl-entry tl-merged';
@@ -3032,18 +3015,6 @@ function createMergedTimelineEntry(thinkingMsg: any, tools: any[]): HTMLElement 
     }
     titleEl.innerHTML = titleHtml;
 
-    const statusEl = document.createElement('span');
-    statusEl.className = 'tl-entry-status';
-    if (hasRunning) {
-        statusEl.className += ' running';
-        statusEl.textContent = '🔄 运行中';
-    } else if (hasFailed) {
-        statusEl.className += ' fail';
-        statusEl.textContent = '❌';
-    } else {
-        statusEl.className += ' ok';
-    }
-
     const body = document.createElement('div');
     body.className = 'tl-entry-body';
 
@@ -3073,7 +3044,6 @@ function createMergedTimelineEntry(thinkingMsg: any, tools: any[]): HTMLElement 
 
     header.appendChild(iconEl);
     header.appendChild(titleEl);
-    if (statusEl.textContent) header.appendChild(statusEl);
 
     const togglers: (() => void)[] = [];
 
@@ -3163,8 +3133,6 @@ function handleToolCallUpdate(msg: any) {
             const body = existingEntry.querySelector('.tl-entry-body pre');
             if (body) body.textContent = msg.content || msg.output || '';
             if (msg.status === 'completed') {
-                const statusEl = existingEntry.querySelector('.tl-entry-status');
-                if (statusEl) { statusEl.className = 'tl-entry-status ok'; statusEl.textContent = ''; }
             }
         } else {
             const entry = createTimelineEntry({
@@ -3259,20 +3227,6 @@ function handleToolCallUpdate(msg: any) {
     // Timeline entry for all other tools (no merge)
     const existingEntry = document.querySelector(`.tl-entry[data-tl-id="${toolId}"]`);
     if (existingEntry) {
-        // Update existing entry
-        const statusEl = existingEntry.querySelector('.tl-entry-status');
-        if (statusEl) {
-            if (msg.status === 'running' || msg.status === 'pending') {
-                statusEl.className = 'tl-entry-status running';
-                statusEl.textContent = '🔄 运行中';
-            } else if (msg.status === 'failed' || msg.status === 'error') {
-                statusEl.className = 'tl-entry-status fail';
-                statusEl.textContent = '❌';
-            } else {
-                statusEl.className = 'tl-entry-status ok';
-                statusEl.textContent = '';
-            }
-        }
         const body = existingEntry.querySelector('.tl-entry-body');
         const newContent = msg.content || msg.output || '';
         if (body && newContent) {
