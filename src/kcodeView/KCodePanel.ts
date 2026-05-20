@@ -13,6 +13,10 @@ import { AcpLogManager } from './AcpLogManager';
 import { AssistantHandler } from './AssistantHandler';
 import { CommandRegistry } from '../commands/CommandRegistry';
 import type { KCodePanelContext, ToolCallState, PendingMessage } from './PanelContext';
+import type { DeviceConfig, IDeviceClient } from '../types';
+import type { SavedDevice } from '../types/config';
+
+const deviceLog = vscode.window.createOutputChannel('KCode Device', { log: true });
 
 export class KCodePanel {
     readonly panel: vscode.WebviewPanel;
@@ -32,6 +36,7 @@ export class KCodePanel {
     hasSetPlanMessage: boolean = false;
     hasSetExecuteMessage: boolean = false;
     refreshSidebarCallback?: () => void;
+    deviceClients: Map<string, IDeviceClient> = new Map();
 
     private context: vscode.ExtensionContext;
     private onDisposeCallback?: () => void;
@@ -192,6 +197,16 @@ export class KCodePanel {
             this.setGenerationState(true);
             this.router.PostMessage({ type: 'addSystemMessage', content: '🔍 AI 正在分析对话萃取知识...', taskId: tid });
             await this.sessionHandler.doPrompt(tid, extractPrompt, handler);
+        });
+        this.router.on('deviceConnect', (msg) => this.handleDeviceConnect(msg.config));
+        this.router.on('deviceDisconnect', () => this.handleDeviceDisconnect());
+        this.router.on('deviceCommand', (msg) => this.handleDeviceCommand(msg.command));
+        this.router.on('getSavedDevices', () => {
+            const devices: SavedDevice[] = this.configService.get<SavedDevice[]>('devices', []);
+            this.router.PostMessage({ type: 'savedDevices', devices });
+        });
+        this.router.on('deviceDebugLog', (msg) => {
+            deviceLog.info(`[webview] ${msg.text}`);
         });
         this.router.on('exportToWiki', async (msg) => {
             const tid = msg.taskId;
@@ -377,8 +392,77 @@ export class KCodePanel {
         }
     }
 
+    private async handleDeviceConnect(config: DeviceConfig) {
+        const deviceId = `${config.type}://${config.host}:${config.port}`;
+        deviceLog.info(`[connect] 开始连接 ${deviceId}`, { config: { type: config.type, host: config.host, port: config.port, username: config.username } });
+        if (this.deviceClients.has(deviceId)) {
+            this.router.PostMessage({ type: 'deviceStatus', status: 'error', message: '设备已连接' });
+            return;
+        }
+        this.router.PostMessage({ type: 'deviceStatus', status: 'connecting', message: `正在连接 ${config.host}:${config.port}...` });
+        try {
+            const { createDeviceClient } = await import('../device/DeviceClientFactory');
+            const client = createDeviceClient(config.type);
+            deviceLog.info(`[connect] 创建 client, type=${config.type}`);
+            client.onOutput((data) => {
+                deviceLog.append(`[stdout] ${data}`);
+                this.router.PostMessage({ type: 'deviceOutput', data });
+            });
+            client.onError((error) => {
+                deviceLog.error(`[stderr] ${error}`);
+                this.router.PostMessage({ type: 'deviceOutput', data: `\x1b[31m${error}\x1b[0m` });
+            });
+            client.onDisconnected(() => {
+                deviceLog.info(`[disconnect] ${deviceId} 连接已断开`);
+                this.deviceClients.delete(deviceId);
+                this.router.PostMessage({ type: 'deviceStatus', status: 'disconnected', message: '设备已断开' });
+            });
+            const conn = await client.connect(config);
+            deviceLog.info(`[connect] ${deviceId} 连接成功`);
+            this.deviceClients.set(deviceId, client);
+            this.router.PostMessage({ type: 'deviceConnected', deviceId, config });
+        } catch (err: any) {
+            const msg = err?.message || String(err);
+            deviceLog.error(`[connect] 连接失败: ${msg}`);
+            this.router.PostMessage({ type: 'deviceStatus', status: 'error', message: `连接失败: ${msg}` });
+        }
+    }
+
+    private async handleDeviceDisconnect() {
+        deviceLog.info('[disconnect] 断开所有设备');
+        for (const [id, client] of this.deviceClients) {
+            try { await client.disconnect(); } catch (e: any) { deviceLog.warn(`[disconnect] ${id} 断开异常: ${e?.message}`); }
+            this.deviceClients.delete(id);
+        }
+        this.router.PostMessage({ type: 'deviceStatus', status: 'disconnected', message: '已断开所有设备' });
+    }
+
+    private async handleDeviceCommand(command: string) {
+        deviceLog.info(`[exec] ${command}`);
+        const clients = Array.from(this.deviceClients.values());
+        if (clients.length === 0) {
+            deviceLog.warn('[exec] 未连接设备');
+            this.router.PostMessage({ type: 'deviceOutput', data: '\x1b[33m未连接设备，请先连接\x1b[0m' });
+            return;
+        }
+        for (const client of clients) {
+            try {
+                const result = await client.exec(command);
+                deviceLog.append(`[exec stdout] ${result}`);
+                this.router.PostMessage({ type: 'deviceOutput', data: result });
+            } catch (err: any) {
+                deviceLog.error(`[exec 失败] ${err?.message || String(err)}`);
+                this.router.PostMessage({ type: 'deviceOutput', data: `\x1b[31m${err?.message || String(err)}\x1b[0m` });
+            }
+        }
+    }
+
     dispose() {
         this.acpLogManager.dispose();
         this.agentService.disconnect();
+        for (const client of this.deviceClients.values()) {
+            client.disconnect().catch(() => {});
+        }
+        this.deviceClients.clear();
     }
 }

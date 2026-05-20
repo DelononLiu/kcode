@@ -205,6 +205,15 @@ export class SettingsProvider {
         .inline-checkbox input { width: auto; }
         .inline-checkbox label { cursor: pointer; }
         .tag { display: inline-block; padding: 1px 6px; font-size: 11px; border-radius: 3px; background: var(--badge-bg); color: var(--badge-fg); }
+        .device-list { margin-bottom: 12px; }
+        .device-preview-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 4px; font-size: 12px; }
+        .device-preview-icon { font-size: 14px; }
+        .device-preview-name { flex: 1; font-weight: 500; }
+        .device-preview-addr { color: var(--text-secondary); }
+        .device-preview-user { color: var(--text-secondary); }
+        .device-json-editor { width: 100%; max-width: 600px; background: var(--input-bg); color: var(--input-fg); border: 1px solid var(--input-border); padding: 8px; font-family: monospace; font-size: 12px; outline: none; resize: vertical; }
+        .device-json-editor:focus { border-color: var(--focus-border); }
+        .device-btn-row { display: flex; gap: 8px; margin-top: 8px; }
     </style>
 </head>
 <body>
@@ -222,6 +231,7 @@ export class SettingsProvider {
             <button class="tab-btn" data-tab="provider">Provider</button>
             <button class="tab-btn" data-tab="log">ACP Log</button>
             <button class="tab-btn" data-tab="github">GitHub</button>
+            <button class="tab-btn" data-tab="device">设备</button>
             <button class="tab-btn" data-tab="about">关于</button>
         </div>
         <div id="panels"></div>

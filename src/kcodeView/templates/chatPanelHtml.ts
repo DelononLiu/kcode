@@ -187,12 +187,67 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             <div id="right-panel-header">
                 <div class="tabs">
                     <button class="tab active" data-tab="diff">Diff</button>
+                    <button class="tab" data-tab="device">Device</button>
                     <button class="tab" data-tab="acplog">ACP Log</button>
                 </div>
                 <button id="right-panel-close" class="close-btn" title="关闭右侧面板">✕</button>
             </div>
             <div id="right-panel-content">
                 <div id="tab-diff" class="tab-content active">Diff</div>
+                <div id="tab-device" class="tab-content">
+                    <div id="device-connect-form">
+                        <div class="device-field-row">
+                            <select id="device-preset-select">
+                                <option value="">— 从配置加载 —</option>
+                            </select>
+                        </div>
+                        <div style="border-top:1px solid rgba(255,255,255,.06);margin:4px 0 8px;"></div>
+                        <div class="device-field-row">
+                            <select id="device-type">
+                                <option value="ssh">SSH</option>
+                                <option value="telnet">Telnet</option>
+                                <option value="adb">ADB</option>
+                                <option value="local">Local</option>
+                            </select>
+                        </div>
+                        <div class="device-field-row" id="device-host-row">
+                            <input id="device-host" type="text" placeholder="主机地址">
+                        </div>
+                        <div class="device-field-row" id="device-port-row">
+                            <input id="device-port" type="number" placeholder="端口">
+                        </div>
+                        <div class="device-field-row device-auth-row" id="device-username-row">
+                            <input id="device-username" type="text" placeholder="用户名">
+                        </div>
+                        <div class="device-field-row device-auth-row" id="device-password-row">
+                            <input id="device-password" type="password" placeholder="密码">
+                        </div>
+                        <div class="device-field-row device-auth-row" id="device-key-row" style="display:none;">
+                            <input id="device-key-path" type="text" placeholder="私钥路径">
+                        </div>
+                        <div class="device-btn-row">
+                            <button id="btn-device-connect" class="device-btn primary">连接</button>
+                        </div>
+                    </div>
+                    <div id="device-connected-view" style="display:none;">
+                        <div id="device-connected-header">
+                            <span id="device-status-indicator" class="device-status-ok">●</span>
+                            <span id="device-connected-label"></span>
+                            <button id="btn-device-disconnect" class="device-btn small danger">断开</button>
+                        </div>
+                        <div id="device-terminal">
+                            <div id="device-output"></div>
+                            <div id="device-input-row">
+                                <span id="device-prompt">$</span>
+                                <input id="device-command-input" type="text" placeholder="输入命令...">
+                                <button id="btn-device-send" class="device-btn small">发送</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="device-status-bar">
+                        <span id="device-connection-status">未连接</span>
+                    </div>
+                </div>
                 <div id="tab-acplog" class="tab-content">
                     <div id="acp-log-toolbar">
                         <label><input type="checkbox" id="acp-log-enable"> 采集日志</label>
@@ -209,6 +264,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
          style="display:none"></div>
     <script src="${scriptUri('app.bundle')}"></script>
     <script src="${scriptUri('outputPanel')}"></script>
+    <script src="${scriptUri('device.bundle')}"></script>
 </body>
 </html>`;
 }

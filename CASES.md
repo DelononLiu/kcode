@@ -439,3 +439,168 @@ scrollContainer.scrollTop = scrollContainer.scrollHeight;
 - `scrollHeight` 随内容增长而变大，`scrollTop` 值不变 → 不能直接比较 `scrollTop + clientHeight >= scrollHeight` 来判断"在底部"，因为新内容插入后即便用户没动也会出现"不在底部"的假象
 - `scroll` 事件 fires on 所有滚动方式（滚轮、拖滚动条、键盘），比单独监听 `wheel` 更完整
 - 程序滚动必须用 flag 标记跳过，否则会被 `scroll` 事件误判为用户操作
+
+---
+
+## case007 — Device Tab 完全无响应（连接无输出、日志消失）
+
+**分类**: `case:build-toolchain` `case:webview-module` `case:acquireVsCodeApi` `case:webview-visibility`
+
+**严重程度**: 高
+
+### 问题描述
+
+点击 Device Tab 的连接按钮后：
+1. 界面**零输出**（控制台无日志、输出区无打印、状态栏不变）
+2. Extension 侧 `KCode Device` output channel **完全没有调试日志**
+3. 连接、命令发送等功能**完全无效**
+
+### 根因分析（3 个独立根因叠加）
+
+**根因 1 — TypeScript 编译为 CommonJS 模块，浏览器 `exports` 不存在致 `ReferenceError`**
+
+`tsc -p ./` 对带有 `export` 关键字的 `.ts` 文件按 `--module commonjs` 编译，生成：
+
+```javascript
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.initDeviceTab = initDeviceTab;
+// ...
+```
+
+该文件通过 `<script src="device.js">` 在浏览器加载时，`exports` 全局对象不存在 → `ReferenceError` → **整个脚本加载即崩溃**，`window.initDeviceTab` 等函数均未注册。
+
+对比 `outputPanel.ts`（无 `export` 关键字）编译后无 CommonJS 包装层，浏览器正常加载：
+
+```javascript
+"use strict";
+function initOutputPanel() { ... }
+// 无 exports 引用，无报错
+```
+
+**根因 2 — `acquireVsCodeApi()` 重复调用导致消息全丢**
+
+VS Code WebView 的 `acquireVsCodeApi()` 在每个 WebView 生命周期**只能调用一次**。
+
+- `app.ts`（先加载）：`const vscode = acquireVsCodeApi()` → 成功获取实例
+- `device.ts`（后加载）：`const _dvcVscode = acquireVsCodeApi()` → 抛出异常 → `_dvcVscode` 变为 `undefined`
+
+之后 device.ts 中所有 `_dvcVscode?.postMessage(...)` **全部静默丢弃**：
+- `deviceConnect`、`deviceCommand`、`getSavedDevices` 发不到 extension
+- `deviceDebugLog` 调试日志也发不到 extension
+- extension 收不到请求 → 不发送任何响应 → 用户看到完全无反应
+
+即使根因 1 修复（脚本加载成功），根因 2 仍会导致消息全丢。
+
+**根因 3 — 输出区域默认隐藏，连接反馈不可见**
+
+`#device-connected-view` 在 HTML 中初始 `style="display:none"` 且 CSS 定义 `.visible { display: flex }`。只有 extension 发回 `deviceConnected` 或 `deviceStatus` 错误后才会添加 `.visible` 类显示输出区。
+
+在根因 2 的作用下 extension 永远不发回消息 → 输出区永远不显示 → 即使修复了通信，用户不等到连接成功/失败也无法看到中间过程。
+
+### 涉及文件
+
+| 文件 | 作用 |
+|------|------|
+| `scripts/build-webview.js` | esbuild 构建配置（需新增 device.ts 条目） |
+| `src/kcodeView/templates/chatPanelHtml.ts` | HTML 模板，`<script>` 引用路径 |
+| `src/kcodeView/webview/device.ts` | Device Tab 前端逻辑 |
+| `src/kcodeView/webview/app.ts` | 主 WebView 逻辑，消息分发 |
+| `src/kcodeView/KCodePanel.ts` | Extension 端消息处理 |
+
+### 解决方案
+
+**修复 1 — esbuild IIFE 打包替代 tsc CommonJS**
+
+将 `device.ts` 加入 esbuild 构建，使用 `format: 'iife'` 生成浏览器兼容的立即执行函数包裹，消除 `exports` 引用：
+
+```javascript
+// scripts/build-webview.js
+const builds = [
+    // ... 原有条目 ...
++   { entry: 'src/kcodeView/webview/device.ts', out: 'out/kcodeView/webview/device.bundle.js' },
+];
+```
+
+```diff
+// chatPanelHtml.ts
+- <script src="${scriptUri('device')}"></script>
++ <script src="${scriptUri('device.bundle')}"></script>
+```
+
+编译结果：
+```javascript
+"use strict";
+(() => {
+  var _dvcVscode = window.__vscode;
+  function initDeviceTab() { ... }
+  // ...
+  window.initDeviceTab = initDeviceTab;
+})();
+```
+
+**修复 2 — 共用 `window.__vscode` 实例**
+
+`app.ts` 暴露其 `acquireVsCodeApi()` 实例，`device.ts` 通过全局变量读取：
+
+```diff
+// app.ts
+  const vscode = acquireVsCodeApi();
++ (window as any).__vscode = vscode;
+```
+
+```diff
+// device.ts
+- let _dvcVscode: any;
+- try { _dvcVscode = acquireVsCodeApi(); } catch (e) { ... }
++ const _dvcVscode: any = (window as any).__vscode;
+```
+
+并在 `initDeviceTab` 入口添加防御：
+```typescript
+if (!_dvcVscode) { console.error('...'); return; }
+```
+
+**修复 3 — 连接点击时立即展示输出区域+打印反馈**
+
+连接按钮 click 中立即显示终端输出区并打印连接信息，不等 extension 回复：
+
+```typescript
+const connectedView = document.getElementById('device-connected-view');
+const connectForm = document.getElementById('device-connect-form');
+const out = document.getElementById('device-output');
+if (connectedView) connectedView.classList.add('visible');
+if (connectForm) connectForm.style.display = 'none';
+if (out) {
+    out.innerHTML += `→ 正在连接 ${config.type}://${config.host}:${config.port} ...\n`;
+}
+```
+
+同样在 `handleDeviceConnected` 打印 `✔ 已连接`、`handleDeviceStatus` error 打印 `[错误] ...`、`handleDeviceDisconnected` 清空输出。
+
+### 关键改动
+
+```diff
+// scripts/build-webview.js
++ { entry: 'src/kcodeView/webview/device.ts', out: 'out/kcodeView/webview/device.bundle.js' },
+
+// app.ts
++ (window as any).__vscode = vscode;
+
+// device.ts (整个头段重写)
+- declare function acquireVsCodeApi(): any;
+- let _dvcVscode: any;
+- try { _dvcVscode = acquireVsCodeApi(); } catch (e) { ... }
++ const _dvcVscode: any = (window as any).__vscode;
+
+// device.ts (连接/断开/状态处理新增即时 UI 反馈)
++ if (connectedView) connectedView.classList.add('visible');
++ if (out) { out.innerHTML += `...`; }
+```
+
+### 教训
+
+- **TS webview 脚本不能有 `export`**：除非用 bundler 打包成 IIFE。`tsc --module commonjs` 输出的 `exports.xxx` 在浏览器 `<script>` 中不可用。统一用 esbuild `format: 'iife'` 编译所有 webview 脚本是最可靠的方案
+- **`acquireVsCodeApi` 是全 WebView 单例**：所有脚本共享同一个实例。同一 WebView 内多脚本需要通信必须通过 `window` 全局变量传递实例引用，绝不能各自调用
+- **静默失败的叠加效应**：根因 1 导致脚本崩溃 + 根因 2 导致消息丢弃 + 根因 3 导致 UI 隐藏 = 用户视角"完全无效"。排错时必须逐层剥离验证，不能只看表象
+- **WebView DevTools 是调试利器**：`Ctrl+Shift+P` → `Developer: Open Webview Developer Tools` → 可看到 `console.error` 和 `ReferenceError`，直接暴露根因 1
