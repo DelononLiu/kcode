@@ -420,29 +420,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
 .tl-entry-header{display:flex;align-items:center;gap:6px;cursor:pointer;padding:2px 0;user-select:none;min-height:22px}
 
-.tl-entry-header:hover .tl-entry-expand{opacity:1}
 
-.tl-entry-icon{flex-shrink:0;font-size:12px;width:16px;text-align:center}
-
-.tl-entry-title{flex:1;font-size:12px;color:#c0c0c0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-.tl-arrow{color:#ff9800;font-weight:700;margin:0 2px;font-size:14px}
-
-.tl-entry-title.mono{font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:11.5px;color:#b0b0b0}
-
-.tl-entry-title.em{font-style:italic;color:#888}
-
-.tl-entry-status{flex-shrink:0;font-size:10px;color:#666;white-space:nowrap}
-
-.tl-entry-status.ok{color:#5a9d6b}
-
-.tl-entry-status.fail{color:#e06c75}
-
-.tl-entry-status.running{color:#4a8bb5}
-
-.tl-entry-expand{flex-shrink:0;font-size:9px;color:#555;opacity:0;transition:opacity .15s,transform .2s;width:12px;text-align:center}
-
-.tl-entry-expand.open{opacity:.6;transform:rotate(90deg)}
 
 .tl-entry-body{font-size:12px;line-height:1.5;color:#999;overflow:hidden;max-height:0;transition:max-height .2s ease,opacity .15s,padding .15s;opacity:0;padding:0 0 0 22px}
 
@@ -457,6 +435,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tl-entry-body .tl-body-diff{color:#d2d2d4;padding:2px 0}
 
 .tl-entry-body .tl-body-thinking{font-style:italic;color:#777;font-size:11px;margin-bottom:8px}
+
+.tl-thinking-preview{padding:2px 0 2px 22px;font-size:11.5px;font-style:italic;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;min-height:18px}
+
+.tl-thinking-preview.hidden{display:none}
 
 /* === Review / Diff / Plan === */
 .review-changes{padding:6px 0 0;border-top:1px solid rgba(255,255,255,.04);margin-top:6px}

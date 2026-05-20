@@ -2946,10 +2946,6 @@ function createTimelineEntry(msg: any): HTMLElement {
         statusEl.className += ' ok';
     }
 
-    const expandEl = document.createElement('span');
-    expandEl.className = 'tl-entry-expand';
-    expandEl.textContent = '▶';
-
     const body = document.createElement('div');
     body.className = 'tl-entry-body';
 
@@ -2980,20 +2976,13 @@ function createTimelineEntry(msg: any): HTMLElement {
     }
 
     const autoExpand = status === 'running' || status === 'pending' || status === 'failed' || status === 'error';
-    if (output && autoExpand) {
-        body.classList.add('open');
-        expandEl.classList.add('open');
-    }
+    if (output && autoExpand) body.classList.add('open');
 
     header.appendChild(iconEl);
     header.appendChild(titleEl);
     if (statusEl.textContent) header.appendChild(statusEl);
-    header.appendChild(expandEl);
 
-    header.addEventListener('click', () => {
-        body.classList.toggle('open');
-        expandEl.classList.toggle('open');
-    });
+    header.addEventListener('click', () => body.classList.toggle('open'));
 
     main.appendChild(header);
     main.appendChild(body);
@@ -3055,20 +3044,9 @@ function createMergedTimelineEntry(thinkingMsg: any, tools: any[]): HTMLElement 
         statusEl.className += ' ok';
     }
 
-    const expandEl = document.createElement('span');
-    expandEl.className = 'tl-entry-expand';
-    expandEl.textContent = '▶';
-
     const body = document.createElement('div');
     body.className = 'tl-entry-body';
 
-    const thinkingOutput = thinkingMsg.content || '';
-    if (thinkingOutput) {
-        const thinkingPre = document.createElement('pre');
-        thinkingPre.className = 'tl-body-thinking';
-        thinkingPre.textContent = thinkingOutput;
-        body.appendChild(thinkingPre);
-    }
     for (const t of tools) {
         const tOutput = t.content || t.output || '';
         if (!tOutput) continue;
@@ -3089,23 +3067,41 @@ function createMergedTimelineEntry(thinkingMsg: any, tools: any[]): HTMLElement 
         }
     }
 
-    const autoExpand = status === 'running' || status === 'pending' || status === 'failed' || status === 'error';
-    if (autoExpand) {
+    if (status === 'running' || status === 'pending' || status === 'failed' || status === 'error') {
         body.classList.add('open');
-        expandEl.classList.add('open');
     }
 
     header.appendChild(iconEl);
     header.appendChild(titleEl);
     if (statusEl.textContent) header.appendChild(statusEl);
-    header.appendChild(expandEl);
 
-    header.addEventListener('click', () => {
-        body.classList.toggle('open');
-        expandEl.classList.toggle('open');
-    });
+    const togglers: (() => void)[] = [];
+
+    header.addEventListener('click', () => togglers.forEach(fn => fn()));
 
     main.appendChild(header);
+
+    // Thinking preview — first line, click to toggle tool output body
+    const thinkingOutput = thinkingMsg.content || '';
+    let preview: HTMLElement | null = null;
+    if (thinkingOutput) {
+        const lines = thinkingOutput.split('\n');
+        const firstLine = lines[0].trim();
+        if (firstLine) {
+            preview = document.createElement('div');
+            preview.className = 'tl-thinking-preview';
+            preview.textContent = firstLine;
+            preview.addEventListener('click', () => togglers.forEach(fn => fn()));
+            main.appendChild(preview);
+        }
+    }
+
+    function toggleBody() {
+        if (preview) preview.classList.toggle('hidden');
+        body.classList.toggle('open');
+    }
+    togglers.push(toggleBody);
+
     main.appendChild(body);
     entry.appendChild(bar);
     entry.appendChild(main);
