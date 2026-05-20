@@ -592,6 +592,11 @@ function flushMerge() {
     const { thinkingTitle, thinkingBody, tools } = _mergeState;
     if (tools.length > 0) {
         const mergedEntry = createMergedTimelineEntry({ title: thinkingTitle, content: thinkingBody }, tools);
+        const existingMerge = document.querySelector('.tl-entry.tl-merged');
+        if (existingMerge) {
+            const msgDiv = existingMerge.closest('.chat-msg');
+            if (msgDiv) msgDiv.remove();
+        }
         const thinkingEntry = document.querySelector(`.tl-entry[data-tl-id="${_mergeState.thinkingId}"]`);
         if (thinkingEntry) {
             const thinkingMsgDiv = thinkingEntry.closest('.chat-msg');
