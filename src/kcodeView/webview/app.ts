@@ -1393,7 +1393,7 @@ function renderMessages(messages: any[]) {
                 }
                 if (info.kind === 'thinking') {
                     if (mergedTools.length > 0 && pendingThinking) {
-                        const mergedEntry = createMergedTimelineEntry({ title: pendingThinking.title || '思考', content: pendingThinking.output || pendingThinking.content || '' }, mergedTools);
+                        const mergedEntry = createMergedTimelineEntry({ title: forceTitle('thinking', pendingThinking.title || '思考'), content: pendingThinking.output || pendingThinking.content || '' }, mergedTools);
                         const msgDiv = document.createElement('div');
                         msgDiv.className = 'chat-msg tool';
                         const bubble = document.createElement('div');
@@ -1422,7 +1422,7 @@ function renderMessages(messages: any[]) {
                 }
             }
             if (pendingThinking && mergedTools.length > 0) {
-                const mergedEntry = createMergedTimelineEntry({ title: pendingThinking.title || '思考', content: pendingThinking.output || pendingThinking.content || '' }, mergedTools);
+                const mergedEntry = createMergedTimelineEntry({ title: forceTitle('thinking', pendingThinking.title || '思考'), content: pendingThinking.output || pendingThinking.content || '' }, mergedTools);
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'chat-msg tool';
                 const bubble = document.createElement('div');
@@ -1432,7 +1432,7 @@ function renderMessages(messages: any[]) {
                 appendToChatMessages(msgDiv);
                 hasTlEntries = true;
             } else if (pendingThinking && mergedTools.length === 0) {
-                const entry = createTimelineEntry({ toolCallId: '', kind: 'thinking', title: pendingThinking.title || '思考', status: 'completed', content: pendingThinking.output || pendingThinking.content || '' });
+                const entry = createTimelineEntry({ toolCallId: '', kind: 'thinking', title: forceTitle('thinking', pendingThinking.title || '思考'), status: 'completed', content: pendingThinking.output || pendingThinking.content || '' });
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'chat-msg tool';
                 const bubble = document.createElement('div');
@@ -2883,6 +2883,10 @@ function getTlKind(kind: string): string {
     return 'command';
 }
 
+function forceTitle(kind: string, title: string): string {
+    return kind === 'thinking' ? '思考' : title;
+}
+
 function getTlIcon(kind: string): string {
     const k = getTlKind(kind);
     if (k === 'thinking') return '💭';
@@ -2900,7 +2904,7 @@ function getTlColor(kind: string): string {
 
 function createTimelineEntry(msg: any): HTMLElement {
     const kind = msg.kind || '';
-    const title = msg.title || '';
+    const title = forceTitle(kind, msg.title || '');
     const output = msg.content || msg.output || '';
     const status = msg.status || 'completed';
     const tlKind = getTlKind(kind);
@@ -3030,7 +3034,7 @@ function createMergedTimelineEntry(thinkingMsg: any, tools: any[]): HTMLElement 
 
     const titleEl = document.createElement('span');
     titleEl.className = 'tl-entry-title';
-    const thinkText = (thinkingMsg.title || '思考').substring(0, 20);
+    const thinkText = forceTitle('thinking', thinkingMsg.title || '思考').substring(0, 20);
     let titleHtml = `<span style="color:#888;font-style:italic">${escapeHtml(thinkText)}</span>`;
     for (const t of tools) {
         const tIcon = getTlIcon(t.kind || '');
@@ -3187,7 +3191,7 @@ function handleToolCallUpdate(msg: any) {
             thinkingId: toolId,
             thinkingTitle: existingEntry
                 ? (existingEntry.querySelector('.tl-entry-title')?.textContent || '思考')
-                : (msg.title || '思考'),
+                : forceTitle('thinking', msg.title || '思考'),
             thinkingBody: msg.content || msg.output || '',
             tools: [],
         };

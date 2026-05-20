@@ -456,7 +456,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
 .tl-entry-body .tl-body-diff{color:#d2d2d4;padding:2px 0}
 
-.tl-entry-body .tl-body-thinking{font-style:italic;color:#777;font-size:11px}
+.tl-entry-body .tl-body-thinking{font-style:italic;color:#777;font-size:11px;margin-bottom:8px}
 
 /* === Review / Diff / Plan === */
 .review-changes{padding:6px 0 0;border-top:1px solid rgba(255,255,255,.04);margin-top:6px}

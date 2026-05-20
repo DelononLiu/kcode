@@ -77,7 +77,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     <div id="chat-messages">
                     <div id="tl-filter-bar" class="tl-filter-bar hidden">
                         <button class="tl-filter-btn active" data-tl-filter="all">全部</button>
-                        <button class="tl-filter-btn" data-tl-filter="thinking">💭 推理</button>
+                        <button class="tl-filter-btn" data-tl-filter="thinking">💭 思考</button>
                         <button class="tl-filter-btn" data-tl-filter="file">📄 文件</button>
                         <button class="tl-filter-btn" data-tl-filter="command">💻 命令</button>
                         <button class="tl-filter-btn" data-tl-filter="search">🔍 搜索</button>
