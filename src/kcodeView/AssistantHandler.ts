@@ -27,7 +27,7 @@ export class AssistantHandler {
     }
 
     async convertToTask() {
-        const messages = this.store.getAssistantMessages();
+        const messages = this.store.getAssistantMessages().filter(m => m.role !== 'tool');
         const firstUserMsg = messages.find(m => m.role === 'user');
         const context = messages.slice(-10).map(m =>
             `${m.role === 'user' ? '用户' : 'AI'}: ${m.content.substring(0, 200)}`
