@@ -2396,10 +2396,40 @@ _目标：用户说"跑一下 demo"，Agent 自动完成 build → start → 预
 
 | 任务 | 说明 | 状态 | 优先级 |
 |------|------|------|--------|
+| P20-00 | Demo 运行结果卡片 UI — 嵌入式可折叠卡片，含信息区/环境元数据/输出流/状态标识/操作按钮 | ✅ 已完成 | P0 |
 | P20-01 | Demo 工作流提示词 — build → start → verify 结构化指令 | ⬜ 未开始 | P0 |
 | P20-02 | 服务输出实时回显 — dev server stdout/stderr 流式展示 | ⬜ 未开始 | P0 |
 | P20-03 | 自动预览触发 — agent 启动 server 后自动打开 WebView | ⬜ 未开始 | P0 |
 | P20-04 | 一键重跑 — 重新执行 build+start+verify 全流程 | ⬜ 未开始 | P1 |
+
+---
+
+### P20-00: Demo 运行结果卡片 UI — 嵌入式可折叠卡片
+
+**涉及文件**:
+- `src/kcodeView/templates/chatPanelCss.ts` — 新增 `.demo-card-*` 全量样式（info 栅格、环境元数据折叠、输出区终端风格、三色状态 badge、操作按钮行）
+- `src/kcodeView/webview/app.ts` — 新增 `handleDemoCardUpdate()` 消息处理器（create/appendOutput/updateStatus/setEnvMeta 四个 action）；新增 `renderDemoCard()` 渲染函数；在 `initMessageHandler` 注册 `demoCardUpdate` 消息
+- `src/kcodeView/KCodePanel.ts` — 新增 `handleDemoRun()` 方法（创建卡片→连接设备→逐命令执行→流式输出回填→自动检测完成/失败）；新增 `handleDemoStop()` 方法（abort 终止→更新卡片状态）；注册 `demoRun`/`demoStop`/`demoRerun` 三条消息路由
+- `src/kcodeView/templates/__tests__/chatPanelCss.test.ts` — 新增 16 个 demo-card className 断言
+
+**实现说明**:
+1. **卡片结构**: 消息类型 `tool`，内联展示在对话时间线
+2. **信息区**: 栅格布局（Demo 名称 / 执行命令 / 运行设备）
+3. **环境元数据**: 可折叠区块，点击展开/收起，数据通过 JSON 字段传递，界面不显示标签原文
+4. **输出流**: 黑底绿字终端风格，max-height 240px 可滚动，stdout/stderr 配色区分，`\x1b` ANSI 转义码清洗
+5. **状态识别**: 基于 `status` 字段值（running/completed/failed），不依赖前端关键字匹配：running 蓝底脉冲动画、completed 绿底、failed 红底
+6. **操作按钮**: 「📋 查看日志」（复制全部输出）、「🔄 重新运行」（发送 `demoRerun` 消息）、「✕ 终止」（发送 `demoStop` + abort，运行中可见）
+7. **设备对接**: `handleDemoRun` 复用 `this.deviceClients` Map，通过已有 `IDeviceClient.exec()` 逐命令执行，流式输出通过 `demoCardUpdate.appendOutput` 实时回填
+8. **消息流**: 扩展侧 → WebView 通过 `demoCardUpdate` 消息，action 分 create/appendOutput/updateStatus/setEnvMeta，支持增量追加而非全量替换
+
+**状态**: ✅ 已完成
+
+**验收标准**:
+- `npx tsc --noEmit` 零错误，`npm test` 全通过
+- 通过 vscode postMessage 发送 `{ type: 'demoCardUpdate', action: 'create', name, command, device }` 可在对话区渲染 Demo 卡片
+- `appendOutput` 增量追加输出行，stdout/stderr 配色正确
+- `updateStatus` 切换状态 badge（running/completed/failed）
+- 重新运行/终止按钮发送正确消息到扩展侧
 
 ---
 

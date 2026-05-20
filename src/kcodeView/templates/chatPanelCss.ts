@@ -563,5 +563,40 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .thinking-dots .dot:nth-child(2){animation-delay:-0.16s}
 .thinking-dots .dot:nth-child(3){animation-delay:0s}
 @keyframes dot-bounce{0%,80%,100%{transform:scale(0.6);opacity:.3}40%{transform:scale(1);opacity:.8}}
+
+/* === Demo Card === */
+.demo-card{padding:4px 0}
+.demo-card-section{padding:4px 8px}
+.demo-card-section+.demo-card-section{border-top:1px solid rgba(255,255,255,.05)}
+.demo-card-info{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12px;line-height:1.5}
+.demo-card-info-key{color:#888;white-space:nowrap}
+.demo-card-info-value{color:#ccc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.demo-card-env-header{display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;font-size:11px;color:#777;padding:2px 0;transition:color .15s}
+.demo-card-env-header:hover{color:#aaa}
+.demo-card-env-header svg{width:10px;height:10px;transition:transform .2s;flex-shrink:0}
+.demo-card-env-header.collapsed svg{transform:rotate(-90deg)}
+.demo-card-env-body{padding:4px 0 2px 14px;font-size:11px;line-height:1.5;color:#666;overflow:hidden;transition:max-height .2s ease,opacity .15s,padding .15s}
+.demo-card-env-body.collapsed{max-height:0;padding:0 0 0 14px;opacity:0}
+.demo-card-env-row{display:flex;gap:8px}
+.demo-card-env-key{color:#888;flex-shrink:0}
+.demo-card-env-val{color:#777;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.demo-card-output{max-height:240px;overflow-y:auto;background:rgba(0,0,0,.25);border-radius:3px;padding:6px 8px;font-family:Consolas,monospace;font-size:12px;line-height:1.45;white-space:pre-wrap;word-break:break-all;margin:4px 8px 6px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent}
+.demo-card-output-line{padding:0;word-break:break-all}
+.demo-card-output-line.stdout{color:#d4d4d4}
+.demo-card-output-line.stderr{color:#e2777a}
+.demo-card-status-row{display:flex;align-items:center;gap:8px;padding:6px 8px 4px}
+.demo-card-status-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 10px;border-radius:4px;font-weight:500}
+.demo-card-status-badge.running{background:rgba(26,95,158,.15);color:#5a9bc8;animation:demo-pulse 2s infinite}
+.demo-card-status-badge.completed{background:rgba(90,157,107,.12);color:#5a9d6b}
+.demo-card-status-badge.failed{background:rgba(224,96,96,.1);color:#e06060}
+@keyframes demo-pulse{0%{box-shadow:0 0 0 0 rgba(26,95,158,.2)}70%{box-shadow:0 0 0 6px rgba(26,95,158,0)}100%{box-shadow:0 0 0 0 rgba(26,95,158,0)}}
+.demo-card-footer{display:flex;gap:6px;padding:4px 8px 8px;justify-content:flex-end}
+.demo-card-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#999;border-radius:3px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:inherit;transition:all .15s}
+.demo-card-btn:hover{background:rgba(255,255,255,.1);color:#ccc}
+.demo-card-btn.danger{color:#e06060;border-color:rgba(224,96,96,.25)}
+.demo-card-btn.danger:hover{background:rgba(224,96,96,.1);color:#ff7b89}
+.demo-card-btn.primary{background:#4a8bb5;border-color:#4a8bb5;color:#fff}
+.demo-card-btn.primary:hover{background:#5a9bc8}
+.demo-card-btn:disabled{opacity:.35;cursor:default;pointer-events:none}
 `;
 }

@@ -94,6 +94,10 @@ export class KCodePanel {
         this.commandRegistry.registerSlashCommand('/cancel', '取消当前任务', async (_a, tid) => { if (tid) this.flowHandler.handleCancelTask(tid); });
         this.commandRegistry.registerSlashCommand('/new', '新建任务', async () => { await vscode.commands.executeCommand('kcode.newTask'); });
         this.commandRegistry.registerSlashCommand('/tasks', '查看任务概览', (_a, tid) => this.sendTasksSummary(tid));
+        this.commandRegistry.registerSlashCommand('/demo', '运行 demo 并在卡片中查看输出', (args) => {
+            if (!args) { this.router.PostMessage({ type: 'addSystemMessage', content: '用法: /demo <命令>\n示例: /demo echo hello' }); return; }
+            this.handleDemoRun({ name: 'Demo', command: args, device: 'localhost', envMeta: { '触发方式': '斜杠命令' } });
+        }, '/demo <命令>');
 
         this.router.PostMessage({ type: 'slashCommandList', commands: this.getSlashCommandList() });
 
@@ -201,6 +205,9 @@ export class KCodePanel {
         this.router.on('deviceConnect', (msg) => this.handleDeviceConnect(msg.config));
         this.router.on('deviceDisconnect', () => this.handleDeviceDisconnect());
         this.router.on('deviceCommand', (msg) => this.handleDeviceCommand(msg.command));
+        this.router.on('demoRun', (msg) => this.handleDemoRun(msg));
+        this.router.on('demoStop', (msg) => this.handleDemoStop(msg.cardId, msg.taskId));
+        this.router.on('demoRerun', (msg) => this.handleDemoRun(msg));
         this.router.on('getSavedDevices', () => {
             const devices: SavedDevice[] = this.configService.get<SavedDevice[]>('devices', []);
             this.router.PostMessage({ type: 'savedDevices', devices });
@@ -275,6 +282,7 @@ export class KCodePanel {
             { name: '/cancel', description: '取消当前任务' },
             { name: '/new', description: '新建任务' },
             { name: '/tasks', description: '查看任务概览' },
+            { name: '/demo', description: '运行 demo 并查看实时输出' },
         ];
         const projectCmds = this.commandRegistry.getKiloCommands().map(c => ({
             name: c.name,
@@ -455,6 +463,105 @@ export class KCodePanel {
                 this.router.PostMessage({ type: 'deviceOutput', data: `\x1b[31m${err?.message || String(err)}\x1b[0m` });
             }
         }
+    }
+
+    private _activeDemoAbort: AbortController | null = null;
+
+    private async handleDemoRun(config: any) {
+        const cardId = config.cardId || `demo_${Date.now()}`;
+        const deviceStr = config.device || `${config.host || 'localhost'}:${config.port || 22}`;
+
+        this.router.PostMessage({
+            type: 'demoCardUpdate',
+            cardId,
+            taskId: this.currentTaskId || '',
+            action: 'create',
+            name: config.name || '未命名 Demo',
+            command: config.command || '',
+            device: deviceStr,
+            envMeta: config.envMeta || {},
+            status: 'running',
+            output: '',
+        });
+
+        if (!config.command) {
+            this.router.PostMessage({ type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '', action: 'updateStatus', status: 'failed' });
+            return;
+        }
+
+        const abort = new AbortController();
+        this._activeDemoAbort = abort;
+
+        try {
+            const commands = Array.isArray(config.command) ? config.command : [config.command];
+            for (const cmd of commands) {
+                if (abort.signal.aborted) break;
+                this.router.PostMessage({
+                    type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '',
+                    action: 'appendOutput', output: `$ ${cmd}\n`,
+                });
+                const clients = Array.from(this.deviceClients.values());
+                if (clients.length > 0) {
+                    for (const client of clients) {
+                        if (abort.signal.aborted) break;
+                        try {
+                            const result = await client.exec(cmd);
+                            if (result) {
+                                this.router.PostMessage({
+                                    type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '',
+                                    action: 'appendOutput', output: result,
+                                });
+                            }
+                        } catch (err: any) {
+                            this.router.PostMessage({
+                                type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '',
+                                action: 'appendOutput', output: `\x1b[31m${err?.message || String(err)}\x1b[0m\n`,
+                            });
+                        }
+                    }
+                } else {
+                    this.router.PostMessage({
+                        type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '',
+                        action: 'appendOutput', output: '\x1b[33m未连接设备\x1b[0m\n',
+                    });
+                }
+            }
+
+            if (!abort.signal.aborted) {
+                this.router.PostMessage({
+                    type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '',
+                    action: 'updateStatus', status: 'completed',
+                });
+            }
+        } catch (err: any) {
+            if (!abort.signal.aborted) {
+                this.router.PostMessage({
+                    type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '',
+                    action: 'appendOutput', output: `\x1b[31m${err?.message || String(err)}\x1b[0m\n`,
+                });
+                this.router.PostMessage({
+                    type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '',
+                    action: 'updateStatus', status: 'failed',
+                });
+            }
+        } finally {
+            if (this._activeDemoAbort === abort) {
+                this._activeDemoAbort = null;
+            }
+        }
+    }
+
+    private handleDemoStop(cardId: string, taskId?: string) {
+        this._activeDemoAbort?.abort();
+        this._activeDemoAbort = null;
+        this.router.PostMessage({
+            type: 'demoCardUpdate', cardId, taskId: taskId || this.currentTaskId || '',
+            action: 'updateStatus', status: 'failed',
+        });
+        this.router.PostMessage({
+            type: 'demoCardUpdate', cardId, taskId: taskId || this.currentTaskId || '',
+            action: 'appendOutput', output: '\n\x1b[33m[已终止]\x1b[0m\n',
+        });
     }
 
     dispose() {

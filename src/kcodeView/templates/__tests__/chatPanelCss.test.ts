@@ -31,4 +31,23 @@ describe('getInlineStyles', () => {
         expect(css).toContain('#chat-nav-btns');
         expect(css).toContain('.chat-nav-btn');
     });
+
+    it('包含 Demo 卡片样式', () => {
+        const css = getInlineStyles();
+        expect(css).toContain('.demo-card');
+        expect(css).toContain('.demo-card-info');
+        expect(css).toContain('.demo-card-output');
+        expect(css).toContain('.demo-card-env-header');
+        expect(css).toContain('.demo-card-env-body');
+        expect(css).toContain('.demo-card-status-badge');
+        expect(css).toContain('.demo-card-status-badge.running');
+        expect(css).toContain('.demo-card-status-badge.completed');
+        expect(css).toContain('.demo-card-status-badge.failed');
+        expect(css).toContain('.demo-card-footer');
+        expect(css).toContain('.demo-card-btn');
+        expect(css).toContain('.demo-card-btn.danger');
+        expect(css).toContain('.demo-card-btn.primary');
+        expect(css).toContain('.demo-card-output-line.stdout');
+        expect(css).toContain('.demo-card-output-line.stderr');
+    });
 });
