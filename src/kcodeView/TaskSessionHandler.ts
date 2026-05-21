@@ -147,8 +147,8 @@ export class TaskSessionHandler {
             const agentName = ConfigService.getInstance().get<string>('agentName', '');
             ctx.showAgentError(tid, ctx.agentService.lastError
                 || (!agentName || agentName === 'npx'
-                    ? '请配置 Agent：在 KCode 设置中配置 agentName'
-                    : `Agent 连接失败：无法连接到 "${agentName}"`));
+                    ? 'Agent 未配置'
+                    : `无法连接到 "${agentName}"`));
         }
     }
 

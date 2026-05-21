@@ -240,7 +240,7 @@ export class TaskFlowHandler {
     showAgentError(tid: string, errorMsg: string) {
         const { ctx } = this;
         ctx.storeMessage(tid, 'agent', `错误: ${errorMsg}`);
-        ctx.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n[错误: ${errorMsg}]` });
+        ctx.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n---\n⚠️ **${errorMsg}**\n\n\`👉 在 KCode 侧边栏底部齿轮图标 → 设置 → Agent 配置 中填写 agentName\`\n---` });
         ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskStatus: ctx.store.getTask(tid)?.status });
     }
 

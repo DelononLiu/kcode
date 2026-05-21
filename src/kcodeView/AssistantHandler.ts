@@ -233,7 +233,7 @@ export class AssistantHandler {
         if (!this.agentService.isConnected) {
             await this.sessionHandler.ensureConnection();
             if (!this.agentService.isConnected) {
-                this.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n[错误: 请配置并启动 Agent]` });
+                this.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n---\n⚠️ **Agent 未配置**\n\n\`👉 在 KCode 侧边栏底部齿轮图标 → 设置 → Agent 配置 中填写 agentName\`\n---` });
                 return;
             }
         }
