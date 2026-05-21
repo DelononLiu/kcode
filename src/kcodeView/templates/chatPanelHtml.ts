@@ -123,19 +123,23 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                         <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
                         <div class="input-footer">
                             <div class="input-footer-left">
-                                <span class="status-item">
-                                    <span id="agent-status-dot" class="status-dot offline"></span>
-                                    <div class="agent-dropdown" id="agent-dropdown">
-                                        <button class="agent-dropdown-btn" id="agent-dropdown-btn">
-                                            <span id="agent-dropdown-label">Agent</span>
-                                            <svg class="agent-dropdown-arrow" width="8" height="5" viewBox="0 0 8 5"><path d="M1 1l3 3 3-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                        </button>
-                                        <ul class="agent-dropdown-list hidden" id="agent-dropdown-list"></ul>
-                                    </div>
-                                </span>
-                                <span class="status-divider"></span>
-                                <div id="input-template-bar"></div>
+                                <span id="agent-status-dot" class="status-dot offline"></span>
+                                <div class="agent-dropdown" id="agent-dropdown">
+                                    <button class="agent-dropdown-btn pill-btn" id="agent-dropdown-btn">
+                                        <span id="agent-dropdown-label">Agent</span>
+                                        <svg class="agent-dropdown-arrow" width="8" height="5" viewBox="0 0 8 5"><path d="M1 1l3 3 3-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </button>
+                                    <ul class="agent-dropdown-list hidden" id="agent-dropdown-list"></ul>
+                                </div>
+                                <div class="agent-dropdown" id="model-dropdown">
+                                    <button class="agent-dropdown-btn pill-btn" id="model-dropdown-btn">
+                                        <span id="model-dropdown-label">模型</span>
+                                        <svg class="agent-dropdown-arrow" width="8" height="5" viewBox="0 0 8 5"><path d="M1 1l3 3 3-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </button>
+                                    <ul class="agent-dropdown-list hidden" id="model-dropdown-list"></ul>
+                                </div>
                             </div>
+                            <div id="input-template-bar" class="input-footer-center"></div>
                             <div class="input-footer-right">
                                 <button class="input-tool-btn image-btn" title="图片">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">

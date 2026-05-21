@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { AcpClient } from '../acp/AcpClient';
 import { OpenAIAgent } from '../acp/OpenAIAgent';
 import { ConfigService } from './ConfigService';
@@ -141,13 +144,25 @@ export class AgentService implements IAgentService {
             this.acpClient = acpClient;
             this._isConnected = true;
             this._agentName = 'kilo';
-            this._modelName = 'kilo';
+            this._modelName = this._readKiloModel();
             this.agentType = 'acp';
             return true;
         }
 
         this._lastError = acpClient.lastError || `无法启动 kilo: ${kiloPath}`;
         return false;
+    }
+
+    private _readKiloModel(): string {
+        const configPath = path.join(os.homedir(), '.config', 'kilo', 'kilo.jsonc');
+        try {
+            const raw = fs.readFileSync(configPath, 'utf-8');
+            const json = raw.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+            const config = JSON.parse(json);
+            return config.model || config.agent?.code?.model || 'kilo';
+        } catch {
+            return 'kilo';
+        }
     }
 
     private async connectGenericACP(agentName: string, agentArgs: string[] = []): Promise<boolean> {

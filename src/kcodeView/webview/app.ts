@@ -343,6 +343,9 @@ function initMessageHandler() {
             case 'agentList':
                 initAgentSelector(message.agents || []);
                 break;
+            case 'modelList':
+                initModelSelector(message.models || []);
+                break;
             case 'knowledgeExtract':
                 handleKnowledgeExtract(message.entries || []);
                 break;
@@ -721,6 +724,31 @@ function initAgentSelector(agents: { label: string; type: string; model?: string
     });
 }
 
+function initModelSelector(models: string[]) {
+    const btn = document.getElementById('model-dropdown-btn');
+    const label = document.getElementById('model-dropdown-label');
+    const list = document.getElementById('model-dropdown-list');
+    if (!btn || !label || !list) return;
+    list.innerHTML = '';
+    for (const m of models) {
+        const item = document.createElement('li');
+        item.className = 'agent-dropdown-item';
+        item.textContent = m;
+        item.addEventListener('click', () => {
+            label.textContent = m;
+            list.classList.add('hidden');
+            vscode.postMessage({ type: 'switchModel', model: m });
+        });
+        list.appendChild(item);
+    }
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const wasHidden = list.classList.contains('hidden');
+        if (!wasHidden) { list.classList.add('hidden'); return; }
+        list.classList.remove('hidden');
+    });
+}
+
 function handleAgentStatus(status: string, message: string, agentName: string, modelName?: string) {
     const statusDot = document.getElementById('agent-status-dot');
     if (statusDot) {
@@ -729,15 +757,16 @@ function handleAgentStatus(status: string, message: string, agentName: string, m
     }
     const label = document.getElementById('agent-dropdown-label');
     const list = document.getElementById('agent-dropdown-list');
+    const modelLabel = document.getElementById('model-dropdown-label');
     if (!label || !list) return;
     if (status === 'connected') {
         const activeItem = list.querySelector(`.agent-dropdown-item[data-value="${agentName}"]`) as HTMLElement;
         const displayName = activeItem?.querySelector('.agent-name')?.textContent || agentName;
-        const modelDisplay = modelName ? ` — ${modelName}` : '';
-        label.innerHTML = `<span class="agent-label-name">${displayName}</span><span class="agent-label-model">${modelDisplay}</span>`;
+        label.textContent = displayName;
         list.querySelectorAll('.agent-dropdown-item').forEach(el => {
             el.classList.toggle('active', (el as HTMLElement).dataset.value === agentName);
         });
+        if (modelLabel && modelName) modelLabel.textContent = modelName;
     }
 }
 
