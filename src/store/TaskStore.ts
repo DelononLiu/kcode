@@ -12,7 +12,7 @@ export interface StorageBackend {
 }
 
 function kcodeRoot(): string {
-    return path.join(os.homedir(), '.local', 'share', 'kcode');
+    return path.join(os.homedir(), '.kcode');
 }
 
 export class TaskStore {

@@ -4,7 +4,7 @@ import * as os from 'os';
 import { Task, ChatMessage, ContainerEntity, FileChange, AssistantMessage, ToolGroup, ToolItem, KnowledgeEntry, TimelineEntry } from '../types';
 
 function defaultRoot(): string {
-	return path.join(os.homedir(), '.local', 'share', 'kcode');
+	return path.join(os.homedir(), '.kcode');
 }
 
 function workspaceSafeId(workspaceRoot?: string): string {

@@ -15,7 +15,7 @@ export class FileStorage {
 
     constructor(workspacePath?: string) {
         const homeDir = os.homedir();
-        const kcodeDir = path.join(homeDir, '.local', 'share', 'kcode');
+        const kcodeDir = path.join(homeDir, '.kcode');
         const wsHash = workspacePath
             ? crypto.createHash('md5').update(workspacePath).digest('hex').slice(0, 12)
             : 'default';

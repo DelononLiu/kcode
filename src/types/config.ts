@@ -68,7 +68,7 @@ export function getDefaultConfig(): KCodeConfig {
 export const CONFIG_FILENAME = 'kcode.jsonc';
 
 export const CONFIG_FILE_PATHS = {
-  global: ['.config', 'kcode', CONFIG_FILENAME],
+  global: ['.kcode', CONFIG_FILENAME],
   project: ['.kcode', CONFIG_FILENAME],
 };
 

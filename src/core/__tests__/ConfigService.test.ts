@@ -50,7 +50,7 @@ vi.mock('os', () => ({ homedir: () => '/fake-home' }));
 
 const enc = (s: string): Buffer => Buffer.from(s, 'utf-8');
 
-const GLOBAL_PATH = '/fake-home/.config/kcode/kcode.jsonc';
+const GLOBAL_PATH = '/fake-home/.kcode/kcode.jsonc';
 const PROJECT_PATH = '/test-workspace/.kcode/kcode.jsonc';
 
 beforeEach(() => {

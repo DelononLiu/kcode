@@ -43,8 +43,7 @@ export class ConfigService {
   private _listeners: ConfigListener[] = [];
 
   constructor(workspaceRoot?: string) {
-    const xdg = process.env['XDG_CONFIG_HOME'] || path.join(os.homedir(), '.config');
-    this._globalPath = path.join(xdg, 'kcode', CONFIG_FILENAME);
+    this._globalPath = path.join(os.homedir(), '.kcode', CONFIG_FILENAME);
     if (workspaceRoot) {
       this._projectPath = path.join(workspaceRoot, '.kcode', CONFIG_FILENAME);
     }
