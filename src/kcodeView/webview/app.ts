@@ -734,8 +734,10 @@ function initModelSelector(models: string[]) {
         const item = document.createElement('li');
         item.className = 'agent-dropdown-item';
         item.textContent = m;
+        item.title = m;
         item.addEventListener('click', () => {
-            label.textContent = m;
+            label.textContent = truncateModel(m);
+            label.title = m;
             list.classList.add('hidden');
             vscode.postMessage({ type: 'switchModel', model: m });
         });
@@ -747,6 +749,12 @@ function initModelSelector(models: string[]) {
         if (!wasHidden) { list.classList.add('hidden'); return; }
         list.classList.remove('hidden');
     });
+}
+
+function truncateModel(m: string): string {
+    const parts = m.split('/');
+    if (parts.length >= 2 && parts[parts.length - 1].length <= 20) return parts[parts.length - 1];
+    return m.length > 18 ? m.substring(0, 16) + '…' : m;
 }
 
 function handleAgentStatus(status: string, message: string, agentName: string, modelName?: string) {
@@ -766,7 +774,10 @@ function handleAgentStatus(status: string, message: string, agentName: string, m
         list.querySelectorAll('.agent-dropdown-item').forEach(el => {
             el.classList.toggle('active', (el as HTMLElement).dataset.value === agentName);
         });
-        if (modelLabel && modelName) modelLabel.textContent = modelName;
+        if (modelLabel && modelName) {
+            modelLabel.textContent = truncateModel(modelName);
+            modelLabel.title = modelName;
+        }
     }
 }
 

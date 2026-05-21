@@ -180,7 +180,7 @@ export class TaskSessionHandler {
         });
         this.ctx.router.PostMessage({
             type: 'modelList',
-            models: modelName ? [modelName, 'deepseek/deepseek-v4-flash', 'anthropic/claude-sonnet-4-20250514', 'google/gemini-2.5-flash-001', 'openai/gpt-4o'] : [],
+            models: this.ctx.agentService.getAvailableModels(),
         });
     }
 

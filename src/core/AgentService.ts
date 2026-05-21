@@ -153,16 +153,23 @@ export class AgentService implements IAgentService {
         return false;
     }
 
-    private _readKiloModel(): string {
+    private _readKiloConfig(): any {
         const configPath = path.join(os.homedir(), '.config', 'kilo', 'kilo.jsonc');
         try {
-            const raw = fs.readFileSync(configPath, 'utf-8');
-            const json = raw.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-            const config = JSON.parse(json);
-            return config.model || config.agent?.code?.model || 'kilo';
-        } catch {
-            return 'kilo';
-        }
+            return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+        } catch { return null; }
+    }
+
+    private _readKiloModel(): string {
+        const config = this._readKiloConfig();
+        if (!config) return 'kilo';
+        return config.model || config.agent?.code?.model || 'kilo';
+    }
+
+    getAvailableModels(): string[] {
+        const config = this._readKiloConfig();
+        if (!config || !config.model) return [];
+        return [config.model];
     }
 
     private async connectGenericACP(agentName: string, agentArgs: string[] = []): Promise<boolean> {
