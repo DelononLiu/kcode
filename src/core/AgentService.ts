@@ -206,9 +206,13 @@ export class AgentService implements IAgentService {
                 sessionId = newSession ?? undefined;
             }
             if (!sessionId) {
-                const errMsg = this.acpClient ? this.acpClient.lastError : '';
-                handler.onError(errMsg || 'ACP 会话未就绪');
-                return;
+                if (this.openaiAgent && this.agentType === 'openai') {
+                    sessionId = `openai-session-${taskId}`;
+                } else {
+                    const errMsg = this.acpClient ? this.acpClient.lastError : '';
+                    handler.onError(errMsg || 'ACP 会话未就绪');
+                    return;
+                }
             }
         }
 
@@ -226,7 +230,7 @@ export class AgentService implements IAgentService {
         if (this.acpClient) {
             await this.acpClient.cancel(taskId);
         } else if (this.openaiAgent) {
-            this.openaiAgent.cancel(taskId);
+            this.openaiAgent.cancel(`openai-session-${taskId}`);
         }
     }
 

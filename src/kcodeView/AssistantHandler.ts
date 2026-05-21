@@ -23,7 +23,14 @@ export class AssistantHandler {
 
     loadMessages() {
         const msgs = this.store.getAssistantMessages();
-        this.router.PostMessage({ type: 'loadMessages', messages: msgs, taskId: '', taskType: 'assistant' });
+        this.router.PostMessage({ type: 'loadMessages', messages: msgs, taskId: '__assistant__', taskType: 'assistant' });
+    }
+
+    stopGeneration() {
+        this.setGenerationState(false);
+        this.agentService.cancel('__assistant__');
+        const msgs = this.store.getAssistantMessages();
+        this.router.PostMessage({ type: 'loadMessages', messages: msgs, taskId: '__assistant__', taskType: 'assistant' });
     }
 
     async convertToTask() {

@@ -166,7 +166,13 @@ export class KCodePanel {
         this.router.on('approveReview', (msg) => this.flowHandler.handleApproveReview(msg.taskId));
         this.router.on('rejectReview', (msg) => this.flowHandler.handleRejectReview(msg.taskId, msg.reason));
         this.router.on('showFileDiff', (msg) => this.showDiff(msg.original, msg.modified));
-        this.router.on('stopGeneration', (msg) => this.flowHandler.handleStopGeneration(msg.taskId));
+        this.router.on('stopGeneration', (msg) => {
+            if (msg.taskId === '__assistant__') {
+                this.assistantHandler.stopGeneration();
+            } else {
+                this.flowHandler.handleStopGeneration(msg.taskId);
+            }
+        });
         this.router.on('openNativeDiff', (msg) => this.flowHandler.handleOpenNativeDiff(msg.original, msg.modified, msg.filePath));
         this.router.on('confirmGoalWithEdit', async (msg) => this.flowHandler.handleConfirmGoalWithEdit(msg.taskId, msg.goal, msg.originalRequest));
         this.router.on('confirmGoalFromHeader', async (msg) => this.flowHandler.handleConfirmGoalFromHeader(msg.taskId));
