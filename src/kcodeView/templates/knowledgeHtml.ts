@@ -19,7 +19,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 <body>
     <div id="container">
         <div id="header">
-            <h1>📚 知识库</h1>
+            <h1>知识库</h1>
             <div id="search-bar">
                 <input id="search-input" type="text" placeholder="搜索知识条目..." />
                 <div id="type-filter">

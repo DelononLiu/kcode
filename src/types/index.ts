@@ -8,7 +8,7 @@ export interface ContainerEntity {
     createdAt: number;
 }
 
-export type TaskCategory = 'requirement_dev' | 'problem_analysis' | 'performance_opt' | 'defect_analysis';
+export type TaskCategory = 'requirement_dev' | 'code_review' | 'problem_analysis' | 'defect_analysis' | 'log_analysis';
 
 export interface InputField {
     key: string;

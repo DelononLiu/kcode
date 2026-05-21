@@ -562,8 +562,6 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
 
             <div class="new-task-actions">
                 <button id="btn-new-task" class="sidebar-btn"><span class="sidebar-btn-icon">📝</span> 新建任务</button>
-                <button id="btn-import-task" class="sidebar-btn"><span class="sidebar-btn-icon">⤓</span> 导入任务</button>
-                <button id="btn-template-task" class="sidebar-btn"><span class="sidebar-btn-icon">📋</span> 根据模板新建</button>
             </div>
 
             <div id="project-list"></div>

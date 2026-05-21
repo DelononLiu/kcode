@@ -162,6 +162,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-input::placeholder{color:#555}
 .input-footer{display:flex;align-items:center;justify-content:space-between;padding-top:4px;min-height:28px}
 .input-footer-left{display:flex;align-items:center;gap:2px}
+.input-import-btns{display:flex;align-items:center;gap:1px}
+.input-import-btn{background:none;border:none;color:#666;cursor:pointer;padding:3px 5px;border-radius:3px;font-size:14px;line-height:1;transition:color .2s,background .2s}
+.input-import-btn:hover{background:rgba(255,255,255,.05);color:#999;text-decoration:none}
 .input-footer-right{display:flex;align-items:center;gap:2px}
 .input-tool-btn{background:none;border:none;color:#666;cursor:pointer;padding:4px;border-radius:3px;display:flex;align-items:center;justify-content:center;transition:color .2s,background .2s}
 .input-tool-btn.hidden{display:none}
@@ -197,9 +200,13 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .agent-dropdown-arrow{flex-shrink:0;opacity:.5;pointer-events:none}
 .agent-dropdown-list{position:fixed;margin-top:2px;padding:4px 0;background:#25252a;border:1px solid rgba(255,255,255,.1);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.4);z-index:100;min-width:90px;list-style:none;overflow-y:auto}
 .agent-dropdown-list.hidden{display:none}
-.agent-dropdown-item{padding:5px 12px;font-size:12px;color:#ccc;cursor:pointer;transition:background .1s}
+.agent-dropdown-item{padding:5px 12px;font-size:12px;color:#ccc;cursor:pointer;transition:background .1s;display:flex;flex-direction:column;gap:1px}
 .agent-dropdown-item:hover{background:rgba(74,139,181,.2);color:#fff}
 .agent-dropdown-item.active{background:rgba(74,139,181,.15);color:#4a8bb5}
+.agent-name{color:#e0e0e0}
+.agent-model{font-size:10px;color:#888}
+.agent-label-name{color:#e0e0e0}
+.agent-label-model{color:#888;font-size:10px}
 .slash-context-menu{position:fixed;padding:4px 0;background:#25252a;border:1px solid rgba(255,255,255,.1);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.4);z-index:200;min-width:160px;max-height:260px;overflow-y:auto;list-style:none;font-family:system-ui,'Segoe UI',Roboto,sans-serif}
 .slash-menu-item{padding:5px 12px;font-size:12px;color:#ccc;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .1s;white-space:nowrap}
 .slash-menu-item:hover,.slash-menu-item.hover{background:rgba(74,139,181,.2);color:#fff}
@@ -211,6 +218,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .template-chip:hover{color:#bbb;background:rgba(255,255,255,.07)}
 .template-chip.active{color:#4a8bb5;background:rgba(74,139,181,.15)}
 .template-chip .tmpl-icon{font-size:12px}
+.template-chip.import-chip{color:#4a8bb5;font-weight:500}
+.template-chip.import-chip:hover{color:#5ab0e0}
+.template-chip-sep{color:#444;font-size:11px;padding:0 2px;user-select:none}
 
 /* === Right Output Panel — vertical sections (no tabs) === */
 #right-output-panel{width:220px;min-width:140px;display:flex;flex-direction:column;background:var(--vscode-sideBar-background,#1e1e1e);border-left:1px solid rgba(255,255,255,.06);flex-shrink:0;position:relative;overflow:hidden}

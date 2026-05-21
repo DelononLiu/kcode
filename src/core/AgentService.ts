@@ -10,6 +10,7 @@ export class AgentService implements IAgentService {
     private _isConnected: boolean = false;
     private _lastError: string = '';
     private _agentName: string = '';
+    private _modelName: string = '';
     private agentType: 'acp' | 'openai' | null = null;
     private workspaceRoot: string;
     private logCallback: ((direction: 'send' | 'recv', text: string) => void) | null = null;
@@ -18,6 +19,7 @@ export class AgentService implements IAgentService {
     get isConnected(): boolean { return this._isConnected; }
     get lastError(): string { return this._lastError; }
     get agentName(): string { return this._agentName; }
+    get modelName(): string { return this._modelName; }
 
     constructor(workspaceRoot: string) {
         this.workspaceRoot = workspaceRoot;
@@ -98,6 +100,7 @@ export class AgentService implements IAgentService {
             this.acpClient = acpClient;
             this._isConnected = true;
             this._agentName = 'opencode';
+            this._modelName = 'opencode';
             this.agentType = 'acp';
             return true;
         }
@@ -108,13 +111,15 @@ export class AgentService implements IAgentService {
 
     private connectOpenAI(overrideApiKey?: string, overrideModel?: string, overrideBaseUrl?: string): boolean {
         const cfg = this._cfg();
+        const model = overrideModel || cfg.get<string>('provider.openai.model');
         this.openaiAgent = new OpenAIAgent({
             apiKey: overrideApiKey || cfg.get<string>('provider.openai.apiKey'),
-            model: overrideModel || cfg.get<string>('provider.openai.model'),
+            model,
             baseURL: overrideBaseUrl || cfg.get<string>('provider.openai.baseUrl'),
         });
         this._isConnected = true;
         this._agentName = 'openai';
+        this._modelName = model || 'unknown';
         this.agentType = 'openai';
         return true;
     }
@@ -136,6 +141,7 @@ export class AgentService implements IAgentService {
             this.acpClient = acpClient;
             this._isConnected = true;
             this._agentName = 'kilo';
+            this._modelName = 'kilo';
             this.agentType = 'acp';
             return true;
         }
@@ -158,6 +164,7 @@ export class AgentService implements IAgentService {
             this.acpClient = acpClient;
             this._isConnected = true;
             this._agentName = agentName;
+            this._modelName = agentName;
             this.agentType = 'acp';
             return true;
         }
@@ -174,6 +181,7 @@ export class AgentService implements IAgentService {
         this.openaiAgent = null;
         this._isConnected = false;
         this._agentName = '';
+        this._modelName = '';
         this.agentType = null;
     }
 

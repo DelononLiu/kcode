@@ -57,6 +57,7 @@ export class KCodePanel {
                 vscode.Uri.joinPath(context.extensionUri, 'src', 'kcodeView', 'webview')
             ]
         });
+        this.panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'resources', 'kcode.png');
         this.router.PostMessage = (msg) => this.panel.webview.postMessage(msg);
 
         this.acpLogManager = new AcpLogManager(this.router);

@@ -22,15 +22,6 @@ declare function acquireVsCodeApi(): any;
         if (newTaskBtn) {
             newTaskBtn.addEventListener('click', () => vscode.postMessage({ type: 'newTask' }));
         }
-        const importBtn = document.getElementById('btn-import-task');
-        if (importBtn) {
-            importBtn.addEventListener('click', () => vscode.postMessage({ type: 'importGitHubIssue' }));
-        }
-        const templateBtn = document.getElementById('btn-template-task');
-        if (templateBtn) {
-            templateBtn.addEventListener('click', () => vscode.postMessage({ type: 'newTaskFromTemplate' }));
-        }
-
         // Footer buttons
         const settingsBtn = document.getElementById('btn-settings');
         if (settingsBtn) {

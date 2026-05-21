@@ -21,14 +21,15 @@ export class TaskSessionHandler {
             const connected = await ctx.agentService.connect(agentName, agentArgs);
             if (connected) {
                 const displayName = ctx.agentService.agentName;
+                const modelName = ctx.agentService.modelName;
                 const msg = displayName === 'kilo'
-                    ? `Kilo (${cfg.get<string>('agentPath', 'kilo')})`
+                    ? `Kilo`
                     : displayName === 'opencode'
-                        ? `OpenCode (${cfg.get<string>('agentPath', 'opencode')})`
+                        ? `OpenCode`
                         : displayName === 'openai'
-                            ? `OpenAI Agent (${cfg.get<string>('provider.openai.model', '')})`
+                            ? `OpenAI (${modelName})`
                             : 'Agent 已连接';
-                ctx.router.PostMessage({ type: 'agentStatus', status: 'connected', message: msg, agentName: displayName });
+                ctx.router.PostMessage({ type: 'agentStatus', status: 'connected', message: msg, agentName: displayName, modelName });
             } else {
                 ctx.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: ctx.agentService.lastError || 'Agent 未连接', agentName: '' });
             }
@@ -161,18 +162,20 @@ export class TaskSessionHandler {
         const connected = await ctx.agentService.connectByLabel(label);
         if (connected) {
             const displayName = ctx.agentService.agentName;
-            ctx.router.PostMessage({ type: 'agentStatus', status: 'connected', message: `已切换到 ${label}`, agentName: displayName });
+            const modelName = ctx.agentService.modelName;
+            ctx.router.PostMessage({ type: 'agentStatus', status: 'connected', message: `已切换到 ${label}`, agentName: displayName, modelName });
         } else {
             ctx.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: ctx.agentService.lastError || 'Agent 切换失败', agentName: '' });
         }
     }
 
     sendAgentList(): void {
+        const modelName = this.ctx.agentService.modelName;
         this.ctx.router.PostMessage({
             type: 'agentList',
             agents: [
-                { label: 'Kilo', type: 'kilo' },
-                { label: 'OpenCode', type: 'opencode' },
+                { label: 'Kilo', type: 'kilo', model: modelName || '' },
+                { label: 'OpenCode', type: 'opencode', model: modelName || '' },
             ],
         });
     }

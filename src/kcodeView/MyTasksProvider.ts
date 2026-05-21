@@ -30,6 +30,7 @@ export class MyTasksProvider {
                 ],
             }
         );
+        this.panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'resources', 'kcode.png');
 
         this.panel.webview.html = this._getHtml(this.panel.webview, context.extensionUri);
         this._setupMessageHandler();

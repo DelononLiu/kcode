@@ -205,7 +205,6 @@ function initMessageHandler() {
                 renderAcpLog();
                 const gutter = document.getElementById('node-timeline-gutter');
                 if (gutter) gutter.classList.remove('hidden');
-                // Restore UI elements for task mode
                 const outPanel = document.getElementById('right-output-panel');
                 if (outPanel) outPanel.style.display = '';
                 const extractBtn = document.getElementById('btn-knowledge-extract');
@@ -214,11 +213,11 @@ function initMessageHandler() {
                     reviewChangesMap.set(message.taskId, message.reviewChanges);
                     (window as any).updateOutputPanel?.({}, message.reviewChanges);
                 }
-    lastAcceptanceCriteria = message.acceptanceCriteria || null;
-    if (message.reviewChanges || message.acceptanceCriteria) {
-        acceptanceCheckedState.delete(message.taskId);
-    }
-    renderMessages(message.messages);
+                lastAcceptanceCriteria = message.acceptanceCriteria || null;
+                if (message.reviewChanges || message.acceptanceCriteria) {
+                    acceptanceCheckedState.delete(message.taskId);
+                }
+                renderMessages(message.messages);
                 break;
             case 'showDiff':
                 if ((window as any).showDiff) {
@@ -230,7 +229,7 @@ function initMessageHandler() {
                 handleAgentStreamUpdate(message.text);
                 break;
             case 'agentStatus':
-                handleAgentStatus(message.status, message.message, message.agentName || '');
+                handleAgentStatus(message.status, message.message, message.agentName || '', message.modelName || '');
                 break;
             case 'focusInput':
                 const inputEl = document.getElementById('chat-input') as HTMLTextAreaElement;
@@ -656,7 +655,7 @@ let _programmaticScroll = false;
 
 let _agentSelectorInited = false;
 
-function initAgentSelector(agents: { label: string; type: string }[]) {
+function initAgentSelector(agents: { label: string; type: string; model?: string }[]) {
     const btn = document.getElementById('agent-dropdown-btn');
     const label = document.getElementById('agent-dropdown-label');
     const list = document.getElementById('agent-dropdown-list');
@@ -667,7 +666,8 @@ function initAgentSelector(agents: { label: string; type: string }[]) {
         const item = document.createElement('li');
         item.className = 'agent-dropdown-item';
         item.dataset.value = agent.type;
-        item.textContent = agent.label;
+        const modelText = agent.model ? ` — ${agent.model}` : '';
+        item.innerHTML = `<span class="agent-name">${agent.label}</span><span class="agent-model">${modelText}</span>`;
         item.addEventListener('click', () => {
             label.textContent = agent.label;
             list.classList.add('hidden');
@@ -721,7 +721,7 @@ function initAgentSelector(agents: { label: string; type: string }[]) {
     });
 }
 
-function handleAgentStatus(status: string, message: string, agentName: string) {
+function handleAgentStatus(status: string, message: string, agentName: string, modelName?: string) {
     const statusDot = document.getElementById('agent-status-dot');
     if (statusDot) {
         statusDot.className = 'status-dot ' + (status === 'connected' ? 'online' : 'offline');
@@ -731,8 +731,10 @@ function handleAgentStatus(status: string, message: string, agentName: string) {
     const list = document.getElementById('agent-dropdown-list');
     if (!label || !list) return;
     if (status === 'connected') {
-        const activeItem = list.querySelector(`.agent-dropdown-item[data-value="${agentName}"]`);
-        label.textContent = (activeItem?.textContent) || agentName;
+        const activeItem = list.querySelector(`.agent-dropdown-item[data-value="${agentName}"]`) as HTMLElement;
+        const displayName = activeItem?.querySelector('.agent-name')?.textContent || agentName;
+        const modelDisplay = modelName ? ` — ${modelName}` : '';
+        label.innerHTML = `<span class="agent-label-name">${displayName}</span><span class="agent-label-model">${modelDisplay}</span>`;
         list.querySelectorAll('.agent-dropdown-item').forEach(el => {
             el.classList.toggle('active', (el as HTMLElement).dataset.value === agentName);
         });
@@ -1007,7 +1009,10 @@ function initChat() {
         vscode.postMessage({ type: 'openTerminal' });
     });
 
-
+    const btnImportIssue = document.getElementById('btn-import-issue');
+    btnImportIssue?.addEventListener('click', () => {
+        vscode.postMessage({ type: 'importGitHubIssue' });
+    });
 
     const acpLogEnable = document.getElementById('acp-log-enable') as HTMLInputElement;
     acpLogEnable?.addEventListener('change', () => {
@@ -1844,6 +1849,19 @@ function initTemplateChips() {
     const bar = document.getElementById('input-template-bar');
     if (!bar || !categoryDefs || categoryDefs.length === 0) return;
     bar.innerHTML = '';
+    const importChip = document.createElement('span');
+    importChip.className = 'template-chip import-chip';
+    importChip.innerHTML = '<span class="tmpl-icon">⤓</span> 导入任务';
+    importChip.addEventListener('click', () => {
+        selectedCategory = null;
+        bar.querySelectorAll('.template-chip').forEach(c => c.classList.remove('active'));
+        vscode.postMessage({ type: 'importGitHubIssue' });
+    });
+    bar.appendChild(importChip);
+    const sep = document.createElement('span');
+    sep.className = 'template-chip-sep';
+    sep.textContent = '|';
+    bar.appendChild(sep);
     for (const cat of categoryDefs) {
         const chip = document.createElement('span');
         chip.className = 'template-chip' + (selectedCategory === cat.key ? ' active' : '');

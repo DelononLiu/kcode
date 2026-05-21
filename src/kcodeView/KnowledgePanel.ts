@@ -14,7 +14,7 @@ export class KnowledgePanel {
 
         this.panel = vscode.window.createWebviewPanel(
             KnowledgePanel.viewType,
-            '📚 知识库',
+            '知识库',
             vscode.ViewColumn.Beside,
             {
                 enableScripts: true,
@@ -24,6 +24,7 @@ export class KnowledgePanel {
                 ]
             }
         );
+        this.panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'resources', 'kcode.png');
 
         this.panel.webview.html = getWebviewContent(this.panel.webview, context.extensionUri);
 

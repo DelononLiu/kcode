@@ -2,14 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { getCategories, getCategory, getTemplate } from '../templates';
 
 describe('templates', () => {
-    it('getCategories returns all 4 categories', () => {
+    it('getCategories returns all 5 categories', () => {
         const cats = getCategories();
-        expect(cats).toHaveLength(4);
+        expect(cats).toHaveLength(5);
         const keys = cats.map(c => c.key);
         expect(keys).toContain('requirement_dev');
+        expect(keys).toContain('code_review');
         expect(keys).toContain('problem_analysis');
-        expect(keys).toContain('performance_opt');
         expect(keys).toContain('defect_analysis');
+        expect(keys).toContain('log_analysis');
     });
 
     it('getCategory returns correct category', () => {
