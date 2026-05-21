@@ -346,6 +346,18 @@ function initMessageHandler() {
             case 'modelList':
                 initModelSelector(message.models || []);
                 break;
+            case 'setInputPreset':
+                {
+                    const input = document.getElementById('chat-input') as HTMLTextAreaElement;
+                    if (input) input.value = message.text || '';
+                }
+                break;
+            case 'setInputPlaceholder':
+                {
+                    const input = document.getElementById('chat-input') as HTMLTextAreaElement;
+                    if (input) input.placeholder = message.text || '提出后续修改要求';
+                }
+                break;
             case 'knowledgeExtract':
                 handleKnowledgeExtract(message.entries || []);
                 break;

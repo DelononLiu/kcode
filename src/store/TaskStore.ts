@@ -287,6 +287,10 @@ export class TaskStore {
         this.fs.addAssistantMessage(msg);
     }
 
+    setAssistantMessages(msgs: AssistantMessage[]): void {
+        this.fs.setAssistantMessages(msgs);
+    }
+
     nextAssistantMessageId(): string {
         const msgs = this.fs.getAssistantMessages();
         const max = msgs.reduce((m, msg) => {

@@ -88,6 +88,7 @@ export class KCodePanel {
         this.commandRegistry.load(workspacePath);
         this.taskFlow.setAvailableCommands(this.commandRegistry.getPromptInjection());
         this.commandRegistry.registerSlashCommand('/ai', '切换到小助手模式', () => this.loadAssistant());
+        this.commandRegistry.registerSlashCommand('/guide', '新手引导', () => this.loadAssistantWithGuide());
         this.commandRegistry.registerSlashCommand('/totask', '将小助手对话转为任务', async () => { await this.assistantHandler.convertToTask(); });
         this.commandRegistry.registerSlashCommand('/go', '将小助手对话转为任务', async () => { await this.assistantHandler.convertToTask(); });
         this.commandRegistry.registerSlashCommand('/confirm', '确认当前阶段操作', async (_a, tid) => { if (tid) await this.handlePhaseConfirm(tid); });
@@ -275,6 +276,14 @@ export class KCodePanel {
         this.assistantHandler.loadMessages();
         this.refreshSidebarCallback?.();
         this.sessionHandler.ensureConnection();
+        this.router.PostMessage({ type: 'slashCommandList', commands: this.getSlashCommandList() });
+    }
+
+    loadAssistantWithGuide() {
+        this.currentTaskId = null;
+        this.pendingMessages = [];
+        this.assistantHandler.startGuide();
+        this.refreshSidebarCallback?.();
         this.router.PostMessage({ type: 'slashCommandList', commands: this.getSlashCommandList() });
     }
 

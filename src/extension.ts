@@ -72,65 +72,21 @@ export async function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    // Generate sample tasks on first launch
+    // First launch: show onboarding guide instead of creating sample tasks
+    let isFirstLaunch = false;
     if (store.getTasks().length === 0) {
-        const samples: Task[] = [
-            {
-                id: `sample_explore_${Date.now()}`,
-                title: '📖 探索项目结构',
-                goal: '了解当前项目的目录结构、技术栈和核心模块，帮助你快速上手 KCode。',
-                type: 'task',
-                category: 'requirement_dev',
-                subType: 'doc_dev',
-                status: 'pending',
-                phase: 'demand',
-                confirmedItems: [],
-                pendingItems: [],
-                planSteps: [],
-                createdAt: Date.now(),
-                workspace: workspaceRoot,
-            },
-            {
-                id: `sample_analyze_${Date.now()}`,
-                title: '🔍 分析常见问题',
-                goal: '扫描项目中的潜在问题（未捕获异常、性能隐患、代码异味等），输出改进建议。',
-                type: 'task',
-                category: 'problem_analysis',
-                subType: 'debug',
-                status: 'pending',
-                phase: 'demand',
-                confirmedItems: [],
-                pendingItems: [],
-                planSteps: [],
-                createdAt: Date.now(),
-                workspace: workspaceRoot,
-            },
-            {
-                id: `sample_flow_${Date.now()}`,
-                title: '⚡ 体验完整任务流程',
-                goal: '通过一个简单的代码优化任务，体验 KCode 的 demand → goal → plan → execute → self_verify → review 全流程。',
-                type: 'task',
-                category: 'requirement_dev',
-                subType: 'feature_dev',
-                status: 'pending',
-                phase: 'demand',
-                confirmedItems: [],
-                pendingItems: [],
-                planSteps: [],
-                createdAt: Date.now(),
-                workspace: workspaceRoot,
-            },
-        ];
-        for (const task of samples) {
-            store.addTask(task);
-        }
+        isFirstLaunch = true;
     }
 
     // Auto-create the main panel when KCode is activated (shows assistant by default)
     panel = new KCodePanel(context, store!, configService);
     panel.onDidDispose(() => { panel = undefined; });
     panel.setRefreshSidebarCallback(refreshSidebar);
-    panel.loadAssistant();
+    if (isFirstLaunch) {
+        panel.loadAssistantWithGuide();
+    } else {
+        panel.loadAssistant();
+    }
 
     // Open/focus the sidebar view and reveal the main panel
     const openCmd = vscode.commands.registerCommand('kcode.open', async () => {

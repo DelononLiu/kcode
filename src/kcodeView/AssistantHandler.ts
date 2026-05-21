@@ -6,7 +6,101 @@ import type { Task } from '../types';
 import type { AcpMessageHandler } from '../types';
 import { AssistantStreamHandler } from './stream/AssistantStreamHandler';
 
+const ASSISTANT_SYSTEM_PROMPT = `你是一个 AI 编程助手，回答用户的问题、写代码、分析项目。
+
+每次实现/修改完成后，必须按以下格式输出摘要：
+
+### ✅ 实现完成：<功能名>
+
+**修改文件**:
+- \`path/to/file.ts\` — 做了什么
+
+**实现原理**:
+- 核心逻辑一句话
+
+**验收步骤**:
+1. 操作步骤
+2. 预期结果
+
+如果只回答不写代码，不需要此格式。`;
+
+interface GuideStep {
+    agent: string;
+    preset: string;
+}
+
+const GUIDE_STEPS: GuideStep[] = [
+    {
+        agent: `👋 欢迎使用 KCode！
+
+KCode 是一个 **Task 驱动的 AI 编程助手**，帮你把需求一步步变成代码。
+
+它的核心流程分为 6 个阶段：
+
+📋 需求收集 → 🎯 目标确认 → 📝 计划制定 → ⚡ 执行实现 → ✅ AI 自验 → 🏁 人工验收
+
+每个阶段都需要你确认后才进入下一步，确保 AI 做的事情是你想要的。
+
+---
+按回车继续，我带你了解每个阶段具体做什么。`,
+        preset: '好的，带我了解',
+    },
+    {
+        agent: `## 📋 需求收集（Demand）
+你说想要什么，AI 复述确认，双方对齐需求。
+
+## 🎯 目标确认（Goal）
+AI 把你的需求归纳为清晰的目标条目，你确认后锁定，不可再改。
+
+## 📝 计划制定（Plan）
+AI 制定实现步骤，你可以讨论调整，确认后开始执行。
+
+## ⚡ 执行实现（Execute）
+AI 写代码、改文件、跑命令，你随时可以中断或提修改意见。
+
+## ✅ AI 自验（Self-Verify）
+AI 自己检查刚才的产出，有 bug 自动修复，无需你操心。
+
+## 🏁 人工验收（Review）
+展示所有变更文件，你逐条验收通过或驳回修改。
+
+---
+**全程你说了算**，每个阶段都有确认按钮，AI 不会跳过你的意见。
+
+按回车，我用示例任务带你走一遍完整流程。`,
+        preset: '好的，体验流程',
+    },
+    {
+        agent: `现在创建一个示例任务，带你走一遍完整流程 👇
+
+> **示例任务**：优化项目中的一段代码，提升可读性
+> **目标**：体验从需求到验收的全流程
+
+准备好就开始吧！`,
+        preset: '开始体验',
+    },
+];
+
+const SAMPLE_TASK: Task = {
+    id: `onboard_`,
+    title: '🖐️ 示例：优化代码可读性',
+    goal: '找到项目中一段可读性较差的代码，进行重构优化：\n1. 分析代码结构，找出可改进的地方\n2. 重命名不清晰的变量和函数名\n3. 提取重复逻辑为复用函数\n4. 添加必要的注释\n5. 确保优化后功能不变',
+    type: 'task',
+    category: 'requirement_dev',
+    subType: 'refactor',
+    status: 'pending',
+    phase: 'demand',
+    confirmedItems: [],
+    pendingItems: [],
+    planSteps: [],
+    createdAt: Date.now(),
+    pinned: false,
+    workspace: undefined,
+};
+
 export class AssistantHandler {
+    private _guideStep = -1;
+
     constructor(
         private store: TaskStore,
         private agentService: AgentService,
@@ -20,6 +114,8 @@ export class AssistantHandler {
         private loadTask?: (taskId: string) => void,
         private workspaceRoot?: string,
     ) {}
+
+    get inGuide(): boolean { return this._guideStep >= 0; }
 
     loadMessages() {
         const msgs = this.store.getAssistantMessages();
@@ -63,11 +159,66 @@ export class AssistantHandler {
     }
 
     showLanding() {
+        this._guideStep = -1;
         this.router.PostMessage({ type: 'updateNodePanel', nodes: [], taskType: 'assistant' });
         this.router.PostMessage({ type: 'updateTaskInfo', title: '🤖 小助手', taskType: 'assistant', goal: '', status: '', phase: '', phaseLabel: '', confirmedItems: [], pendingItems: [], planSteps: [], hooks: {}, workspaceHooks: {}, messageCount: 0, executeFinished: false });
     }
 
+    startGuide() {
+        this.showLanding();
+        this.store.setAssistantMessages([]);
+        this._guideStep = 0;
+        this._sendGuideStep();
+    }
+
+    private _sendGuideStep() {
+        const step = GUIDE_STEPS[this._guideStep];
+        if (!step) return;
+        const msgId = this.store.nextAssistantMessageId();
+        this.store.addAssistantMessage({ id: msgId, role: 'agent', content: step.agent, timestamp: Date.now() });
+        this.loadMessages();
+        this.router.PostMessage({ type: 'setInputPlaceholder', text: `按回车发送: "${step.preset}"` });
+        this.router.PostMessage({ type: 'setInputPreset', text: step.preset });
+    }
+
+    async handleGuideInput(text: string) {
+        const step = GUIDE_STEPS[this._guideStep];
+        if (!step) return;
+
+        // Store user response
+        const msgId = this.store.nextAssistantMessageId();
+        this.store.addAssistantMessage({ id: msgId, role: 'user', content: text, timestamp: Date.now() });
+        this.router.PostMessage({ type: 'addUserMessage', content: text });
+
+        this._guideStep++;
+
+        // Last step → create sample task
+        if (this._guideStep >= GUIDE_STEPS.length) {
+            this._guideStep = -1;
+            this.router.PostMessage({ type: 'setInputPlaceholder', text: '' });
+            this.router.PostMessage({ type: 'setInputPreset', text: '' });
+            await this._createSampleTask();
+            return;
+        }
+
+        this._sendGuideStep();
+    }
+
+    private async _createSampleTask() {
+        const newId = `onboard_${Date.now()}`;
+        const task = { ...SAMPLE_TASK, id: newId, createdAt: Date.now(), workspace: this.workspaceRoot || '' };
+        this.store.addTask(task);
+        this.loadTask?.(task.id);
+        this.refreshSidebar?.();
+        await this.sessionHandler.handleSendMessage(task.goal, newId);
+    }
+
     async handleMessage(text: string) {
+        if (this.inGuide) {
+            await this.handleGuideInput(text);
+            return;
+        }
+
         const tid = '__assistant__';
         if (this.isGenerating()) {
             this.pushPending(text, tid);
@@ -99,11 +250,16 @@ export class AssistantHandler {
             if (sessionId !== existingSessionId) {
                 this.store.setAssistantSessionId(sessionId);
             }
-        }
 
-        const handler = this.createResponseHandler();
-        this.setGenerationState(true);
-        await this.agentService.sendPrompt(tid, text, handler);
+            const handler = this.createResponseHandler();
+            this.setGenerationState(true);
+            const prompt = ASSISTANT_SYSTEM_PROMPT + '\n\n' + text;
+            await this.agentService.sendPrompt(tid, prompt, handler);
+        } else {
+            const handler = this.createResponseHandler();
+            this.setGenerationState(true);
+            await this.agentService.sendPrompt(tid, text, handler);
+        }
     }
 
     createResponseHandler(): AcpMessageHandler {

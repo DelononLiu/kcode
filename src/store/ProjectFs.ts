@@ -481,6 +481,10 @@ export class ProjectFs {
 		fs.writeFileSync(amsgPath, JSON.stringify(messages, null, 2), 'utf-8');
 	}
 
+	setAssistantMessages(msgs: AssistantMessage[]): void {
+		fs.writeFileSync(this._assistantMessagesPath, JSON.stringify(msgs, null, 2), 'utf-8');
+	}
+
 	// ===== Assistant session =====
 
 	private get _assistantSessionPath(): string {
