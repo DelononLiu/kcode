@@ -358,6 +358,19 @@ function initMessageHandler() {
                     if (input) input.placeholder = message.text || '提出后续修改要求';
                 }
                 break;
+            case 'setNarration':
+                {
+                    const el = document.getElementById('system-narration');
+                    if (!el) break;
+                    if (message.text) {
+                        el.classList.remove('hidden');
+                        el.innerHTML = '<span class="narration-dot"></span> ' + escapeHtml(message.text);
+                    } else {
+                        el.classList.add('hidden');
+                        el.innerHTML = '';
+                    }
+                }
+                break;
             case 'knowledgeExtract':
                 handleKnowledgeExtract(message.entries || []);
                 break;

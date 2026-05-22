@@ -119,6 +119,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                         </div>
                         <div id="queue-list" class="hidden"></div>
                     </div>
+                    <div id="system-narration" class="hidden"></div>
                     <div class="input-wrapper">
                         <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
                         <div class="input-footer">

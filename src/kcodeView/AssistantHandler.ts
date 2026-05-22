@@ -4,6 +4,7 @@ import type { MessageRouter } from './MessageRouter';
 import type { TaskSessionHandler } from './TaskSessionHandler';
 import type { Task } from '../types';
 import type { AcpMessageHandler } from '../types';
+import type { SetupResult } from './SetupWizard';
 import { AssistantStreamHandler } from './stream/AssistantStreamHandler';
 
 const ASSISTANT_SYSTEM_PROMPT = `你是一个 AI 编程助手，回答用户的问题、写代码、分析项目。
@@ -100,6 +101,9 @@ const SAMPLE_TASK: Task = {
 
 export class AssistantHandler {
     private _guideStep = -1;
+    private _envPhase: '' | 'detecting' = '';
+    private _onEnvSetupComplete: (() => Promise<void>) | null = null;
+    private _isFirstLaunch = false;
 
     constructor(
         private store: TaskStore,
@@ -113,7 +117,9 @@ export class AssistantHandler {
         private refreshSidebar?: () => void,
         private loadTask?: (taskId: string) => void,
         private workspaceRoot?: string,
-    ) {}
+    ) {
+        this._addAssistantMessage = this._addAssistantMessage.bind(this);
+    }
 
     get inGuide(): boolean { return this._guideStep >= 0; }
 
@@ -160,9 +166,59 @@ export class AssistantHandler {
 
     showLanding() {
         this._guideStep = -1;
+        this._envPhase = '';
         this.router.PostMessage({ type: 'updateNodePanel', nodes: [], taskType: 'assistant' });
         this.router.PostMessage({ type: 'updateTaskInfo', title: '🤖 小助手', taskType: 'assistant', goal: '', status: '', phase: '', phaseLabel: '', confirmedItems: [], pendingItems: [], planSteps: [], hooks: {}, workspaceHooks: {}, messageCount: 0, executeFinished: false });
     }
+
+    // ── Phase 1: 环境检查安装（对话式） ──────────────────────
+
+    async startEnvDetection(isFirstLaunch: boolean, onSetup: () => Promise<void>) {
+        this.showLanding();
+        this.store.setAssistantMessages([]);
+        this._isFirstLaunch = isFirstLaunch;
+        this._envPhase = 'detecting';
+        this._onEnvSetupComplete = onSetup;
+
+        const { detectEnv } = await import('./SetupWizard');
+        const env = await detectEnv(() => {});
+
+        const content = this._formatEnvMessage(env);
+        const msgId = this.store.nextAssistantMessageId();
+        this.store.addAssistantMessage({ id: msgId, role: 'agent', content, timestamp: Date.now() });
+        this.loadMessages();
+        this.router.PostMessage({ type: 'setInputPlaceholder', text: '按回车开始自动安装与配置' });
+        this.router.PostMessage({ type: 'setInputPreset', text: '好的，开始安装配置' });
+    }
+
+    private _formatEnvMessage(env: SetupResult): string {
+        const lines = [
+            '## 📋 环境检测结果',
+            '',
+            '| 项目 | 状态 |',
+            '|------|------|',
+            `| Node.js | ${env.nodeInstalled ? '✅ 就绪' : '❌ 未安装'} |`,
+            `| Kilo CLI | ${env.kiloInstalled ? '✅ 就绪' : '❌ 未安装'} |`,
+            `| OpenCode CLI | ${env.opencodeInstalled ? '✅ 就绪' : '❌ 未安装'} |`,
+            `| Agent 配置 | ${env.configReady ? '✅ 已配置' : '❌ 未配置'} |`,
+            '',
+            '按回车开始自动安装缺失组件并配置 Agent。',
+        ];
+        return lines.join('\n');
+    }
+
+    transitionAfterSetup() {
+        this._envPhase = '';
+        if (this._isFirstLaunch) {
+            this.store.setAssistantMessages([]);
+            this.startGuide();
+        } else {
+            this._addAssistantMessage('✅ **环境已就绪**\n\n现在可以开始使用 KCode 了！输入问题或需求即可。');
+            this.router.PostMessage({ type: 'setInputPlaceholder', text: '提出后续修改要求' });
+        }
+    }
+
+    // ── Phase 3: 任务流程引导 ────────────────────────────
 
     startGuide() {
         this.showLanding();
@@ -185,14 +241,12 @@ export class AssistantHandler {
         const step = GUIDE_STEPS[this._guideStep];
         if (!step) return;
 
-        // Store user response
         const msgId = this.store.nextAssistantMessageId();
         this.store.addAssistantMessage({ id: msgId, role: 'user', content: text, timestamp: Date.now() });
         this.router.PostMessage({ type: 'addUserMessage', content: text });
 
         this._guideStep++;
 
-        // Last step → create sample task
         if (this._guideStep >= GUIDE_STEPS.length) {
             this._guideStep = -1;
             this.router.PostMessage({ type: 'setInputPlaceholder', text: '' });
@@ -213,9 +267,21 @@ export class AssistantHandler {
         await this.sessionHandler.handleSendMessage(task.goal, newId);
     }
 
+    // ── Phase 2: AI 助手对话 ─────────────────────────────
+
     async handleMessage(text: string) {
         if (this.inGuide) {
             await this.handleGuideInput(text);
+            return;
+        }
+        if (this._envPhase === 'detecting') {
+            this._envPhase = '';
+            this.router.PostMessage({ type: 'setInputPlaceholder', text: '' });
+            this.router.PostMessage({ type: 'setInputPreset', text: '' });
+            const msgId = this.store.nextAssistantMessageId();
+            this.store.addAssistantMessage({ id: msgId, role: 'user', content: text, timestamp: Date.now() });
+            this.router.PostMessage({ type: 'addUserMessage', content: text });
+            await this._onEnvSetupComplete?.();
             return;
         }
 
@@ -260,6 +326,16 @@ export class AssistantHandler {
             this.setGenerationState(true);
             await this.agentService.sendPrompt(tid, text, handler);
         }
+    }
+
+    // ── 工具方法 ─────────────────────────────────────────
+
+    private _addAssistantMessage(content: string) {
+        const msgId = this.store.nextAssistantMessageId();
+        this.store.addAssistantMessage({
+            id: msgId, role: 'agent', content, timestamp: Date.now(),
+        });
+        this.loadMessages();
     }
 
     createResponseHandler(): AcpMessageHandler {

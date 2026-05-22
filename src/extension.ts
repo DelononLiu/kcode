@@ -82,11 +82,7 @@ export async function activate(context: vscode.ExtensionContext) {
     panel = new KCodePanel(context, store!, configService);
     panel.onDidDispose(() => { panel = undefined; });
     panel.setRefreshSidebarCallback(refreshSidebar);
-    if (isFirstLaunch) {
-        panel.loadAssistantWithGuide();
-    } else {
-        panel.loadAssistant();
-    }
+    panel.loadAssistant(isFirstLaunch);
 
     // Open/focus the sidebar view and reveal the main panel
     const openCmd = vscode.commands.registerCommand('kcode.open', async () => {

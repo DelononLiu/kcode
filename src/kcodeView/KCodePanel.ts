@@ -269,25 +269,85 @@ export class KCodePanel {
         this.loadWorkspaceHooks().then(hooks => this.taskFlow.setWorkspaceHooks(hooks));
     }
 
-    loadAssistant() {
+    async loadAssistant(isFirstLaunch: boolean = false) {
         this.currentTaskId = null;
         this.pendingMessages = [];
-        this.assistantHandler.showLanding();
-        this.assistantHandler.loadMessages();
-        this.refreshSidebarCallback?.();
-        this.sessionHandler.ensureConnection();
         this.router.PostMessage({ type: 'slashCommandList', commands: this.getSlashCommandList() });
+
+        await this.sessionHandler.ensureConnection();
+        if (this.agentService.isConnected) {
+            this.assistantHandler.showLanding();
+            this.assistantHandler.loadMessages();
+            this.refreshSidebarCallback?.();
+            if (isFirstLaunch) this.assistantHandler.startGuide();
+        } else {
+            await this.assistantHandler.startEnvDetection(isFirstLaunch, () => this._runEnvSetup());
+        }
     }
 
     loadAssistantWithGuide() {
-        this.currentTaskId = null;
-        this.pendingMessages = [];
-        this.assistantHandler.startGuide();
-        this.refreshSidebarCallback?.();
-        this.router.PostMessage({ type: 'slashCommandList', commands: this.getSlashCommandList() });
+        this.loadAssistant(true);
     }
 
     autoSendGoal(taskId: string, text: string) { this.sessionHandler.handleSendMessage(text, taskId); }
+
+    private async _runEnvSetup() {
+        const stream = (text: string) => this.router.PostMessage({ type: 'agentStreamUpdate', text });
+
+        stream('正在检查运行环境…\n');
+
+        const { detectEnv } = await import('./SetupWizard');
+        const env = await detectEnv(() => {});
+
+        if (!env.nodeInstalled) {
+            stream('\n\n⚠️ Node.js 未安装，请先安装 Node.js https://nodejs.org');
+            return;
+        }
+
+        // Auto-configure agentName if CLI tools are installed
+        if (!env.configReady) {
+            stream('\n\n正在检测 Agent 配置…');
+            const recheck = await detectEnv(() => {});
+            if (recheck.kiloInstalled || recheck.opencodeInstalled) {
+                const agentToUse = recheck.kiloInstalled ? 'kilo' : 'opencode';
+                this.configService.set('agentName', agentToUse);
+                await this.configService.save();
+                stream(`\n\n✅ 已自动配置 agentName = "${agentToUse}"`);
+            }
+        }
+
+        // Model config check
+        this._streamModelConfig(stream);
+
+        // Try connection
+        stream('\n\n正在连接 Agent…');
+        await this.sessionHandler.ensureConnection();
+
+        if (this.agentService.isConnected) {
+            stream('\n\n✅ **环境已就绪**');
+        } else {
+            stream('\n\n⚠️ 环境配置完成，但连接仍有问题，请在设置中检查。');
+        }
+
+        this.assistantHandler.transitionAfterSetup();
+    }
+
+    private _streamModelConfig(stream: (text: string) => void) {
+        const agentName = this.configService.get<string>('agentName', '');
+        if (agentName === 'openai') {
+            const apiKey = this.configService.get<string>('provider.openai.apiKey');
+            const model = this.configService.get<string>('provider.openai.model');
+            if (apiKey) {
+                stream(`\n\n🤖 模型: ${model || '未设置'} | API Key: ✅`);
+            } else {
+                stream('\n\n⚠️ OpenAI API Key 未配置，请在设置中填写');
+            }
+        } else if (agentName === 'kilo') {
+            stream('\n\n🤖 模型: 使用 Kilo 配置 (~/.config/kilo/kilo.jsonc)');
+        } else if (agentName === 'opencode') {
+            stream('\n\n🤖 模型: 使用 OpenCode 默认配置');
+        }
+    }
 
     private getSlashCommandList(): { name: string; description: string }[] {
         const builtin = [

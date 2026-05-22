@@ -154,6 +154,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .toolbar-btn{background:transparent;border:none;color:#aaa;cursor:pointer;font-size:11px;padding:3px 10px;border-radius:3px;white-space:nowrap}
 .toolbar-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
 #chat-input-area{border-top:1px solid rgba(255,255,255,.06);padding:12px 24px 10px;background:var(--vscode-sideBar-background,#1e1e1e);flex-shrink:0;max-width:900px;margin:0 auto;width:100%}
+#system-narration{max-width:900px;margin:0 auto;width:100%;padding:6px 24px 0;font-size:12px;color:#888;display:flex;align-items:center;gap:6px;flex-shrink:0}
+#system-narration .narration-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#4a8bb5;animation:narration-pulse 1.2s ease-in-out infinite;flex-shrink:0}
+@keyframes narration-pulse{0%,100%{opacity:.3}50%{opacity:1}}
+#system-narration.hidden{display:none}
 .input-wrapper{background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:10px 12px 6px;transition:border-color .2s,box-shadow .2s}
 .input-wrapper:focus-within{border-color:var(--vscode-focusBorder,#007fd4);box-shadow:0 0 8px rgba(0,127,212,.3)}
 .input-wrapper.input-flash{animation:input-flash .8s ease-out}

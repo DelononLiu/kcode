@@ -2727,6 +2727,7 @@ _目标：降低用户上手门槛，完善生态集成，统一 UI 视觉。_
 
 | 任务 | 说明 | 状态 | 优先级 |
 |------|------|------|--------|
+| P25-01 | 启动环境检查 — 激活时检测 Agent 是否安装、配置是否就绪，未就绪时自动引导安装 | ✅ 已完成 | P0 |
 | P25-03 | 模型信息展示 — 在 Agent 名称旁显示当前模型 | ✅ 已完成 | P0 |
 | P25-04 | 导入任务入口 — 输入框左侧独立按钮组；删除「根据模板新建」| ✅ 已完成 | P0 |
 | P25-05 | 示例任务 — 预置示例，引导用户快速了解功能 | ✅ 已完成 | P0 |
@@ -2735,9 +2736,22 @@ _目标：降低用户上手门槛，完善生态集成，统一 UI 视觉。_
 
 ---
 
-### P25-03: 模型信息展示
+### P25-01: 启动环境检查
 
-**涉及文件**: _待调研_
+**涉及文件**:
+- `src/kcodeView/KCodePanel.ts` — `loadAssistant()` 调用 `_autoDetectEnv()`；`_autoDetectEnv()` 延迟触发 `_handleEnvSetup()`；`_handleEnvSetup()` 中安装后自动写入 `agentName` 配置并重连
+- `src/kcodeView/SetupWizard.ts` — `detectEnv()` 检测 kilo/opencode 安装状态及配置就绪度；`installKilo()`/`installOpencode()` 自动安装
+- `src/kcodeView/AssistantHandler.ts` — `checkEnvAndPrompt()` 和 `cancelEnvSetup()` 辅助方法（`loadAssistant` 中改为自动检测，不再依赖用户回车触发）
+
+**实现说明**:
+- 整个引导流程分三段对话式交互：**环境检查安装** → **小助手对话** / **任务流程引导**，全部通过聊天消息完成
+- **Phase 1 环境检查安装**：`AssistantHandler.startEnvDetection()` 发送检测结果作为 agent 消息到聊天区；用户回车后 `_runEnvSetup()` 通过 `agentStreamUpdate` 流式显示进度；完成后输出结果消息
+- **Phase 2 小助手对话**：通过 ACP Agent 交互，已有 `handleMessage()` 功能
+- **Phase 3 任务流程引导**：`GUIDE_STEPS` 多轮对话式引导（需求→目标→计划→执行→自验→验收）
+- `extension.ts` `activate()` 统一调用 `panel.loadAssistant(isFirstLaunch)`，不再区分两个分支
+- `loadAssistant()` 先 `ensureConnection()`，未连接时走对话式环境检测；已连接时直接显示小助手
+
+**状态**: ✅ 已完成
 
 **调研结果**:
 - 已有 `initModelSelector` 函数（`app.ts:727`）渲染模型下拉框，点击发送 `switchModel` 消息
