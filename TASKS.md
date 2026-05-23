@@ -2817,3 +2817,44 @@ _目标：降低用户上手门槛，完善生态集成，统一 UI 视觉。_
 
 **状态**: ✅ 已完成
 
+---
+
+## Phase 26: 任务绑定终端会话 (Task-Bound Terminal Session)
+
+_目标：每个任务绑定一个独立共享的 PTY 终端会话。AI 的 bash 命令和人工命令共用同一会话，工作目录、环境变量、执行历史全程统一。终端成为任务的公共上下文，人类和 AI 双向可感。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P26-01 | Task PTY 管理器 — 每个任务一个 node-pty 实例，AI bash tool 路由到共享会话，命令竞态队列控制 | ⬜ 未开始 |
+| P26-02 | 人类终端窗口 — VS Code Terminal + PTY 桥接，人工命令 AI 可感知，控制区「打开终端」关联任务 | ⬜ 未开始 |
+
+---
+
+### P26-01: Task PTY 管理器 — 每个任务独立 node-pty 会话
+
+**涉及文件**: _待调研_
+
+**调研步骤**:
+1. 调研 `node-pty` 的 API 和 VS Code 扩展兼容性（是否原生支持 ESM）
+2. 确认 AcpClient 中 bash tool call 的当前路由路径（`callbacks.ts` → `spawn`/`exec`）
+3. 确认 `package.json` 依赖管理方式（dependencies vs devDependencies）
+
+**调研结果**: _待填充_
+
+**状态**: ⬜ 未开始
+
+---
+
+### P26-02: 人类终端窗口 — VS Code Terminal + PTY 桥接
+
+**涉及文件**: _待调研_
+
+**调研步骤**:
+1. 调研 VS Code `Terminal` API（`createTerminal`/`sendText`/`onDidWriteData`/`onDidCloseTerminal`）
+2. 确认控制区「打开终端」按钮的当前实现位置（`KCodePanel.ts` / `device.ts` 或其他文件）
+3. 设计桥接方案：PTY output → VS Code Terminal，VS Code 用户输入 → PTY write
+
+**调研结果**: _待填充_
+
+**状态**: ⬜ 未开始
+
