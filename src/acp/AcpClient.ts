@@ -26,12 +26,25 @@ export class AcpClient {
         this.agentManager = new AgentManager();
     }
 
+    private agentProcess: import('child_process').ChildProcess | null = null;
+
+    get exitCode(): number | null {
+        return this.agentProcess?.exitCode ?? null;
+    }
+
+    onExit(cb: (code: number | null) => void): void {
+        if (this.agentProcess) {
+            this.agentProcess.on('exit', cb);
+        }
+    }
+
     /**
      * Start the agent and initialize ACP connection (stdio subprocess).
      */
     async connect(agentName: string, args: string[] = []): Promise<boolean> {
         try {
-            const { input, output } = await this.agentManager.startAgent(agentName, args);
+            const { process, input, output } = await this.agentManager.startAgent(agentName, args);
+            this.agentProcess = process;
 
             const sdk = await this.loadSDK();
             const stream = sdk.ndJsonStream(input, output);

@@ -3,8 +3,13 @@ import * as os from 'os';
 
 export interface SetupResult {
     nodeInstalled: boolean;
+    nodeVersion: string;
+    npmInstalled: boolean;
+    npmVersion: string;
     kiloInstalled: boolean;
+    kiloVersion: string;
     opencodeInstalled: boolean;
+    opencodeVersion: string;
     configReady: boolean;
 }
 
@@ -18,20 +23,44 @@ async function which(cmd: string): Promise<boolean> {
     });
 }
 
+async function getVersion(cmd: string, flag = '--version'): Promise<string> {
+    return new Promise(resolve => {
+        cp.exec(`"${cmd}" ${flag}`, { maxBuffer: 4096 }, (err, stdout) => {
+            if (err) { resolve(''); return; }
+            resolve(stdout.trim().split('\n')[0]);
+        });
+    });
+}
+
 export async function detectEnv(narrate: NarrationCallback): Promise<SetupResult> {
     narrate('正在检测内置运行环境…');
 
-    const results: SetupResult = { nodeInstalled: false, kiloInstalled: false, opencodeInstalled: false, configReady: false };
+    const results: SetupResult = { nodeInstalled: false, nodeVersion: '', npmInstalled: false, npmVersion: '', kiloInstalled: false, kiloVersion: '', opencodeInstalled: false, opencodeVersion: '', configReady: false };
 
-    const [hasNode, hasKilo, hasOpencode] = await Promise.all([
+    const [hasNode, hasNpm, hasKilo, hasOpencode] = await Promise.all([
         which('node'),
+        which('npm'),
         which('kilo'),
         which('opencode'),
     ]);
 
     results.nodeInstalled = hasNode;
+    results.npmInstalled = hasNpm;
     results.kiloInstalled = hasKilo;
     results.opencodeInstalled = hasOpencode;
+
+    if (hasNode) {
+        results.nodeVersion = await getVersion('node');
+    }
+    if (hasNpm) {
+        results.npmVersion = await getVersion('npm');
+    }
+    if (hasKilo) {
+        results.kiloVersion = await getVersion('kilo');
+    }
+    if (hasOpencode) {
+        results.opencodeVersion = await getVersion('opencode');
+    }
 
     // Check if kcode config has agentName set
     const configPath = `${os.homedir()}/.kcode/kcode.jsonc`;

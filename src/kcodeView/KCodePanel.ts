@@ -304,29 +304,42 @@ export class KCodePanel {
             return;
         }
 
-        // Auto-configure agentName if CLI tools are installed
-        if (!env.configReady) {
-            stream('\n\n正在检测 Agent 配置…');
-            const recheck = await detectEnv(() => {});
-            if (recheck.kiloInstalled || recheck.opencodeInstalled) {
-                const agentToUse = recheck.kiloInstalled ? 'kilo' : 'opencode';
-                this.configService.set('agentName', agentToUse);
-                await this.configService.save();
-                stream(`\n\n✅ 已自动配置 agentName = "${agentToUse}"`);
-            }
+        if (!env.kiloInstalled && !env.opencodeInstalled) {
+            stream('\n\n⚠️ 未检测到 Kilo CLI 或 OpenCode CLI，请先安装其中一个：\n- Kilo: https://kilo.ai\n- OpenCode: https://opencode.ai');
+            return;
         }
 
-        // Model config check
+        const agentToUse = env.kiloInstalled ? 'kilo' : 'opencode';
+
+        if (!env.configReady) {
+            stream('\n\n正在配置 Agent…');
+            this.configService.set('agentName', agentToUse);
+            await this.configService.save();
+            stream(`\n\n✅ 已自动配置 agentName = "${agentToUse}"`);
+        }
+
         this._streamModelConfig(stream);
 
-        // Try connection
+        // 断开旧连接后通过 connectByLabel 重连（与手动选择下拉框走相同路径）
         stream('\n\n正在连接 Agent…');
-        await this.sessionHandler.ensureConnection();
-
         if (this.agentService.isConnected) {
+            await this.agentService.disconnect();
+        }
+        const connected = await this.agentService.connectByLabel(agentToUse);
+        if (connected) {
             stream('\n\n✅ **环境已就绪**');
         } else {
             stream('\n\n⚠️ 环境配置完成，但连接仍有问题，请在设置中检查。');
+        }
+
+        if (this.agentService.isConnected) {
+            this.router.PostMessage({
+                type: 'agentStatus', status: 'connected',
+                message: agentToUse === 'opencode' ? 'OpenCode' : 'Kilo',
+                agentName: this.agentService.agentName,
+                modelName: this.agentService.modelName,
+            });
+            this.sessionHandler.sendAgentList();
         }
 
         this.assistantHandler.transitionAfterSetup();

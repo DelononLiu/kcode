@@ -41,9 +41,10 @@ export class AgentService implements IAgentService {
 
     async connectByLabel(label: string): Promise<boolean> {
         if (this._isConnected) await this.disconnect();
+        const execPath = this._cfg().get<string>('agentPath', '') || label;
         switch (label) {
-            case 'kilo': return await this.connectKilo();
-            case 'opencode': return await this.connectOpenCode();
+            case 'kilo': return await this.connectKilo(execPath);
+            case 'opencode': return await this.connectOpenCode(execPath);
             case 'openai': return this.connectOpenAI();
             default: return false;
         }
@@ -59,12 +60,14 @@ export class AgentService implements IAgentService {
 
     private async _doConnect(agentName: string, agentArgs: string[]): Promise<boolean> {
         try {
+            const execPath = this._cfg().get<string>('agentPath', '') || agentName;
+
             if (agentName === 'kilo') {
-                return await this.connectKilo();
+                return await this.connectKilo(execPath);
             }
 
             if (agentName === 'opencode') {
-                return await this.connectOpenCode();
+                return await this.connectOpenCode(execPath);
             }
 
             if (agentName === 'openai') {
@@ -72,7 +75,7 @@ export class AgentService implements IAgentService {
             }
 
             if (agentName && agentName !== 'npx') {
-                return await this.connectGenericACP(agentName, agentArgs);
+                return await this.connectGenericACP(execPath, agentArgs, agentName);
             }
 
             this._isConnected = false;
@@ -86,8 +89,8 @@ export class AgentService implements IAgentService {
         }
     }
 
-    private async connectOpenCode(overridePath?: string): Promise<boolean> {
-        const agentPath = overridePath || this._cfg().get<string>('agentPath', 'opencode');
+    private async connectOpenCode(execPath: string): Promise<boolean> {
+        const agentPath = execPath;
         const acpClient = new AcpClient(this.workspaceRoot);
         if (this.logCallback) {
             acpClient.setLogCallback(this.logCallback);
@@ -105,6 +108,13 @@ export class AgentService implements IAgentService {
             this._agentName = 'opencode';
             this._modelName = 'opencode';
             this.agentType = 'acp';
+            this._lastError = '';
+            acpClient.onExit((code) => {
+                this._isConnected = false;
+                this._agentName = '';
+                this._lastError = `Agent 进程已退出 (退出码: ${code})`;
+                console.log(`OpenCode process exited with code ${code}`);
+            });
             return true;
         }
 
@@ -112,23 +122,8 @@ export class AgentService implements IAgentService {
         return false;
     }
 
-    private connectOpenAI(overrideApiKey?: string, overrideModel?: string, overrideBaseUrl?: string): boolean {
-        const cfg = this._cfg();
-        const model = overrideModel || cfg.get<string>('provider.openai.model');
-        this.openaiAgent = new OpenAIAgent({
-            apiKey: overrideApiKey || cfg.get<string>('provider.openai.apiKey'),
-            model,
-            baseURL: overrideBaseUrl || cfg.get<string>('provider.openai.baseUrl'),
-        });
-        this._isConnected = true;
-        this._agentName = 'openai';
-        this._modelName = model || 'unknown';
-        this.agentType = 'openai';
-        return true;
-    }
-
-    private async connectKilo(overridePath?: string): Promise<boolean> {
-        const kiloPath = overridePath || this._cfg().get<string>('agentPath', 'kilo');
+    private async connectKilo(execPath: string): Promise<boolean> {
+        const kiloPath = execPath;
         const acpClient = new AcpClient(this.workspaceRoot);
         if (this.logCallback) {
             acpClient.setLogCallback(this.logCallback);
@@ -146,11 +141,33 @@ export class AgentService implements IAgentService {
             this._agentName = 'kilo';
             this._modelName = this._readKiloModel();
             this.agentType = 'acp';
+            this._lastError = '';
+            acpClient.onExit((code) => {
+                this._isConnected = false;
+                this._agentName = '';
+                this._lastError = `Agent 进程已退出 (退出码: ${code})`;
+                console.log(`Kilo process exited with code ${code}`);
+            });
             return true;
         }
 
         this._lastError = acpClient.lastError || `无法启动 kilo: ${kiloPath}`;
         return false;
+    }
+
+    private connectOpenAI(overrideApiKey?: string, overrideModel?: string, overrideBaseUrl?: string): boolean {
+        const cfg = this._cfg();
+        const model = overrideModel || cfg.get<string>('provider.openai.model');
+        this.openaiAgent = new OpenAIAgent({
+            apiKey: overrideApiKey || cfg.get<string>('provider.openai.apiKey'),
+            model,
+            baseURL: overrideBaseUrl || cfg.get<string>('provider.openai.baseUrl'),
+        });
+        this._isConnected = true;
+        this._agentName = 'openai';
+        this._modelName = model || 'unknown';
+        this.agentType = 'openai';
+        return true;
     }
 
     private _readKiloConfig(): any {
@@ -172,26 +189,33 @@ export class AgentService implements IAgentService {
         return [config.model];
     }
 
-    private async connectGenericACP(agentName: string, agentArgs: string[] = []): Promise<boolean> {
+    private async connectGenericACP(execPath: string, agentArgs: string[] = [], displayName?: string): Promise<boolean> {
         const acpClient = new AcpClient(this.workspaceRoot);
         if (this.logCallback) {
             acpClient.setLogCallback(this.logCallback);
         }
 
-        const connectPromise = acpClient.connect(agentName, agentArgs);
+        const connectPromise = acpClient.connect(execPath, agentArgs);
         const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000));
         const connected = await Promise.race([connectPromise, timeoutPromise]);
 
         if (connected) {
             this.acpClient = acpClient;
             this._isConnected = true;
-            this._agentName = agentName;
-            this._modelName = agentName;
+            this._agentName = displayName || execPath;
+            this._modelName = displayName || execPath;
             this.agentType = 'acp';
+            this._lastError = '';
+            acpClient.onExit((code) => {
+                this._isConnected = false;
+                this._agentName = '';
+                this._lastError = `Agent 进程已退出 (退出码: ${code})`;
+                console.log(`Agent process exited with code ${code}`);
+            });
             return true;
         }
 
-        this._lastError = acpClient.lastError || `Agent 连接失败: ${agentName}`;
+        this._lastError = acpClient.lastError || `Agent 连接失败: ${execPath}`;
         return false;
     }
 

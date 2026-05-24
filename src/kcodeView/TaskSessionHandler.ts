@@ -30,6 +30,7 @@ export class TaskSessionHandler {
                             ? `OpenAI (${modelName})`
                             : 'Agent 已连接';
                 ctx.router.PostMessage({ type: 'agentStatus', status: 'connected', message: msg, agentName: displayName, modelName });
+                this.sendAgentList();
             } else {
                 ctx.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: ctx.agentService.lastError || 'Agent 未连接', agentName: '' });
             }
