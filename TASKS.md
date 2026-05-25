@@ -2819,6 +2819,41 @@ _目标：降低用户上手门槛，完善生态集成，统一 UI 视觉。_
 
 ---
 
+## Phase 27: TaskFlow 迭代循环 — execute ↔ self_verify 自动迭代
+
+_目标：TaskFlow 引擎增加阶段间迭代循环能力，`biz_logic` 等任务类型通过 `flowIteration` 声明可使用 execute ↔ self_verify 自动循环，自验阶段实现分层校验 + 三路决策出口。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P27-01 | 调研设计 — 迭代循环方案与现有 flow 架构的融合 | ✅ 已完成 |
+
+---
+
+### P27-01: 调研设计 — TaskFlow 迭代循环方案
+
+**涉及文件**:
+- `src/types/index.ts` — Task 新增 `flowIteration` 字段；TaskTemplate 新增 `flowIteration` 预设；新增 `IterationRecord`/`TargetDef` 类型
+- `src/taskflow/TaskFlow.ts` — `parseTaskUpdate`: finish_verify 分支增加 DECISION=continue 时直接 phase=execute 回切；`buildPhasePrompt`: 优化模式下追加迭代上下文注入；PROTOCOL_KEYS 增加 DECISION/METRICS/ITERATION
+- `src/taskflow/prompts/self_verify.ts` — 优化模式追加分层校验规则（正确性红线 + 指标量化 + 三路决策）
+- `src/taskflow/prompts/execute.ts` — 优化模式追加迭代上下文
+- `src/taskflow/templates.ts` — `biz_logic` 增加 `flowIteration` 预设；`code_review` 增加 `flowOverride: [demand, goal, review]`
+- `src/kcodeView/TaskFlowHandler.ts` — `deriveNodes()` 支持迭代计数；`sendTaskInfo()` 下发 flowIteration 状态
+- `src/kcodeView/KCodePanel.ts` — `onSelfVerifyFinished` 处理 DECISION 判断
+- `src/store/TaskStore.ts` — 新增迭代状态 CRUD 方法
+- `src/kcodeView/webview/app.ts` — 进度节点显示迭代计数
+
+**调研结果**:
+- 核心设计：**不是"优化模式"作为独立概念，而是 TaskTemplate 通过 `flowIteration` 声明迭代能力，TaskFlow 引擎统一支持**
+- 不同类型任务有不同的 flow：`requirement_dev` 线性一次过（无 `flowIteration`）、`biz_logic` 有 execute↔self_verify 循环（`flowIteration.enabled=true`）、`code_review` 跳过 execute（`flowOverride: [demand, goal, review]`）
+- 最小改动路径：只改 `parseTaskUpdate` 中 finish_verify 处理分支，增加 DECISION=continue 时直接 phase=execute 回切（约 +5 行）
+- 自验分层校验：Layer 1 正确性（一票否决）→ Layer 2 指标量化 → Layer 3 三路决策（达标/超限/停滞）
+- 协议扩展：finish_verify 增加 DECISION/METRICS/ITERATION 字段
+- 详细设计见 `docs/调研-08-优化迭代流程设计.md`
+
+**状态**: 📋 已调研
+
+---
+
 ## Phase 26: 任务绑定终端会话 (Task-Bound Terminal Session)
 
 _目标：每个任务绑定一个独立共享的 PTY 终端会话。AI 的 bash 命令和人工命令共用同一会话，工作目录、环境变量、执行历史全程统一。终端成为任务的公共上下文，人类和 AI 双向可感。_
