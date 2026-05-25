@@ -2819,41 +2819,6 @@ _目标：降低用户上手门槛，完善生态集成，统一 UI 视觉。_
 
 ---
 
-## Phase 27: TaskFlow 迭代循环 — execute ↔ self_verify 自动迭代
-
-_目标：TaskFlow 引擎增加阶段间迭代循环能力，`biz_logic` 等任务类型通过 `flowIteration` 声明可使用 execute ↔ self_verify 自动循环，自验阶段实现分层校验 + 三路决策出口。_
-
-| 任务 | 说明 | 状态 |
-|------|------|------|
-| P27-01 | 调研设计 — 迭代循环方案与现有 flow 架构的融合 | ✅ 已完成 |
-
----
-
-### P27-01: 调研设计 — TaskFlow 迭代循环方案
-
-**涉及文件**:
-- `src/types/index.ts` — Task 新增 `flowIteration` 字段；TaskTemplate 新增 `flowIteration` 预设；新增 `IterationRecord`/`TargetDef` 类型
-- `src/taskflow/TaskFlow.ts` — `parseTaskUpdate`: finish_verify 分支增加 DECISION=continue 时直接 phase=execute 回切；`buildPhasePrompt`: 优化模式下追加迭代上下文注入；PROTOCOL_KEYS 增加 DECISION/METRICS/ITERATION
-- `src/taskflow/prompts/self_verify.ts` — 优化模式追加分层校验规则（正确性红线 + 指标量化 + 三路决策）
-- `src/taskflow/prompts/execute.ts` — 优化模式追加迭代上下文
-- `src/taskflow/templates.ts` — `biz_logic` 增加 `flowIteration` 预设；`code_review` 增加 `flowOverride: [demand, goal, review]`
-- `src/kcodeView/TaskFlowHandler.ts` — `deriveNodes()` 支持迭代计数；`sendTaskInfo()` 下发 flowIteration 状态
-- `src/kcodeView/KCodePanel.ts` — `onSelfVerifyFinished` 处理 DECISION 判断
-- `src/store/TaskStore.ts` — 新增迭代状态 CRUD 方法
-- `src/kcodeView/webview/app.ts` — 进度节点显示迭代计数
-
-**调研结果**:
-- 核心设计：**不是"优化模式"作为独立概念，而是 TaskTemplate 通过 `flowIteration` 声明迭代能力，TaskFlow 引擎统一支持**
-- 不同类型任务有不同的 flow：`requirement_dev` 线性一次过（无 `flowIteration`）、`biz_logic` 有 execute↔self_verify 循环（`flowIteration.enabled=true`）、`code_review` 跳过 execute（`flowOverride: [demand, goal, review]`）
-- 最小改动路径：只改 `parseTaskUpdate` 中 finish_verify 处理分支，增加 DECISION=continue 时直接 phase=execute 回切（约 +5 行）
-- 自验分层校验：Layer 1 正确性（一票否决）→ Layer 2 指标量化 → Layer 3 三路决策（达标/超限/停滞）
-- 协议扩展：finish_verify 增加 DECISION/METRICS/ITERATION 字段
-- 详细设计见 `docs/调研-08-优化迭代流程设计.md`
-
-**状态**: 📋 已调研
-
----
-
 ## Phase 26: 任务绑定终端会话 (Task-Bound Terminal Session)
 
 _目标：每个任务绑定一个独立共享的 PTY 终端会话。AI 的 bash 命令和人工命令共用同一会话，工作目录、环境变量、执行历史全程统一。终端成为任务的公共上下文，人类和 AI 双向可感。_
@@ -2890,6 +2855,237 @@ _目标：每个任务绑定一个独立共享的 PTY 终端会话。AI 的 bash
 3. 设计桥接方案：PTY output → VS Code Terminal，VS Code 用户输入 → PTY write
 
 **调研结果**: _待填充_
+
+**状态**: ⬜ 未开始
+
+
+---
+
+## Phase 27: TaskFlow 迭代循环 — execute ↔ self_verify 自动迭代
+
+_目标：TaskFlow 引擎增加阶段间迭代循环能力，`biz_logic` 等任务类型通过 `flowIteration` 声明可使用 execute ↔ self_verify 自动循环，自验阶段实现分层校验 + 三路决策出口。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P27-01 | 调研设计 — 迭代循环方案与现有 flow 架构的融合 | ✅ 已完成 |
+
+---
+
+### P27-01: 调研设计 — TaskFlow 迭代循环方案
+
+**涉及文件**:
+- `src/types/index.ts` — Task 新增 `flowIteration` 字段；TaskTemplate 新增 `flowIteration` 预设；新增 `IterationRecord`/`TargetDef` 类型
+- `src/taskflow/TaskFlow.ts` — `parseTaskUpdate`: finish_verify 分支增加 DECISION=continue 时直接 phase=execute 回切；`buildPhasePrompt`: 优化模式下追加迭代上下文注入；PROTOCOL_KEYS 增加 DECISION/METRICS/ITERATION
+- `src/taskflow/prompts/self_verify.ts` — 优化模式追加分层校验规则（正确性红线 + 指标量化 + 三路决策）
+- `src/taskflow/prompts/execute.ts` — 优化模式追加迭代上下文
+- `src/taskflow/templates.ts` — `biz_logic` 增加 `flowIteration` 预设；`code_review` 增加 `flowOverride: [demand, goal, review]`
+- `src/kcodeView/TaskFlowHandler.ts` — `deriveNodes()` 支持迭代计数；`sendTaskInfo()` 下发 flowIteration 状态
+- `src/kcodeView/KCodePanel.ts` — `onSelfVerifyFinished` 处理 DECISION 判断
+- `src/store/TaskStore.ts` — 新增迭代状态 CRUD 方法
+- `src/kcodeView/webview/app.ts` — 进度节点显示迭代计数
+
+**调研结果**:
+- 核心设计：**不是"优化模式"作为独立概念，而是 TaskTemplate 通过 `flowIteration` 声明迭代能力，TaskFlow 引擎统一支持**
+- 不同类型任务有不同的 flow：`requirement_dev` 线性一次过（无 `flowIteration`）、`biz_logic` 有 execute↔self_verify 循环（`flowIteration.enabled=true`）、`code_review` 跳过 execute（`flowOverride: [demand, goal, review]`）
+- 最小改动路径：只改 `parseTaskUpdate` 中 finish_verify 处理分支，增加 DECISION=continue 时直接 phase=execute 回切（约 +5 行）
+- 自验分层校验：Layer 1 正确性（一票否决）→ Layer 2 指标量化 → Layer 3 三路决策（达标/超限/停滞）
+- 协议扩展：finish_verify 增加 DECISION/METRICS/ITERATION 字段
+- 详细设计见 `docs/调研-08-优化迭代流程设计.md`
+
+**状态**: 📋 已调研
+
+---
+
+## Phase 28: 插件化架构重构
+
+_目标：将 KCode 重构为核心 + 插件双层架构。核心只剩小助手、任务处理、基础设施（~1200行）。Todo/Knowledge/Device/Demo/Review/Diff 全拆为独立插件，通过 ExtensionPointRegistry 挂钩，互不影响。_
+
+### 核心定界
+
+```
+核心（不可缺）                   非核心 → 插件（可插拔）
+├── 小助手模式                   ├── TodoPlugin（TODO 协议 + checkbox）
+├── 任务模式（TaskFlow 状态机）   ├── KnowledgePlugin（知识萃取 + Wiki）
+├── 三栏 WebView 布局            ├── DevicePlugin（远程设备 SSH/ADB）
+├── ACP Agent 通信               ├── DemoPlugin（对话内演示）
+├── MessageRouter                ├── ReviewDiffPlugin（增强 diff）
+├── TaskStore / ProjectFs        ├── GitHubPlugin（Issue 导入）
+└── AgentService                 ├── TerminalPlugin（P26 任务终端）
+                                 └── SetupPlugin（环境引导检测）
+```
+
+**插件只在任务模式下激活**，小助手模式下全部静默。
+
+| 任务 | 说明 | 状态 | 优先级 |
+|------|------|------|--------|
+| P28-01 | 基础设施 — PluginManager + ExtensionPointRegistry + PluginAPI | ⬜ 未开始 | P0 |
+| P28-02 | 剥离 DevicePlugin — 设备管理从 KCodePanel 提出 | ⬜ 未开始 | P0 |
+| P28-03 | 剥离 DemoPlugin — Demo 运行从 KCodePanel 提出 | ⬜ 未开始 | P1 |
+| P28-04 | 剥离 SetupPlugin — 环境引导检测提出 | ⬜ 未开始 | P1 |
+| P28-05 | 拆分 TaskFlowHandler — Todo/Knowledge/Review/Diff 分别提取 | ⬜ 未开始 | P0 |
+| P28-06 | WebView 侧插件化 — 动态注册消息渲染器 + UI 贡献 | ⬜ 未开始 | P1 |
+| P28-07 | 收尾 — 配置 + 文档 + 脚手架 | ⬜ 未开始 | P2 |
+
+---
+
+### P28-01: 基础设施 — PluginManager + ExtensionPointRegistry
+
+**涉及文件**:
+- `src/core/plugin/PluginInterface.ts` — **新建**：KCodePlugin 接口 + PluginAPI 接口
+- `src/core/plugin/PluginManager.ts` — **新建**：加载/激活/停用/聚合插件
+- `src/core/plugin/ExtensionPointRegistry.ts` — **新建**：6 类扩展点注册中心
+- `src/kcodeView/KCodePanel.ts` — 构造时初始化 PluginManager，传入 PluginAPI 实现
+- `src/kcodeView/PanelContext.ts` — 新增 `pluginManager` 字段（可选，兼容过渡期）
+- `package.json` — 新增 `kcode.plugins` 配置
+
+**调研结果**:
+
+**6 个扩展点**:
+
+| EP | 名称 | 注册方式 | 触发时机 |
+|----|------|---------|---------|
+| EP1 | 消息路由 | `api.onMessage(type, handler)` | WebView 发消息时 |
+| EP2 | TaskFlow 事件 | `api.onPhaseChanged/handler` | 阶段迁移时 |
+| EP3 | Tool 调用 | `api.onToolCall(kind, handler)` | ACP tool_call 到达时 |
+| EP4 | 流式处理 | `api.addStreamProcessor(proc)` | agent 文本 chunk 到达时 |
+| EP5 | UI 贡献 | `api.addOutputPanelTab/renderer` | WebView 初始化时 |
+| EP6 | 阶段钩子 | `api.registerPhaseHook(phase, hook)` | 进入/离开阶段时 |
+
+**PluginAPI 实现原则**:
+- 核心只提供 PluginAPI 接口实现
+- 插件声明 `mode: 'task'` 时，扩展点只在任务模式激活
+- 小助手模式下所有 task 插件静默
+
+**实现说明**:
+1. `PluginInterface.ts`: 定义 `KCodePlugin`（id/name/version/activate/deactivate）和 `PluginAPI`（6 类扩展点的注册方法 + 核心服务只读引用）
+2. `PluginManager.ts`: 维护 `plugins: Map<string, KCodePlugin>`，`activateAll()` 遍历调用 activate，`deactivate(id)` 单个卸载
+3. `ExtensionPointRegistry.ts`: 内部维护 6 个注册表 Map，`dispatch(type, payload)` 按类型分发；支持 `mode: 'task'` 过滤
+4. `KCodePanel.ts`: 构造时创建 PluginManager，传入 PluginAPI 实现（router/store/taskFlow 等只读引用），调用 `loadCorePlugins()` 加载内置插件
+5. 过渡期：KCodePanel.setupMessageHandler() 保留现有注册，新增的 `router.on()` 同时走 PluginManager 分发
+
+**状态**: ⬜ 未开始
+
+---
+
+### P28-02: 剥离 DevicePlugin
+
+**涉及文件**:
+- `src/plugins/device/DevicePlugin.ts` — **新建**：设备管理插件
+- `src/plugins/device/DeviceManager.ts` — **新建**：从 KCodePanel 提取 handleDeviceConnect/Disconnect/Command
+- `src/kcodeView/KCodePanel.ts` — 移除 deviceClients 字段、device 相关 inline 代码（-70 行）
+- `src/kcodeView/webview/device.ts` — 不变（已在 WebView 侧独立）
+- `src/device/LocalDeviceClient.ts` — 不变
+- `src/device/DishCliDeviceClient.ts` — 不变
+- `src/device/DeviceClientFactory.ts` — 不变
+
+**实现说明**:
+1. `DeviceManager` 封装：`deviceClients: Map`、`handleConnect/disconnect/command`、`dispose()`
+2. `DevicePlugin.activate(api)`: 注册 `onMessage('deviceConnect')` 路由到 DeviceManager
+3. KCodePanel 不再持有 `deviceClients`，由 DevicePlugin 自行管理
+4. DemoPlugin 通过 `dependencies: ['kcode.device']` 声明依赖，通过 PluginAPI 获取 DeviceManager 引用
+
+**状态**: ⬜ 未开始
+
+---
+
+### P28-03: 剥离 DemoPlugin
+
+**涉及文件**:
+- `src/plugins/demo/DemoPlugin.ts` — **新建**：Demo 运行插件
+- `src/plugins/demo/DemoRunner.ts` — **新建**：从 KCodePanel 提取 handleDemoRun/Stop
+- `src/kcodeView/KCodePanel.ts` — 移除 demo 相关 inline 代码（-85 行）
+- `src/kcodeView/webview/app.ts` — `handleDemoCardUpdate` 保留（是 UI 渲染，不是业务逻辑）
+- `src/kcodeView/templates/chatPanelCss.ts` — demo-card-* 样式保留
+
+**实现说明**:
+1. `DemoRunner` 封装：`_activeDemoAbort`、`handleRun(config)`、`handleStop(cardId)`
+2. `DemoPlugin.activate(api)`: 注册 `onMessage('demoRun'/'demoStop'/'demoRerun')`，内部调用 DemoRunner
+3. DemoPlugin 对设备的使用：`api.getPlugin('kcode.device').deviceManager.exec()`
+4. WebView 侧 `handleDemoCardUpdate` 保持不动（UI 渲染独立）
+
+**状态**: ⬜ 未开始
+
+---
+
+### P28-04: 剥离 SetupPlugin
+
+**涉及文件**:
+- `src/plugins/setup/SetupPlugin.ts` — **新建**：环境引导检测插件
+- `src/plugins/setup/EnvDetector.ts` — **新建**：从 KCodePanel 提取 _runEnvSetup/_streamModelConfig
+- `src/kcodeView/KCodePanel.ts` — 移除 setup 相关代码（-55 行）
+- `src/kcodeView/SetupWizard.ts` — 不变（已经是纯函数模块）
+
+**实现说明**:
+1. `EnvDetector` 封装环境检测 + 流式安装逻辑
+2. `SetupPlugin.activate(api)`: 注册 `onMessage('runEnvSetup'/'checkEnv')`
+3. `_streamModelConfig` 负责将 model 配置流式展示到 WebView
+
+**状态**: ⬜ 未开始
+
+---
+
+### P28-05: 拆分 TaskFlowHandler — Todo/Knowledge/Review/Diff
+
+**涉及文件**:
+- `src/plugins/todo/TodoPlugin.ts` — **新建**：todo 卡片 + checkbox 交互 + planSteps 同步
+- `src/plugins/knowledge/KnowledgePlugin.ts` — **新建**：知识条目解析 + 存储 + Wiki 导出
+- `src/plugins/review/ReviewPlugin.ts` — **新建**：审核变更管理 + approve/reject/partial
+- `src/plugins/diff/DiffPlugin.ts` — **新建**：diff 预览 + 原生 diff 打开
+- `src/plugins/delegate/DelegationPlugin.ts` — **新建**：任务委派 + Chat→Task 转换
+- `src/kcodeView/TaskFlowHandler.ts` — 从 550 行精简到 ~100 行，只保留 5 阶段编排
+- `src/kcodeView/PanelContext.ts` — 从 25 成员缩到 ~12 个核心方法
+
+**实现说明**:
+
+| 插件 | 挂钩的扩展点 | 从 TaskFlowHandler 移出行数 |
+|------|-------------|--------------------------|
+| TodoPlugin | `onToolCall('todowrite')` + `onMessage('updateTodoItem')` + `addMessageRenderer('todo')` | ~40 行 |
+| KnowledgePlugin | `addStreamProcessor`（扫描 `<KNOWLEDGE_ENTRY>`）+ `onGoalFormatted`（沉淀）+ `onMessage('exportToWiki')` | ~60 行 |
+| ReviewPlugin | `onToolCall`（收集变更）+ `onPhaseChanged`（显示审核）+ `onMessage('approveReview'/'rejectReview')` | ~120 行 |
+| DiffPlugin | `onMessage('showFileDiff'/'openNativeDiff')` + `addOutputPanelTab('diff')` | ~30 行 |
+| DelegationPlugin | `addStreamProcessor`（扫描 `<TASK_DELEGATE>`）+ `onMessage('convertToTask')` | ~40 行 |
+
+**精简后 TaskFlowHandler** 只保留：
+- `handleConfirmGoal/Revise/Cancel` — 目标确认
+- `handleConfirmPlan/Reject` — 计划确认
+- `handleConfirmExecuteDone` — 执行完成
+- `handleApproveRejectReview` — 验收编排（变更收集交给 ReviewPlugin）
+- `sendTaskInfo` / `sendNodePanelUpdate` — 看板刷新（核心 UI）
+
+**状态**: ⬜ 未开始
+
+---
+
+### P28-06: WebView 侧插件化
+
+**涉及文件**:
+- `src/kcodeView/webview/app.ts` — 新增 `PluginRegistry` 管理 UI 贡献；`addMessageRenderer()`/`addOutputPanelTab()` 注册函数；新增 `pluginContributions` 消息处理 Extension 推送的插件声明
+- `src/kcodeView/webview/outputPanel.ts` — 渲染由插件注册的 tab 替代硬编码
+- `src/kcodeView/webview/sidebar.ts` — 插件可注册侧边栏操作按钮
+
+**实现说明**:
+1. `PluginRegistry`（WebView 侧）：`messageRenderers: Map<string, RenderFn>`、`outputPanelTabs: Tab[]`、`toolbarButtons: Button[]`
+2. Extension → WebView 通过 `pluginContributions` 消息推送插件声明（消息类型 + tab 定义 + 按钮定义）
+3. `app.ts` 中的渲染函数按 `renderMessages()` 时查 `messageRenderers` 渲染非内置消息类型
+4. `outputPanel.ts` 的 tab 栏改为从 `pluginContributions` 动态构建
+
+**状态**: ⬜ 未开始
+
+---
+
+### P28-07: 收尾 — 配置 + 文档 + 脚手架
+
+**涉及文件**:
+- `src/core/plugin/PluginManager.ts` — 插件配置持久化（`ConfigService` 存储 `plugins.{id}.enabled`）
+- `src/kcodeView/KCodePanel.ts` — 新增 `disablePlugin(id)` / `enablePlugin(id)` 热开关
+- `docs/plugin-dev-guide.md` — **新建**：插件开发文档（接口说明 + 示例代码）
+- `src/plugins/_template/TemplatePlugin.ts` — **新建**：插件脚手架示例
+
+**实现说明**:
+1. `ConfigService` 存储 `plugins: { [id]: { enabled: true, config: {...} } }`
+2. KCodePanel 工具栏增加「插件管理」入口，可开关插件
+3. 插件热开关：`PluginManager.deactivate(id)` → 清理注册的扩展点 → 恢复之前状态
+4. 示例插件 `TemplatePlugin.ts` 作为最小可工作模板（20 行），开发者复制即可开始
 
 **状态**: ⬜ 未开始
 
