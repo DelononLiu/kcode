@@ -16,6 +16,11 @@ src/
 ├── extension.ts                  # 扩展入口
 ├── types/index.ts                # 类型定义
 ├── store/TaskStore.ts            # 数据持久化
+├── core/
+│   └── plugin/
+│       ├── PluginInterface.ts         # KCodePlugin + PluginAPI 接口（6 类扩展点）
+│       ├── PluginManager.ts           # 插件加载/激活/停用/生命周期
+│       └── ExtensionPointRegistry.ts  # 扩展点注册中心（消息/阶段/工具/流/UI/钩子）
 ├── taskflow/
 │   ├── TaskFlow.ts               # 阶段状态机 + TASK_UPDATE 协议（纯逻辑，不依赖 UI）
 │   ├── prompts/                  # 分层提示词模块（base/protocol/goal/plan/execute/review/demand）
@@ -28,17 +33,46 @@ src/
 │   │   └── review.ts
 │   └── __tests__/
 │       └── TaskFlow.test.ts      # 7 个测试用例，覆盖完整状态机流程
-    ├── kcodeView/
-    │   ├── KCodePanel.ts             # 编辑器聊天面板（使用 TaskFlow 管理阶段）
-    │   ├── KCodeSidebarProvider.ts   # 侧边栏视图
-    │   └── webview/
-    │       ├── app.ts                # 主 WebView 逻辑（三栏布局通信）
-    │       ├── sidebar.ts            # 侧边栏任务列表渲染
-    │       ├── chat.ts               # 空壳(渲染逻辑在 app.ts)
-    │       ├── preview.ts            # 右侧浮层面板 Preview/Diff/WebView
-    │       ├── device.ts             # Device tab
-    │       ├── outputPanel.ts        # 右栏：产出物列表（变更/知识/TODO/工具记录）
-    │       └── style.css             # 样式
+├── plugins/
+│   ├── device/
+│   │   ├── DevicePlugin.ts       # 设备管理插件（SSH/ADB/Telnet/Local）
+│   │   └── DeviceManager.ts      # 设备连接/断开/命令执行
+│   ├── demo/
+│   │   ├── DemoPlugin.ts         # Demo 运行插件
+│   │   └── DemoRunner.ts         # Demo 执行引擎
+│   ├── setup/
+│   │   ├── SetupPlugin.ts        # 环境引导检测插件
+│   │   └── EnvDetector.ts        # 环境检测 + 流式安装
+│   ├── todo/
+│   │   └── TodoPlugin.ts         # TODO 协议 + checkbox 交互
+│   ├── knowledge/
+│   │   └── KnowledgePlugin.ts    # 知识条目解析 + 存储 + Wiki 导出
+│   ├── review/
+│   │   └── ReviewPlugin.ts       # 审核变更管理 + approve/reject
+│   ├── diff/
+│   │   └── DiffPlugin.ts         # diff 预览 + 原生 diff 打开
+│   ├── delegate/
+│   │   └── DelegationPlugin.ts   # 任务委派 + Chat→Task 转换
+│   └── _template/
+│       └── TemplatePlugin.ts     # 插件开发脚手架
+├── kcodeView/
+│   ├── KCodePanel.ts             # 编辑器聊天面板（使用 TaskFlow + PluginManager）
+│   ├── KCodeSidebarProvider.ts   # 侧边栏视图
+│   ├── PanelContext.ts           # KCodePanel 能力接口（含 PluginManager）
+│   ├── TaskFlowHandler.ts        # 5 阶段编排 + 确认操作
+│   ├── TaskSessionHandler.ts     # ACP 会话管理 + prompt 发送
+│   ├── AssistantHandler.ts       # 小助手模式
+│   ├── AcpLogManager.ts          # ACP 日志管理
+│   ├── MessageRouter.ts          # 消息路由
+│   ├── SetupWizard.ts            # 环境检测（纯函数）
+│   └── webview/
+│       ├── app.ts                # 主 WebView 逻辑（三栏布局通信 + PluginRegistry）
+│       ├── sidebar.ts            # 侧边栏任务列表渲染
+│       ├── chat.ts               # 空壳
+│       ├── preview.ts            # 右侧浮层面板 Preview/Diff/WebView
+│       ├── device.ts             # Device tab
+│       ├── outputPanel.ts        # 右栏：产出物列表
+│       └── style.css             # 样式
 └── acp/
     ├── AcpClient.ts              # ACP 客户端封装
     ├── AgentManager.ts           # Agent 子进程管理

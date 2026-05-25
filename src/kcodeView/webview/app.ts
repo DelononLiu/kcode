@@ -398,6 +398,9 @@ function initMessageHandler() {
             case 'savedDevices':
                 (window as any).handleSavedDevices?.(message.devices || []);
                 break;
+            case 'pluginContributions':
+                (window as any).pluginRegistry?.applyPluginContributions(message.plugins || []);
+                break;
         }
     });
 }
@@ -3806,6 +3809,78 @@ function initNodePanel() {
 }
 
 let activeTaskTitle: string = '';
+
+// ===== WebView PluginRegistry (P28-06) =====
+
+interface MessageRenderer {
+    type: string;
+    render: (msg: any) => HTMLElement | null;
+}
+
+interface OutputPanelTabDef {
+    id: string;
+    label: string;
+    render: (taskInfo: any) => string;
+}
+
+class PluginRegistry {
+    private messageRenderers = new Map<string, MessageRenderer>();
+    private outputPanelTabs = new Map<string, OutputPanelTabDef>();
+    private toolbarButtons: { id: string; label: string; icon: string; action: string }[] = [];
+
+    registerMessageRenderer(type: string, render: (msg: any) => HTMLElement | null): void {
+        this.messageRenderers.set(type, { type, render });
+    }
+
+    registerOutputPanelTab(id: string, label: string, render: (taskInfo: any) => string): void {
+        this.outputPanelTabs.set(id, { id, label, render });
+    }
+
+    registerToolbarButton(id: string, label: string, icon: string, action: string): void {
+        this.toolbarButtons.push({ id, label, icon, action });
+    }
+
+    resolveMessageRenderer(type: string): ((msg: any) => HTMLElement | null) | undefined {
+        return this.messageRenderers.get(type)?.render;
+    }
+
+    getOutputPanelTabs(): OutputPanelTabDef[] {
+        return Array.from(this.outputPanelTabs.values());
+    }
+
+    getToolbarButtons(): { id: string; label: string; icon: string; action: string }[] {
+        return [...this.toolbarButtons];
+    }
+
+    applyPluginContributions(contribs: any[]): void {
+        for (const contrib of contribs) {
+            if (contrib.type === 'messageRenderer' && contrib.messageType && contrib.label) {
+                this.registerMessageRenderer(contrib.messageType, () => {
+                    const el = document.createElement('div');
+                    el.className = 'chat-msg plugin-rendered';
+                    el.innerHTML = `<div class="msg-bubble"><div class="msg-card">${contrib.label}</div></div>`;
+                    return el;
+                });
+            }
+            if (contrib.type === 'outputPanelTab' && contrib.id && contrib.label) {
+                this.registerOutputPanelTab(contrib.id, contrib.label, () => `<div class="op-empty">${contrib.label} tab</div>`);
+            }
+            if (contrib.type === 'toolbarButton' && contrib.id && contrib.label) {
+                this.registerToolbarButton(contrib.id, contrib.label, contrib.icon || '🔌', contrib.action || '');
+            }
+        }
+        // Re-render output panel tabs
+        if (typeof (window as any).renderPluginTabs === 'function') {
+            (window as any).renderPluginTabs();
+        }
+    }
+}
+
+(window as any).pluginRegistry = new PluginRegistry();
+
+// Handle plugin contributions from extension
+// Add to initMessageHandler
+const _origInitMsgHandler = initMessageHandler;
 
 (window as any).addMessage = addMessage;
 (window as any).renderMarkdown = renderMarkdown;

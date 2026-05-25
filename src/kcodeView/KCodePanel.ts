@@ -12,11 +12,8 @@ import { TaskFlowHandler } from './TaskFlowHandler';
 import { AcpLogManager } from './AcpLogManager';
 import { AssistantHandler } from './AssistantHandler';
 import { CommandRegistry } from '../commands/CommandRegistry';
+import { PluginManager } from '../core/plugin/PluginManager';
 import type { KCodePanelContext, ToolCallState, PendingMessage } from './PanelContext';
-import type { DeviceConfig, IDeviceClient } from '../types';
-import type { SavedDevice } from '../types/config';
-
-const deviceLog = vscode.window.createOutputChannel('KCode Device', { log: true });
 
 export class KCodePanel {
     readonly panel: vscode.WebviewPanel;
@@ -28,6 +25,7 @@ export class KCodePanel {
     readonly flowHandler: TaskFlowHandler;
     readonly acpLogManager: AcpLogManager;
     readonly assistantHandler: AssistantHandler;
+    readonly pluginManager: PluginManager;
 
     currentTaskId: string | null = null;
     activeToolCalls: Map<string, ToolCallState> = new Map();
@@ -36,7 +34,6 @@ export class KCodePanel {
     hasSetPlanMessage: boolean = false;
     hasSetExecuteMessage: boolean = false;
     refreshSidebarCallback?: () => void;
-    deviceClients: Map<string, IDeviceClient> = new Map();
 
     private context: vscode.ExtensionContext;
     private onDisposeCallback?: () => void;
@@ -63,7 +60,12 @@ export class KCodePanel {
         this.acpLogManager = new AcpLogManager(this.router);
 
         this.taskFlow = new TaskFlow(store, {
-            onPhaseChanged: (taskId) => { this.flowHandler.sendTaskInfo(taskId); this.flowHandler.sendNodePanelUpdate(taskId); this.refreshSidebarCallback?.(); },
+            onPhaseChanged: (taskId) => {
+                this.flowHandler.sendTaskInfo(taskId);
+                this.flowHandler.sendNodePanelUpdate(taskId);
+                this.refreshSidebarCallback?.();
+                this.pluginManager.dispatchPhaseChanged(taskId, '', store.getTask(taskId)?.phase || '');
+            },
             onExecuteFinished: (taskId) => { this.flowHandler.sendTaskInfo(taskId); },
             onGoalFormatted: async (taskId, goalText, originalRequest) => {
                 this.ctx.taskFlow.confirmGoal(taskId);
@@ -98,7 +100,7 @@ export class KCodePanel {
         this.commandRegistry.registerSlashCommand('/tasks', '查看任务概览', (_a, tid) => this.sendTasksSummary(tid));
         this.commandRegistry.registerSlashCommand('/demo', '运行 demo 并在卡片中查看输出', (args) => {
             if (!args) { this.router.PostMessage({ type: 'addSystemMessage', content: '用法: /demo <命令>\n示例: /demo echo hello' }); return; }
-            this.handleDemoRun({ name: 'Demo', command: args, device: 'localhost', envMeta: { '触发方式': '斜杠命令' } });
+            this.router.PostMessage({ type: 'demoRun', name: 'Demo', command: args, device: 'localhost', envMeta: { '触发方式': '斜杠命令' } });
         }, '/demo <命令>');
 
         this.router.PostMessage({ type: 'slashCommandList', commands: this.getSlashCommandList() });
@@ -136,6 +138,11 @@ export class KCodePanel {
         this.sessionHandler = new TaskSessionHandler(ctx);
         this.flowHandler = new TaskFlowHandler(ctx);
 
+        this.pluginManager = new PluginManager(
+            store, this.router, this.agentService,
+            () => this.currentTaskId ? 'task' : 'assistant',
+        );
+
         this.assistantHandler = new AssistantHandler(
             this.store, this.agentService, this.router, this.sessionHandler,
             (b) => this.setGenerationState(b),
@@ -158,6 +165,24 @@ export class KCodePanel {
         this.loadWorkspaceHooks().then(hooks => this.taskFlow.setWorkspaceHooks(hooks));
 
         this.panel.onDidDispose(() => { this.onDisposeCallback?.(); });
+
+        this.initPlugins();
+    }
+
+    private async initPlugins() {
+        const plugins = [
+            (await import('../plugins/device/DevicePlugin')).default,
+            (await import('../plugins/demo/DemoPlugin')).default,
+            (await import('../plugins/todo/TodoPlugin')).default,
+            (await import('../plugins/knowledge/KnowledgePlugin')).default,
+            (await import('../plugins/review/ReviewPlugin')).default,
+            (await import('../plugins/diff/DiffPlugin')).default,
+            (await import('../plugins/delegate/DelegationPlugin')).default,
+        ];
+        for (const plugin of plugins) {
+            this.pluginManager.register(plugin);
+        }
+        await this.pluginManager.activateAll();
     }
 
     private setupMessageHandler() {
@@ -199,6 +224,19 @@ export class KCodePanel {
         this.router.on('openSettings', () => vscode.commands.executeCommand('kcode.openSettings'));
         this.router.on('openKnowledgeEntry', (msg) => vscode.commands.executeCommand('kcode.openKnowledgeWiki', msg.entryId));
         this.router.on('openTaskFromKnowledge', (msg) => vscode.commands.executeCommand('kcode.selectTask', msg.taskId));
+        this.router.on('exportToWiki', async (msg) => {
+            const tid = msg.taskId;
+            if (!tid) return;
+            try {
+                const { WikiExporter } = await import('../export/WikiExporter');
+                const exporter = new WikiExporter(this.store);
+                const result = exporter.writeToWiki(tid);
+                this.router.PostMessage({ type: 'wikiExported', filePath: result.filePath, fileName: result.fileName });
+                vscode.window.showInformationMessage(`✅ 已导出到 .kcode/wiki/${result.fileName}`);
+            } catch (err: any) {
+                vscode.window.showErrorMessage(`导出失败: ${err?.message || String(err)}`);
+            }
+        });
         this.router.on('extractKnowledge', async (msg) => {
             const tid = msg.taskId;
             if (!tid || this.isGenerating) return;
@@ -210,38 +248,12 @@ export class KCodePanel {
             this.router.PostMessage({ type: 'addSystemMessage', content: '🔍 AI 正在分析对话萃取知识...', taskId: tid });
             await this.sessionHandler.doPrompt(tid, extractPrompt, handler);
         });
-        this.router.on('deviceConnect', (msg) => this.handleDeviceConnect(msg.config));
-        this.router.on('deviceDisconnect', () => this.handleDeviceDisconnect());
-        this.router.on('deviceCommand', (msg) => this.handleDeviceCommand(msg.command));
-        this.router.on('demoRun', (msg) => this.handleDemoRun(msg));
-        this.router.on('demoStop', (msg) => this.handleDemoStop(msg.cardId, msg.taskId));
-        this.router.on('demoRerun', (msg) => this.handleDemoRun(msg));
-        this.router.on('getSavedDevices', () => {
-            const devices: SavedDevice[] = this.configService.get<SavedDevice[]>('devices', []);
-            this.router.PostMessage({ type: 'savedDevices', devices });
-        });
-        this.router.on('deviceDebugLog', (msg) => {
-            deviceLog.info(`[webview] ${msg.text}`);
-        });
-        this.router.on('exportToWiki', async (msg) => {
-            const tid = msg.taskId;
-            if (!tid) return;
-            try {
-                const { WikiExporter } = await import('../export/WikiExporter');
-                const exporter = new WikiExporter(this.store);
-                const result = exporter.writeToWiki(tid);
-                this.router.PostMessage({
-                    type: 'wikiExported',
-                    filePath: result.filePath,
-                    fileName: result.fileName,
-                });
-                vscode.window.showInformationMessage(`✅ 已导出到 .kcode/wiki/${result.fileName}`);
-            } catch (err: any) {
-                vscode.window.showErrorMessage(`导出失败: ${err?.message || String(err)}`);
-            }
-        });
 
-        this.panel.webview.onDidReceiveMessage((message: any) => { this.router.dispatch(message.type, message); }, null, this.context.subscriptions);
+        // Plugin message dispatch — after all inline handlers
+        this.panel.webview.onDidReceiveMessage((message: any) => {
+            this.router.dispatch(message.type, message);
+            this.pluginManager.dispatchMessage(message.type, message);
+        }, null, this.context.subscriptions);
     }
 
     storeMessage(taskId: string, role: 'user' | 'agent', content: string): string {
@@ -249,8 +261,6 @@ export class KCodePanel {
         this.store.addMessage({ id, taskId, role, content, timestamp: Date.now() });
         return id;
     }
-
-    // === Task loading ===
 
     loadTask(taskId: string) {
         this.currentTaskId = taskId;
@@ -320,7 +330,6 @@ export class KCodePanel {
 
         this._streamModelConfig(stream);
 
-        // 断开旧连接后通过 connectByLabel 重连（与手动选择下拉框走相同路径）
         stream('\n\n正在连接 Agent…');
         if (this.agentService.isConnected) {
             await this.agentService.disconnect();
@@ -424,8 +433,6 @@ export class KCodePanel {
         this.router.PostMessage({ type: 'startTemplateFlow', taskId });
     }
 
-    // === Generation state ===
-
     setGenerationState(generating: boolean) {
         this.isGenerating = generating;
         this.router.PostMessage({ type: 'generationState', isGenerating: generating });
@@ -443,8 +450,6 @@ export class KCodePanel {
         this.router.PostMessage({ type: 'pendingQueueUpdate', count: this.pendingMessages.length, items: this.pendingMessages.map(p => ({ text: p.text.substring(0, 60) })) });
     }
 
-    // === Public UI methods ===
-
     reveal() { this.panel.reveal(); }
     focusInput() { this.router.PostMessage({ type: 'focusInput' }); }
     flashInput() { this.router.PostMessage({ type: 'flashInput' }); }
@@ -454,8 +459,6 @@ export class KCodePanel {
     getCurrentTaskId(): string | null { return this.currentTaskId; }
     setRefreshSidebarCallback(cb: () => void) { this.refreshSidebarCallback = cb; this.ctx.refreshSidebarCallback = cb; }
     onDidDispose(callback: () => void) { this.onDisposeCallback = callback; }
-
-    // === Private helpers ===
 
     private sendCategoryDefs() {
         this.router.PostMessage({ type: 'updateCategoryDefs', categories: getCategories() });
@@ -489,176 +492,9 @@ export class KCodePanel {
         }
     }
 
-    private async handleDeviceConnect(config: DeviceConfig) {
-        const deviceId = `${config.type}://${config.host}:${config.port}`;
-        deviceLog.info(`[connect] 开始连接 ${deviceId}`, { config: { type: config.type, host: config.host, port: config.port, username: config.username } });
-        if (this.deviceClients.has(deviceId)) {
-            this.router.PostMessage({ type: 'deviceStatus', status: 'error', message: '设备已连接' });
-            return;
-        }
-        this.router.PostMessage({ type: 'deviceStatus', status: 'connecting', message: `正在连接 ${config.host}:${config.port}...` });
-        try {
-            const { createDeviceClient } = await import('../device/DeviceClientFactory');
-            const client = createDeviceClient(config.type);
-            deviceLog.info(`[connect] 创建 client, type=${config.type}`);
-            client.onOutput((data) => {
-                deviceLog.append(`[stdout] ${data}`);
-                this.router.PostMessage({ type: 'deviceOutput', data });
-            });
-            client.onError((error) => {
-                deviceLog.error(`[stderr] ${error}`);
-                this.router.PostMessage({ type: 'deviceOutput', data: `\x1b[31m${error}\x1b[0m` });
-            });
-            client.onDisconnected(() => {
-                deviceLog.info(`[disconnect] ${deviceId} 连接已断开`);
-                this.deviceClients.delete(deviceId);
-                this.router.PostMessage({ type: 'deviceStatus', status: 'disconnected', message: '设备已断开' });
-            });
-            const conn = await client.connect(config);
-            deviceLog.info(`[connect] ${deviceId} 连接成功`);
-            this.deviceClients.set(deviceId, client);
-            this.router.PostMessage({ type: 'deviceConnected', deviceId, config });
-        } catch (err: any) {
-            const msg = err?.message || String(err);
-            deviceLog.error(`[connect] 连接失败: ${msg}`);
-            this.router.PostMessage({ type: 'deviceStatus', status: 'error', message: `连接失败: ${msg}` });
-        }
-    }
-
-    private async handleDeviceDisconnect() {
-        deviceLog.info('[disconnect] 断开所有设备');
-        for (const [id, client] of this.deviceClients) {
-            try { await client.disconnect(); } catch (e: any) { deviceLog.warn(`[disconnect] ${id} 断开异常: ${e?.message}`); }
-            this.deviceClients.delete(id);
-        }
-        this.router.PostMessage({ type: 'deviceStatus', status: 'disconnected', message: '已断开所有设备' });
-    }
-
-    private async handleDeviceCommand(command: string) {
-        deviceLog.info(`[exec] ${command}`);
-        const clients = Array.from(this.deviceClients.values());
-        if (clients.length === 0) {
-            deviceLog.warn('[exec] 未连接设备');
-            this.router.PostMessage({ type: 'deviceOutput', data: '\x1b[33m未连接设备，请先连接\x1b[0m' });
-            return;
-        }
-        for (const client of clients) {
-            try {
-                const result = await client.exec(command);
-                deviceLog.append(`[exec stdout] ${result}`);
-                this.router.PostMessage({ type: 'deviceOutput', data: result });
-            } catch (err: any) {
-                deviceLog.error(`[exec 失败] ${err?.message || String(err)}`);
-                this.router.PostMessage({ type: 'deviceOutput', data: `\x1b[31m${err?.message || String(err)}\x1b[0m` });
-            }
-        }
-    }
-
-    private _activeDemoAbort: AbortController | null = null;
-
-    private async handleDemoRun(config: any) {
-        const cardId = config.cardId || `demo_${Date.now()}`;
-        const deviceStr = config.device || `${config.host || 'localhost'}:${config.port || 22}`;
-
-        this.router.PostMessage({
-            type: 'demoCardUpdate',
-            cardId,
-            taskId: this.currentTaskId || '',
-            action: 'create',
-            name: config.name || '未命名 Demo',
-            command: config.command || '',
-            device: deviceStr,
-            envMeta: config.envMeta || {},
-            status: 'running',
-            output: '',
-        });
-
-        if (!config.command) {
-            this.router.PostMessage({ type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '', action: 'updateStatus', status: 'failed' });
-            return;
-        }
-
-        const abort = new AbortController();
-        this._activeDemoAbort = abort;
-
-        try {
-            const commands = Array.isArray(config.command) ? config.command : [config.command];
-            for (const cmd of commands) {
-                if (abort.signal.aborted) break;
-                this.router.PostMessage({
-                    type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '',
-                    action: 'appendOutput', output: `$ ${cmd}\n`,
-                });
-                const clients = Array.from(this.deviceClients.values());
-                if (clients.length > 0) {
-                    for (const client of clients) {
-                        if (abort.signal.aborted) break;
-                        try {
-                            const result = await client.exec(cmd);
-                            if (result) {
-                                this.router.PostMessage({
-                                    type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '',
-                                    action: 'appendOutput', output: result,
-                                });
-                            }
-                        } catch (err: any) {
-                            this.router.PostMessage({
-                                type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '',
-                                action: 'appendOutput', output: `\x1b[31m${err?.message || String(err)}\x1b[0m\n`,
-                            });
-                        }
-                    }
-                } else {
-                    this.router.PostMessage({
-                        type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '',
-                        action: 'appendOutput', output: '\x1b[33m未连接设备\x1b[0m\n',
-                    });
-                }
-            }
-
-            if (!abort.signal.aborted) {
-                this.router.PostMessage({
-                    type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '',
-                    action: 'updateStatus', status: 'completed',
-                });
-            }
-        } catch (err: any) {
-            if (!abort.signal.aborted) {
-                this.router.PostMessage({
-                    type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '',
-                    action: 'appendOutput', output: `\x1b[31m${err?.message || String(err)}\x1b[0m\n`,
-                });
-                this.router.PostMessage({
-                    type: 'demoCardUpdate', cardId, taskId: this.currentTaskId || '',
-                    action: 'updateStatus', status: 'failed',
-                });
-            }
-        } finally {
-            if (this._activeDemoAbort === abort) {
-                this._activeDemoAbort = null;
-            }
-        }
-    }
-
-    private handleDemoStop(cardId: string, taskId?: string) {
-        this._activeDemoAbort?.abort();
-        this._activeDemoAbort = null;
-        this.router.PostMessage({
-            type: 'demoCardUpdate', cardId, taskId: taskId || this.currentTaskId || '',
-            action: 'updateStatus', status: 'failed',
-        });
-        this.router.PostMessage({
-            type: 'demoCardUpdate', cardId, taskId: taskId || this.currentTaskId || '',
-            action: 'appendOutput', output: '\n\x1b[33m[已终止]\x1b[0m\n',
-        });
-    }
-
     dispose() {
         this.acpLogManager.dispose();
         this.agentService.disconnect();
-        for (const client of this.deviceClients.values()) {
-            client.disconnect().catch(() => {});
-        }
-        this.deviceClients.clear();
+        this.pluginManager.deactivateAll();
     }
 }

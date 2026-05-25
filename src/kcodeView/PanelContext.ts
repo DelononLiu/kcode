@@ -2,6 +2,7 @@ import type { TaskStore } from '../store/TaskStore';
 import type { TaskFlow } from '../taskflow/TaskFlow';
 import type { AgentService } from '../core/AgentService';
 import type { MessageRouter } from './MessageRouter';
+import type { PluginManager } from '../core/plugin/PluginManager';
 
 export interface ToolCallState {
     title: string;
@@ -35,6 +36,8 @@ export interface KCodePanelContext {
     hasSetPlanMessage: boolean;
     hasSetExecuteMessage: boolean;
     refreshSidebarCallback?: () => void;
+
+    pluginManager?: PluginManager;
 
     setGenerationState(generating: boolean): void;
     sendPendingQueueUpdate(): void;

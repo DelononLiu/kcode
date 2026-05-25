@@ -2918,13 +2918,13 @@ _目标：将 KCode 重构为核心 + 插件双层架构。核心只剩小助手
 
 | 任务 | 说明 | 状态 | 优先级 |
 |------|------|------|--------|
-| P28-01 | 基础设施 — PluginManager + ExtensionPointRegistry + PluginAPI | ⬜ 未开始 | P0 |
-| P28-02 | 剥离 DevicePlugin — 设备管理从 KCodePanel 提出 | ⬜ 未开始 | P0 |
-| P28-03 | 剥离 DemoPlugin — Demo 运行从 KCodePanel 提出 | ⬜ 未开始 | P1 |
-| P28-04 | 剥离 SetupPlugin — 环境引导检测提出 | ⬜ 未开始 | P1 |
-| P28-05 | 拆分 TaskFlowHandler — Todo/Knowledge/Review/Diff 分别提取 | ⬜ 未开始 | P0 |
-| P28-06 | WebView 侧插件化 — 动态注册消息渲染器 + UI 贡献 | ⬜ 未开始 | P1 |
-| P28-07 | 收尾 — 配置 + 文档 + 脚手架 | ⬜ 未开始 | P2 |
+| P28-01 | 基础设施 — PluginManager + ExtensionPointRegistry + PluginAPI | ✅ 已完成 | P0 |
+| P28-02 | 剥离 DevicePlugin — 设备管理从 KCodePanel 提出 | ✅ 已完成 | P0 |
+| P28-03 | 剥离 DemoPlugin — Demo 运行从 KCodePanel 提出 | ✅ 已完成 | P1 |
+| P28-04 | 剥离 SetupPlugin — 环境引导检测提出 | ✅ 已完成 | P1 |
+| P28-05 | 拆分 TaskFlowHandler — Todo/Knowledge/Review/Diff 分别提取 | ✅ 已完成 | P0 |
+| P28-06 | WebView 侧插件化 — 动态注册消息渲染器 + UI 贡献 | ✅ 已完成 | P1 |
+| P28-07 | 收尾 — 配置 + 文档 + 脚手架 | ✅ 已完成 | P2 |
 
 ---
 
@@ -2963,7 +2963,7 @@ _目标：将 KCode 重构为核心 + 插件双层架构。核心只剩小助手
 4. `KCodePanel.ts`: 构造时创建 PluginManager，传入 PluginAPI 实现（router/store/taskFlow 等只读引用），调用 `loadCorePlugins()` 加载内置插件
 5. 过渡期：KCodePanel.setupMessageHandler() 保留现有注册，新增的 `router.on()` 同时走 PluginManager 分发
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 
@@ -2984,7 +2984,7 @@ _目标：将 KCode 重构为核心 + 插件双层架构。核心只剩小助手
 3. KCodePanel 不再持有 `deviceClients`，由 DevicePlugin 自行管理
 4. DemoPlugin 通过 `dependencies: ['kcode.device']` 声明依赖，通过 PluginAPI 获取 DeviceManager 引用
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 
@@ -3003,7 +3003,7 @@ _目标：将 KCode 重构为核心 + 插件双层架构。核心只剩小助手
 3. DemoPlugin 对设备的使用：`api.getPlugin('kcode.device').deviceManager.exec()`
 4. WebView 侧 `handleDemoCardUpdate` 保持不动（UI 渲染独立）
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 
@@ -3020,7 +3020,7 @@ _目标：将 KCode 重构为核心 + 插件双层架构。核心只剩小助手
 2. `SetupPlugin.activate(api)`: 注册 `onMessage('runEnvSetup'/'checkEnv')`
 3. `_streamModelConfig` 负责将 model 配置流式展示到 WebView
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 
@@ -3052,7 +3052,7 @@ _目标：将 KCode 重构为核心 + 插件双层架构。核心只剩小助手
 - `handleApproveRejectReview` — 验收编排（变更收集交给 ReviewPlugin）
 - `sendTaskInfo` / `sendNodePanelUpdate` — 看板刷新（核心 UI）
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 
@@ -3069,7 +3069,7 @@ _目标：将 KCode 重构为核心 + 插件双层架构。核心只剩小助手
 3. `app.ts` 中的渲染函数按 `renderMessages()` 时查 `messageRenderers` 渲染非内置消息类型
 4. `outputPanel.ts` 的 tab 栏改为从 `pluginContributions` 动态构建
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 
 ---
 

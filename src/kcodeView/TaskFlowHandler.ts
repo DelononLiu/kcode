@@ -2,31 +2,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import type { KCodePanelContext } from './PanelContext';
-import type { Task, FileChange, ProgressNode, TodoItem, PlanStep, KnowledgeEntry } from '../types';
+import type { Task, FileChange, ProgressNode, PlanStep } from '../types';
 import { getTemplate, getCategory } from '../taskflow/templates';
-
-function parseTodosFromOutput(output: string): any[] {
-    const titleMatch = output.match(/<title>\s*\d+\s*todos?\s*<\/title>\s*(\[[\s\S]*?\])\s*/);
-    if (titleMatch) {
-        try { return JSON.parse(titleMatch[1]); } catch {}
-    }
-    try {
-        const arr = JSON.parse(output);
-        if (Array.isArray(arr)) return arr;
-    } catch {}
-    if (output.trim().startsWith('[')) {
-        try { return JSON.parse(output.trim()); } catch {}
-    }
-    return [];
-}
-
-function replaceTodosInOutput(output: string, todos: any[]): string {
-    const titleMatch = output.match(/^(<title>\s*\d+\s*todos?\s*<\/title>\s*)/i);
-    if (titleMatch) {
-        return titleMatch[1] + JSON.stringify(todos, null, 2);
-    }
-    return JSON.stringify(todos, null, 2);
-}
 
 export class TaskFlowHandler {
     constructor(private ctx: KCodePanelContext) {}
@@ -136,7 +113,10 @@ export class TaskFlowHandler {
         ctx.agentService.cancel(tid);
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', type: 'stop_message', content: '⏹️ 用户已停止生成', timestamp: Date.now() });
         const partialText = ctx.taskFlow.getCleanText(tid);
-        if (partialText) ctx.storeMessage(tid, 'agent', partialText);
+        if (partialText) {
+            const id = ctx.store.nextMessageId(tid);
+            ctx.store.addMessage({ id, taskId: tid, role: 'agent', content: partialText, timestamp: Date.now() });
+        }
         ctx.taskFlow.resetGeneration(tid);
         ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskStatus: ctx.store.getTask(tid)?.status });
     }
@@ -182,8 +162,8 @@ export class TaskFlowHandler {
             try {
                 const info = JSON.parse(msg.content);
                 if (info.kind === 'write' || info.kind === 'edit') {
-                    const path = info.title || '';
-                    if (path && !touched.has(path)) { touched.set(path, ''); results.push({ filePath: path, original: '', modified: info.output || '' }); }
+                    const path2 = info.title || '';
+                    if (path2 && !touched.has(path2)) { touched.set(path2, ''); results.push({ filePath: path2, original: '', modified: info.output || '' }); }
                 }
             } catch {}
         }
@@ -239,7 +219,8 @@ export class TaskFlowHandler {
 
     showAgentError(tid: string, errorMsg: string) {
         const { ctx } = this;
-        ctx.storeMessage(tid, 'agent', `错误: ${errorMsg}`);
+        const id = ctx.store.nextMessageId(tid);
+        ctx.store.addMessage({ id, taskId: tid, role: 'agent', content: `错误: ${errorMsg}`, timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n---\n⚠️ **${errorMsg}**\n\n\`👉 在 KCode 侧边栏底部齿轮图标 → 设置 → Agent 配置 中填写 agentName\`\n---` });
         ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskStatus: ctx.store.getTask(tid)?.status });
     }
@@ -269,7 +250,6 @@ export class TaskFlowHandler {
         const knowledgeItems: { id: string; type: string; title: string; content: string; tags: string[] }[] = [];
         const seenToolCalls = new Set<string>();
 
-        // Read real knowledge entries from store
         const storedKnowledge = ctx.store.getTaskKnowledgeEntries(taskId);
         for (const ke of storedKnowledge) {
             knowledgeItems.push({ id: ke.id, type: ke.type, title: ke.title, content: ke.content.substring(0, 120), tags: ke.tags });
@@ -398,13 +378,12 @@ export class TaskFlowHandler {
     private _syncTodosToPlanSteps(taskId: string) {
         const { ctx } = this;
         const messages = ctx.store.getMessages(taskId);
-        // 用 Map 替代 Set：后出现的同 id 覆盖之前的状态（修复：之前 seenIds 导致 status 更新被跳过）
-        const itemsMap = new Map<string, TodoItem>();
+        const itemsMap = new Map<string, { id: string; content: string; status: string }>();
 
         for (const msg of messages) {
             if (msg.type === 'todo') {
                 try {
-                    const items: TodoItem[] = JSON.parse(msg.content || '[]');
+                    const items: { id: string; content: string; status: string }[] = JSON.parse(msg.content || '[]');
                     for (const item of items) {
                         itemsMap.set(item.id, item);
                     }
@@ -436,7 +415,7 @@ export class TaskFlowHandler {
         }
     }
 
-    handleTodoUpdate(taskId: string, items: TodoItem[], action: string) {
+    handleTodoUpdate(taskId: string, items: { id: string; content: string; status: string }[], action: string) {
         const { ctx } = this;
         const messages = ctx.store.getMessages(taskId);
         const existingTodoMsgs = messages.filter(m => m.type === 'todo');
@@ -446,7 +425,7 @@ export class TaskFlowHandler {
             ctx.store.addMessage({ id: msgId, taskId, role: 'agent', type: 'todo', content: JSON.stringify(items), timestamp: Date.now() });
         } else if (action === 'add' && existingTodoMsgs.length > 0) {
             const last = existingTodoMsgs[existingTodoMsgs.length - 1];
-            const existing: TodoItem[] = JSON.parse(last.content || '[]');
+            const existing: { id: string; content: string; status: string }[] = JSON.parse(last.content || '[]');
             const merged = [...existing];
             for (const item of items) {
                 const idx = merged.findIndex(i => i.id === item.id);
@@ -456,7 +435,7 @@ export class TaskFlowHandler {
             ctx.store.updateMessageContent(taskId, last.id, JSON.stringify(merged));
         } else if (action === 'update' && existingTodoMsgs.length > 0) {
             const last = existingTodoMsgs[existingTodoMsgs.length - 1];
-            const existing: TodoItem[] = JSON.parse(last.content || '[]');
+            const existing: { id: string; content: string; status: string }[] = JSON.parse(last.content || '[]');
             for (const item of items) {
                 const idx = existing.findIndex(i => i.id === item.id);
                 if (idx >= 0) existing[idx].status = item.status;
@@ -492,7 +471,7 @@ export class TaskFlowHandler {
         if (!msg) return;
         try {
             if (msg.type === 'todo') {
-                const items: TodoItem[] = JSON.parse(msg.content || '[]');
+                const items: { id: string; content: string; status: string }[] = JSON.parse(msg.content || '[]');
                 const item = items.find(i => i.id === itemId);
                 if (item) {
                     item.status = checked ? 'completed' : 'pending';
@@ -518,10 +497,10 @@ export class TaskFlowHandler {
         } catch {}
     }
 
-    handleKnowledgeEntry(taskId: string, entries: KnowledgeEntry[]) {
+    handleKnowledgeEntry(taskId: string, entries: { id: string; type: string; title: string; content: string; tags: string[]; createdAt: number }[]) {
         const { ctx } = this;
         for (const entry of entries) {
-            ctx.store.addKnowledgeEntry(taskId, entry);
+            ctx.store.addKnowledgeEntry(taskId, { ...entry, taskId } as any);
         }
         const titles = entries.map(e => e.title).join('、');
         ctx.store.addTimelineEntry(taskId, { timestamp: Date.now(), type: 'knowledge_extract', summary: `萃取知识: ${titles.substring(0, 80)}`, detail: `共 ${entries.length} 条知识条目` });
@@ -546,5 +525,27 @@ export class TaskFlowHandler {
         ctx.router.PostMessage({ type: 'addSystemMessage', content: `📤 已委派新任务「${payload.title}」`, taskId: parentTaskId });
         ctx.refreshSidebarCallback?.();
     }
+}
 
+function parseTodosFromOutput(output: string): any[] {
+    const titleMatch = output.match(/<title>\s*\d+\s*todos?\s*<\/title>\s*(\[[\s\S]*?\])\s*/);
+    if (titleMatch) {
+        try { return JSON.parse(titleMatch[1]); } catch {}
+    }
+    try {
+        const arr = JSON.parse(output);
+        if (Array.isArray(arr)) return arr;
+    } catch {}
+    if (output.trim().startsWith('[')) {
+        try { return JSON.parse(output.trim()); } catch {}
+    }
+    return [];
+}
+
+function replaceTodosInOutput(output: string, todos: any[]): string {
+    const titleMatch = output.match(/^(<title>\s*\d+\s*todos?\s*<\/title>\s*)/i);
+    if (titleMatch) {
+        return titleMatch[1] + JSON.stringify(todos, null, 2);
+    }
+    return JSON.stringify(todos, null, 2);
 }
