@@ -1,6 +1,4 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
-import * as os from 'os';
 import type { KCodePanelContext } from './PanelContext';
 import type { Task, FileChange, ProgressNode, PlanStep } from '../types';
 import { getTemplate, getCategory } from '../taskflow/templates';
@@ -343,38 +341,6 @@ export class TaskFlowHandler {
         this.ctx.router.PostMessage({ type: 'updateNodePanel', nodes: this.deriveNodes(taskId), taskType: this.ctx.store.getTask(taskId)?.type || 'task' });
     }
 
-    handleOpenNativeDiff(original: string, modified: string, filePath: string) {
-        const ext = path.extname(filePath) || '.txt';
-        const baseName = path.basename(filePath, ext);
-        const timestamp = Date.now();
-        vscode.workspace.fs.writeFile(vscode.Uri.file(path.join(os.tmpdir(), `kcode_${baseName}_${timestamp}_original${ext}`)), Buffer.from(original));
-        vscode.workspace.fs.writeFile(vscode.Uri.file(path.join(os.tmpdir(), `kcode_${baseName}_${timestamp}_modified${ext}`)), Buffer.from(modified));
-        vscode.commands.executeCommand('vscode.diff',
-            vscode.Uri.file(path.join(os.tmpdir(), `kcode_${baseName}_${timestamp}_original${ext}`)),
-            vscode.Uri.file(path.join(os.tmpdir(), `kcode_${baseName}_${timestamp}_modified${ext}`)),
-            `变更对比: ${baseName}${ext}`);
-    }
-
-    handleConvertToTask(taskId: string) {
-        const { ctx } = this;
-        const chatTask = ctx.store.getTask(taskId);
-        if (!chatTask) return;
-        const messages = ctx.store.getMessages(taskId);
-        const firstUserMsg = messages.find(m => m.role === 'user');
-        const newTask: Task = {
-            id: `task_${Date.now()}`, title: firstUserMsg ? firstUserMsg.content.substring(0, 50).replace(/\n/g, ' ') : '从对话创建的任务',
-            goal: '', type: 'task', status: 'pending', phase: 'demand', confirmedItems: [], pendingItems: [], planSteps: [], createdAt: Date.now(), pinned: false,
-            workspace: vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,
-        };
-        ctx.store.addTask(newTask);
-        const newId = newTask.id;
-        for (const msg of messages) {
-            ctx.store.addMessage({ id: ctx.store.nextMessageId(newId), taskId: newId, role: msg.role, content: msg.content, type: msg.type, timestamp: msg.timestamp });
-        }
-        ctx.loadTask(newId);
-        ctx.refreshSidebarCallback?.();
-    }
-
     private _syncTodosToPlanSteps(taskId: string) {
         const { ctx } = this;
         const messages = ctx.store.getMessages(taskId);
@@ -452,51 +418,6 @@ export class TaskFlowHandler {
         this.sendOutputPanelUpdate(taskId);
     }
 
-    handleUpdateTodoItem(taskId: string, msgId: string, itemId: string, checked: boolean) {
-        const { ctx } = this;
-        const messages = ctx.store.getMessages(taskId);
-        let msg = messages.find(m => m.id === msgId);
-
-        if (!msg && msgId.startsWith('tool_')) {
-            const toolCallId = msgId.slice(5);
-            msg = messages.find(m => {
-                if (m.type !== 'tool_call') return false;
-                try {
-                    const info = JSON.parse(m.content);
-                    return info.toolCallId === toolCallId;
-                } catch { return false; }
-            });
-        }
-
-        if (!msg) return;
-        try {
-            if (msg.type === 'todo') {
-                const items: { id: string; content: string; status: string }[] = JSON.parse(msg.content || '[]');
-                const item = items.find(i => i.id === itemId);
-                if (item) {
-                    item.status = checked ? 'completed' : 'pending';
-                    ctx.store.updateMessageContent(taskId, msg.id, JSON.stringify(items));
-                }
-            } else if (msg.type === 'tool_call') {
-                const info = JSON.parse(msg.content);
-                const rawOutput = info.output || '';
-                const todos = parseTodosFromOutput(rawOutput);
-                const idx = parseInt(itemId, 10);
-                const item = !isNaN(idx) && idx >= 0 && idx < todos.length ? todos[idx] : todos.find((i: any) => String(i.id) === itemId);
-                if (item) {
-                    item.status = checked ? 'completed' : 'pending';
-                    const newOutput = replaceTodosInOutput(rawOutput, todos);
-                    info.output = newOutput;
-                    ctx.store.updateMessageContent(taskId, msg.id, JSON.stringify(info));
-                }
-            }
-            this._syncTodosToPlanSteps(taskId);
-            const t = ctx.store.getTask(taskId);
-            ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(taskId), taskId, taskStatus: t?.status });
-            this.sendOutputPanelUpdate(taskId);
-        } catch {}
-    }
-
     handleKnowledgeEntry(taskId: string, entries: { id: string; type: string; title: string; content: string; tags: string[]; createdAt: number }[]) {
         const { ctx } = this;
         for (const entry of entries) {
@@ -542,10 +463,4 @@ function parseTodosFromOutput(output: string): any[] {
     return [];
 }
 
-function replaceTodosInOutput(output: string, todos: any[]): string {
-    const titleMatch = output.match(/^(<title>\s*\d+\s*todos?\s*<\/title>\s*)/i);
-    if (titleMatch) {
-        return titleMatch[1] + JSON.stringify(todos, null, 2);
-    }
-    return JSON.stringify(todos, null, 2);
-}
+

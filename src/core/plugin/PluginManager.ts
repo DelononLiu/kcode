@@ -52,6 +52,9 @@ export class PluginManager {
             getPlugin<T = any>(id: string): T | undefined {
                 return mgr.getPluginAPI(id) as T | undefined;
             },
+            setPluginExport(id: string, exports: Record<string, any>): void {
+                mgr.setPluginExport(id, exports);
+            },
             getStore: () => mgr.store,
             getRouter: () => mgr.router,
             getAgentService: () => mgr.agentService,
@@ -181,25 +184,28 @@ export class PluginManager {
 
     processStream(text: string): string {
         const mode = this.getCurrentMode();
-        let result = text;
-        this.extensionPoints.dispatchAll('stream', result, mode);
-        return result;
+        return this.extensionPoints.dispatchStream('stream', text, mode);
     }
 
     getOutputPanelTabs(): { id: string; label: string; renderer: (taskInfo: any) => string }[] {
         const tabs: { id: string; label: string; renderer: (taskInfo: any) => string }[] = [];
-        const internal = (this.extensionPoints as any).registries as Map<string, Map<string, Set<{ meta?: Record<string, any> }>>>;
-        const uiReg = internal.get('uiOutputPanel');
-        if (uiReg) {
-            for (const [, entries] of uiReg) {
-                for (const entry of entries) {
-                    const meta = entry.meta as { id?: string; label?: string; renderer?: (taskInfo: any) => string } | undefined;
-                    if (meta?.id && meta?.label && meta?.renderer) {
-                        tabs.push({ id: meta.id, label: meta.label, renderer: meta.renderer });
-                    }
-                }
+        this.extensionPoints.forEachEntry('uiOutputPanel', (entry) => {
+            const meta = entry.meta as { id?: string; label?: string; renderer?: (taskInfo: any) => string } | undefined;
+            if (meta?.id && meta?.label && meta?.renderer) {
+                tabs.push({ id: meta.id, label: meta.label, renderer: meta.renderer });
             }
-        }
+        });
         return tabs;
+    }
+
+    getPluginContributions(): { type: string; id?: string; label?: string; messageType?: string; icon?: string; action?: string }[] {
+        const contribs: { type: string; id?: string; label?: string; messageType?: string; icon?: string; action?: string }[] = [];
+        this.extensionPoints.forEachEntry('uiOutputPanel', (entry) => {
+            const meta = entry.meta as { id?: string; label?: string } | undefined;
+            if (meta?.id && meta?.label) {
+                contribs.push({ type: 'outputPanelTab', id: meta.id, label: meta.label });
+            }
+        });
+        return contribs;
     }
 }

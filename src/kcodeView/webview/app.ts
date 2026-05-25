@@ -399,7 +399,7 @@ function initMessageHandler() {
                 (window as any).handleSavedDevices?.(message.devices || []);
                 break;
             case 'pluginContributions':
-                (window as any).pluginRegistry?.applyPluginContributions(message.plugins || []);
+                (window as any).pluginRegistry?.applyPluginContributions(message.contributions || []);
                 break;
         }
     });
@@ -2169,6 +2169,17 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
         appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
+    }
+
+    // Plugin message renderer hook (P28-06)
+    const pluginRenderer = (window as any).pluginRegistry?.resolveMessageRenderer(msg.type);
+    if (pluginRenderer) {
+        const el = pluginRenderer(msg);
+        if (el) {
+            appendToChatMessages(el);
+            scrollContainer.scrollTop = scrollContainer.scrollHeight;
+            return;
+        }
     }
 
     if (role === 'tool') {

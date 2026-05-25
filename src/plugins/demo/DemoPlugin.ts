@@ -3,15 +3,6 @@ import { DemoRunner } from './DemoRunner';
 
 let demoRunner: DemoRunner | null = null;
 
-function getDeviceClients(): Map<string, any> {
-    try {
-        const mod = require('../device/DevicePlugin');
-        return mod.getDevicePluginExports?.()?.deviceManager?.getClients?.() || new Map();
-    } catch {
-        return new Map();
-    }
-}
-
 const plugin: KCodePlugin = {
     id: 'kcode.demo',
     name: 'Demo Runner',
@@ -21,6 +12,9 @@ const plugin: KCodePlugin = {
 
     async activate(api: PluginAPI) {
         const router = api.getRouter();
+        const deviceExports = api.getPlugin<{ deviceManager: { getClients: () => Map<string, any> } }>('kcode.device');
+        const getDeviceClients = () => deviceExports?.deviceManager?.getClients?.() || new Map();
+
         demoRunner = new DemoRunner(
             getDeviceClients,
             (msg) => router.PostMessage(msg),

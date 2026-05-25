@@ -14,6 +14,7 @@ export interface PluginAPI {
     addOutputPanelTab(id: string, label: string, renderer: (taskInfo: any) => string): void;
     registerPhaseHook(phase: string, hook: { onEnter?: (taskId: string) => Promise<void>; onLeave?: (taskId: string) => Promise<void> }): void;
     getPlugin<T = any>(id: string): T | undefined;
+    setPluginExport(id: string, exports: Record<string, any>): void;
     getStore(): any;
     getRouter(): any;
     getAgentService(): any;

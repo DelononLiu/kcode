@@ -2,8 +2,7 @@ import type { KCodePlugin, PluginAPI } from '../../core/plugin/PluginInterface';
 import { DeviceManager } from './DeviceManager';
 import type { DeviceConfig } from '../../types';
 
-let _deviceManager: DeviceManager | null = null;
-let _exports: Record<string, any> = {};
+let deviceManager: DeviceManager | null = null;
 
 const plugin: KCodePlugin = {
     id: 'kcode.device',
@@ -14,16 +13,16 @@ const plugin: KCodePlugin = {
 
     async activate(api: PluginAPI) {
         const router = api.getRouter();
-        _deviceManager = new DeviceManager(
+        deviceManager = new DeviceManager(
             (msg, ...args) => console.log('[DevicePlugin]', msg, ...args),
             (msg, ...args) => console.error('[DevicePlugin]', msg, ...args),
             (msg) => router.PostMessage(msg),
         );
-        _exports = { deviceManager: _deviceManager };
+        api.setPluginExport('kcode.device', { deviceManager });
 
-        api.onMessage('deviceConnect', (msg: any) => _deviceManager!.handleConnect(msg.config as DeviceConfig));
-        api.onMessage('deviceDisconnect', () => _deviceManager!.handleDisconnect());
-        api.onMessage('deviceCommand', (msg: any) => _deviceManager!.handleCommand(msg.command));
+        api.onMessage('deviceConnect', (msg: any) => deviceManager!.handleConnect(msg.config as DeviceConfig));
+        api.onMessage('deviceDisconnect', () => deviceManager!.handleDisconnect());
+        api.onMessage('deviceCommand', (msg: any) => deviceManager!.handleCommand(msg.command));
         api.onMessage('getSavedDevices', () => {
             const store = api.getStore();
             const configService = (store as any).configService;
@@ -36,15 +35,11 @@ const plugin: KCodePlugin = {
     },
 
     async deactivate() {
-        if (_deviceManager) {
-            _deviceManager.dispose();
-            _deviceManager = null;
+        if (deviceManager) {
+            deviceManager.dispose();
+            deviceManager = null;
         }
-        _exports = {};
     },
 };
 
 export default plugin;
-export function getDevicePluginExports(): Record<string, any> {
-    return _exports;
-}

@@ -178,11 +178,16 @@ export class KCodePanel {
             (await import('../plugins/review/ReviewPlugin')).default,
             (await import('../plugins/diff/DiffPlugin')).default,
             (await import('../plugins/delegate/DelegationPlugin')).default,
+            (await import('../plugins/setup/SetupPlugin')).default,
         ];
         for (const plugin of plugins) {
             this.pluginManager.register(plugin);
         }
         await this.pluginManager.activateAll();
+        const contribs = this.pluginManager.getPluginContributions();
+        if (contribs.length > 0) {
+            this.router.PostMessage({ type: 'pluginContributions', contributions: contribs });
+        }
     }
 
     private setupMessageHandler() {
@@ -200,7 +205,6 @@ export class KCodePanel {
                 this.flowHandler.handleStopGeneration(msg.taskId);
             }
         });
-        this.router.on('openNativeDiff', (msg) => this.flowHandler.handleOpenNativeDiff(msg.original, msg.modified, msg.filePath));
         this.router.on('confirmGoalWithEdit', async (msg) => this.flowHandler.handleConfirmGoalWithEdit(msg.taskId, msg.goal, msg.originalRequest));
         this.router.on('confirmGoalFromHeader', async (msg) => this.flowHandler.handleConfirmGoalFromHeader(msg.taskId));
         this.router.on('confirmPlan', async (msg) => this.flowHandler.handleConfirmPlan(msg.taskId));
@@ -213,41 +217,15 @@ export class KCodePanel {
         this.router.on('cancelQueuedMessage', (msg) => { if (msg.index >= 0 && msg.index < this.pendingMessages.length) { this.pendingMessages.splice(msg.index, 1); this.sendPendingQueueUpdate(); } });
         this.router.on('clearPendingQueue', () => { this.pendingMessages = []; this.sendPendingQueueUpdate(); });
         this.router.on('openTerminal', () => vscode.commands.executeCommand('workbench.action.terminal.new'));
-        this.router.on('convertToTask', (msg) => this.flowHandler.handleConvertToTask(msg.taskId));
         this.router.on('convertAssistantToTask', () => { this.assistantHandler.convertToTask(); });
         this.router.on('updateHooks', (msg) => { if (msg.phase && Array.isArray(msg.commands)) { this.store.updateTaskHooks(msg.taskId, msg.phase, msg.commands); this.flowHandler.sendTaskInfo(msg.taskId); } });
         this.router.on('selectTask', (msg) => { this.loadTask(msg.taskId); this.refreshSidebarCallback?.(); });
         this.router.on('sendAssistantMessage', async (msg) => { await this.assistantHandler.handleMessage(msg.text); });
         this.router.on('slashCommand', async (msg) => { await this.handleSlashCommand(msg.text, msg.taskId); });
-        this.router.on('updateTodoItem', (msg) => { this.flowHandler.handleUpdateTodoItem(msg.taskId, msg.msgId, msg.itemId, msg.checked); });
         this.router.on('switchAgent', (msg) => { this.sessionHandler.handleSwitchAgent(msg.label); });
         this.router.on('openSettings', () => vscode.commands.executeCommand('kcode.openSettings'));
         this.router.on('openKnowledgeEntry', (msg) => vscode.commands.executeCommand('kcode.openKnowledgeWiki', msg.entryId));
         this.router.on('openTaskFromKnowledge', (msg) => vscode.commands.executeCommand('kcode.selectTask', msg.taskId));
-        this.router.on('exportToWiki', async (msg) => {
-            const tid = msg.taskId;
-            if (!tid) return;
-            try {
-                const { WikiExporter } = await import('../export/WikiExporter');
-                const exporter = new WikiExporter(this.store);
-                const result = exporter.writeToWiki(tid);
-                this.router.PostMessage({ type: 'wikiExported', filePath: result.filePath, fileName: result.fileName });
-                vscode.window.showInformationMessage(`✅ 已导出到 .kcode/wiki/${result.fileName}`);
-            } catch (err: any) {
-                vscode.window.showErrorMessage(`导出失败: ${err?.message || String(err)}`);
-            }
-        });
-        this.router.on('extractKnowledge', async (msg) => {
-            const tid = msg.taskId;
-            if (!tid || this.isGenerating) return;
-            const messages = this.store.getMessages(tid);
-            if (messages.length === 0) return;
-            const extractPrompt = '请分析以上对话内容，提炼本次任务中可复用的核心经验与关键决策（2-4 条为宜，每条聚焦一个具体问题或场景）。先输出标题行「📚 萃取知识表格」，然后在其下方用 markdown 表格输出（列：类型、标题、简介、标签）。标题请简短（15 字以内），不含特殊字符（如 * # / \\ : 等），适合作为文件名。表格数据会被系统自动解析存储，不需要额外输出 JSON。如果没有可提炼的知识，请直接说明。';
-            const handler = this.sessionHandler.createAgentResponseHandler(tid, false, '', true);
-            this.setGenerationState(true);
-            this.router.PostMessage({ type: 'addSystemMessage', content: '🔍 AI 正在分析对话萃取知识...', taskId: tid });
-            await this.sessionHandler.doPrompt(tid, extractPrompt, handler);
-        });
 
         // Plugin message dispatch — after all inline handlers
         this.panel.webview.onDidReceiveMessage((message: any) => {
