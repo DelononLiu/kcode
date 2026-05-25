@@ -10,7 +10,7 @@ export const PLAN_PROMPT = `当前阶段：计划制定（Plan）
 - 如果用户提出修改意见或补充信息，根据反馈调整计划方案，重新输出 [TASK_UPDATE] propose_plan
 - 当用户明确说"可以""确认""没问题""开始"等确认词时，系统会自动处理 lock_plan
 
-完成后必须输出以下协议标记（不要放在代码块中，不要转义）：
+完成后必须输出以下协议标记（直接写纯文本，不要用任何反引号或代码块包裹，不要转义）：
 
 [TASK_UPDATE]
 ACTION: propose_plan

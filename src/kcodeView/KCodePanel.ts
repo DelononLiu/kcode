@@ -68,10 +68,7 @@ export class KCodePanel {
             },
             onExecuteFinished: (taskId) => { this.flowHandler.sendTaskInfo(taskId); },
             onGoalFormatted: async (taskId, goalText, originalRequest) => {
-                this.ctx.taskFlow.confirmGoal(taskId);
-                this.ctx.router.PostMessage({ type: 'addSystemMessage', content: '🎯 目标已自动确认，进入计划阶段...', taskId });
-                await this.ctx.sendHooksAsMessage(taskId, 'plan');
-                await this.ctx.sendAgentPrompt(taskId, this.ctx.taskFlow.buildPhaseTransitionPrompt(taskId, originalRequest), false, originalRequest);
+                this.ctx.router.PostMessage({ type: 'showGoalConfirmation', taskId, goal: goalText, originalRequest });
             },
             onError: (taskId, error) => { this.flowHandler.showAgentError(taskId, error); },
             onSelfVerifyNeeded: (taskId) => { setTimeout(() => this.sessionHandler.startAutoGeneration(taskId), 100); },
@@ -263,6 +260,8 @@ export class KCodePanel {
         this.router.PostMessage({ type: 'slashCommandList', commands: this.getSlashCommandList() });
 
         await this.sessionHandler.ensureConnection();
+        // 防止竞态：如果用户在此期间已通过 loadTask 加载了任务，不覆盖任务 UI
+        if (this.currentTaskId !== null) return;
         if (this.agentService.isConnected) {
             this.assistantHandler.showLanding();
             this.assistantHandler.loadMessages();

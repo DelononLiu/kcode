@@ -161,8 +161,9 @@ export class TaskFlow {
     }
 
     getCleanText(taskId: string): string {
-        const text = this.accumulatedText.get(taskId) || '';
-        // 剥离 [TASK_UPDATE] 块（仅独立段落：块起始于行首）
+        let text = this.accumulatedText.get(taskId) || '';
+        text = text.replace(/`{1,3}\s*\[TASK_UPDATE\]/g, '[TASK_UPDATE]');
+        text = text.replace(/\[\/TASK_UPDATE\]\s*`{1,3}/g, '[/TASK_UPDATE]');
         return text.replace(/\s*\[TASK_UPDATE\][\s\S]*?\[\/TASK_UPDATE\]\s*/g, '\n').trim();
     }
 
@@ -380,7 +381,12 @@ export class TaskFlow {
         if (!task || task.type !== 'task') return;
         let text = this.accumulatedText.get(taskId) || '';
 
-        // 匹配 [TASK_UPDATE] 块（仅独立段落：起始于行首）
+        // AI 有时会把 [TASK_UPDATE] 包在代码块或反引号中，先归一化
+        text = text.replace(/`{1,3}\s*\[TASK_UPDATE\]/g, '[TASK_UPDATE]');
+        text = text.replace(/\[\/TASK_UPDATE\]\s*`{1,3}/g, '[/TASK_UPDATE]');
+        this.accumulatedText.set(taskId, text);
+
+        // 匹配 [TASK_UPDATE] 块
         const regex = /\s*\[TASK_UPDATE\]\s*([\s\S]*?)\s*\[\/TASK_UPDATE\]/g;
         let match;
         while ((match = regex.exec(text)) !== null) {

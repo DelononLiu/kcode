@@ -9,7 +9,7 @@ export const GOAL_PROMPT = `当前阶段：目标确认（Goal）
 - 标注当前阶段
 - 列出已锁定的共识条目
 - 列出待讨论的条目
-- 以 [TASK_UPDATE] 标签输出协议（不要放在代码块中）：
+- 以 [TASK_UPDATE] 标签输出协议（直接写纯文本，不要用任何反引号或代码块包裹）：
 
 [TASK_UPDATE]
 ACTION: propose_goal
