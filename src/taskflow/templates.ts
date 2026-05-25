@@ -97,6 +97,14 @@ const CATEGORIES: Record<TaskCategory, CategoryDef> = {
                     '不影响已有业务场景',
                     '关键路径有日志记录',
                 ],
+                flowIteration: {
+                    loopPhases: ['execute', 'self_verify'],
+                    defaultTargets: [
+                        { key: 'complexity', label: '代码复杂度', direction: 'lower', unit: 'points' },
+                    ],
+                    defaultIterationLimit: 5,
+                    defaultCorrectnessTests: ['npm test', 'npm run lint'],
+                },
             },
             doc_dev: {
                 label: '文档补充开发',
@@ -258,6 +266,7 @@ const CATEGORIES: Record<TaskCategory, CategoryDef> = {
                 analysisFramework: '请遵循正确性审查框架：1) 逐条核对逻辑与需求的一致性 2) 检查边界条件和特殊输入处理 3) 验证数据流和状态转换的正确性 4) 指出逻辑缺陷并给出修复建议',
                 executionHints: ['关注条件判断分支是否覆盖所有情况', '检查循环和递归的终止条件', '验证数据一致性和事务完整性'],
                 acceptanceCriteria: ['逻辑缺陷已全部定位', '边界条件处理已评估', '修复建议具体可行'],
+                flowOverride: ['demand', 'goal', 'review'],
             },
             cr_security: {
                 label: '安全审查',
@@ -270,6 +279,7 @@ const CATEGORIES: Record<TaskCategory, CategoryDef> = {
                 analysisFramework: '请遵循安全审查框架：1) 检查输入验证和输出编码 2) 识别注入风险（XSS/SQL/命令注入等） 3) 检查认证授权逻辑 4) 评估敏感数据处理和存储安全性',
                 executionHints: ['优先关注外部输入的处理链', '检查密钥和凭据的管理方式', '验证权限校验是否覆盖所有入口'],
                 acceptanceCriteria: ['安全漏洞已全部定位', '风险等级已评估', '修复方案已提供'],
+                flowOverride: ['demand', 'goal', 'review'],
             },
             cr_best_practice: {
                 label: '最佳实践审查',
@@ -282,6 +292,7 @@ const CATEGORIES: Record<TaskCategory, CategoryDef> = {
                 analysisFramework: '请遵循最佳实践审查框架：1) 检查代码是否符合项目规范和设计模式 2) 评估可读性和可维护性 3) 识别重复代码和过度设计 4) 检查测试覆盖的充分性',
                 executionHints: ['检查命名规范和代码组织', '关注模块间耦合度', '评估测试用例的覆盖质量'],
                 acceptanceCriteria: ['编码规范偏离已指出', '可维护性问题已评估', '改进建议可落地'],
+                flowOverride: ['demand', 'goal', 'review'],
             },
             cr_deps: {
                 label: '依赖审查',
@@ -294,6 +305,7 @@ const CATEGORIES: Record<TaskCategory, CategoryDef> = {
                 analysisFramework: '请遵循依赖审查框架：1) 检查已知安全漏洞（CVE） 2) 评估许可证合规性 3) 检查版本兼容性和废弃 API 4) 识别冗余或未使用的依赖',
                 executionHints: ['优先关注高危安全漏洞', '检查 Major 版本变更的 breaking changes', '评估依赖的维护活跃度'],
                 acceptanceCriteria: ['安全漏洞已排查', '许可证合规已确认', '依赖版本兼容性已验证'],
+                flowOverride: ['demand', 'goal', 'review'],
             },
             cr_arch: {
                 label: '架构审查',
@@ -306,6 +318,7 @@ const CATEGORIES: Record<TaskCategory, CategoryDef> = {
                 analysisFramework: '请遵循架构审查框架：1) 检查分层职责是否清晰 2) 评估模块间耦合度 3) 分析扩展性和可测试性 4) 识别过度工程或架构腐败迹象',
                 executionHints: ['关注核心业务逻辑的领域模型', '检查基础设施与业务逻辑的隔离', '评估接口抽象的合理性'],
                 acceptanceCriteria: ['架构问题已定位', '改进方案可行', '重构风险已评估'],
+                flowOverride: ['demand', 'goal', 'review'],
             },
         },
     },
@@ -329,6 +342,7 @@ const CATEGORIES: Record<TaskCategory, CategoryDef> = {
                 analysisFramework: '请遵循错误日志分析框架：1) 从堆栈底部根因开始分析 2) 区分业务异常和系统异常 3) 关联上下文日志定位触发条件 4) 输出根因和修复方案',
                 executionHints: ['关注首次出现错误的时间点', '检查错误前后上下文日志', '区分偶发和持续性问题'],
                 acceptanceCriteria: ['错误根因已定位', '修复方案可行', '监控告警优化建议已提供'],
+                flowOverride: ['demand', 'goal', 'review'],
             },
             la_access: {
                 label: '访问日志分析',
@@ -341,6 +355,7 @@ const CATEGORIES: Record<TaskCategory, CategoryDef> = {
                 analysisFramework: '请遵循访问日志分析框架：1) 聚合分析请求频率、响应码分布、耗时分布 2) 识别异常模式（高频 4xx/5xx、慢请求聚合） 3) 关联客户端 IP 和 User-Agent 分析 4) 输出优化建议',
                 executionHints: ['关注 P99 响应时间和慢请求', '分析 5xx 错误的时间分布', '检查是否存在异常请求模式'],
                 acceptanceCriteria: ['访问模式分析完成', '异常请求已定位', '优化建议已输出'],
+                flowOverride: ['demand', 'goal', 'review'],
             },
             la_perf: {
                 label: '性能日志分析',
@@ -353,6 +368,7 @@ const CATEGORIES: Record<TaskCategory, CategoryDef> = {
                 analysisFramework: '请遵循性能日志分析框架：1) 识别性能拐点和异常波动 2) 关联资源指标（CPU/内存/IO）分析瓶颈 3) 区分业务高峰和异常突增 4) 输出优化建议',
                 executionHints: ['对比性能拐点前后的变更', '关注资源消耗的关联性', '区分正常业务峰值和异常'],
                 acceptanceCriteria: ['性能瓶颈已定位', '优化建议可量化', '关键指标监控建议已提供'],
+                flowOverride: ['demand', 'goal', 'review'],
             },
             la_audit: {
                 label: '审计日志分析',

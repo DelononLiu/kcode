@@ -249,13 +249,15 @@ export class TaskFlowHandler {
         const task = ctx.store.getTask(taskId);
         if (!task) return;
         const phaseLabels: Record<string, string> = { demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收' };
+        const fi = task.flowIteration;
         ctx.router.PostMessage({
             type: 'updateTaskInfo', title: task.title, goal: task.goal, goalHint: task.goal ? '🎯 ' + task.goal : '',
             status: task.status, phase: task.phase, phaseLabel: phaseLabels[task.phase] || task.phase,
             taskType: task.type, createdAt: task.createdAt, pendingReviewFiles: 0,
             confirmedItems: task.confirmedItems, pendingItems: task.pendingItems, planSteps: task.planSteps,
             hooks: task.hooks || {}, workspaceHooks: ctx.taskFlow['workspaceHooks'] || {},
-            messageCount: ctx.store.getMessages(taskId).length, executeFinished: ctx.taskFlow.isExecuteFinished(taskId)
+            messageCount: ctx.store.getMessages(taskId).length, executeFinished: ctx.taskFlow.isExecuteFinished(taskId),
+            flowIteration: fi ? { enabled: fi.enabled, currentIteration: fi.state.currentIteration, maxIteration: fi.config.iterationLimit } : undefined,
         });
         this.sendOutputPanelUpdate(taskId);
     }
@@ -334,6 +336,11 @@ export class TaskFlowHandler {
         const hasPlan = this.ctx.taskFlow.getPlanEntries(taskId).length > 0 || ['execute', 'self_verify', 'review'].includes(phase);
         const hasSelfVerify = ['review', 'self_verify'].includes(phase);
 
+        const fi = task.flowIteration;
+        const showIter = fi?.enabled && fi.state.currentIteration > 0;
+        const curIter = fi?.state.currentIteration || 0;
+        const maxIter = fi?.config.iterationLimit || 0;
+
         let interruptAt = '';
         if (s === 'cancelled') {
             if (!hasGoal || !hasConfirmedGoal) interruptAt = 'goal';
@@ -353,8 +360,8 @@ export class TaskFlowHandler {
             { id: 'demand', type: 'demand' as const, label: '需求提交', status: ns('demand', hasGoal || hasConfirmedGoal || s === 'in_review' || s === 'completed', !(hasGoal || hasConfirmedGoal) && s !== 'cancelled'), order: 1, messageId: nm.demand },
             { id: 'goal', type: 'goal' as const, label: '目标确认', status: ns('goal', hasConfirmedGoal, hasGoal && !hasConfirmedGoal && s !== 'cancelled'), order: 2, messageId: nm.goal },
             { id: 'plan', type: 'plan' as const, label: '计划', status: ns('plan', hasPlan || s === 'in_review' || s === 'completed', phase === 'plan'), order: 3, messageId: nm.plan },
-            { id: 'execute', type: 'execute' as const, label: '执行', status: ns('execute', s === 'in_review' || s === 'completed' || phase === 'self_verify', phase === 'execute' && s === 'active'), order: 4, messageId: nm.execute },
-            { id: 'self_verify', type: 'self_verify' as const, label: '自验', status: ns('self_verify', hasSelfVerify && s !== 'active', phase === 'self_verify'), order: 5, messageId: nm.self_verify },
+            { id: 'execute', type: 'execute' as const, label: '执行', status: ns('execute', s === 'in_review' || s === 'completed' || phase === 'self_verify', phase === 'execute' && s === 'active'), order: 4, messageId: nm.execute, iteration: showIter ? curIter : undefined },
+            { id: 'self_verify', type: 'self_verify' as const, label: '自验', status: ns('self_verify', hasSelfVerify && s !== 'active', phase === 'self_verify'), order: 5, messageId: nm.self_verify, iteration: showIter ? curIter : undefined },
             { id: 'review', type: 'review' as const, label: '验收', status: ns('review', s === 'completed', phase === 'review' && s === 'in_review'), order: 6, messageId: nm.review },
         ];
     }

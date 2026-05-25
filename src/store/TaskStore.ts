@@ -261,6 +261,16 @@ export class TaskStore {
         this.fs.updateTask(taskId, { archived });
     }
 
+    updateTaskFlowIteration(taskId: string, flowIteration: Task['flowIteration']): void {
+        this.fs.updateTask(taskId, { flowIteration } as any);
+    }
+
+    updateTaskFlowIterationState(taskId: string, state: NonNullable<Task['flowIteration']>['state']): void {
+        const task = this.fs.getTask(taskId);
+        if (!task || !task.flowIteration) return;
+        this.fs.updateTask(taskId, { flowIteration: { ...task.flowIteration, state } } as any);
+    }
+
     updateTasksArchive(taskIds: string[], archived: boolean): void {
         for (const id of taskIds) {
             this.fs.updateTask(id, { archived });

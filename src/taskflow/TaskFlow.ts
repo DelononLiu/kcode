@@ -6,7 +6,8 @@ import { GOAL_PROMPT } from './prompts/goal';
 import { PLAN_PROMPT } from './prompts/plan';
 import { EXECUTE_PROMPT } from './prompts/execute';
 import { REVIEW_PROMPT } from './prompts/review';
-import { SELF_VERIFY_PROMPT } from './prompts/self_verify';
+import { SELF_VERIFY_PROMPT, LAYERED_VERIFICATION_SECTION } from './prompts/self_verify';
+import { EXECUTE_ITERATION_CONTEXT } from './prompts/execute';
 
 import { getTemplate, getCategory } from './templates';
 import { loadExternalPrompt } from './externalPrompts';
@@ -70,6 +71,7 @@ export interface GenResult {
     planProposed: boolean;
     executeFinished: boolean;
     selfVerifyFinished: boolean;
+    iterationContinued: boolean;
 }
 
 interface PlanEntry {
@@ -86,6 +88,7 @@ export class TaskFlow {
     private goalProposed: Map<string, boolean> = new Map();
     private executeFinished: Map<string, boolean> = new Map();
     private selfVerifyFinished: Map<string, boolean> = new Map();
+    private iterationContinued: Map<string, boolean> = new Map();
     private accumulatedText: Map<string, string> = new Map();
     private tableParsed: Set<string> = new Set();
     private planEntries: Map<string, PlanEntry[]> = new Map();
@@ -112,6 +115,7 @@ export class TaskFlow {
         this.goalProposed.set(taskId, false);
         this.executeFinished.set(taskId, false);
         this.selfVerifyFinished.set(taskId, false);
+        this.iterationContinued.set(taskId, false);
         this.accumulatedText.set(taskId, '');
         this.planEntries.set(taskId, []);
     }
@@ -123,6 +127,7 @@ export class TaskFlow {
         this.goalProposed.set(taskId, false);
         this.executeFinished.set(taskId, false);
         this.selfVerifyFinished.set(taskId, false);
+        this.iterationContinued.set(taskId, false);
     }
 
     setPlanEntries(taskId: string, entries: PlanEntry[]): void {
@@ -371,7 +376,8 @@ export class TaskFlow {
         return {
             planProposed: this.isPlanProposed(taskId),
             executeFinished: this.isExecuteFinished(taskId),
-            selfVerifyFinished: this.isSelfVerifyFinished(taskId)
+            selfVerifyFinished: this.isSelfVerifyFinished(taskId),
+            iterationContinued: this.iterationContinued.get(taskId) || false,
         };
     }
 
@@ -407,9 +413,45 @@ export class TaskFlow {
                 if (task.phase === 'self_verify' && payload.ACTION === 'finish_verify') {
                     text = text.replace(match[0], '');
                     this.accumulatedText.set(taskId, text);
-                    this.selfVerifyFinished.set(taskId, true);
-                    this.delegate.onSelfVerifyFinished(taskId);
                     regex.lastIndex = 0;
+
+                    if (payload.DECISION === 'continue' && task.flowIteration?.enabled && task.flowIteration.loopPhases.includes('execute')) {
+                        const iter = task.flowIteration.state;
+                        iter.currentIteration++;
+                        const metrics: Record<string, number> = {};
+                        if (payload.METRICS) {
+                            try { Object.assign(metrics, JSON.parse(payload.METRICS)); } catch {}
+                        }
+                        iter.history.push({
+                            iteration: iter.currentIteration,
+                            metrics,
+                            passed: false,
+                            improved: iter.history.length > 0
+                                ? Object.keys(metrics).some(k => {
+                                    const prev = iter.history[iter.history.length - 1].metrics[k];
+                                    return prev !== undefined && metrics[k] < prev;
+                                  })
+                                : true,
+                            timestamp: Date.now(),
+                        });
+                        if (!iter.history[iter.history.length - 1].improved) {
+                            iter.stagnatedCount++;
+                        } else {
+                            iter.stagnatedCount = 0;
+                        }
+                        this.store.updateTaskPhase(taskId, 'execute');
+                        this.store.updateTaskStatus(taskId, 'active');
+                        this.store.addTimelineEntry(taskId, {
+                            timestamp: Date.now(), type: 'phase_change',
+                            summary: `自验通过 → 继续执行（迭代 ${iter.currentIteration}/${task.flowIteration.config.iterationLimit}）`,
+                            detail: `metrics: ${JSON.stringify(metrics)}`,
+                        });
+                        this.iterationContinued.set(taskId, true);
+                        this.delegate.onPhaseChanged(taskId);
+                    } else {
+                        this.selfVerifyFinished.set(taskId, true);
+                        this.delegate.onSelfVerifyFinished(taskId);
+                    }
                     continue;
                 }
 
@@ -425,7 +467,7 @@ export class TaskFlow {
         }
     }
 
-    private static readonly PROTOCOL_KEYS = new Set(['ACTION', 'CONFIRMED', 'PENDING', 'STEPS', 'INDEX', 'STATUS']);
+    private static readonly PROTOCOL_KEYS = new Set(['ACTION', 'CONFIRMED', 'PENDING', 'STEPS', 'INDEX', 'STATUS', 'DECISION', 'METRICS', 'ITERATION']);
 
     private parseSimplePayload(body: string): any {
         const payload: any = {};
@@ -780,6 +822,42 @@ export class TaskFlow {
         }
         if (extraParts.length > 0) {
             basePrompt = basePrompt + '\n\n' + extraParts.join('\n\n');
+        }
+
+        if (task.flowIteration?.enabled) {
+            const st = task.flowIteration.state;
+            const baseSection: string[] = [];
+            baseSection.push(`【迭代优化 - 第 ${st.currentIteration + 1}/${task.flowIteration.config.iterationLimit} 轮】`);
+
+            const targetLines = Object.entries(task.flowIteration.config.targets);
+            if (targetLines.length > 0) {
+                const baselineStrs = targetLines.map(([k, v]) => `${k}=${st.baselines[k] ?? '?'}`);
+                baseSection.push(`基线指标: ${baselineStrs.join(', ')}`);
+                const targetStrs = targetLines.map(([k, v]) => `${k}≤${v}`);
+                baseSection.push(`目标: ${targetStrs.join(', ')}`);
+            }
+
+            if (st.history.length > 0) {
+                baseSection.push('历史:');
+                for (const h of st.history) {
+                    const metricStr = Object.entries(h.metrics).map(([k, v]) => `${k}=${v}`).join(', ');
+                    const improved = h.improved ? '[改进]' : '[无改进]';
+                    baseSection.push(`  iter ${h.iteration}: ${metricStr} ${improved}`);
+                }
+            }
+
+            if (task.phase === 'self_verify') {
+                if (task.flowIteration.config.correctnessTests.length > 0) {
+                    baseSection.push('');
+                    baseSection.push('【正确性测试】');
+                    for (const test of task.flowIteration.config.correctnessTests) {
+                        baseSection.push(test);
+                    }
+                }
+                extraParts.push(baseSection.join('\n') + '\n' + LAYERED_VERIFICATION_SECTION);
+            } else if (task.phase === 'execute') {
+                extraParts.push(baseSection.join('\n') + '\n' + EXECUTE_ITERATION_CONTEXT);
+            }
         }
 
         const externalContent = loadExternalPrompt(task.type, task.category, task.subType, task.phase);

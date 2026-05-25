@@ -3702,16 +3702,16 @@ function getNodeLetter(type: string): string {
     }
 }
 
-function getNodeLabel(type: string): string {
-    switch (type) {
-        case 'demand': return '需求';
-        case 'goal': return '目标';
-        case 'plan': return '计划';
-        case 'execute': return '执行';
-        case 'self_verify': return '自验';
-        case 'review': return '验收';
-        default: return type;
+function getNodeLabel(type: string, node?: any): string {
+    const base: Record<string, string> = {
+        demand: '需求', goal: '目标', plan: '计划',
+        execute: '执行', self_verify: '自验', review: '验收',
+    };
+    let label = base[type] || type;
+    if (node?.iteration !== undefined && node?.maxIteration) {
+        label += ` ${node.iteration}/${node.maxIteration}`;
     }
+    return label;
 }
 
 function handleNodePanelUpdate(nodes: any[], taskType: string) {
@@ -3736,7 +3736,8 @@ function handleNodePanelUpdate(nodes: any[], taskType: string) {
 
         const dot = document.createElement('div');
         dot.className = `tl-node status-${node.status}`;
-        dot.title = `${node.label}`;
+        const iterInfo = node.iteration !== undefined && node.maxIteration ? ` (${node.iteration}/${node.maxIteration})` : '';
+        dot.title = `${node.label}${iterInfo}`;
         if (node.messageId) {
             dot.dataset.msgId = node.messageId;
         }
@@ -3748,7 +3749,7 @@ function handleNodePanelUpdate(nodes: any[], taskType: string) {
 
         const label = document.createElement('span');
         label.className = 'tl-label';
-        label.textContent = getNodeLabel(node.type);
+        label.textContent = getNodeLabel(node.type, node);
         dot.appendChild(label);
 
         wrap.appendChild(dot);

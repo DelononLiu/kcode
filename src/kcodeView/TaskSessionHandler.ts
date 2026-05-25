@@ -99,7 +99,34 @@ export class TaskSessionHandler {
 
         if (category) {
             ctx.store.updateTaskCategory(tid, category as any);
-            if (subType) ctx.store.updateTaskSubType(tid, subType);
+            if (subType) {
+                ctx.store.updateTaskSubType(tid, subType);
+                const template = getTemplate(category as any, subType);
+                if (template?.flowIteration) {
+                    const t = ctx.store.getTask(tid);
+                    if (t && !t.flowIteration) {
+                        const configTargets: Record<string, number> = {};
+                        for (const dt of template.flowIteration.defaultTargets) {
+                            configTargets[dt.key] = 0;
+                        }
+                        ctx.store.updateTaskFlowIteration(tid, {
+                            enabled: true,
+                            loopPhases: template.flowIteration.loopPhases,
+                            config: {
+                                correctnessTests: template.flowIteration.defaultCorrectnessTests || [],
+                                targets: configTargets,
+                                iterationLimit: template.flowIteration.defaultIterationLimit,
+                            },
+                            state: {
+                                currentIteration: 0,
+                                stagnatedCount: 0,
+                                baselines: {},
+                                history: [],
+                            },
+                        });
+                    }
+                }
+            }
         }
 
         const isFirstMessage = ctx.store.getMessages(tid).length === 0;
