@@ -61,7 +61,7 @@ describe('AssistantHandler', () => {
             expect.objectContaining({ type: 'updateNodePanel', taskType: 'assistant' })
         );
         expect(mocks.postSpy).toHaveBeenCalledWith(
-            expect.objectContaining({ type: 'updateTaskInfo', title: '💬 小助手' })
+            expect.objectContaining({ type: 'updateTaskInfo', title: '🤖 小助手' })
         );
     });
 
@@ -70,7 +70,7 @@ describe('AssistantHandler', () => {
         mocks.store.getAssistantMessages.mockReturnValue(msgs);
         handler.loadMessages();
         expect(mocks.postSpy).toHaveBeenCalledWith({
-            type: 'loadMessages', messages: msgs, taskId: '', taskType: 'assistant',
+            type: 'loadMessages', messages: msgs, taskId: '__assistant__', taskType: 'assistant',
         });
     });
 
@@ -130,7 +130,7 @@ describe('AssistantHandler', () => {
             const first = calls[0][0];
             expect(first.toolCallId).toMatch(/^reasoning_/);
             expect(first.kind).toBe('thinking');
-            expect(first.title).toBe('推理');
+            expect(first.title).toBe('思考');
             expect(first.status).toBe('running');
         });
 
@@ -163,6 +163,7 @@ describe('AssistantHandler', () => {
 
         it('onToolCallUpdate 发送 toolCallUpdate', () => {
             const h = getHandler();
+            h.onToolCall?.('tc-1', '读取文件', 'read', 'running');
             h.onToolCallUpdate?.('tc-1', 'completed', '输出内容', '读取文件', 'read');
             expect(mocks.postSpy).toHaveBeenCalledWith(
                 expect.objectContaining({ type: 'toolCallUpdate', toolCallId: 'tc-1', title: '读取文件', kind: 'read', status: 'completed', content: '输出内容' })

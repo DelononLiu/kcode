@@ -41,6 +41,7 @@ function makeMockCtx() {
         createSession: vi.fn().mockResolvedValue('session-1'),
         sendPrompt: vi.fn().mockResolvedValue(undefined),
         cancel: vi.fn(),
+        getAvailableModels: vi.fn().mockReturnValue([]),
         lastError: '',
         agentName: 'kilo',
     };

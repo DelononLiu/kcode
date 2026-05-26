@@ -24,6 +24,7 @@ vi.mock('../../acp/AcpClient', () => ({
         this.closeTaskSession = vi.fn().mockResolvedValue(undefined);
         this.getReviewChanges = vi.fn().mockReturnValue([]);
         this.dispose = vi.fn().mockResolvedValue(undefined);
+        this.onExit = vi.fn().mockImplementation((_cb: any) => {});
         this.lastError = '';
     }),
 }));
