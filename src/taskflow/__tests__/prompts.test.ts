@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { BASE_PROMPT } from '../prompts/base';
-import { PROTOCOL_PROMPT } from '../prompts/protocol';
+import { PROTOCOL_PROMPT, PROTOCOL_CORE, PROTOCOL_DELEGATE, PROTOCOL_KNOWLEDGE } from '../prompts/protocol';
 import { DEMAND_PROMPT } from '../prompts/demand';
 import { GOAL_PROMPT } from '../prompts/goal';
 import { PLAN_PROMPT } from '../prompts/plan';
@@ -12,6 +12,9 @@ describe('prompts', () => {
     const all = [
         { name: 'BASE_PROMPT', content: BASE_PROMPT, keyword: 'AI 编程助手' },
         { name: 'PROTOCOL_PROMPT', content: PROTOCOL_PROMPT, keyword: 'TASK_UPDATE' },
+        { name: 'PROTOCOL_CORE', content: PROTOCOL_CORE, keyword: 'TASK_UPDATE' },
+        { name: 'PROTOCOL_DELEGATE', content: PROTOCOL_DELEGATE, keyword: 'TASK_DELEGATE' },
+        { name: 'PROTOCOL_KNOWLEDGE', content: PROTOCOL_KNOWLEDGE, keyword: 'KNOWLEDGE_ENTRY' },
         { name: 'DEMAND_PROMPT', content: DEMAND_PROMPT, keyword: '需求收集' },
         { name: 'GOAL_PROMPT', content: GOAL_PROMPT, keyword: '目标确认' },
         { name: 'PLAN_PROMPT', content: PLAN_PROMPT, keyword: '计划制定' },

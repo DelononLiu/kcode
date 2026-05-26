@@ -1,4 +1,4 @@
-export const PROTOCOL_PROMPT = `[TASK_UPDATE] 协议参考
+export const PROTOCOL_CORE = `[TASK_UPDATE] 协议参考
 
 格式示例：
 [TASK_UPDATE]
@@ -27,7 +27,9 @@ STEPS:
    review → accept → completed
    review → reject → execute
 
-[TASK_DELEGATE] 任务委派（仅用户指令触发）
+工作清单使用工具 todo list 管理，系统自动渲染为带有 checkbox 的待办清单卡片。`;
+
+export const PROTOCOL_DELEGATE = `[TASK_DELEGATE] 任务委派（仅用户指令触发）
 
 当用户明确说"这块拆出去单独做"或"创建子任务"等指令时，你可以输出 TASK_DELEGATE 协议块，系统会自动创建新任务。你不可主动委派。
 
@@ -45,9 +47,9 @@ CONTEXT: 当前 TokenStore 提供 get/set/clear 三个方法，token 存储于 w
   GOAL     — 新任务的独立目标描述（必填，从当前讨论中提取并重写）
   RELATED  — 逗号分隔的相关文件路径（可选）
   CONFIRMED — 逗号分隔的共识条目，从当前任务继承（可选）
-  CONTEXT  — 补充的技术上下文，帮助新任务 AI 理解背景（可选）
+  CONTEXT  — 补充的技术上下文，帮助新任务 AI 理解背景（可选）`;
 
-[KNOWLEDGE_ENTRY] 知识沉淀协议
+export const PROTOCOL_KNOWLEDGE = `[KNOWLEDGE_ENTRY] 知识沉淀协议
 
 在 review 阶段输出 accept 前，你应该输出本次任务的可复用经验知识。
 
@@ -65,6 +67,7 @@ CONTEXT: 当前 TokenStore 提供 get/set/clear 三个方法，token 存储于 w
 
 类型：decision（决策）| pitfall（踩坑）| pattern（模式）| code_snippet（代码段）
 标题请简短（15 字以内），不含特殊字符，适合作为文件名。
-系统会自动将知识存储到知识库，并在后续任务中自动注入相关知识。
+系统会自动将知识存储到知识库，并在后续任务中自动注入相关知识。`;
 
-工作清单使用工具 todo list 管理，系统自动渲染为带有 checkbox 的待办清单卡片。`;
+/** @deprecated 使用 PROTOCOL_CORE + 按需注入 PROTOCOL_DELEGATE / PROTOCOL_KNOWLEDGE */
+export const PROTOCOL_PROMPT = `${PROTOCOL_CORE}\n\n${PROTOCOL_DELEGATE}\n\n${PROTOCOL_KNOWLEDGE}`;

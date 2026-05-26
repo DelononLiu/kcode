@@ -1,6 +1,6 @@
 import type { Task, PlanStep, ChatMessage, TodoItem, KnowledgeEntry, TimelineEntry } from '../types';
 import { BASE_PROMPT } from './prompts/base';
-import { PROTOCOL_PROMPT } from './prompts/protocol';
+import { PROTOCOL_CORE, PROTOCOL_DELEGATE, PROTOCOL_KNOWLEDGE } from './prompts/protocol';
 import { DEMAND_PROMPT } from './prompts/demand';
 import { GOAL_PROMPT } from './prompts/goal';
 import { PLAN_PROMPT } from './prompts/plan';
@@ -648,13 +648,14 @@ export class TaskFlow {
             return `${CHAT_PROMPT}\n\n${userText}`;
         }
 
+        const appendix = this.buildProtocolAppendix(task);
         const layers = [
             BASE_PROMPT,
-            PROTOCOL_PROMPT,
+            PROTOCOL_CORE,
             this.buildTaskContext(task),
             this.buildPhasePrompt(task),
-            this.buildKnowledgeContext(task),
-            this.availableCommands,
+            appendix || undefined,
+            this.availableCommands || undefined,
         ];
 
         return layers.filter(Boolean).join('\n\n---\n\n') + '\n\n' + userText;
@@ -667,9 +668,12 @@ export class TaskFlow {
             return userText;
         }
 
+        const appendix = this.buildProtocolAppendix(task);
         const layers = [
+            PROTOCOL_CORE,
             this.buildTaskContext(task),
             this.buildPhasePrompt(task),
+            appendix || undefined,
         ];
 
         return layers.filter(Boolean).join('\n\n---\n\n') + '\n\n' + userText;
@@ -794,6 +798,14 @@ export class TaskFlow {
         }
 
         return basePrompt;
+    }
+
+    private buildProtocolAppendix(task: Task): string {
+        const parts: string[] = [];
+        if (task.phase === 'review') {
+            parts.push(PROTOCOL_KNOWLEDGE);
+        }
+        return parts.join('\n\n');
     }
 
     getPhaseHooksString(phase: string, task: Task): string {
