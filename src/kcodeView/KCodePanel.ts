@@ -66,9 +66,21 @@ export class KCodePanel {
                 this.refreshSidebarCallback?.();
                 this.pluginManager.dispatchPhaseChanged(taskId, '', store.getTask(taskId)?.phase || '');
             },
-            onExecuteFinished: (taskId) => { this.flowHandler.sendTaskInfo(taskId); },
+            onExecuteFinished: async (taskId) => {
+                this.taskFlow.confirmExecuteDone(taskId);
+                await this.sendHooksAsMessage(taskId, 'self_verify');
+                this.flowHandler.sendTaskInfo(taskId);
+                this.flowHandler.sendNodePanelUpdate(taskId);
+                setTimeout(() => this.sessionHandler.startAutoGeneration(taskId), 100);
+            },
             onGoalFormatted: async (taskId, goalText, originalRequest) => {
-                this.ctx.router.PostMessage({ type: 'showGoalConfirmation', taskId, goal: goalText, originalRequest });
+                this.taskFlow.confirmGoal(taskId);
+                await this.sendHooksAsMessage(taskId, 'plan');
+                this.flowHandler.sendTaskInfo(taskId);
+                this.flowHandler.sendNodePanelUpdate(taskId);
+                const promptText = this.taskFlow.buildPhaseTransitionPrompt(taskId, originalRequest);
+                const handler = this.sessionHandler.createAgentResponseHandler(taskId, false, originalRequest);
+                await this.sessionHandler.doPrompt(taskId, promptText, handler);
             },
             onError: (taskId, error) => { this.flowHandler.showAgentError(taskId, error); },
             onSelfVerifyNeeded: (taskId) => { setTimeout(() => this.sessionHandler.startAutoGeneration(taskId), 100); },

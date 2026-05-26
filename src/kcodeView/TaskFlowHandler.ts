@@ -61,12 +61,16 @@ export class TaskFlowHandler {
         const { ctx } = this;
         if (goal) ctx.store.updateTaskGoal(tid, goal);
         if (steps.length > 0) ctx.store.updatePlanSteps(tid, steps);
-        const msgContent = `用户已修改目标和计划\n\n🎯 目标\n${goal}\n\n📋 计划\n${steps.map(s => `- ${s.content}`).join('\n')}`;
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: msgContent, timestamp: Date.now() });
-        ctx.router.PostMessage({ type: 'addUserMessage', content: msgContent });
+        const userText = goal
+            ? `用户已修改目标和计划，请按修改后的内容执行。\n\n🎯 目标\n${goal}\n\n📋 计划\n${steps.map(s => `- ${s.content}`).join('\n')}`
+            : `用户已修改计划，请按修改后的计划执行。\n\n📋 计划\n${steps.map(s => `- ${s.content}`).join('\n')}`;
+        ctx.store.addMessage({
+            id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: userText, timestamp: Date.now()
+        });
+        ctx.router.PostMessage({ type: 'addUserMessage', content: userText });
         ctx.taskFlow.confirmPlan(tid);
         await ctx.sendHooksAsMessage(tid, 'execute');
-        await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, '计划已确认，请开始执行。'), false, '计划已确认，请开始执行。');
+        await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, userText), false, userText);
     }
 
     async handleConfirmExecuteDone(tid: string) {

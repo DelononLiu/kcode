@@ -393,7 +393,7 @@ export class TaskFlow {
             try {
                 const payload = this.parseSimplePayload(match[1]);
 
-                const blockingActions = ['lock_goal', 'lock_plan', 'accept', 'reject'];
+                const blockingActions = ['accept', 'reject'];
                 if (blockingActions.includes(payload.ACTION)) {
                     text = text.replace(match[0], '');
                     this.accumulatedText.set(taskId, text);
@@ -496,14 +496,6 @@ export class TaskFlow {
         switch (payload.ACTION) {
             case 'propose_goal':
                 {
-                    const confirmed = typeof payload.CONFIRMED === 'string' ? [payload.CONFIRMED] : payload.CONFIRMED;
-                    if (confirmed) {
-                        this.store.updateConfirmedItems(taskId, confirmed);
-                    }
-                    const pending = typeof payload.PENDING === 'string' ? [payload.PENDING] : payload.PENDING;
-                    if (pending) {
-                        this.store.updatePendingItems(taskId, pending);
-                    }
                     this.goalProposed.set(taskId, true);
                     this.delegate.onPhaseChanged(taskId);
                 }
@@ -658,7 +650,7 @@ export class TaskFlow {
             this.availableCommands || undefined,
         ];
 
-        return layers.filter(Boolean).join('\n\n---\n\n') + '\n\n' + userText;
+        return layers.filter(Boolean).join('\n\n---\n\n') + '\n\n---\n\n## 用户任务\n' + userText;
     }
 
     buildPhaseTransitionPrompt(taskId: string, userText: string): string {
@@ -670,13 +662,12 @@ export class TaskFlow {
 
         const appendix = this.buildProtocolAppendix(task);
         const layers = [
-            PROTOCOL_CORE,
             this.buildTaskContext(task),
             this.buildPhasePrompt(task),
             appendix || undefined,
         ];
 
-        return layers.filter(Boolean).join('\n\n---\n\n') + '\n\n' + userText;
+        return layers.filter(Boolean).join('\n\n---\n\n') + '\n\n## 用户任务\n' + userText;
     }
 
     /** @deprecated 使用 buildInitialPrompt 或 buildPhaseTransitionPrompt */
@@ -689,24 +680,6 @@ export class TaskFlow {
 
         if (task.goal) {
             lines.push(`目标：${task.goal}`);
-        }
-        if (task.confirmedItems.length > 0) {
-            lines.push('已锁定目标：');
-            task.confirmedItems.forEach((item, i) => {
-                lines.push(`${i + 1}. ${item}`);
-            });
-        }
-        if (task.planSteps.length > 0) {
-            lines.push('计划步骤：');
-            task.planSteps.forEach((s, i) => {
-                lines.push(`   ${i + 1}. [${s.status}] ${s.content}`);
-            });
-        }
-        if (task.pendingItems.length > 0) {
-            lines.push('待讨论条目：');
-            task.pendingItems.forEach((item, i) => {
-                lines.push(`${i + 1}. ${item}`);
-            });
         }
 
         return lines.length > 0 ? lines.join('\n') : '';

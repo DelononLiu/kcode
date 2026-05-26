@@ -185,14 +185,12 @@ describe('buildPrompt', () => {
 // ==============================
 
 describe('processChunk', () => {
-    it('解析 propose_goal 并更新 store', () => {
+    it('解析 propose_goal 并触发回调', () => {
         const { flow, store, delegate, pid } = makeFlow({ phase: 'goal' });
         flow.processChunk(pid,
-            '[TASK_UPDATE]\nACTION: propose_goal\nCONFIRMED:\n  - 登录\n  - 注册\nPENDING:\n  - 邮箱验证\n[/TASK_UPDATE]'
+            '[TASK_UPDATE]\nACTION: propose_goal\n[/TASK_UPDATE]'
         );
-        const t = store.getTask(pid)!;
-        expect(t.confirmedItems).toEqual(['登录', '注册']);
-        expect(t.pendingItems).toEqual(['邮箱验证']);
+        expect(flow.isGoalProposed(pid)).toBe(true);
         expect(delegate.phaseChanged).toContain(pid);
     });
 
@@ -234,9 +232,8 @@ describe('完整流程', () => {
 
         // demand: AI 输出 propose_goal（带尾部换行模拟末尾流式）
         flow.processChunk(pid,
-            '[TASK_UPDATE]\nACTION: propose_goal\nCONFIRMED:\n  - 用户登录\n[/TASK_UPDATE]\n'
+            '[TASK_UPDATE]\nACTION: propose_goal\n[/TASK_UPDATE]\n'
         );
-        expect(store.getTask(pid)!.confirmedItems).toEqual(['用户登录']);
 
         // processGoalProposal → phase = goal
         flow.processGoalProposal(pid, '实现用户登录功能', '写登录', '写登录');

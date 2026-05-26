@@ -12,9 +12,4 @@ export const DEMAND_PROMPT = `当前阶段：需求收集（Demand）
 
 [TASK_UPDATE]
 ACTION: propose_goal
-CONFIRMED:
-  - 已确认的条目1
-  - 已确认的条目2
-PENDING:
-  - 待讨论的条目
 [/TASK_UPDATE]`;
