@@ -476,8 +476,9 @@ export class KCodePanel {
         const hooksStr = this.taskFlow.getPhaseHooksString(phase, task);
         if (!hooksStr) return;
         if (this.agentService.isConnected) {
-            this.acpLogManager.send(tid, 'send', hooksStr);
-            await this.agentService.sendPrompt(tid, hooksStr, { onText: () => {}, onReasoning: () => {}, onToolCall: () => {}, onToolCallUpdate: () => {}, onPlan: () => {}, onError: () => {}, onDone: () => {} });
+            const msg = `[System] Hook 阶段：仅执行以下 Hook 命令，不要处理任务内容。执行完毕后静默完成。\n\n${hooksStr}`;
+            this.acpLogManager.send(tid, 'send', msg);
+            await this.agentService.sendPrompt(tid, msg, { onText: () => {}, onReasoning: () => {}, onToolCall: () => {}, onToolCallUpdate: () => {}, onPlan: () => {}, onError: () => {}, onDone: () => {} });
         }
     }
 
