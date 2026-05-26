@@ -622,18 +622,13 @@ function renderAcpLog() {
 
 let streamMessageEl: HTMLElement | null = null;
 
-function appendToChatMessages(el: Element, insertBeforeRef?: Element | null) {
+function appendToChatMessages(el: Element) {
     const container = document.getElementById('chat-messages')!;
-    const ref = insertBeforeRef || (streamMessageEl?.closest('.chat-msg.agent') ?? null);
-    if (ref && ref.parentElement === container) {
-        container.insertBefore(el, ref);
+    const indicator = document.getElementById('working-indicator');
+    if (indicator && indicator.parentElement === container) {
+        container.insertBefore(el, indicator);
     } else {
-        const indicator = document.getElementById('working-indicator');
-        if (indicator && indicator.parentElement === container) {
-            container.insertBefore(el, indicator);
-        } else {
-            container.appendChild(el);
-        }
+        container.appendChild(el);
     }
     updateLastMsgConvertBtn();
 }
@@ -3442,7 +3437,18 @@ function handleToolCallUpdate(msg: any) {
 
     // Thinking entry — save for merge with subsequent tools
     if (kind === 'thinking') {
+        const preMergeThinkingId = _mergeState?.thinkingId;
+        const preMergeHasTools = _mergeState && _mergeState.tools.length > 0;
         flushMerge();
+        // If flushMerge consumed this thinking entry (merged with non-thinking tools),
+        // the original DOM entry was removed and a merged entry was created.
+        // Skip creating a new standalone entry — subsequent thinking updates for this
+        // same ID are stale (the merge already captured that reasoning block).
+        if (preMergeHasTools && preMergeThinkingId === toolId) {
+            updateWorkingIndicator(msg);
+            scrollContainer.scrollTop = scrollContainer.scrollHeight;
+            return;
+        }
         const existingEntry = document.querySelector(`.tl-entry[data-tl-id="${toolId}"]`);
         if (existingEntry) {
             const bodyPre = existingEntry.querySelector('.tl-entry-body pre');
