@@ -3247,9 +3247,35 @@ function createTimelineEntry(msg: any): HTMLElement {
     header.appendChild(iconEl);
     header.appendChild(titleEl);
 
-    header.addEventListener('click', () => body.classList.toggle('open'));
+    const togglers: (() => void)[] = [];
+
+    let preview: HTMLElement | null = null;
+    if (tlKind === 'thinking' && output) {
+        const lines = output.split('\n');
+        const firstLine = lines[0].trim();
+        if (firstLine && lines.length > 1) {
+            preview = document.createElement('div');
+            preview.className = 'tl-thinking-preview';
+            preview.textContent = firstLine;
+            preview.addEventListener('click', () => togglers.forEach(fn => fn()));
+        }
+    }
+
+    function toggleBody() {
+        if (preview) preview.classList.toggle('hidden');
+        body.classList.toggle('open');
+    }
+    togglers.push(toggleBody);
+
+    header.addEventListener('click', () => togglers.forEach(fn => fn()));
+
+    if (tlKind === 'thinking' && output && !output.includes('\n')) {
+        body.classList.add('open');
+        if (preview) preview.classList.add('hidden');
+    }
 
     main.appendChild(header);
+    if (preview) main.appendChild(preview);
     main.appendChild(body);
     entry.appendChild(bar);
     entry.appendChild(main);
@@ -3414,12 +3440,20 @@ function handleToolCallUpdate(msg: any) {
         flushMerge();
         const existingEntry = document.querySelector(`.tl-entry[data-tl-id="${toolId}"]`);
         if (existingEntry) {
-            const body = existingEntry.querySelector('.tl-entry-body pre');
-            if (body) body.textContent = msg.content || msg.output || '';
+            const bodyPre = existingEntry.querySelector('.tl-entry-body pre');
+            if (bodyPre) bodyPre.textContent = msg.content || msg.output || '';
             const content = msg.content || msg.output || '';
+            const tlBody = existingEntry.querySelector('.tl-entry-body');
+            const preview = existingEntry.querySelector('.tl-thinking-preview') as HTMLElement | null;
             if (content && !content.includes('\n')) {
-                const tlBody = existingEntry.querySelector('.tl-entry-body');
                 if (tlBody) tlBody.classList.add('open');
+                if (preview) preview.classList.add('hidden');
+            } else if (content) {
+                if (tlBody) tlBody.classList.remove('open');
+                if (preview) {
+                    preview.classList.remove('hidden');
+                    preview.textContent = content.split('\n')[0].trim();
+                }
             }
         } else {
             const entry = createTimelineEntry({
@@ -3636,10 +3670,13 @@ function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
     }
 
     if (kind === 'thinking') {
+        const hasMultipleLines = content && content.includes('\n');
+        const firstLine = hasMultipleLines ? content.split('\n')[0].trim() : '';
+        const headerWithPreview = headerHtml + (firstLine ? ' <span class="tool-title-detail">' + escapeHtml(firstLine) + '</span>' : '');
         const card = makeCard({
-            headerHtml,
+            headerHtml: headerWithPreview,
             bodyHtml: content ? '<pre class="tool-body-content" style="white-space:pre-wrap">' + escapeHtml(content) + '</pre>' : undefined,
-            defaultCollapsed: false,
+            defaultCollapsed: !!hasMultipleLines,
             bodyClassName: 'tool-card-body tool-thinking',
             rawData: msg
         });
