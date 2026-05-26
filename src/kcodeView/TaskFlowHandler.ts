@@ -11,7 +11,6 @@ export class TaskFlowHandler {
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认目标', timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'addUserMessage', content: '✅ 确认目标' });
         ctx.taskFlow.confirmGoal(tid);
-        await ctx.sendHooksAsMessage(tid, 'plan');
         await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, originalRequest), false, originalRequest);
     }
 
@@ -53,7 +52,6 @@ export class TaskFlowHandler {
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认计划', timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'addUserMessage', content: '✅ 确认计划' });
         ctx.taskFlow.confirmPlan(tid);
-        await ctx.sendHooksAsMessage(tid, 'execute');
         await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, '计划已确认，请开始执行。'), false, '计划已确认，请开始执行。');
     }
 
@@ -69,7 +67,6 @@ export class TaskFlowHandler {
         });
         ctx.router.PostMessage({ type: 'addUserMessage', content: userText });
         ctx.taskFlow.confirmPlan(tid);
-        await ctx.sendHooksAsMessage(tid, 'execute');
         await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, userText), false, userText);
     }
 
@@ -78,7 +75,6 @@ export class TaskFlowHandler {
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认完成，进入自验', timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'addUserMessage', content: '✅ 确认完成，进入自验' });
         ctx.taskFlow.confirmExecuteDone(tid);
-        await ctx.sendHooksAsMessage(tid, 'self_verify');
         ctx.sendTaskInfo(tid);
         ctx.sendNodePanelUpdate(tid);
         setTimeout(() => ctx.startAutoGeneration(tid), 100);
@@ -103,7 +99,6 @@ export class TaskFlowHandler {
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认目标', timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'addUserMessage', content: '✅ 确认目标' });
         ctx.taskFlow.confirmGoalWithEdit(tid, newGoal);
-        await ctx.sendHooksAsMessage(tid, 'plan');
         await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, originalRequest), false, originalRequest);
     }
 
@@ -203,7 +198,6 @@ export class TaskFlowHandler {
             ctx.store.updateTaskStatus(tid, 'active');
             ctx.sendNodePanelUpdate(tid);
             ctx.refreshSidebarCallback?.();
-            await ctx.sendHooksAsMessage(tid, 'execute');
             await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, approveMsg), false, approveMsg);
         }
     }
@@ -215,7 +209,6 @@ export class TaskFlowHandler {
         ctx.router.PostMessage({ type: 'addUserMessage', content: rejectMsg });
         ctx.taskFlow.rejectReview(tid);
         ctx.store.clearReviewChanges(tid);
-        await ctx.sendHooksAsMessage(tid, 'execute');
         await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, rejectMsg), false, rejectMsg);
     }
 

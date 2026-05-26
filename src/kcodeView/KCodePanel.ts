@@ -66,16 +66,11 @@ export class KCodePanel {
                 this.refreshSidebarCallback?.();
                 this.pluginManager.dispatchPhaseChanged(taskId, '', store.getTask(taskId)?.phase || '');
             },
-            onExecuteFinished: async (taskId) => {
-                this.taskFlow.confirmExecuteDone(taskId);
-                await this.sendHooksAsMessage(taskId, 'self_verify');
+            onExecuteFinished: (taskId) => {
                 this.flowHandler.sendTaskInfo(taskId);
-                this.flowHandler.sendNodePanelUpdate(taskId);
-                setTimeout(() => this.sessionHandler.startAutoGeneration(taskId), 100);
             },
             onGoalFormatted: async (taskId, goalText, originalRequest) => {
                 this.taskFlow.confirmGoal(taskId);
-                await this.sendHooksAsMessage(taskId, 'plan');
                 this.flowHandler.sendTaskInfo(taskId);
                 this.flowHandler.sendNodePanelUpdate(taskId);
                 const promptText = this.taskFlow.buildPhaseTransitionPrompt(taskId, originalRequest);

@@ -145,12 +145,13 @@ export class TaskStreamHandler extends StreamHandlerBase {
                 }
             } else if (genResult.executeFinished && task?.type === 'task' && task?.phase === 'execute') {
                 if (cleanedText) this.ctx.storeMessage(this.tid, 'agent', cleanedText);
+                this.ctx.taskFlow.confirmExecuteDone(this.tid);
                 this.ctx.sendTaskInfo(this.tid);
                 this.ctx.sendNodePanelUpdate(this.tid);
                 this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskStatus: this.ctx.store.getTask(this.tid)?.status });
+                setTimeout(() => this.ctx.startAutoGeneration(this.tid), 100);
             } else if (genResult.selfVerifyFinished && task?.type === 'task' && task?.phase === 'self_verify') {
                 this.ctx.taskFlow.confirmSelfVerifyDone(this.tid);
-                this.ctx.sendHooksAsMessage(this.tid, 'review');
                 this.ctx.triggerReviewRequest(this.tid, cleanedText || '自验完成，请验收变更');
             } else {
                 const agentMsgId = this.ctx.storeMessage(this.tid, 'agent', cleanedText);

@@ -1963,7 +1963,8 @@ function addMessageElement(msg: any, changedFiles?: string[]) {
     const role = msg.role;
     const content = msg.content;
 
-    if (msg.type === 'goal_confirmation' || msg.type === 'goal_confirmed') {
+    // goal_confirmed 不渲染独立卡片，计划卡片已包含目标
+    if (msg.type === 'goal_confirmation') {
         const msgDiv = createCardMessageElement(msg.taskId);
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const bodyText = content.replace(/^📋 任务目标确认\n\n/, '');
@@ -3239,7 +3240,8 @@ function createTimelineEntry(msg: any): HTMLElement {
         }
     }
 
-    const autoExpand = status === 'running' || status === 'pending' || status === 'failed' || status === 'error';
+    const autoExpand = status === 'running' || status === 'pending' || status === 'failed' || status === 'error'
+        || (tlKind === 'thinking' && output && !output.includes('\n'));
     if (output && autoExpand) body.classList.add('open');
 
     header.appendChild(iconEl);
@@ -3329,6 +3331,7 @@ function createMergedTimelineEntry(thinkingMsg: any, tools: any[]): HTMLElement 
 
     // Thinking preview — first line, click to toggle tool output body
     const thinkingOutput = thinkingMsg.content || '';
+    const hasOneLine = thinkingOutput && !thinkingOutput.includes('\n');
     let preview: HTMLElement | null = null;
     if (thinkingOutput) {
         const lines = thinkingOutput.split('\n');
@@ -3351,6 +3354,11 @@ function createMergedTimelineEntry(thinkingMsg: any, tools: any[]): HTMLElement 
     main.appendChild(body);
     entry.appendChild(bar);
     entry.appendChild(main);
+
+    if (hasOneLine) {
+        body.classList.add('open');
+        if (preview) preview.classList.add('hidden');
+    }
 
     return entry;
 }
@@ -3408,7 +3416,10 @@ function handleToolCallUpdate(msg: any) {
         if (existingEntry) {
             const body = existingEntry.querySelector('.tl-entry-body pre');
             if (body) body.textContent = msg.content || msg.output || '';
-            if (msg.status === 'completed') {
+            const content = msg.content || msg.output || '';
+            if (content && !content.includes('\n')) {
+                const tlBody = existingEntry.querySelector('.tl-entry-body');
+                if (tlBody) tlBody.classList.add('open');
             }
         } else {
             const entry = createTimelineEntry({

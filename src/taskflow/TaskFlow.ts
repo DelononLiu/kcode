@@ -661,11 +661,18 @@ export class TaskFlow {
         }
 
         const appendix = this.buildProtocolAppendix(task);
+        // 只有需求/目标/计划阶段需要目标上下文，执行/自验/验收阶段已确认目标无需重复发送
+        const needsContext = ['demand', 'goal', 'plan'].includes(task.phase);
         const layers = [
-            this.buildTaskContext(task),
+            needsContext ? this.buildTaskContext(task) : '',
             this.buildPhasePrompt(task),
             appendix || undefined,
         ];
+
+        const hooksStr = this.getPhaseHooksString(task.phase, task);
+        if (hooksStr) {
+            layers.push(`请先执行以下命令完成阶段准备工作，再继续后续任务。\n${hooksStr}`);
+        }
 
         return layers.filter(Boolean).join('\n\n---\n\n') + '\n\n## 用户任务\n' + userText;
     }
