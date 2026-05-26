@@ -622,13 +622,18 @@ function renderAcpLog() {
 
 let streamMessageEl: HTMLElement | null = null;
 
-function appendToChatMessages(el: Element) {
+function appendToChatMessages(el: Element, insertBeforeRef?: Element | null) {
     const container = document.getElementById('chat-messages')!;
-    const indicator = document.getElementById('working-indicator');
-    if (indicator && indicator.parentElement === container) {
-        container.insertBefore(el, indicator);
+    const ref = insertBeforeRef || (streamMessageEl?.closest('.chat-msg.agent') ?? null);
+    if (ref && ref.parentElement === container) {
+        container.insertBefore(el, ref);
     } else {
-        container.appendChild(el);
+        const indicator = document.getElementById('working-indicator');
+        if (indicator && indicator.parentElement === container) {
+            container.insertBefore(el, indicator);
+        } else {
+            container.appendChild(el);
+        }
     }
     updateLastMsgConvertBtn();
 }
