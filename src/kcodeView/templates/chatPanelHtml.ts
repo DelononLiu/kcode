@@ -58,6 +58,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     </div>
                     <button id="hooks-edit-btn" class="hooks-edit-btn" title="编辑阶段提示词">⚙️</button>
                     <span id="hooks-count" class="hooks-count hidden"></span>
+                    <button id="terminal-replay-btn" class="hooks-edit-btn hidden" title="终端日志重放">💻 终端</button>
                 </div>
 
                 <div id="hooks-editor" class="hooks-editor hidden">

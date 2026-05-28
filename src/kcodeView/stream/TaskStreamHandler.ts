@@ -1,6 +1,7 @@
 import { StreamHandlerBase } from './StreamHandlerBase';
 import type { KCodePanelContext } from '../PanelContext';
 import type { PlanStep } from '../../types';
+import { taskLogStore } from '../../store/TaskLogStore';
 
 export class TaskStreamHandler extends StreamHandlerBase {
     constructor(
@@ -98,6 +99,26 @@ export class TaskStreamHandler extends StreamHandlerBase {
                 });
                 toolItems.push({ toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output });
             }
+            for (const [toolCallId, tc] of this.activeToolCalls) {
+                const kindLower = (tc.kind || '').toLowerCase();
+                const titleLower = (tc.title || '').toLowerCase();
+                const isCommand = kindLower === 'bash' || kindLower === 'command' || kindLower === 'terminal' || kindLower === 'shell' || kindLower === 'execute'
+                    || titleLower === 'bash' || titleLower.startsWith('bash') || titleLower.startsWith('ls ') || titleLower.startsWith('cd ')
+                    || titleLower.startsWith('cat ') || titleLower.startsWith('grep ') || titleLower.startsWith('find ')
+                    || titleLower.startsWith('npm ') || titleLower.startsWith('git ') || titleLower.startsWith('mkdir');
+                if (isCommand) {
+                    const exitCode = /exit code:? (\d+)/i.test(tc.output || '') ? parseInt((tc.output || '').match(/exit code:? (\d+)/i)?.[1] || '0', 10) : 0;
+                    taskLogStore.appendTerminal(this.tid, {
+                        id: toolCallId,
+                        command: tc.title,
+                        output: tc.output || '',
+                        cwd: process.cwd(),
+                        exitCode,
+                        timestamp: Date.now(),
+                    });
+                }
+            }
+
             if (toolItems.length > 0) {
                 const groupId = `tg_${this.tid}_${Date.now()}`;
                 this.ctx.store.addToolGroup(this.tid, groupId, toolItems.map((ti, i) => ({
@@ -163,6 +184,7 @@ export class TaskStreamHandler extends StreamHandlerBase {
             }
         }
 
+        this.ctx.sendTaskInfo(this.tid);
         this.activeToolCalls.clear();
         this.ctx.taskFlow.resetGeneration(this.tid);
     }

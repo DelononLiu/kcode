@@ -17,6 +17,14 @@ export class CommandRegistry {
     return this.kiloCommands;
   }
 
+  getSlashCommands(): { name: string; description: string; usage?: string }[] {
+    const result: { name: string; description: string; usage?: string }[] = [];
+    for (const [name, info] of this.slashHandlers) {
+      result.push({ name: '/' + name, description: info.description, usage: info.usage });
+    }
+    return result;
+  }
+
   getPromptInjection(): string {
     if (this.kiloCommands.length === 0) return '';
     const lines = ['## 可用的命令流程', '', '系统支持以下预定义命令流程，你可以在适当时调用：'];

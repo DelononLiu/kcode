@@ -154,6 +154,33 @@ export interface FileChangeSummary {
     lines?: number;
 }
 
+export interface TerminalLogEntry {
+    id: string;
+    command: string;
+    output: string;
+    cwd: string;
+    exitCode: number;
+    timestamp: number;
+    duration?: number;
+}
+
+export interface MessageLogEntry {
+    id: string;
+    role: 'user' | 'agent' | 'tool';
+    type?: string;
+    content: string;
+    timestamp: number;
+}
+
+export interface FileLogEntry {
+    id: string;
+    filePath: string;
+    operation: 'added' | 'modified' | 'deleted';
+    original?: string;
+    modified?: string;
+    timestamp: number;
+}
+
 export interface ProgressNode {
     id: string;
     type: 'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';

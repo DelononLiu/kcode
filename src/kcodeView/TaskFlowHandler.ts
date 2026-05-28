@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { KCodePanelContext } from './PanelContext';
 import type { Task, FileChange, ProgressNode, PlanStep } from '../types';
 import { getTemplate, getCategory } from '../taskflow/templates';
+import { taskLogStore } from '../store/TaskLogStore';
 
 export class TaskFlowHandler {
     constructor(private ctx: KCodePanelContext) {}
@@ -226,13 +227,15 @@ export class TaskFlowHandler {
         if (!task) return;
         const phaseLabels: Record<string, string> = { demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收' };
         ctx.router.PostMessage({
-            type: 'updateTaskInfo', title: task.title, goal: task.goal, goalHint: task.goal ? '🎯 ' + task.goal : '',
+            type: 'updateTaskInfo', taskId: taskId, title: task.title, goal: task.goal, goalHint: task.goal ? '🎯 ' + task.goal : '',
             status: task.status, phase: task.phase, phaseLabel: phaseLabels[task.phase] || task.phase,
             taskType: task.type, createdAt: task.createdAt, pendingReviewFiles: 0,
             confirmedItems: task.confirmedItems, pendingItems: task.pendingItems, planSteps: task.planSteps,
             hooks: task.hooks || {}, workspaceHooks: ctx.taskFlow['workspaceHooks'] || {},
-            messageCount: ctx.store.getMessages(taskId).length, executeFinished: ctx.taskFlow.isExecuteFinished(taskId)
+            messageCount: ctx.store.getMessages(taskId).length, executeFinished: ctx.taskFlow.isExecuteFinished(taskId),
+            terminalLogCount: taskLogStore.getTerminalLog(taskId).length
         });
+
         this.sendOutputPanelUpdate(taskId);
     }
 

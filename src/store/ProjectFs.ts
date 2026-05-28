@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { Task, ChatMessage, ContainerEntity, FileChange, AssistantMessage, ToolGroup, ToolItem, KnowledgeEntry, TimelineEntry } from '../types';
+import { taskLogStore } from './TaskLogStore';
 
 function defaultRoot(): string {
 	return path.join(os.homedir(), '.kcode');
@@ -336,6 +337,13 @@ export class ProjectFs {
 		const messages = this.getMessages(msg.taskId);
 		messages.push(msg);
 		fs.writeFileSync(contentPath, JSON.stringify(messages, null, 2), 'utf-8');
+		taskLogStore.appendMessage(msg.taskId, {
+			id: msg.id,
+			role: msg.role,
+			type: msg.type,
+			content: msg.content,
+			timestamp: msg.timestamp,
+		});
 	}
 
 	setMessages(taskId: string, messages: ChatMessage[]): void {
@@ -360,6 +368,18 @@ export class ProjectFs {
 		if (!task) return;
 		const reviewPath = path.join(this._taskDir(task), 'review_changes.json');
 		fs.writeFileSync(reviewPath, JSON.stringify(changes, null, 2), 'utf-8');
+		const now = Date.now();
+		for (const change of changes) {
+			const operation = !change.original ? 'added' : !change.modified ? 'deleted' : 'modified' as const;
+			taskLogStore.appendFile(taskId, {
+				id: `fl_${taskId}_${now}_${Math.random().toString(36).slice(2, 6)}`,
+				filePath: change.filePath,
+				operation,
+				original: change.original,
+				modified: change.modified,
+				timestamp: now,
+			});
+		}
 	}
 
 	clearReviewChanges(taskId: string): void {

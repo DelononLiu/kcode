@@ -106,8 +106,15 @@ export class KCodePanel {
             if (!args) { this.router.PostMessage({ type: 'addSystemMessage', content: '用法: /demo <命令>\n示例: /demo echo hello' }); return; }
             this.router.PostMessage({ type: 'demoRun', name: 'Demo', command: args, device: 'localhost', envMeta: { '触发方式': '斜杠命令' } });
         }, '/demo <命令>');
+        this.commandRegistry.registerSlashCommand('/terminal', '打开任务终端日志重放', async (_args, tid) => {
+            if (!tid) { this.router.PostMessage({ type: 'addSystemMessage', content: '请先选择一个任务再使用 /terminal' }); return; }
+            const { TaskTerminalManager } = await import('../plugins/terminal/TaskTerminalManager');
+            const mgr = new TaskTerminalManager();
+            const task = this.store.getTask(tid);
+            mgr.openReplay(tid, task?.title || '任务');
+        });
 
-        this.router.PostMessage({ type: 'slashCommandList', commands: this.getSlashCommandList() });
+        this.sendSlashCommandList();
 
         this.panel.webview.html = this.getWebviewContent();
 
@@ -183,6 +190,7 @@ export class KCodePanel {
             (await import('../plugins/diff/DiffPlugin')).default,
             (await import('../plugins/delegate/DelegationPlugin')).default,
             (await import('../plugins/setup/SetupPlugin')).default,
+            (await import('../plugins/terminal/TerminalPlugin')).default,
         ];
         for (const plugin of plugins) {
             this.pluginManager.register(plugin);
@@ -252,6 +260,7 @@ export class KCodePanel {
         this.hasSetPlanMessage = !!task?.nodeMessageIds?.plan;
         this.hasSetExecuteMessage = !!task?.nodeMessageIds?.execute;
         this.sendCategoryDefs();
+        this.sendSlashCommandList();
         this.flowHandler.sendTaskMessages(taskId);
         this.flowHandler.sendTaskInfo(taskId);
         this.flowHandler.sendNodePanelUpdate(taskId);
@@ -264,7 +273,7 @@ export class KCodePanel {
     async loadAssistant(isFirstLaunch: boolean = false) {
         this.currentTaskId = null;
         this.pendingMessages = [];
-        this.router.PostMessage({ type: 'slashCommandList', commands: this.getSlashCommandList() });
+        this.sendSlashCommandList();
 
         await this.sessionHandler.ensureConnection();
         // 防止竞态：如果用户在此期间已通过 loadTask 加载了任务，不覆盖任务 UI
@@ -356,21 +365,35 @@ export class KCodePanel {
     }
 
     private getSlashCommandList(): { name: string; description: string }[] {
+        const isTask = this.currentTaskId !== null;
         const builtin = [
             { name: '/ai', description: '切换到小助手模式' },
-            { name: '/totask', description: '将小助手对话转为任务' },
-            { name: '/confirm', description: '确认当前阶段操作' },
-            { name: '/reject', description: '驳回验收并附原因' },
-            { name: '/cancel', description: '取消当前任务' },
             { name: '/new', description: '新建任务' },
-            { name: '/tasks', description: '查看任务概览' },
             { name: '/demo', description: '运行 demo 并查看实时输出' },
         ];
+        if (isTask) {
+            builtin.push(
+                { name: '/confirm', description: '确认当前阶段操作' },
+                { name: '/reject', description: '驳回验收并附原因' },
+                { name: '/cancel', description: '取消当前任务' },
+                { name: '/tasks', description: '查看任务概览' },
+                { name: '/terminal', description: '终端日志重放' },
+            );
+        } else {
+            builtin.push(
+                { name: '/totask', description: '将小助手对话转为任务' },
+            );
+        }
+        const registeredSlash = this.commandRegistry.getSlashCommands();
         const projectCmds = this.commandRegistry.getKiloCommands().map(c => ({
             name: c.name,
             description: c.description,
         }));
-        return [...builtin, ...projectCmds];
+        return [...builtin, ...registeredSlash, ...projectCmds];
+    }
+
+    private sendSlashCommandList(): void {
+        this.router.PostMessage({ type: 'slashCommandList', commands: this.getSlashCommandList() });
     }
 
     private async handleSlashCommand(text: string, taskId?: string) {
