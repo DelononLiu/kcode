@@ -238,6 +238,13 @@ export class KCodePanel {
         this.router.on('openSettings', () => vscode.commands.executeCommand('kcode.openSettings'));
         this.router.on('openKnowledgeEntry', (msg) => vscode.commands.executeCommand('kcode.openKnowledgeWiki', msg.entryId));
         this.router.on('openTaskFromKnowledge', (msg) => vscode.commands.executeCommand('kcode.selectTask', msg.taskId));
+        this.router.on('openTerminalReplay', async (msg) => {
+            console.log('[openTerminalReplay] received, taskId=' + msg.taskId);
+            const { TaskTerminalManager } = await import('../plugins/terminal/TaskTerminalManager');
+            const mgr = new TaskTerminalManager();
+            const task = msg.taskId ? this.store.getTask(msg.taskId) : null;
+            mgr.openReplay(msg.taskId, task?.title || '任务');
+        });
 
         // Plugin message dispatch — after all inline handlers
         this.panel.webview.onDidReceiveMessage((message: any) => {

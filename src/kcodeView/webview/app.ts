@@ -1231,6 +1231,12 @@ function initChat() {
         });
     }
 
+    // Terminal replay button
+    const termReplayBtn = document.getElementById('terminal-replay-btn');
+    termReplayBtn?.addEventListener('click', () => {
+        vscode.postMessage({ type: 'openTerminalReplay', taskId: activeTaskId });
+    });
+
 }
 
 function handleGenerationState(isGenerating: boolean) {
@@ -2363,19 +2369,12 @@ function updateTaskInfo(info: any) {
         }
     }
 
-    // Terminal replay button
+    // Terminal replay button visibility
     const termBtn = document.getElementById('terminal-replay-btn');
     if (termBtn) {
         const hasLogs = !!info.terminalLogCount && info.terminalLogCount > 0;
         const hasTask = info.taskType === 'task' && !!info.title && info.status !== 'cancelled' && info.status !== 'completed';
         termBtn.classList.toggle('hidden', !(hasLogs && hasTask));
-        if (hasLogs && hasTask) {
-            termBtn.onclick = () => {
-                vscode.postMessage({ type: 'openTerminalReplay', taskId: info.taskId || activeTaskId });
-            };
-        } else {
-            termBtn.onclick = null;
-        }
     }
 
     // Update left panel + output panel
