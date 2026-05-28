@@ -245,6 +245,14 @@ export class KCodePanel {
                 this.router.PostMessage({ type: 'setViewMode', viewMode: this.viewMode });
             }
         });
+        this.router.on('sendCardComment', (msg) => {
+            if (!msg.taskId || !msg.text) return;
+            const data = JSON.stringify({ cardIndex: msg.cardIndex, text: msg.text, author: '用户', version: 'V1.0' });
+            this.storeMessage(msg.taskId, 'user', data);
+            const msgId = this.store.nextMessageId(msg.taskId);
+            this.store.addMessage({ id: msgId, taskId: msg.taskId, role: 'user', type: 'card_comment', content: data, timestamp: Date.now() });
+            this.flowHandler.sendTaskMessages(msg.taskId);
+        });
         this.router.on('selectTask', (msg) => { this.loadTask(msg.taskId); this.refreshSidebarCallback?.(); });
         this.router.on('sendAssistantMessage', async (msg) => { await this.assistantHandler.handleMessage(msg.text); });
         this.router.on('slashCommand', async (msg) => { await this.handleSlashCommand(msg.text, msg.taskId); });

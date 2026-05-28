@@ -623,8 +623,54 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .card-header-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(0,0,0,.15);border-bottom:1px solid rgba(255,255,255,.05);flex-shrink:0}
 .card-header-label{font-size:12px;font-weight:600;color:#ddd}
 .card-header-sub{font-size:10px;color:#666;margin-left:auto}
-.card-body{flex:1;min-height:60px;font-size:13px;line-height:1.5;color:#d2d2d4;overflow-y:auto;padding:8px 12px}
+.card-body{flex:1;min-height:60px;font-size:13px;line-height:1.5;color:#d2d2d4;overflow-y:auto;padding:8px 12px;display:flex;flex-direction:column;gap:6px}
 .card-empty{color:#555;text-align:center;padding:16px 0;font-size:12px}
+.card-section{margin-bottom:4px}
+.card-section-title{font-size:11px;font-weight:600;color:#999;padding:2px 0 3px;border-bottom:1px solid rgba(255,255,255,.05);margin-bottom:2px}
+.card-goal-text{font-size:12.5px;color:#4ec9b0;line-height:1.5;padding:2px 0}
+.card-confirmed-item{font-size:12px;color:#7ec8a0;padding:1px 0}
+.card-plan-progress{font-size:11px;color:#888;padding:2px 0;display:flex;align-items:center;gap:6px}
+.card-plan-bar{flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;display:inline-block;max-width:120px}
+.card-plan-fill{height:100%;background:#4a8bb5;border-radius:2px;transition:width .4s ease}
+.card-plan-step{font-size:12px;color:#aaa;padding:2px 0 2px 4px;display:flex;align-items:center;gap:4px}
+.card-plan-status{flex-shrink:0;font-size:11px}
+.card-actions{display:flex;gap:6px;padding:6px 0 0;flex-wrap:wrap}
+.card-action-btn{flex:1;min-width:80px;padding:5px 10px;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .2s;white-space:nowrap;text-align:center}
+.card-action-btn.primary{background:#4a8bb5;color:#fff}
+.card-action-btn.primary:hover{background:#5a9bc8}
+.card-action-btn.secondary{background:rgba(255,255,255,.06);color:#d2d2d4}
+.card-action-btn.secondary:hover{background:rgba(255,255,255,.1)}
+.card-progress-row{display:flex;align-items:center;gap:8px;padding:4px 0}
+.card-progress-bar{flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.card-progress-fill{height:100%;background:#4a8bb5;border-radius:3px;transition:width .4s ease}
+.card-progress-label{font-size:11px;color:#888;flex-shrink:0;min-width:32px;text-align:right}
+.card-tool-item{font-size:12px;color:#aaa;padding:2px 0;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.card-tool-status{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
+.card-tool-status.running{background:#5a9d6b;animation:card-pulse 1.2s infinite}
+.card-tool-status.completed{background:#4a8bb5}
+.card-tool-status.error{background:#e06060}
+.card-tool-spinner{display:inline-block;width:10px;height:10px;border:2px solid rgba(255,255,255,.08);border-top-color:#5a9d6b;border-radius:50%;animation:tool-spin .8s linear infinite}
+.card-tool-preview{font-size:11px;color:#666;padding:2px 6px;background:rgba(0,0,0,.15);border-radius:3px;width:100%;white-space:pre-wrap;max-height:40px;overflow:hidden;margin-top:2px}
+.card-review-file{font-size:12px;color:#5a9bc8;padding:3px 4px;border-radius:3px;cursor:pointer;transition:background .1s}
+.card-review-file:hover{background:rgba(74,139,181,.08)}
+@keyframes card-pulse{0%,100%{opacity:.6}50%{opacity:1}}
+.card-comment-toggle{background:none;border:none;color:#888;cursor:pointer;font-size:11px;padding:1px 6px;border-radius:3px;font-family:inherit;display:inline-flex;align-items:center;gap:3px;flex-shrink:0;transition:color .2s,background .2s;margin-left:auto}
+.card-comment-toggle:hover{color:#4ec9b0;background:rgba(78,201,176,.08)}
+.card-comment-toggle.has-comments{color:#4ec9b0}
+.card-comment-count{font-size:10px;min-width:10px;text-align:center}
+.card-comment-section{border-top:1px solid rgba(255,255,255,.05);background:rgba(0,0,0,.06);flex-shrink:0}
+.card-comment-section.hidden{display:none}
+.card-comment-list{max-height:160px;overflow-y:auto;padding:4px 8px;display:flex;flex-direction:column;gap:3px}
+.card-comment-item{display:flex;flex-direction:column;gap:1px;padding:3px 6px;background:rgba(255,255,255,.02);border-radius:3px}
+.card-comment-meta{font-size:10px;color:#666;display:flex;gap:6px}
+.card-comment-author{color:#4a8bb5;font-weight:500}
+.card-comment-time{color:#555}
+.card-comment-text{font-size:12px;color:#bbb;line-height:1.4;word-break:break-word}
+.card-comment-input-row{display:flex;align-items:center;gap:4px;padding:4px 8px 6px;border-top:1px solid rgba(255,255,255,.03)}
+.card-comment-input{flex:1;background:#25252a;border:1px solid rgba(255,255,255,.08);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:12px;padding:5px 8px;outline:none}
+.card-comment-input:focus{border-color:rgba(78,201,176,.3);box-shadow:0 0 6px rgba(78,201,176,.1)}
+.card-comment-send{background:#4a8bb5;border:none;color:#fff;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;transition:background .2s;flex-shrink:0}
+.card-comment-send:hover{background:#5a9bc8}
 
 /* Plugin Management Modal */
 #plugin-manager-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center}

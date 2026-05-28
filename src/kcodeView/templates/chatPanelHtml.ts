@@ -111,27 +111,51 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     <div class="card-header-bar">
                         <span class="card-header-label">🎯 目标&方案</span>
                         <span class="card-header-sub">V1.0</span>
+                        <button class="card-comment-toggle" data-card="1" title="评论">💬 <span class="card-comment-count">0</span></button>
                     </div>
                     <div class="card-body" id="card-1-body">
                         <div class="card-empty">等待 AI 生成方案...</div>
+                    </div>
+                    <div class="card-comment-section hidden" id="card-comment-1">
+                        <div class="card-comment-list" id="card-comment-list-1"></div>
+                        <div class="card-comment-input-row">
+                            <input class="card-comment-input" id="card-comment-input-1" placeholder="输入批注..." maxlength="500">
+                            <button class="card-comment-send" data-card="1">发送</button>
+                        </div>
                     </div>
                 </div>
                 <div id="card-2" class="card-container">
                     <div class="card-header-bar">
                         <span class="card-header-label">⚡ 执行&自检</span>
                         <span class="card-header-sub">进度摘要</span>
+                        <button class="card-comment-toggle" data-card="2" title="评论">💬 <span class="card-comment-count">0</span></button>
                     </div>
                     <div class="card-body" id="card-2-body">
                         <div class="card-empty">等待进入执行阶段...</div>
+                    </div>
+                    <div class="card-comment-section hidden" id="card-comment-2">
+                        <div class="card-comment-list" id="card-comment-list-2"></div>
+                        <div class="card-comment-input-row">
+                            <input class="card-comment-input" id="card-comment-input-2" placeholder="输入批注..." maxlength="500">
+                            <button class="card-comment-send" data-card="2">发送</button>
+                        </div>
                     </div>
                 </div>
                 <div id="card-3" class="card-container">
                     <div class="card-header-bar">
                         <span class="card-header-label">✅ 变更验收</span>
                         <span class="card-header-sub">待验证</span>
+                        <button class="card-comment-toggle" data-card="3" title="评论">💬 <span class="card-comment-count">0</span></button>
                     </div>
                     <div class="card-body" id="card-3-body">
                         <div class="card-empty">等待进入验收阶段...</div>
+                    </div>
+                    <div class="card-comment-section hidden" id="card-comment-3">
+                        <div class="card-comment-list" id="card-comment-list-3"></div>
+                        <div class="card-comment-input-row">
+                            <input class="card-comment-input" id="card-comment-input-3" placeholder="输入批注..." maxlength="500">
+                            <button class="card-comment-send" data-card="3">发送</button>
+                        </div>
                     </div>
                 </div>
             </div>

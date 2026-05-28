@@ -87,7 +87,7 @@ export interface ChatMessage {
     id: string;
     taskId: string;
     role: 'user' | 'agent' | 'tool';
-    type?: 'text' | 'goal_confirmation' | 'goal_confirmed' | 'goal_updated' | 'plan_proposal' | 'plan_confirmed' | 'review_request' | 'review_approved' | 'review_rejected' | 'tool_call' | 'stop_message' | 'todo';
+    type?: 'text' | 'goal_confirmation' | 'goal_confirmed' | 'goal_updated' | 'plan_proposal' | 'plan_confirmed' | 'review_request' | 'review_approved' | 'review_rejected' | 'tool_call' | 'stop_message' | 'todo' | 'card_comment';
     content: string;
     timestamp: number;
 }
