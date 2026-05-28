@@ -3082,16 +3082,20 @@ _目标：将 KCode 重构为核心 + 插件双层架构。核心只剩小助手
 ### P28-07: 收尾 — 配置 + 文档 + 脚手架
 
 **涉及文件**:
-- `src/core/plugin/PluginManager.ts` — 插件配置持久化（`ConfigService` 存储 `plugins.{id}.enabled`）
-- `src/kcodeView/KCodePanel.ts` — 新增 `disablePlugin(id)` / `enablePlugin(id)` 热开关
-- `docs/plugin-dev-guide.md` — **新建**：插件开发文档（接口说明 + 示例代码）
-- `src/plugins/_template/TemplatePlugin.ts` — **新建**：插件脚手架示例
+- `src/types/config.ts` — `KCodeConfig` 新增 `plugins` 字段 + `KNOWN_KEYS` 注册
+- `src/core/ConfigService.ts` — `_writeFile` 的 `knownKeys` 加入 `plugins`
+- `src/core/plugin/PluginManager.ts` — 接受 `ConfigService`，新增 `loadConfig()`/`saveConfig()`/`enablePlugin()`/`disablePlugin()`/`isPluginEnabled()`，activate/deactivate 自动持久化状态
+- `src/kcodeView/KCodePanel.ts` — 传入 `configService` 给 PluginManager；新增 `enablePlugin`/`disablePlugin`/`getPluginList` 消息路由 + `sendPluginList()`
+- `docs/plugin-dev-guide.md` — **新建**：插件开发文档（接口说明 + 示例代码 + 调试技巧）
+- `src/plugins/_template/TemplatePlugin.ts` — 已有插件脚手架示例（31 行）
 
 **实现说明**:
 1. `ConfigService` 存储 `plugins: { [id]: { enabled: true, config: {...} } }`
-2. KCodePanel 工具栏增加「插件管理」入口，可开关插件
-3. 插件热开关：`PluginManager.deactivate(id)` → 清理注册的扩展点 → 恢复之前状态
-4. 示例插件 `TemplatePlugin.ts` 作为最小可工作模板（20 行），开发者复制即可开始
+2. KCodePanel 注册 `enablePlugin`/`disablePlugin`/`getPluginList` 三条消息路由，WebView 可热开关插件
+3. 插件热开关：`PluginManager.disablePlugin(id)` → 持久化禁用状态 + `deactivate()` 清理扩展点；`enablePlugin(id)` → 持久化启用状态 + `activate()`
+4. 示例插件 `TemplatePlugin.ts` 已存在（31 行），覆盖 `onMessage`/`onToolCall`/`addOutputPanelTab` 三种扩展点
+5. `docs/plugin-dev-guide.md` 覆盖插件接口 API、扩展点说明、内置插件列表、调试技巧
+6. `isPluginEnabled()` 方法可按 id 查询插件的启用/禁用状态
 
-**状态**: ⬜ 未开始
+**状态**: ✅ 已完成
 

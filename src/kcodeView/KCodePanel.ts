@@ -152,6 +152,7 @@ export class KCodePanel {
         this.pluginManager = new PluginManager(
             store, this.router, this.agentService,
             () => this.currentTaskId ? 'task' : 'assistant',
+            this.configService,
         );
 
         this.assistantHandler = new AssistantHandler(
@@ -244,6 +245,18 @@ export class KCodePanel {
             const mgr = new TaskTerminalManager();
             const task = msg.taskId ? this.store.getTask(msg.taskId) : null;
             mgr.openReplay(msg.taskId, task?.title || '任务');
+        });
+
+        this.router.on('enablePlugin', async (msg) => {
+            await this.pluginManager.enablePlugin(msg.id);
+            this.sendPluginList();
+        });
+        this.router.on('disablePlugin', async (msg) => {
+            await this.pluginManager.disablePlugin(msg.id);
+            this.sendPluginList();
+        });
+        this.router.on('getPluginList', () => {
+            this.sendPluginList();
         });
 
         // Plugin message dispatch — after all inline handlers
@@ -462,6 +475,17 @@ export class KCodePanel {
 
     private sendPendingQueueUpdate() {
         this.router.PostMessage({ type: 'pendingQueueUpdate', count: this.pendingMessages.length, items: this.pendingMessages.map(p => ({ text: p.text.substring(0, 60) })) });
+    }
+
+    private sendPluginList() {
+        const plugins = this.pluginManager.getRegisteredPlugins().map(p => ({
+            id: p.id,
+            name: p.name,
+            version: p.version,
+            enabled: this.pluginManager.isPluginEnabled(p.id),
+            active: this.pluginManager.isActive(p.id),
+        }));
+        this.router.PostMessage({ type: 'pluginList', plugins });
     }
 
     reveal() { this.panel.reveal(); }

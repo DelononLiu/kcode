@@ -23,6 +23,7 @@ export class PluginManager {
         private router: any,
         private agentService: any,
         private getCurrentMode: () => 'task' | 'assistant',
+        private configService?: { get: <T>(key: string, defaultValue?: T) => T; set: (key: string, value: any) => void; save: () => Promise<void> },
     ) {
         this.extensionPoints = new ExtensionPointRegistry();
         this.apiImpl = this.createAPI();
@@ -80,6 +81,37 @@ export class PluginManager {
         this.pluginConfig = config;
     }
 
+    loadConfig(): void {
+        if (!this.configService) return;
+        const saved = this.configService.get<PluginConfig>('plugins', {});
+        this.pluginConfig = saved;
+    }
+
+    private async saveConfig(): Promise<void> {
+        if (!this.configService) return;
+        this.configService.set('plugins', { ...this.pluginConfig });
+        await this.configService.save();
+    }
+
+    async enablePlugin(id: string): Promise<void> {
+        const plugin = this.plugins.get(id);
+        if (!plugin) return;
+        this.pluginConfig[id] = { ...this.pluginConfig[id], enabled: true };
+        await this.saveConfig();
+        await this.activate(id);
+    }
+
+    async disablePlugin(id: string): Promise<void> {
+        this.pluginConfig[id] = { ...this.pluginConfig[id], enabled: false };
+        await this.saveConfig();
+        await this.deactivate(id);
+    }
+
+    isPluginEnabled(id: string): boolean {
+        const cfg = this.pluginConfig[id];
+        return !(cfg && cfg.enabled === false);
+    }
+
     register(plugin: KCodePlugin): void {
         this.plugins.set(plugin.id, plugin);
     }
@@ -106,6 +138,7 @@ export class PluginManager {
     }
 
     async activateAll(): Promise<void> {
+        this.loadConfig();
         for (const [id, plugin] of this.plugins) {
             const cfg = this.pluginConfig[id];
             if (cfg && cfg.enabled === false) continue;
@@ -129,6 +162,8 @@ export class PluginManager {
         try {
             await plugin.activate(this.apiImpl);
             this.activePlugins.add(id);
+            this.pluginConfig[id] = { ...this.pluginConfig[id], enabled: true };
+            await this.saveConfig();
             return true;
         } catch (e) {
             console.warn(`[PluginManager] Failed to activate plugin ${id}:`, e);
@@ -146,6 +181,10 @@ export class PluginManager {
         }
         this.activePlugins.delete(id);
         this.extensionPoints.removeByPlugin(id);
+        if (this.configService) {
+            this.pluginConfig[id] = { ...this.pluginConfig[id], enabled: false };
+            await this.saveConfig();
+        }
     }
 
     async deactivateAll(): Promise<void> {

@@ -71,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initNodePanel();
     initNavButtons();
     initTlFilterBar();
+    initPluginManager();
     (window as any).initOutputPanel?.();
 
     const dataEl = document.getElementById('__panelData');
@@ -400,6 +401,9 @@ function initMessageHandler() {
                 break;
             case 'pluginContributions':
                 (window as any).pluginRegistry?.applyPluginContributions(message.contributions || []);
+                break;
+            case 'pluginList':
+                renderPluginList(message.plugins || []);
                 break;
         }
     });
@@ -3628,8 +3632,62 @@ function initTlFilterBar() {
     });
 }
 
+function initPluginManager() {
+    const btn = document.getElementById('btn-plugin-manager');
+    const overlay = document.getElementById('plugin-manager-overlay');
+    const closeBtn = document.getElementById('plugin-manager-close');
+    if (!btn || !overlay) return;
 
+    btn.addEventListener('click', () => {
+        overlay.classList.remove('hidden');
+        vscode.postMessage({ type: 'getPluginList' });
+    });
 
+    const close = () => overlay.classList.add('hidden');
+    closeBtn?.addEventListener('click', close);
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close();
+    });
+}
+
+function renderPluginList(plugins: { id: string; name: string; version: string; enabled: boolean; active: boolean }[]) {
+    const body = document.getElementById('plugin-manager-body');
+    if (!body) return;
+
+    if (!plugins || plugins.length === 0) {
+        body.innerHTML = '<div class="plugin-manager-hint">暂无插件</div>';
+        return;
+    }
+
+    body.innerHTML = plugins.map(p => {
+        const isOn = p.enabled;
+        const badgeText = p.active ? '已激活' : (p.enabled ? '未激活' : '已禁用');
+        const badgeCls = p.active ? 'active' : '';
+        return `<div class="plugin-manager-item">
+            <div class="plugin-manager-item-info">
+                <div class="plugin-manager-item-name">${p.name}</div>
+                <div class="plugin-manager-item-id">${p.id} v${p.version}</div>
+            </div>
+            <span class="plugin-manager-item-badge ${badgeCls}">${badgeText}</span>
+            <button class="plugin-manager-toggle ${isOn ? 'on' : ''}"
+                data-plugin-id="${p.id}"
+                title="${isOn ? '点击禁用' : '点击启用'}"></button>
+        </div>`;
+    }).join('');
+
+    body.querySelectorAll('.plugin-manager-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = (btn as HTMLElement).dataset.pluginId;
+            if (!id) return;
+            const isCurrentlyOn = btn.classList.contains('on');
+            vscode.postMessage({
+                type: isCurrentlyOn ? 'disablePlugin' : 'enablePlugin',
+                id,
+            });
+            btn.classList.toggle('on');
+        });
+    });
+}
 function extractContentFromXml(output: string): string {
     const m = output.match(/<content>([\s\S]*?)<\/content>/);
     return m ? m[1].trim() : output;

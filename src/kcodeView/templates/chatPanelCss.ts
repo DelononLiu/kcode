@@ -612,5 +612,24 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .demo-card-btn.primary{background:#4a8bb5;border-color:#4a8bb5;color:#fff}
 .demo-card-btn.primary:hover{background:#5a9bc8}
 .demo-card-btn:disabled{opacity:.35;cursor:default;pointer-events:none}
+
+/* Plugin Management Modal */
+#plugin-manager-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center}
+#plugin-manager-overlay.hidden{display:none}
+#plugin-manager-dialog{background:var(--vscode-editor-background,#1e1e1e);border:1px solid var(--vscode-panel-border,rgba(255,255,255,.12));border-radius:8px;width:520px;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.45)}
+#plugin-manager-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--vscode-panel-border,rgba(255,255,255,.1));font-size:13px;font-weight:500;color:#ccc}
+#plugin-manager-body{padding:8px 0;overflow-y:auto;flex:1}
+.plugin-manager-hint{padding:20px;text-align:center;color:#666;font-size:12px}
+.plugin-manager-item{display:flex;align-items:center;padding:8px 14px;gap:10px;border-bottom:1px solid rgba(255,255,255,.04)}
+.plugin-manager-item:last-child{border-bottom:none}
+.plugin-manager-item-info{flex:1;min-width:0}
+.plugin-manager-item-name{font-size:12px;color:#ccc;font-weight:500}
+.plugin-manager-item-id{font-size:10px;color:#666;margin-top:1px}
+.plugin-manager-item-badge{font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.06);color:#888}
+.plugin-manager-item-badge.active{background:rgba(76,175,80,.15);color:#4CAF50}
+.plugin-manager-toggle{width:32px;height:16px;border-radius:8px;border:none;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;padding:0;background:rgba(255,255,255,.12)}
+.plugin-manager-toggle.on{background:#4CAF50}
+.plugin-manager-toggle::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#888;transition:transform .2s,background .2s}
+.plugin-manager-toggle.on::after{transform:translateX(16px);background:#fff}
 `;
 }

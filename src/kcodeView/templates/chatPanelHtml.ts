@@ -110,6 +110,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     <button id="btn-knowledge-extract" class="toolbar-btn hidden" title="从当前任务萃取知识">📚 知识萃取</button>
                     <button id="acp-log-btn" class="toolbar-btn" title="查看 ACP 协议日志">🔍 查看日志</button>
                     <button id="btn-terminal" class="toolbar-btn" title="打开终端">💻 打开终端</button>
+                    <button id="btn-plugin-manager" class="toolbar-btn" title="插件管理">🔌 插件</button>
                 </div>
                 <div id="chat-input-area">
                     <div id="queue-bar" class="hidden">
@@ -275,6 +276,20 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
     <div id="__panelData"
          data-available-agents="${escapeAttr(JSON.stringify(agents || []))}"
          style="display:none"></div>
+
+    <!-- Plugin Management Modal -->
+    <div id="plugin-manager-overlay" class="hidden">
+        <div id="plugin-manager-dialog">
+            <div id="plugin-manager-header">
+                <span>🔌 插件管理</span>
+                <button id="plugin-manager-close" class="close-btn" title="关闭">✕</button>
+            </div>
+            <div id="plugin-manager-body">
+                <div class="plugin-manager-hint">加载中...</div>
+            </div>
+        </div>
+    </div>
+
     <script src="${scriptUri('app.bundle')}"></script>
     <script src="${scriptUri('outputPanel')}"></script>
     <script src="${scriptUri('device.bundle')}"></script>

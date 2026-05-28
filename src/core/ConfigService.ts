@@ -325,6 +325,8 @@ export class ConfigService {
       'log.acpLogEnabled', 'log.acpLogMaxGlobal', 'log.acpLogMaxTask',
       'github.token',
       'ui.language', 'ui.layout',
+      'devices',
+      'plugins',
     ];
 
     for (const key of knownKeys) {

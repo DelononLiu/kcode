@@ -28,6 +28,11 @@ export interface SavedDevice {
   password?: string;
 }
 
+export interface PluginEntry {
+  enabled: boolean;
+  config?: Record<string, any>;
+}
+
 export interface KCodeConfig {
   agentName?: string;
   agentArgs?: string[];
@@ -37,6 +42,7 @@ export interface KCodeConfig {
   github?: GitHubConfig;
   ui?: UIConfig;
   devices?: SavedDevice[];
+  plugins?: Record<string, PluginEntry>;
 }
 
 export function getDefaultConfig(): KCodeConfig {
@@ -80,6 +86,7 @@ export const KNOWN_KEYS = [
   'github.token',
   'ui.language', 'ui.layout',
   'devices',
+  'plugins',
 ] as const;
 
 export type KnownKey = typeof KNOWN_KEYS[number];
