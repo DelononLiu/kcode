@@ -27,6 +27,7 @@ export class KCodePanel {
     readonly assistantHandler: AssistantHandler;
     readonly pluginManager: PluginManager;
 
+    viewMode: 'chat' | 'card' = 'chat';
     currentTaskId: string | null = null;
     activeToolCalls: Map<string, ToolCallState> = new Map();
     isGenerating: boolean = false;
@@ -120,7 +121,9 @@ export class KCodePanel {
 
         const ctx: KCodePanelContext = {
             store: this.store, taskFlow: this.taskFlow, agentService: this.agentService, router: this.router,
-            currentTaskId: this.currentTaskId, activeToolCalls: this.activeToolCalls,
+            currentTaskId: this.currentTaskId, viewMode: this.viewMode,
+            setViewMode: (mode) => { this.viewMode = mode; this.router.PostMessage({ type: 'setViewMode', viewMode: mode }); },
+            activeToolCalls: this.activeToolCalls,
             isGenerating: this.isGenerating, pendingMessages: this.pendingMessages,
             hasSetPlanMessage: this.hasSetPlanMessage, hasSetExecuteMessage: this.hasSetExecuteMessage,
             refreshSidebarCallback: this.refreshSidebarCallback,
@@ -232,6 +235,16 @@ export class KCodePanel {
         this.router.on('openTerminal', () => vscode.commands.executeCommand('workbench.action.terminal.new'));
         this.router.on('convertAssistantToTask', () => { this.assistantHandler.convertToTask(); });
         this.router.on('updateHooks', (msg) => { if (msg.phase && Array.isArray(msg.commands)) { this.store.updateTaskHooks(msg.taskId, msg.phase, msg.commands); this.flowHandler.sendTaskInfo(msg.taskId); } });
+        this.router.on('toggleViewMode', () => {
+            this.viewMode = this.viewMode === 'chat' ? 'card' : 'chat';
+            this.router.PostMessage({ type: 'setViewMode', viewMode: this.viewMode });
+        });
+        this.router.on('setViewMode', (msg) => {
+            if (msg.viewMode === 'chat' || msg.viewMode === 'card') {
+                this.viewMode = msg.viewMode;
+                this.router.PostMessage({ type: 'setViewMode', viewMode: this.viewMode });
+            }
+        });
         this.router.on('selectTask', (msg) => { this.loadTask(msg.taskId); this.refreshSidebarCallback?.(); });
         this.router.on('sendAssistantMessage', async (msg) => { await this.assistantHandler.handleMessage(msg.text); });
         this.router.on('slashCommand', async (msg) => { await this.handleSlashCommand(msg.text, msg.taskId); });

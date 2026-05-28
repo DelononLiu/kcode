@@ -105,9 +105,40 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             </div>
             </div>
 
+            <!-- Card View — Three Cards for Card Mode -->
+            <div id="card-view" class="card-view hidden">
+                <div id="card-1" class="card-container">
+                    <div class="card-header-bar">
+                        <span class="card-header-label">🎯 目标&方案</span>
+                        <span class="card-header-sub">V1.0</span>
+                    </div>
+                    <div class="card-body" id="card-1-body">
+                        <div class="card-empty">等待 AI 生成方案...</div>
+                    </div>
+                </div>
+                <div id="card-2" class="card-container">
+                    <div class="card-header-bar">
+                        <span class="card-header-label">⚡ 执行&自检</span>
+                        <span class="card-header-sub">进度摘要</span>
+                    </div>
+                    <div class="card-body" id="card-2-body">
+                        <div class="card-empty">等待进入执行阶段...</div>
+                    </div>
+                </div>
+                <div id="card-3" class="card-container">
+                    <div class="card-header-bar">
+                        <span class="card-header-label">✅ 变更验收</span>
+                        <span class="card-header-sub">待验证</span>
+                    </div>
+                    <div class="card-body" id="card-3-body">
+                        <div class="card-empty">等待进入验收阶段...</div>
+                    </div>
+                </div>
+            </div>
             <div id="chat-bottom">
                 <div id="chat-toolbar">
                     <button id="btn-knowledge-extract" class="toolbar-btn hidden" title="从当前任务萃取知识">📚 知识萃取</button>
+                    <button id="view-mode-toggle" class="toolbar-btn" title="切换卡片/对话模式">📋 卡片</button>
                     <button id="acp-log-btn" class="toolbar-btn" title="查看 ACP 协议日志">🔍 查看日志</button>
                     <button id="btn-terminal" class="toolbar-btn" title="打开终端">💻 打开终端</button>
                     <button id="btn-plugin-manager" class="toolbar-btn" title="插件管理">🔌 插件</button>

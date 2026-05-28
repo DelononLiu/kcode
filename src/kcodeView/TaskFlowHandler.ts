@@ -146,7 +146,7 @@ export class TaskFlowHandler {
             acceptanceCriteria = cat?.acceptanceCriteria;
         }
 
-        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskStatus: 'in_review', reviewChanges: changes.length > 0 ? changes : undefined, acceptanceCriteria });
+        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskStatus: 'in_review', viewMode: ctx.viewMode, reviewChanges: changes.length > 0 ? changes : undefined, acceptanceCriteria });
         ctx.sendNodePanelUpdate(tid);
         ctx.refreshSidebarCallback?.();
     }
@@ -229,7 +229,7 @@ export class TaskFlowHandler {
         ctx.router.PostMessage({
             type: 'updateTaskInfo', taskId: taskId, title: task.title, goal: task.goal, goalHint: task.goal ? '🎯 ' + task.goal : '',
             status: task.status, phase: task.phase, phaseLabel: phaseLabels[task.phase] || task.phase,
-            taskType: task.type, createdAt: task.createdAt, pendingReviewFiles: 0,
+            taskType: task.type, viewMode: ctx.viewMode, createdAt: task.createdAt, pendingReviewFiles: 0,
             confirmedItems: task.confirmedItems, pendingItems: task.pendingItems, planSteps: task.planSteps,
             hooks: task.hooks || {}, workspaceHooks: ctx.taskFlow['workspaceHooks'] || {},
             messageCount: ctx.store.getMessages(taskId).length, executeFinished: ctx.taskFlow.isExecuteFinished(taskId),
@@ -296,7 +296,7 @@ export class TaskFlowHandler {
         } else if (task?.category && task?.status === 'in_review') {
             acceptanceCriteria = getCategory(task.category)?.acceptanceCriteria;
         }
-        ctx.router.PostMessage({ type: 'loadMessages', messages, taskId, taskType: task?.type, taskStatus: task?.status, reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined, acceptanceCriteria });
+        ctx.router.PostMessage({ type: 'loadMessages', messages, taskId, taskType: task?.type, taskStatus: task?.status, viewMode: ctx.viewMode, reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined, acceptanceCriteria });
     }
 
     deriveNodes(taskId: string): ProgressNode[] {
@@ -338,7 +338,7 @@ export class TaskFlowHandler {
     }
 
     sendNodePanelUpdate(taskId: string) {
-        this.ctx.router.PostMessage({ type: 'updateNodePanel', nodes: this.deriveNodes(taskId), taskType: this.ctx.store.getTask(taskId)?.type || 'task' });
+        this.ctx.router.PostMessage({ type: 'updateNodePanel', nodes: this.deriveNodes(taskId), taskType: this.ctx.store.getTask(taskId)?.type || 'task', viewMode: this.ctx.viewMode });
     }
 
     private _syncTodosToPlanSteps(taskId: string) {

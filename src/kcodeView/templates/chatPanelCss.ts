@@ -30,6 +30,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-area:has(#chat-scroll.chat-empty) #chat-header{display:none}
 #chat-area:has(#chat-scroll.chat-empty) #chat-body{display:none}
 
+#chat-body.hidden{display:none}
 #chat-body.showing-categories{display:flex!important}
 #chat-body.showing-categories #chat-scroll{display:flex;flex-direction:column;align-items:center}
 #chat-body.showing-categories #chat-messages{padding:0;width:100%;max-width:480px;min-height:auto}
@@ -102,6 +103,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .plan-confirm-btn{background:#4a8bb5;color:#fff;border:none;border-radius:4px;padding:1px 8px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;white-space:nowrap;transition:background .2s}
 .plan-confirm-btn:hover{background:#5a9bc8}
 .plan-confirm-btn.hidden{display:none}
+.toolbar-btn.card-mode{color:#4ec9b0;background:rgba(78,201,176,.08)}
 
 /* === Chat Messages === */
 .chat-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:14px;user-select:none}
@@ -612,6 +614,17 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .demo-card-btn.primary{background:#4a8bb5;border-color:#4a8bb5;color:#fff}
 .demo-card-btn.primary:hover{background:#5a9bc8}
 .demo-card-btn:disabled{opacity:.35;cursor:default;pointer-events:none}
+
+/* === Card View — Three Cards Layout (replaces chat-body) === */
+#card-view{flex:1;display:none;flex-direction:column;gap:8px;padding:12px 24px;overflow-y:auto;min-height:0}
+#card-view.visible{display:flex}
+.card-container{border:1px solid rgba(255,255,255,.08);border-radius:6px;overflow:hidden;display:flex;flex-direction:column;background:rgba(0,0,0,.08)}
+.card-container:last-child{margin-bottom:0}
+.card-header-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(0,0,0,.15);border-bottom:1px solid rgba(255,255,255,.05);flex-shrink:0}
+.card-header-label{font-size:12px;font-weight:600;color:#ddd}
+.card-header-sub{font-size:10px;color:#666;margin-left:auto}
+.card-body{flex:1;min-height:60px;font-size:13px;line-height:1.5;color:#d2d2d4;overflow-y:auto;padding:8px 12px}
+.card-empty{color:#555;text-align:center;padding:16px 0;font-size:12px}
 
 /* Plugin Management Modal */
 #plugin-manager-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center}

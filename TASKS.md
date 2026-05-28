@@ -3099,3 +3099,65 @@ _目标：将 KCode 重构为核心 + 插件双层架构。核心只剩小助手
 
 **状态**: ✅ 已完成
 
+---
+
+## Phase 29: 三张卡片工作台模式
+
+_目标：实现「人定决策、AI 做执行」的工程化新范式。在现有三栏布局基础上，推出"三张卡片"视图模式——目标&方案卡片、执行&自检卡片、变更验收卡片——替代聊天流为主视图，卡片专属评论区替代全局消息平铺。对话模式保留为小助手兼容兜底。_
+
+**设计文档**: `docs/产品方案/KCode AI 编码工作台终版产品方案.md`
+
+| 任务 | 说明 | 状态 | 优先级 |
+|------|------|------|--------|
+| P29-01 | 双模式切换架构 — 内核层模式标识 + 视图层一键切换（卡片模式/对话模式） | ✅ 已完成 | P0 |
+| P29-02 | 卡片1 目标&方案卡片 — V1.0 自动生成 + 方案版本迭代（V1.0→V1.N→锁定）+ 改动文件清单/风险等级/边界约束 | ⬜ 未开始 | P0 |
+| P29-03 | 卡片2 执行&自检卡片 — AI 全权执行视图（进度摘要 + 构建测试结果 + 自检报告 + 终端日志折叠）；execute+self_verify 阶段用户输入锁定 | ⬜ 未开始 | P0 |
+| P29-04 | 卡片3 变更验收卡片 — 自动化测试通过证明 + 人工验证指引 + UI 核验入口 + 预设理由驳回 | ⬜ 未开始 | P0 |
+| P29-05 | 卡片评论区（楼中楼）— 每张卡片专属子对话，沟通绑定当前卡片版本，不污染全局上下文 | ⬜ 未开始 | P1 |
+| P29-06 | 结构化交互升级 — 95% 操作纯点击：方案勾选微调、驳回预设理由、短批注替代长打字 | ⬜ 未开始 | P1 |
+
+### P29-01: 双模式切换架构 — 内核层模式标识 + 视图层一键切换
+
+**涉及文件**:
+- `src/kcodeView/KCodePanel.ts` — 新增 `viewMode: 'chat' | 'card'` 字段（L30 旁）；`setupMessageHandler()` 注册 `toggleViewMode`/`setViewMode` 消息（L206-267）；`loadTask()` 发送 viewMode 到 WebView（L275-291）；构造函数初始化 viewMode
+- `src/kcodeView/PanelContext.ts` — `KCodePanelContext` 新增 `viewMode` 属性 + `setViewMode()` 方法
+- `src/kcodeView/TaskFlowHandler.ts` — `sendTaskInfo()`（L229-237）、`sendTaskMessages()`（L299）、`sendNodePanelUpdate()`（L341）postMessage 负载增加 `viewMode` 字段
+- `src/kcodeView/webview/app.ts` — 新增 `activeViewMode: 'chat' | 'card'` 全局变量（L864-876）；`initMessageHandler()` 新增 `setViewMode`/`toggleViewMode` 消息 case（L166+）；`loadMessages`（L170-222）/ `updateTaskInfo`（L243-279）按 viewMode 分支渲染；`renderMessages()` 核心渲染函数分支（L1573+）；`sendMessageFromInput()` viewMode 感知分发（L929-950）
+- `src/kcodeView/templates/chatPanelHtml.ts` — header 或 input 工具栏区域新增视图切换按钮（L27-71 附近）；新增三个卡片容器 div（`#card-1`/`#card-2`/`#card-3`）
+- `src/kcodeView/templates/chatPanelCss.ts` — 新增 `.view-mode-toggle`、`.card-container`、三张卡片布局样式
+
+**调研结果**:
+
+**当前模式架构现状**:
+- 已有两层模式：`taskType='assistant'`（小助手）vs `taskType='task'`（任务），由 `KCodePanel.currentTaskId===null` 决定（`KCodePanel.ts:30`）
+- WebView 侧通过 `activeTaskType` 全局变量跟踪（`app.ts:866`），`loadMessages`/`updateTaskInfo`/`sendMessageFromInput` 均按此分支（`app.ts:177,244,940`）
+- 任务模式下 header 显示 3 行（行1 标题+状态、行2 Goal+共识、行3 阶段+进度条），左栏节点面板 + 右栏产出面板均可见
+- 工具调用以 TabCard 或独立卡片嵌入对话流（P12-05）
+- `PanelContext.ts:26-64` — `loadTask()`/`loadAssistant()` 为面板级模式切换 API
+
+**viewMode 作为正交维度**:
+- `viewMode` 是独立于 `taskType` 的第二维度：仅当 `taskType==='task'` 时有意义
+- `viewMode='chat'`（对话模式）— 现有行为，所有消息以聊天流形式渲染
+- `viewMode='card'`（卡片模式）— 三张固定卡片为主视图，消息聚合到卡片中
+- 小助手模式下 `viewMode` 无意义（始终为 chat）
+
+**切换流程**:
+1. WebView header 工具栏新增切换按钮（`□ □ □` 卡片 / `💬` 对话 icon toggle）
+2. 点击 → `vscode.postMessage({ type: 'toggleViewMode' })`
+3. KCodePanel 收到 → 切换 `viewMode` → 更新 store（可选持久化） → 调用 `loadTask(currentTaskId)` 重新发送所有数据 + `viewMode` 字段
+4. WebView 收到 `loadMessages` 时带 `viewMode` → `renderMessages()` 根据 mode 选择渲染路径
+   - chat: 当前 `chat-messages` 渲染逻辑（全部消息平铺）
+   - card: 隐藏 `#chat-messages`，显示 `#card-view` 容器，从 messages 数据聚合生成三张卡片
+
+**消息路由差异**:
+| 操作 | 对话模式 | 卡片模式 |
+|------|---------|---------|
+| 用户输入 | 发送 `sendMessage`，追加到消息流 | 发送 `sendMessage`，追加到当前阶段卡片评论区 |
+| 阶段迁移 | 消息流头部 3 行 header 更新 | 卡片 1→卡片 2→卡片 3 依次激活展示 |
+| 工具调用 | 嵌入消息流（TabCard） | 聚合到卡片 2（执行&自检）输出区 |
+| header | 3 行全显示 | 精简为 1 行（标题+状态+切换按钮），Goal 显示在卡片 1 |
+
+**状态**: 📋 已调研
+
+---
+

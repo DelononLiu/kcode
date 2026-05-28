@@ -163,6 +163,29 @@ function initNavButtons() {
     update();
 }
 
+function applyViewMode(mode: 'chat' | 'card') {
+    const isAssistant = activeTaskType === 'assistant' || !activeTaskId;
+    const effectiveMode = isAssistant ? 'chat' : mode;
+    const chatBody = document.getElementById('chat-body');
+    const cardView = document.getElementById('card-view');
+    const toggleBtn = document.getElementById('view-mode-toggle');
+    if (chatBody) chatBody.classList.toggle('hidden', effectiveMode === 'card');
+    if (cardView) cardView.classList.toggle('visible', effectiveMode === 'card' && !isAssistant);
+    if (toggleBtn) {
+        toggleBtn.textContent = effectiveMode === 'card' ? '💬 对话' : '📋 卡片';
+        toggleBtn.classList.toggle('card-mode', effectiveMode === 'card');
+        toggleBtn.classList.toggle('hidden', isAssistant || activeTaskType !== 'task');
+    }
+    const outputPanel = document.getElementById('right-output-panel');
+    if (outputPanel) {
+        if (effectiveMode === 'card' || isAssistant) {
+            outputPanel.style.display = 'none';
+        } else {
+            outputPanel.style.removeProperty('display');
+        }
+    }
+}
+
 function initMessageHandler() {
     window.addEventListener('message', (event) => {
         const message = event.data;
@@ -173,6 +196,9 @@ function initMessageHandler() {
                 activeTaskId = message.taskId;
                 activeTaskStatus = message.taskStatus || '';
                 activeTaskType = message.taskType || '';
+                if (message.viewMode === 'chat' || message.viewMode === 'card') {
+                    activeViewMode = message.viewMode;
+                }
 
                 if (message.taskType === 'assistant') {
                     const header = document.getElementById('chat-header');
@@ -200,6 +226,7 @@ function initMessageHandler() {
                     renderMessages(message.messages || []);
                     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
                     if (input) input.placeholder = '与小助手对话...';
+                    applyViewMode(activeViewMode);
                     break;
                 }
 
@@ -219,6 +246,7 @@ function initMessageHandler() {
                     acceptanceCheckedState.delete(message.taskId);
                 }
                 renderMessages(message.messages);
+                applyViewMode(activeViewMode);
                 break;
             case 'showDiff':
                 if ((window as any).showDiff) {
@@ -241,6 +269,9 @@ function initMessageHandler() {
                 showAgentThinking();
                 break;
             case 'updateTaskInfo':
+                if (message.viewMode === 'chat' || message.viewMode === 'card') {
+                    activeViewMode = message.viewMode;
+                }
                 if (message.taskType === 'assistant') {
                     activeTaskStatus = '';
                     activeTaskPhase = '';
@@ -266,6 +297,7 @@ function initMessageHandler() {
                     if (outPanel) outPanel.style.display = 'none';
                     const extractBtn2 = document.getElementById('btn-knowledge-extract');
                     if (extractBtn2) extractBtn2.classList.add('hidden');
+                    applyViewMode(activeViewMode);
                     break;
                 }
                 // Show knowledge extract button for task mode
@@ -277,6 +309,7 @@ function initMessageHandler() {
                 const op = document.getElementById('right-output-panel');
                 if (op) op.style.removeProperty('display');
                 updateTaskInfo(message);
+                applyViewMode(activeViewMode);
                 break;
             case 'flashInput':
                 flashInput();
@@ -330,6 +363,14 @@ function initMessageHandler() {
                     acpLogEntries = [];
                     renderAcpLog();
                 }
+                break;
+            case 'setViewMode':
+                activeViewMode = message.viewMode === 'card' ? 'card' : 'chat';
+                applyViewMode(activeViewMode);
+                break;
+            case 'toggleViewMode':
+                activeViewMode = activeViewMode === 'chat' ? 'card' : 'chat';
+                applyViewMode(activeViewMode);
                 break;
             case 'updateCategoryDefs':
                 categoryDefs = message.categories;
@@ -861,6 +902,7 @@ function flushMerge() {
     _mergeState = null;
 }
 
+let activeViewMode: 'chat' | 'card' = 'chat';
 let activeTaskId: string | null = null;
 let activeTaskStatus: string = '';
 let activeTaskType: string = '';
@@ -952,6 +994,13 @@ function sendMessageFromInput() {
 function initChat() {
     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
     if (!input) return;
+
+    const viewToggle = document.getElementById('view-mode-toggle');
+    viewToggle?.addEventListener('click', () => {
+        activeViewMode = activeViewMode === 'chat' ? 'card' : 'chat';
+        vscode.postMessage({ type: 'toggleViewMode' });
+        applyViewMode(activeViewMode);
+    });
 
     input.addEventListener('keydown', (e) => {
         if (_slashMenuEl && e.key === 'Escape') { hideSlashMenu(); return; }
