@@ -2731,42 +2731,137 @@ _目标：降低用户上手门槛，完善生态集成，统一 UI 视觉。_
 
 ---
 
-## Phase 26: 任务绑定终端会话 (Task-Bound Terminal Session)
+## Phase 26: 任务沙箱日志 — TaskLog 三层日志 + 命令重放恢复
 
-_目标：每个任务绑定一个独立共享的 PTY 终端会话。AI 的 bash 命令和人工命令共用同一会话，工作目录、环境变量、执行历史全程统一。终端成为任务的公共上下文，人类和 AI 双向可感。_
+_目标：构建 TaskLog 三层日志体系，持久化记录任务的终端命令、对话消息、文件变更，支持「全量备份 + 增量日志重放」的任务沙箱状态还原。TerminalLog 为增量操作日志，可通过命令重放实现终端上下文（cwd、env、目录、环境状态）100% 还原。_
 
 | 任务 | 说明 | 状态 |
 |------|------|------|
-| P26-01 | Task PTY 管理器 — 每个任务一个 node-pty 实例，AI bash tool 路由到共享会话，命令竞态队列控制 | ⬜ 未开始 |
-| P26-02 | 人类终端窗口 — VS Code Terminal + PTY 桥接，人工命令 AI 可感知，控制区「打开终端」关联任务 | ⬜ 未开始 |
+| P26-01 | TaskLogStore — 三类日志的 JSONL 持久化存储（TerminalLog / MessageLog / FileLog），单例导出 | ⬜ 未开始 |
+| P26-02 | MessageLog 集成 — `ProjectFs.addMessage()` 单入口写入消息日志 | ⬜ 未开始 |
+| P26-03 | FileLog 集成 — `ProjectFs.storeReviewChanges()` 入口写入文件变更日志（MVP 不涉及 acp 层） | ⬜ 未开始 |
+| P26-04 | TerminalLog 集成 — `TaskStreamHandler.onDone()` 拦截 bash/command tool，记录命令+输出+cwd 到日志 | ⬜ 未开始 |
+| P26-05 | 命令重放回退 — Pseudoterminal 只读重放 TerminalLog 命令序列，展示终端上下文（MVP 不执行实际命令） | ⬜ 未开始 |
 
 ---
 
-### P26-01: Task PTY 管理器 — 每个任务独立 node-pty 会话
+### P26-01: TaskLogStore — 三层日志 JSONL 持久化
 
-**涉及文件**: _待调研_
+**涉及文件**: `src/store/TaskLogStore.ts`（新建）
 
 **调研步骤**:
-1. 调研 `node-pty` 的 API 和 VS Code 扩展兼容性（是否原生支持 ESM）
-2. 确认 AcpClient 中 bash tool call 的当前路由路径（`callbacks.ts` → `spawn`/`exec`）
-3. 确认 `package.json` 依赖管理方式（dependencies vs devDependencies）
+1. 确认 `~/.kcode/` 目录结构，确定日志存放位置
+2. 确认 JSONL 格式成熟度（append-only、逐行 JSON、天然支持流式追加）
 
-**调研结果**: _待填充_
+**调研结果**:
+- **存储结构**: `~/.kcode/logs/{taskId}/`
+  - `terminal.jsonl` — 每行 `{ id, command, output, cwd, exitCode, timestamp, duration? }`
+  - `message.jsonl` — 每行 `{ id, role, type?, content, timestamp }`
+  - `file.jsonl` — 每行 `{ id, filePath, operation, original?, modified?, timestamp }`
+- **JSONL 优势**: 无需锁、天然 append-only、无文件损坏风险、支持逐行读取、grep 友好
+- **设计哲学**: 参考数据库「全量备份 + 增量日志重放」架构，TaskLog 是增量日志层，记录 Agent 的所有可重放操作
+
+**涉及文件**: `src/store/TaskLogStore.ts` — **新建**
+- 类: `TaskLogStore`
+- 方法: `appendTerminal/getTerminalLog / appendMessage/getMessageLog / appendFile/getFileLog / clear`
+- 导出: `taskLogStore` 模块级单例
+- 构造函数: 接受可选 `rootDir`（默认 `~/.kcode`），测试时可注入
 
 **状态**: ⬜ 未开始
 
 ---
 
-### P26-02: 人类终端窗口 — VS Code Terminal + PTY 桥接
+### P26-02: MessageLog 集成 — 消息持久化点写入
 
-**涉及文件**: _待调研_
+**涉及文件**: `src/store/ProjectFs.ts`
 
 **调研步骤**:
-1. 调研 VS Code `Terminal` API（`createTerminal`/`sendText`/`onDidWriteData`/`onDidCloseTerminal`）
-2. 确认控制区「打开终端」按钮的当前实现位置（`KCodePanel.ts` / `device.ts` 或其他文件）
-3. 设计桥接方案：PTY output → VS Code Terminal，VS Code 用户输入 → PTY write
+1. 确认 `ProjectFs.addMessage()` 是全局唯一的消息持久化入口
+2. 确认消息类型完整覆盖（user/agent/tool + type 子类型）
 
-**调研结果**: _待填充_
+**调研结果**:
+- 所有消息走 `ProjectFs.addMessage()`（`TaskStore.addMessage` → `ProjectFs.addMessage`），单入口拦截即可全覆盖
+- 集成方式: import `taskLogStore`，在 `addMessage()` 末尾追加一行 `taskLogStore.appendMessage(taskId, entry)`
+- 消息日志不替代现有 `content.json`，作为 append-only 补充，用于重放和时间线重建
+
+**状态**: ⬜ 未开始
+
+---
+
+### P26-03: FileLog 集成 — 文件变更写入
+
+**涉及文件**: `src/store/ProjectFs.ts`
+
+**调研步骤**:
+1. 确认 `ProjectFs.storeReviewChanges()` 是否能覆盖所有文件变更场景（验收阶段聚合变更）
+2. 确认 `KCodeClient.writeTextFile()` 是否必要（跨层获取 taskId 复杂度高）
+
+**调研结果**:
+- `ProjectFs.storeReviewChanges()` 在 `triggerReviewRequest()` 时被调用，此时所有变更已聚合完毕
+- `KCodeClient.writeTextFile()` 虽更实时，但 `acp/` 层不感知 taskId，需要反向查找 `sessionId → taskId`，引入跨层耦合
+- MVP 方案: **单入口 `storeReviewChanges()`**，简洁无侵入。任务进入 review 阶段时自动记录 FileLog
+- 后续如需实时记录（如非 review 阶段 crash），可走 `callbacks.ts` 回调方案
+
+**状态**: ⬜ 未开始
+
+---
+
+### P26-04: TerminalLog 集成 — 拦截 ACP bash tool 记录命令+输出
+
+**涉及文件**: `src/kcodeView/stream/TaskStreamHandler.ts`, `src/kcodeView/stream/StreamHandlerBase.ts`
+
+**调研步骤**:
+1. 确认 ACP bash tool 的完整生命周期：`onToolCall(id, title='ls', kind='bash', status='running')` → `onToolCallUpdate(id, status, content)` 多次 → `onDone()`
+2. 确认 `activeToolCalls` 在 `onDone()` 时的完整数据（title=命令, output=完整输出, kind='bash'）
+
+**调研结果**:
+- `activeToolCalls` Map 在 `onDone()` 时持有每个工具调用的最终数据：`tc.title`（shell 命令）、`tc.output`（完整 stdout/stderr）、`tc.kind`（'bash'/'command'）
+- 最干净的集成点: `TaskStreamHandler.onDone()` 中已有迭代 `activeToolCalls` 的循环，在此追加 TerminalLog 写入
+- 过滤条件: `tc.kind === 'bash' || tc.kind === 'command'`
+- 记录内容:
+  ```typescript
+  { id: toolCallId, command: tc.title, output: tc.output,
+    cwd: currentWorkspacePath, exitCode: inferFromOutput, timestamp }
+  ```
+- **cwd 必填**: 从 ACP tool call 的 `rawInput?.cwd` 或 `workspacePath` 获取，保证重放时每个命令的目录上下文完整
+- **exitCode**: 从输出内容推断（错误信息/状态），或从 ACP tool status 获取
+
+**状态**: ⬜ 未开始
+
+---
+
+### P26-05: 命令重放回退 — 从 TerminalLog 重建终端上下文
+
+**涉及文件**: `src/plugins/terminal/TaskTerminalManager.ts`（新建）, `src/plugins/terminal/TerminalPlugin.ts`（新建）
+
+**调研步骤**:
+1. 调研 VS Code `Pseudoterminal` API（`onDidWrite` 用于重放输出）
+2. 确认重放策略：按时间戳顺序逐条 `writeEmitter.fire()` 已记录的命令+输出
+3. 设计恢复流程：`loadTask()` 时自动检测 TerminalLog → 有则创建 replay-only 终端展示
+
+**调研结果**:
+
+**设计**:
+```
+┌─ 重放终端 ─────────────────────────────┐
+│  $ pwd                                   │
+│  /home/user/project                      │
+│  $ npm install                          │
+│  [...]                                   │
+│  $ npm run build                        │
+│  [...]                                   │
+│                                          │
+│  ⚡ 终端已恢复 (命令重放自日志)           │
+│  [重新执行] [清空日志] [关闭]             │
+└──────────────────────────────────────────┘
+```
+
+- **Pseudoterminal**: 创建 VS Code `Pseudoterminal`，`open()` 时从 TerminalLog 逐条读取，通过 `writeEmitter.fire()` 重放命令+输出到终端窗口
+- **打开终端按钮**: 输入框底部工具栏「💻 终端」按钮，点击打开该任务的 TerminalLog 重放
+- **进度显示**: 逐条显示重放进度（"2/15 命令已重放"），完成后通知用户
+- **交互**: TerminalLog 内容只读展示（重放），不接收用户键盘输入
+- **重新执行（未来）**: 将命令序列逐条发送到实际 shell 执行，实现真实沙箱状态恢复。MVP 只做只读重放，不执行
+- **自动触发**: `loadTask()` 时自动检测 TerminalLog 是否有内容 → 有则在右栏或浮层显示重放入口
 
 **状态**: ⬜ 未开始
 
