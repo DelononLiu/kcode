@@ -72,7 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavButtons();
     initTlFilterBar();
     initPluginManager();
-    initCardComments();
     (window as any).initOutputPanel?.();
 
     const dataEl = document.getElementById('__panelData');
@@ -164,238 +163,6 @@ function initNavButtons() {
     update();
 }
 
-function applyViewMode(mode: 'chat' | 'card') {
-    const isAssistant = activeTaskType === 'assistant' || !activeTaskId;
-    const effectiveMode = isAssistant ? 'chat' : mode;
-    const chatBody = document.getElementById('chat-body');
-    const cardView = document.getElementById('card-view');
-    const toggleBtn = document.getElementById('view-mode-toggle');
-    if (chatBody) chatBody.classList.toggle('hidden', effectiveMode === 'card');
-    if (cardView) cardView.classList.toggle('visible', effectiveMode === 'card' && !isAssistant);
-    if (toggleBtn) {
-        toggleBtn.textContent = effectiveMode === 'card' ? '💬 对话' : '📋 卡片';
-        toggleBtn.classList.toggle('card-mode', effectiveMode === 'card');
-        toggleBtn.classList.toggle('hidden', isAssistant || activeTaskType !== 'task');
-    }
-    const outputPanel = document.getElementById('right-output-panel');
-    if (outputPanel) {
-        if (effectiveMode === 'card' || isAssistant) {
-            outputPanel.style.display = 'none';
-        } else {
-            outputPanel.style.removeProperty('display');
-        }
-    }
-}
-
-function initCardComments() {
-    document.querySelectorAll('.card-comment-toggle').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const cardIdx = (e.currentTarget as HTMLElement).dataset.card;
-            const section = document.getElementById(`card-comment-${cardIdx}`);
-            if (section) {
-                section.classList.toggle('hidden');
-                if (!section.classList.contains('hidden')) {
-                    const input = document.getElementById(`card-comment-input-${cardIdx}`) as HTMLInputElement;
-                    input?.focus();
-                }
-            }
-        });
-    });
-    document.querySelectorAll('.card-comment-send').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const cardIdx = (e.currentTarget as HTMLElement).dataset.card;
-            const input = document.getElementById(`card-comment-input-${cardIdx}`) as HTMLInputElement;
-            if (!input || !input.value.trim()) return;
-            const text = input.value.trim();
-            input.value = '';
-            vscode.postMessage({ type: 'sendCardComment', cardIndex: parseInt(cardIdx || '1'), text, taskId: activeTaskId });
-            // Optimistically add comment
-            const list = document.getElementById(`card-comment-list-${cardIdx}`);
-            if (list) {
-                const item = document.createElement('div');
-                item.className = 'card-comment-item';
-                item.innerHTML = `<div class="card-comment-meta"><span class="card-comment-author">You</span><span class="card-comment-time">刚刚</span></div><div class="card-comment-text">${escapeHtml(text)}</div>`;
-                list.appendChild(item);
-                list.scrollTop = list.scrollHeight;
-            }
-            updateCardCommentCount(parseInt(cardIdx || '1'));
-        });
-    });
-    document.querySelectorAll('.card-comment-input').forEach(input => {
-        input.addEventListener('keydown', (e: Event) => {
-            const ke = e as KeyboardEvent;
-            if (ke.key === 'Enter' && !ke.shiftKey) {
-                e.preventDefault();
-                const cardIdx = (e.currentTarget as HTMLElement).id.replace('card-comment-input-', '');
-                const btn = document.querySelector(`.card-comment-send[data-card="${cardIdx}"]`) as HTMLButtonElement;
-                btn?.click();
-            }
-        });
-    });
-}
-
-function loadCardComments(messages: any[]) {
-    for (let ci = 1; ci <= 3; ci++) {
-        const list = document.getElementById(`card-comment-list-${ci}`);
-        if (!list) continue;
-        list.innerHTML = '';
-        const cardComments = messages.filter((m: any) => m.type === 'card_comment');
-        const relevant = cardComments.filter((m: any) => {
-            try { const d = JSON.parse(m.content); return d.cardIndex === ci; } catch { return false; }
-        });
-        for (const cm of relevant) {
-            let data: any = {};
-            try { data = JSON.parse(cm.content); } catch { continue; }
-            const item = document.createElement('div');
-            item.className = 'card-comment-item';
-            const ts = cm.timestamp ? formatTimestamp(cm.timestamp) : '';
-            item.innerHTML = `<div class="card-comment-meta"><span class="card-comment-author">${escapeHtml(data.author || '用户')}</span><span class="card-comment-time">${ts}</span></div><div class="card-comment-text">${escapeHtml(data.text || '')}</div>`;
-            list.appendChild(item);
-        }
-        updateCardCommentCount(ci);
-    }
-}
-
-function updateCardCommentCount(cardIndex: number) {
-    const list = document.getElementById(`card-comment-list-${cardIndex}`);
-    const countEl = document.querySelector(`.card-comment-toggle[data-card="${cardIndex}"] .card-comment-count`);
-    const toggle = document.querySelector(`.card-comment-toggle[data-card="${cardIndex}"]`);
-    if (list && countEl) {
-        const count = list.children.length;
-        countEl.textContent = String(count);
-        if (toggle) toggle.classList.toggle('has-comments', count > 0);
-    }
-}
-
-function renderCards() {
-    const info = lastTaskInfo || {};
-    const phase = activeTaskPhase || info.phase || '';
-    const status = activeTaskStatus || info.status || '';
-    const goal = activeTaskGoal || info.goal || '';
-    const planSteps: any[] = info.planSteps || [];
-    const confirmedItems: string[] = info.confirmedItems || [];
-
-    // Card 1: Goal & Plan
-    const card1 = document.getElementById('card-1-body');
-    if (card1) {
-        const subEl = card1.closest('.card-container')?.querySelector('.card-header-sub');
-        if (subEl) subEl.textContent = phase ? phaseLabel(phase) : '待启动';
-
-        if (['demand', 'goal'].includes(phase) && !goal) {
-            card1.innerHTML = '<div class="card-empty">等待 AI 生成目标方案...</div>';
-        } else if (goal || confirmedItems.length > 0) {
-            let html = '';
-            if (goal) html += `<div class="card-section"><div class="card-section-title">🎯 目标</div><div class="card-goal-text">${escapeHtml(goal)}</div></div>`;
-            if (confirmedItems.length > 0) {
-                html += `<div class="card-section"><div class="card-section-title">✓ 已确认</div>`;
-                html += confirmedItems.map((item: string) => `<div class="card-confirmed-item">✅ ${escapeHtml(item)}</div>`).join('');
-                html += `</div>`;
-            }
-            if (['plan', 'execute', 'self_verify', 'review'].includes(phase) && planSteps.length > 0) {
-                html += `<div class="card-section"><div class="card-section-title">📋 计划步骤</div>`;
-                const done = planSteps.filter((s: any) => s.status === 'completed').length;
-                html += `<div class="card-plan-progress">${done}/${planSteps.length} 完成`;
-                if (planSteps.length > 0) {
-                    const pct = Math.round((done / planSteps.length) * 100);
-                    html += ` <span class="card-plan-bar"><span class="card-plan-fill" style="width:${pct}%"></span></span>`;
-                }
-                html += `</div>`;
-                planSteps.forEach((s: any) => {
-                    html += `<div class="card-plan-step"><span class="card-plan-status">${s.status === 'completed' ? '✅' : '⬜'}</span> ${escapeHtml(s.content)}</div>`;
-                });
-                html += `</div>`;
-            }
-            // Phase confirm buttons
-            html += cardConfirmButtons(phase, status);
-            card1.innerHTML = html;
-        } else {
-            card1.innerHTML = '<div class="card-empty">等待 AI 生成方案...</div>';
-        }
-    }
-
-    // Card 2: Execute & Self-verify
-    const card2 = document.getElementById('card-2-body');
-    if (card2) {
-        const subEl = card2.closest('.card-container')?.querySelector('.card-header-sub');
-        if (subEl) subEl.textContent = ['execute', 'self_verify', 'review'].includes(phase) ? `📊 ${phaseLabel(phase)}` : '等待中';
-
-        if (['execute', 'self_verify', 'review'].includes(phase) && planSteps.length > 0) {
-            let html = '';
-            const done = planSteps.filter((s: any) => s.status === 'completed').length;
-            const pct = planSteps.length > 0 ? Math.round((done / planSteps.length) * 100) : 0;
-            html += `<div class="card-section"><div class="card-section-title">⚡ 执行进度</div>`;
-            html += `<div class="card-progress-row"><span class="card-progress-bar"><span class="card-progress-fill" style="width:${pct}%"></span></span><span class="card-progress-label">${done}/${planSteps.length}</span></div>`;
-            html += `</div>`;
-
-            if (cardActiveTools.length > 0) {
-                html += `<div class="card-section"><div class="card-section-title">🔧 当前工具</div>`;
-                for (const tool of cardActiveTools) {
-                    const icon = tool.kind === 'bash' || tool.kind === 'command' ? '💻' : tool.kind === 'read' ? '📖' : tool.kind === 'write' ? '✏️' : tool.kind === 'thinking' ? '💭' : '🔧';
-                    html += `<div class="card-tool-item"><span class="card-tool-status ${tool.status}"></span>${icon} ${escapeHtml(tool.title || '')}`;
-                    if (tool.status === 'running') html += ' <span class="card-tool-spinner"></span>';
-                    if (tool.output) html += `<div class="card-tool-preview">${escapeHtml(tool.output.substring(0, 200))}</div>`;
-                    html += `</div>`;
-                }
-                html += `</div>`;
-            }
-
-            html += cardConfirmButtons(phase, status);
-            card2.innerHTML = html;
-        } else if (phase === 'execute' && planSteps.length === 0) {
-            card2.innerHTML = '<div class="card-empty">等待 AI 开始执行...</div>';
-        } else {
-            card2.innerHTML = '<div class="card-empty">等待进入执行阶段...</div>';
-        }
-    }
-
-    // Card 3: Review
-    const card3 = document.getElementById('card-3-body');
-    if (card3) {
-        const subEl = card3.closest('.card-container')?.querySelector('.card-header-sub');
-        if (subEl) subEl.textContent = phase === 'review' ? '🔍 待验收' : '等待中';
-
-        if (phase === 'review' && lastReviewChanges.length > 0) {
-            let html = '<div class="card-section"><div class="card-section-title">📄 变更文件</div>';
-            for (const ch of lastReviewChanges) {
-                const icon = ch.filePath?.endsWith('.ts') || ch.filePath?.endsWith('.tsx') ? '📝' : '📄';
-                html += `<div class="card-review-file">${icon} ${escapeHtml(ch.filePath || '')}</div>`;
-            }
-            html += '</div>';
-            html += `<div class="card-section">`;
-            html += `<button class="card-action-btn primary" onclick="vscode.postMessage({type:'approveReview',taskId:'${activeTaskId}'})">✅ 验收通过</button>`;
-            html += `<button class="card-action-btn secondary" onclick="vscode.postMessage({type:'rejectReview',taskId:'${activeTaskId}'})">↩️ 驳回</button>`;
-            html += `</div>`;
-            card3.innerHTML = html;
-        } else if (phase === 'review') {
-            card3.innerHTML = '<div class="card-empty">暂无可验收文件...</div>';
-        } else {
-            card3.innerHTML = '<div class="card-empty">等待进入验收阶段...</div>';
-        }
-    }
-}
-
-function phaseLabel(phase: string): string {
-    const labels: Record<string, string> = { demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收' };
-    return labels[phase] || phase;
-}
-
-function cardConfirmButtons(phase: string, status: string): string {
-    if (status === 'cancelled' || status === 'completed') return '';
-    const btns: Record<string, { label: string; action: string }[]> = {
-        goal: [{ label: '✅ 确认目标', action: `confirmGoalFromHeader` }],
-        plan: [{ label: '📋 确认计划', action: `confirmPlan` }],
-        execute: [{ label: '⚡ 确认完成', action: `confirmExecuteDone` }],
-    };
-    const phaseBtns = btns[phase];
-    if (!phaseBtns) return '';
-    let html = '<div class="card-section card-actions">';
-    for (const btn of phaseBtns) {
-        html += `<button class="card-action-btn primary" onclick="vscode.postMessage({type:'${btn.action}',taskId:'${activeTaskId}'})">${btn.label}</button>`;
-    }
-    html += '</div>';
-    return html;
-}
-
 function initMessageHandler() {
     window.addEventListener('message', (event) => {
         const message = event.data;
@@ -406,9 +173,6 @@ function initMessageHandler() {
                 activeTaskId = message.taskId;
                 activeTaskStatus = message.taskStatus || '';
                 activeTaskType = message.taskType || '';
-                if (message.viewMode === 'chat' || message.viewMode === 'card') {
-                    activeViewMode = message.viewMode;
-                }
 
                 if (message.taskType === 'assistant') {
                     const header = document.getElementById('chat-header');
@@ -434,10 +198,8 @@ function initMessageHandler() {
                     const extractBtn = document.getElementById('btn-knowledge-extract');
                     if (extractBtn) extractBtn.classList.add('hidden');
                     renderMessages(message.messages || []);
-                    loadCardComments(message.messages || []);
                     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
                     if (input) input.placeholder = '与小助手对话...';
-                    applyViewMode(activeViewMode);
                     break;
                 }
 
@@ -460,9 +222,6 @@ function initMessageHandler() {
                     acceptanceCheckedState.delete(message.taskId);
                 }
                 renderMessages(message.messages);
-                loadCardComments(message.messages || []);
-                applyViewMode(activeViewMode);
-                if (activeViewMode === 'card') renderCards();
                 break;
             case 'showDiff':
                 if ((window as any).showDiff) {
@@ -485,9 +244,6 @@ function initMessageHandler() {
                 showAgentThinking();
                 break;
             case 'updateTaskInfo':
-                if (message.viewMode === 'chat' || message.viewMode === 'card') {
-                    activeViewMode = message.viewMode;
-                }
                 if (message.taskType === 'assistant') {
                     activeTaskStatus = '';
                     activeTaskPhase = '';
@@ -513,7 +269,6 @@ function initMessageHandler() {
                     if (outPanel) outPanel.style.display = 'none';
                     const extractBtn2 = document.getElementById('btn-knowledge-extract');
                     if (extractBtn2) extractBtn2.classList.add('hidden');
-                    applyViewMode(activeViewMode);
                     break;
                 }
                 // Show knowledge extract button for task mode
@@ -526,8 +281,6 @@ function initMessageHandler() {
                 if (op) op.style.removeProperty('display');
                 lastTaskInfo = message;
                 updateTaskInfo(message);
-                applyViewMode(activeViewMode);
-                if (activeViewMode === 'card') renderCards();
                 break;
             case 'flashInput':
                 flashInput();
@@ -583,14 +336,8 @@ function initMessageHandler() {
                 }
                 break;
             case 'setViewMode':
-                activeViewMode = message.viewMode === 'card' ? 'card' : 'chat';
-                applyViewMode(activeViewMode);
-                if (activeViewMode === 'card') renderCards();
                 break;
             case 'toggleViewMode':
-                activeViewMode = activeViewMode === 'chat' ? 'card' : 'chat';
-                applyViewMode(activeViewMode);
-                if (activeViewMode === 'card') renderCards();
                 break;
             case 'updateCategoryDefs':
                 categoryDefs = message.categories;
@@ -1122,7 +869,6 @@ function flushMerge() {
     _mergeState = null;
 }
 
-let activeViewMode: 'chat' | 'card' = 'chat';
 let activeTaskId: string | null = null;
 let activeTaskStatus: string = '';
 let activeTaskType: string = '';
@@ -1139,7 +885,6 @@ let workspaceHooks: Record<string, string[]> = {};
 let slashCommands: { name: string; description: string }[] = [];
 let lastTaskInfo: any = null;
 let lastReviewChanges: any[] = [];
-let cardActiveTools: { toolCallId: string; title: string; kind: string; status: string; output?: string }[] = [];
 
 function initLayout() {
     const rightPanel = document.getElementById('right-panel')!;
@@ -1219,14 +964,6 @@ function sendMessageFromInput() {
 function initChat() {
     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
     if (!input) return;
-
-    const viewToggle = document.getElementById('view-mode-toggle');
-    viewToggle?.addEventListener('click', () => {
-        activeViewMode = activeViewMode === 'chat' ? 'card' : 'chat';
-        vscode.postMessage({ type: 'toggleViewMode' });
-        applyViewMode(activeViewMode);
-        if (activeViewMode === 'card') renderCards();
-    });
 
     input.addEventListener('keydown', (e) => {
         if (_slashMenuEl && e.key === 'Escape') { hideSlashMenu(); return; }
@@ -1622,7 +1359,6 @@ function createCopyButton(text: string): HTMLElement {
 }
 
 function addUserMessage(content: string) {
-    cardActiveTools = [];
     const container = document.getElementById('chat-messages')!;
     const scrollContainer = document.getElementById('chat-scroll')!;
     scrollContainer.classList.remove('chat-empty');
@@ -3728,15 +3464,6 @@ function handleToolCallUpdate(msg: any) {
         updateWorkingIndicator(msg);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
-    }
-
-    // Update card active tools
-    if (kind !== 'todowrite') {
-        const existing = cardActiveTools.findIndex(t => t.toolCallId === toolId);
-        const entry = { toolCallId: toolId, title: msg.title || '', kind, status: msg.status || 'running', output: msg.content || msg.output || '' };
-        if (existing >= 0) cardActiveTools[existing] = entry;
-        else cardActiveTools.push(entry);
-        if (activeViewMode === 'card') renderCards();
     }
 
     // Thinking entry — save for merge with subsequent tools

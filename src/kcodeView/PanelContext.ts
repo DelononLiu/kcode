@@ -31,7 +31,6 @@ export interface KCodePanelContext {
 
     currentTaskId: string | null;
     viewMode: 'chat' | 'card';
-    setViewMode(mode: 'chat' | 'card'): void;
     activeToolCalls: Map<string, ToolCallState>;
     isGenerating: boolean;
     pendingMessages: PendingMessage[];

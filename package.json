@@ -109,6 +109,12 @@
           "type": "string",
           "default": "",
           "description": "GitHub Personal Access Token, used to increase API rate limit when importing issues."
+        },
+        "kcode.viewMode": {
+          "type": "string",
+          "default": "chat",
+          "enum": ["chat", "card"],
+          "description": "Default view mode for KCode panel. 'chat' for conversation mode, 'card' for card-based workflow mode."
         }
       }
     }

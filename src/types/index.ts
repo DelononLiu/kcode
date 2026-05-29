@@ -71,6 +71,9 @@ export interface Task {
     confirmedItems: string[];
     pendingItems: string[];
     planSteps: PlanStep[];
+    planVersion?: number;
+    riskItems?: string[];
+    boundaryItems?: string[];
     createdAt: number;
     workspace?: string;
     pinned?: boolean;

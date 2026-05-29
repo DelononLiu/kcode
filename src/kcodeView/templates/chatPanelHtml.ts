@@ -5,7 +5,7 @@ function escapeAttr(str: string): string {
     return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&#62;');
 }
 
-export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, agents?: { label: string; type: string }[]): string {
+export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, agents?: { label: string; type: string }[], viewMode?: string): string {
     const scriptUri = (name: string) => webview.asWebviewUri(
         vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', `${name}.js`)
     ).toString();
@@ -162,7 +162,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             <div id="chat-bottom">
                 <div id="chat-toolbar">
                     <button id="btn-knowledge-extract" class="toolbar-btn hidden" title="从当前任务萃取知识">📚 知识萃取</button>
-                    <button id="view-mode-toggle" class="toolbar-btn" title="切换卡片/对话模式">📋 卡片</button>
                     <button id="acp-log-btn" class="toolbar-btn" title="查看 ACP 协议日志">🔍 查看日志</button>
                     <button id="btn-terminal" class="toolbar-btn" title="打开终端">💻 打开终端</button>
                     <button id="btn-plugin-manager" class="toolbar-btn" title="插件管理">🔌 插件</button>
@@ -345,9 +344,11 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         </div>
     </div>
 
-    <script src="${scriptUri('app.bundle')}"></script>
+    ${viewMode === 'card'
+        ? `<script src="${scriptUri('cardApp.bundle')}"></script>`
+        : `<script src="${scriptUri('app.bundle')}"></script>
     <script src="${scriptUri('outputPanel')}"></script>
-    <script src="${scriptUri('device.bundle')}"></script>
+    <script src="${scriptUri('device.bundle')}"></script>`}
 </body>
 </html>`;
 }

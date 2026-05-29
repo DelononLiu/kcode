@@ -104,6 +104,21 @@ class MockTaskStore implements ITaskStore {
     addTask(task: Task): void {
         this.tasks.set(task.id, task);
     }
+
+    incrementPlanVersion(taskId: string): void {
+        const t = this.tasks.get(taskId);
+        if (t) t.planVersion = (t.planVersion || 1) + 1;
+    }
+
+    updateRiskItems(taskId: string, items: string[]): void {
+        const t = this.tasks.get(taskId);
+        if (t) t.riskItems = items;
+    }
+
+    updateBoundaryItems(taskId: string, items: string[]): void {
+        const t = this.tasks.get(taskId);
+        if (t) t.boundaryItems = items;
+    }
 }
 
 // ==============================
@@ -136,7 +151,8 @@ class MockDelegate implements TaskFlowDelegate {
 function makeFlow(overrides: Partial<Task> = {}) {
     const task: Task = {
         id: 'task_1', title: 'Test', goal: '', type: 'task', status: 'pending',
-        phase: 'demand', confirmedItems: [], pendingItems: [], planSteps: [], createdAt: Date.now(),
+        phase: 'demand', confirmedItems: [], pendingItems: [], planSteps: [],
+        planVersion: 1, riskItems: [], boundaryItems: [], createdAt: Date.now(),
         ...overrides,
     };
     const store = new MockTaskStore();

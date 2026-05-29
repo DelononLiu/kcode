@@ -33,6 +33,9 @@ export class TaskStore {
             confirmedItems: t.confirmedItems || [],
             pendingItems: t.pendingItems || [],
             planSteps: t.planSteps || [],
+            planVersion: t.planVersion || 1,
+            riskItems: t.riskItems || [],
+            boundaryItems: t.boundaryItems || [],
             hooks: t.hooks || {},
         }));
     }
@@ -64,6 +67,25 @@ export class TaskStore {
             steps[index] = { ...steps[index], status };
             this.fs.updateTask(taskId, { planSteps: steps });
         }
+    }
+
+    updateTaskPlanVersion(taskId: string, version: number): void {
+        this.fs.updateTask(taskId, { planVersion: version });
+    }
+
+    incrementPlanVersion(taskId: string): void {
+        const task = this.fs.getTask(taskId);
+        if (task) {
+            this.fs.updateTask(taskId, { planVersion: (task.planVersion || 1) + 1 });
+        }
+    }
+
+    updateRiskItems(taskId: string, items: string[]): void {
+        this.fs.updateTask(taskId, { riskItems: items });
+    }
+
+    updateBoundaryItems(taskId: string, items: string[]): void {
+        this.fs.updateTask(taskId, { boundaryItems: items });
     }
 
     updateTaskStatus(taskId: string, status: Task['status']): void {

@@ -672,6 +672,50 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .card-comment-send{background:#4a8bb5;border:none;color:#fff;border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;transition:background .2s;flex-shrink:0}
 .card-comment-send:hover{background:#5a9bc8}
 
+/* === Card V2 — Enhanced Features (P29-02~04) === */
+.risk-title{color:#e8a84c}
+.card-risk-badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:3px;margin:2px 4px 2px 0;font-weight:500}
+.card-risk-badge.low{background:rgba(90,157,107,.15);color:#5a9d6b}
+.card-risk-badge.medium{background:rgba(232,168,76,.12);color:#e8a84c}
+.card-risk-badge.high{background:rgba(224,96,96,.12);color:#e06060}
+.card-boundary-item{font-size:12px;color:#5a9bc8;padding:1px 0 1px 8px;border-left:2px solid rgba(74,139,181,.3);margin:2px 0}
+.card-file-item{font-size:12px;color:#aaa;padding:2px 4px;display:flex;align-items:center;gap:4px;border-radius:3px;cursor:default}
+.card-file-summary{font-size:10px;color:#666;margin-left:auto}
+.card-build-item{font-size:12px;padding:2px 4px;border-radius:3px;margin:1px 0;display:flex;align-items:center;gap:4px}
+.card-build-item.pass{color:#5a9d6b}
+.card-build-item.fail{color:#e06060}
+.card-build-item.running{color:#5a9bc8}
+.card-self-verify-report{border:1px solid rgba(90,157,107,.15);border-radius:4px;padding:6px 8px;background:rgba(90,157,107,.04)}
+.card-sv-header{font-size:11px;color:#888;margin-bottom:4px}
+.card-sv-item{font-size:12px;color:#bbb;padding:2px 0;display:flex;align-items:center;gap:4px}
+.card-sv-preview{font-size:11px;color:#666;padding:3px 6px;background:rgba(0,0,0,.12);border-radius:3px;margin:2px 0 2px 16px;white-space:pre-wrap;max-height:60px;overflow:hidden}
+.card-sv-hint{font-size:11px;color:#555;font-style:italic;padding:4px 0}
+.collapsible-header{cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
+.collapsible-header::before{content:'▼';font-size:9px;transition:transform .2s;color:#666}
+.collapsible-header.collapsed::before{content:'▶'}
+.card-collapsible-body{overflow:hidden;transition:max-height .25s ease}
+.card-collapsible-body.collapsed{max-height:0}
+.card-count-badge{font-size:10px;background:rgba(255,255,255,.08);padding:0 6px;border-radius:8px;color:#888}
+.card-terminal-hint{font-size:11px;color:#777;padding:4px 0;line-height:1.5}
+.card-link-btn{background:none;border:none;color:#5a9bc8;cursor:pointer;font-size:11px;font-family:inherit;padding:2px 4px;border-radius:3px;transition:background .1s}
+.card-link-btn:hover{background:rgba(74,139,181,.1)}
+.card-input-lock{display:flex;align-items:center;gap:6px;font-size:11px;color:#888;padding:4px 8px;background:rgba(232,168,76,.08);border-radius:4px;border:1px solid rgba(232,168,76,.12)}
+.card-lock-icon{font-size:13px}
+.card-test-item{font-size:12px;padding:2px 4px;border-radius:3px;display:flex;align-items:center;gap:4px}
+.card-test-item.pass{color:#5a9d6b}
+.card-test-item.fail{color:#e06060}
+.card-reject-presets{padding:6px 0;display:flex;flex-direction:column;gap:4px}
+.card-reject-preset-title{font-size:11px;color:#888;margin-bottom:2px}
+.card-reject-preset-btn{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#ccc;border-radius:3px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s}
+.card-reject-preset-btn:hover{background:rgba(224,96,96,.08);border-color:rgba(224,96,96,.2);color:#e06060}
+.card-reject-preset-btn.custom{color:#5a9bc8}
+.card-reject-preset-btn.custom:hover{background:rgba(74,139,181,.08);border-color:rgba(74,139,181,.2)}
+.card-reject-textarea{width:100%;background:#25252a;border:1px solid rgba(255,255,255,.08);border-radius:4px;color:#d2d2d4;font-family:inherit;font-size:12px;padding:5px 8px;outline:none;resize:vertical;box-sizing:border-box}
+.card-reject-textarea:focus{border-color:rgba(78,201,176,.3)}
+.card-verify-steps{list-style:none;padding:0;margin:2px 0}
+.card-verify-step{font-size:12px;color:#999;padding:2px 0 2px 16px;position:relative;line-height:1.5}
+.card-verify-step::before{content:'→';position:absolute;left:0;color:#666}
+
 /* Plugin Management Modal */
 #plugin-manager-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center}
 #plugin-manager-overlay.hidden{display:none}

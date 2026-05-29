@@ -31,6 +31,9 @@ export interface ITaskStore {
     updateTaskGoal(taskId: string, goal: string): void;
     updatePlanStepStatus(taskId: string, index: number, status: PlanStep['status']): void;
     updateTaskNodeMessageId(taskId: string, nodeType: string, messageId: string): void;
+    incrementPlanVersion(taskId: string): void;
+    updateRiskItems(taskId: string, items: string[]): void;
+    updateBoundaryItems(taskId: string, items: string[]): void;
     getMessages(taskId: string): ChatMessage[];
     addMessage(msg: ChatMessage): void;
     nextMessageId(taskId: string): string;
@@ -506,6 +509,7 @@ export class TaskFlow {
                     const steps = this.normalizeSteps(payload.STEPS);
                     if (steps.length > 0) {
                         this.store.updatePlanSteps(taskId, steps);
+                        this.store.incrementPlanVersion(taskId);
                     }
                     this.planProposed.set(taskId, true);
                     this.delegate.onPhaseChanged(taskId);
@@ -576,6 +580,7 @@ export class TaskFlow {
 
         const task = this.store.getTask(taskId);
         if (task) {
+            this.store.incrementPlanVersion(taskId);
             this.planProposed.set(taskId, false);
             this.store.updateTaskPhase(taskId, 'execute');
             this.store.updateTaskStatus(taskId, 'active');

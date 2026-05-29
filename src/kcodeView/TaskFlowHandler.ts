@@ -226,13 +226,31 @@ export class TaskFlowHandler {
         const task = ctx.store.getTask(taskId);
         if (!task) return;
         const phaseLabels: Record<string, string> = { demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收' };
+        const messages = ctx.store.getMessages(taskId);
+        const filePathsFromTools: string[] = [];
+        for (const msg of messages) {
+            if (msg.type === 'tool_call') {
+                try {
+                    const info = JSON.parse(msg.content);
+                    if ((info.kind === 'write' || info.kind === 'edit') && info.title) {
+                        const fp = info.title.replace(/^(write|edit)\s+/i, '').trim();
+                        if (fp && !filePathsFromTools.includes(fp)) filePathsFromTools.push(fp);
+                    }
+                } catch {}
+            }
+        }
+
         ctx.router.PostMessage({
             type: 'updateTaskInfo', taskId: taskId, title: task.title, goal: task.goal, goalHint: task.goal ? '🎯 ' + task.goal : '',
             status: task.status, phase: task.phase, phaseLabel: phaseLabels[task.phase] || task.phase,
             taskType: task.type, viewMode: ctx.viewMode, createdAt: task.createdAt, pendingReviewFiles: 0,
             confirmedItems: task.confirmedItems, pendingItems: task.pendingItems, planSteps: task.planSteps,
+            planVersion: task.planVersion || 1,
+            riskItems: task.riskItems || [],
+            boundaryItems: task.boundaryItems || [],
+            filePathsFromTools: filePathsFromTools,
             hooks: task.hooks || {}, workspaceHooks: ctx.taskFlow['workspaceHooks'] || {},
-            messageCount: ctx.store.getMessages(taskId).length, executeFinished: ctx.taskFlow.isExecuteFinished(taskId),
+            messageCount: messages.length, executeFinished: ctx.taskFlow.isExecuteFinished(taskId),
             terminalLogCount: taskLogStore.getTerminalLog(taskId).length
         });
 
