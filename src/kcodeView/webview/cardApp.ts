@@ -60,7 +60,6 @@ function renderCards() {
     const pendingItems: string[] = info.pendingItems || [];
     const terminalLogCount: number = info.terminalLogCount || 0;
     const planVersion: number = info.planVersion || 1;
-    const versionLabel = phase === 'review' || status === 'completed' ? 'V' + planVersion + ' 🔒' : 'V' + planVersion;
     const riskItems: string[] = info.riskItems || [];
     const boundaryItems: string[] = info.boundaryItems || [];
     const filePathsFromTools: string[] = info.filePathsFromTools || [];
@@ -69,10 +68,68 @@ function renderCards() {
         : [];
     const fileList = [...new Set([...filePathsFromTools, ...reviewFileList])];
 
+    const beforePlan = ['demand', 'goal'].includes(phase);
+    const beforeExec = ['demand', 'goal', 'plan'].includes(phase);
+    const afterExec = ['execute', 'self_verify', 'review'].includes(phase);
+    const inOrAfter = (from: string, to: string) => {
+        const order = ['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'];
+        const fi = order.indexOf(from), ti = order.indexOf(to), pi = order.indexOf(phase);
+        return pi >= fi && pi <= ti;
+    };
+
+    const c1Done = status === 'completed' || !['demand', 'goal'].includes(phase);
+    const c1Active = !c1Done && beforePlan;
+    const c2Done = status === 'completed' || afterExec;
+    const c2Active = !c2Done && inOrAfter('execute', 'self_verify');
+    const c3Done = status === 'completed';
+    const c3Active = !c3Done && phase === 'review';
+
+    function setCardState(cardId: string, done: boolean, active: boolean, tagText: string) {
+        const el = document.getElementById(cardId);
+        if (!el) return;
+        el.classList.remove('state-done', 'state-active', 'state-waiting');
+        if (done) el.classList.add('state-done');
+        else if (active) el.classList.add('state-active');
+        else el.classList.add('state-waiting');
+        const tag = el.querySelector('.card-status-tag') as HTMLElement;
+        if (tag) {
+            tag.textContent = tagText;
+            tag.className = 'card-status-tag';
+            if (done) tag.classList.add('tag-done');
+            else if (active) tag.classList.add('tag-active');
+        }
+    }
+
+    function setFooter(cardId: string, html: string) {
+        const el = document.getElementById(cardId);
+        if (el) el.innerHTML = html;
+    }
+
+    function setFlowArrow(from: string, done: boolean, active: boolean) {
+        const arrow = document.querySelector(`.card-flow-arrow[data-from="${from}"]`) as HTMLElement;
+        if (!arrow) return;
+        arrow.classList.remove('flow-done', 'flow-active');
+        if (done) arrow.classList.add('flow-done');
+        else if (active) arrow.classList.add('flow-active');
+    }
+
+    setCardState('card-1', c1Done, c1Active, c1Done ? '已完成' : c1Active ? '进行中' : '待开始');
+    setCardState('card-2', c2Done, c2Active, c2Done ? '已完成' : c2Active ? '进行中' : '待开始');
+    setCardState('card-3', c3Done, c3Active, c3Done ? '已完成' : c3Active ? '验收中' : '待开始');
+    setFlowArrow('1', c2Done, c2Active);
+    setFlowArrow('2', c3Done, c3Active);
+
+    const planDone = planSteps.filter((s: any) => s.status === 'completed').length;
+    const planTotal = planSteps.length;
+
+    setFooter('card-1-footer', planTotal > 0 ? `<span class="footer-stat">📋 ${planDone}/${planTotal} 步骤</span>` : '');
+    setFooter('card-2-footer', planTotal > 0 ? `<span class="footer-stat">⚡ 进度 ${planDone}/${planTotal}</span>` : '');
+    setFooter('card-3-footer',
+        status === 'completed' ? '<span class="footer-stat">✅ 已完成</span>' :
+        phase === 'review' ? '<span class="footer-stat">🔍 待验收</span>' : '');
+
     const card1 = document.getElementById('card-1-body');
     if (card1) {
-        const subEl = card1.closest('.card-container')?.querySelector('.card-header-sub');
-        if (subEl) subEl.textContent = versionLabel;
         if (['demand', 'goal'].includes(phase) && !goal) {
             card1.innerHTML = '<div class="card-empty">等待 AI 生成目标方案...</div>';
         } else if (goal || confirmedItems.length > 0) {
@@ -129,9 +186,7 @@ function renderCards() {
 
     const card2 = document.getElementById('card-2-body');
     if (card2) {
-        const subEl = card2.closest('.card-container')?.querySelector('.card-header-sub');
         const isActive = ['execute', 'self_verify', 'review'].includes(phase);
-        if (subEl) subEl.textContent = isActive ? phaseLabel(phase) : '等待中';
         if (isActive && planSteps.length > 0) {
             let html = '';
             const done = planSteps.filter((s: any) => s.status === 'completed').length;
@@ -198,8 +253,6 @@ function renderCards() {
 
     const card3 = document.getElementById('card-3-body');
     if (card3) {
-        const subEl = card3.closest('.card-container')?.querySelector('.card-header-sub');
-        if (subEl) subEl.textContent = status === 'completed' ? '✅ 已完成' : phase === 'review' ? '🔍 待验收' : '等待中';
         let html = '';
         if (status === 'completed') {
             html += `<div class="card-section"><div class="card-section-title">🎉 任务已完成</div>`;

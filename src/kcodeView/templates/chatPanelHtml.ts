@@ -105,58 +105,57 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             </div>
             </div>
 
-            <!-- Card View — Three Cards for Card Mode -->
+            <!-- Card View — Three Cards with Flow Arrows -->
             <div id="card-view" class="card-view hidden">
-                <div id="card-1" class="card-container">
+                <div id="card-1" class="card-container" data-step="1">
                     <div class="card-header-bar">
-                        <span class="card-header-label">🎯 目标&方案</span>
-                        <span class="card-header-sub">V1.0</span>
+                        <span class="card-step">Step 1</span>
+                        <span class="card-header-label">目标&amp;方案</span>
+                        <span class="card-status-tag" id="card-1-tag">待开始</span>
                         <button class="card-comment-toggle" data-card="1" title="评论">💬 <span class="card-comment-count">0</span></button>
                     </div>
                     <div class="card-body" id="card-1-body">
                         <div class="card-empty">等待 AI 生成方案...</div>
                     </div>
-                    <div class="card-comment-section hidden" id="card-comment-1">
-                        <div class="card-comment-list" id="card-comment-list-1"></div>
-                        <div class="card-comment-input-row">
-                            <input class="card-comment-input" id="card-comment-input-1" placeholder="输入批注..." maxlength="500">
-                            <button class="card-comment-send" data-card="1">发送</button>
-                        </div>
-                    </div>
+                    <div class="card-footer-bar" id="card-1-footer"></div>
                 </div>
-                <div id="card-2" class="card-container">
+
+                <div class="card-flow-arrow" data-from="1" data-to="2">
+                    <svg width="14" height="20" viewBox="0 0 14 20">
+                        <path d="M7 2v14M2 12l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+
+                <div id="card-2" class="card-container" data-step="2">
                     <div class="card-header-bar">
-                        <span class="card-header-label">⚡ 执行&自检</span>
-                        <span class="card-header-sub">进度摘要</span>
+                        <span class="card-step">Step 2</span>
+                        <span class="card-header-label">执行&amp;自检</span>
+                        <span class="card-status-tag" id="card-2-tag">待开始</span>
                         <button class="card-comment-toggle" data-card="2" title="评论">💬 <span class="card-comment-count">0</span></button>
                     </div>
                     <div class="card-body" id="card-2-body">
                         <div class="card-empty">等待进入执行阶段...</div>
                     </div>
-                    <div class="card-comment-section hidden" id="card-comment-2">
-                        <div class="card-comment-list" id="card-comment-list-2"></div>
-                        <div class="card-comment-input-row">
-                            <input class="card-comment-input" id="card-comment-input-2" placeholder="输入批注..." maxlength="500">
-                            <button class="card-comment-send" data-card="2">发送</button>
-                        </div>
-                    </div>
+                    <div class="card-footer-bar" id="card-2-footer"></div>
                 </div>
-                <div id="card-3" class="card-container">
+
+                <div class="card-flow-arrow" data-from="2" data-to="3">
+                    <svg width="14" height="20" viewBox="0 0 14 20">
+                        <path d="M7 2v14M2 12l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+
+                <div id="card-3" class="card-container" data-step="3">
                     <div class="card-header-bar">
-                        <span class="card-header-label">✅ 变更验收</span>
-                        <span class="card-header-sub">待验证</span>
+                        <span class="card-step">Step 3</span>
+                        <span class="card-header-label">变更验收</span>
+                        <span class="card-status-tag" id="card-3-tag">待开始</span>
                         <button class="card-comment-toggle" data-card="3" title="评论">💬 <span class="card-comment-count">0</span></button>
                     </div>
                     <div class="card-body" id="card-3-body">
                         <div class="card-empty">等待进入验收阶段...</div>
                     </div>
-                    <div class="card-comment-section hidden" id="card-comment-3">
-                        <div class="card-comment-list" id="card-comment-list-3"></div>
-                        <div class="card-comment-input-row">
-                            <input class="card-comment-input" id="card-comment-input-3" placeholder="输入批注..." maxlength="500">
-                            <button class="card-comment-send" data-card="3">发送</button>
-                        </div>
-                    </div>
+                    <div class="card-footer-bar" id="card-3-footer"></div>
                 </div>
             </div>
             <div id="chat-bottom">
