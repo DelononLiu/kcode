@@ -181,6 +181,7 @@ export class TaskFlowHandler {
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', content: report, timestamp: Date.now() });
         ctx.store.clearReviewChanges(tid);
         ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskStatus: 'completed', reviewChanges: [] });
+        this.sendTaskInfo(tid);
     }
 
     async handlePartialApproveReview(tid: string, passed: string[], failed: string[]) {
@@ -194,6 +195,7 @@ export class TaskFlowHandler {
         if (failed.length === 0) {
             ctx.taskFlow.finishReview(tid);
             ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskStatus: 'completed' });
+            this.sendTaskInfo(tid);
         } else {
             ctx.store.updateTaskPhase(tid, 'execute');
             ctx.store.updateTaskStatus(tid, 'active');

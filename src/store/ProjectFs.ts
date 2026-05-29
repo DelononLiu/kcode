@@ -197,11 +197,24 @@ export class ProjectFs {
 
 		// inbox tasks
 		if (fs.existsSync(this._inboxDir)) {
+			const inboxOrder = this._readInboxOrder();
+			const inboxMap = new Map<string, Task>();
 			for (const entry of fs.readdirSync(this._inboxDir, { withFileTypes: true })) {
 				if (!entry.isDirectory()) continue;
 				const task = this._readTask(entry.name, this._inboxDir);
-				if (task) tasks.push(task);
+				if (task) inboxMap.set(entry.name, task);
 			}
+			// apply order file; any task not in order goes to the end
+			const ordered: Task[] = [];
+			const seen = new Set<string>();
+			for (const id of inboxOrder) {
+				const t = inboxMap.get(id);
+				if (t) { ordered.push(t); seen.add(id); }
+			}
+			for (const [id, t] of inboxMap) {
+				if (!seen.has(id)) ordered.push(t);
+			}
+			tasks.push(...ordered);
 		}
 
 		// project tasks
@@ -277,6 +290,9 @@ export class ProjectFs {
 		const taskDir = this._taskDir(task);
 		fs.mkdirSync(taskDir, { recursive: true });
 		this._writeTaskMeta(task);
+		if (!task.containerId) {
+			this._prependToOrder(task.id);
+		}
 		this._taskCache = null;
 	}
 
@@ -677,6 +693,34 @@ export class ProjectFs {
 	private _removeFromProjectOrder(projectId: string): void {
 		const order = this._readProjectOrder().filter(id => id !== projectId);
 		this._writeProjectOrder(order);
+	}
+
+	private _inboxOrderPath(): string {
+		return path.join(this._inboxDir, '_order.json');
+	}
+
+	private _readInboxOrder(): string[] {
+		try { return JSON.parse(fs.readFileSync(this._inboxOrderPath(), 'utf-8')); } catch { return []; }
+	}
+
+	private _writeInboxOrder(order: string[]): void {
+		fs.writeFileSync(this._inboxOrderPath(), JSON.stringify(order, null, 2), 'utf-8');
+	}
+
+	private _prependToOrder(taskId: string): void {
+		const order = this._readInboxOrder();
+		const filtered = order.filter(id => id !== taskId);
+		filtered.unshift(taskId);
+		this._writeInboxOrder(filtered);
+	}
+
+	reorderTasks(taskId: string, targetTaskId: string, position: 'before' | 'after'): void {
+		const order = this._readInboxOrder();
+		const filtered = order.filter((id: string) => id !== taskId);
+		const insertAt = filtered.indexOf(targetTaskId) + (position === 'after' ? 1 : 0);
+		filtered.splice(insertAt < 0 ? filtered.length : insertAt, 0, taskId);
+		this._writeInboxOrder(filtered);
+		this._invalidateCaches();
 	}
 
 	private _copyDir(src: string, dest: string): void {

@@ -448,8 +448,11 @@ export class TaskStore {
     }
 
     private _reorderWithinContainer(task: Task, targetTaskId: string, position: 'before' | 'after'): void {
-        const containerId = task.containerId || undefined;
-        const orderFile = this._taskOrderPath(containerId);
+        if (!task.containerId) {
+            this.fs.reorderTasks(task.id, targetTaskId, position);
+            return;
+        }
+        const orderFile = this._taskOrderPath(task.containerId);
         let order: string[] = [];
         try { order = JSON.parse(fs.readFileSync(orderFile, 'utf-8')); } catch {}
         order = order.filter((id: string) => id !== task.id);

@@ -199,9 +199,13 @@ function renderCards() {
     const card3 = document.getElementById('card-3-body');
     if (card3) {
         const subEl = card3.closest('.card-container')?.querySelector('.card-header-sub');
-        if (subEl) subEl.textContent = phase === 'review' ? '🔍 待验收' : '等待中';
-        let html = `<div style="font-size:11px;color:#888;padding:4px 8px;border-bottom:1px solid #333">phase: ${phase}, changes: ${lastReviewChanges.length}</div>`;
-        if (phase === 'review') {
+        if (subEl) subEl.textContent = status === 'completed' ? '✅ 已完成' : phase === 'review' ? '🔍 待验收' : '等待中';
+        let html = '';
+        if (status === 'completed') {
+            html += `<div class="card-section"><div class="card-section-title">🎉 任务已完成</div>`;
+            html += `<div style="font-size:12px;color:#5a9d6b;padding:8px 0">该任务已验收通过并完成。</div></div>`;
+            card3.innerHTML = html;
+        } else if (phase === 'review') {
             html += `<div class="card-section"><div class="card-section-title">📄 变更文件</div>`;
             if (lastReviewChanges.length > 0) {
                 for (const ch of lastReviewChanges) {
