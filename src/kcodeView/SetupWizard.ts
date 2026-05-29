@@ -1,5 +1,6 @@
 import * as cp from 'child_process';
 import * as os from 'os';
+import * as path from 'path';
 
 export interface SetupResult {
     nodeInstalled: boolean;
@@ -63,7 +64,7 @@ export async function detectEnv(narrate: NarrationCallback): Promise<SetupResult
     }
 
     // Check if kcode config has agentName set
-    const configPath = `${os.homedir()}/.kcode/kcode.jsonc`;
+    const configPath = path.join(os.homedir(), '.kcode', 'kcode.jsonc');
     try {
         const fs = await import('fs');
         if (fs.existsSync(configPath)) {

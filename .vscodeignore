@@ -3,13 +3,18 @@
 .gitignore
 .kilo/**
 .claude/**
+.code-review-graph/**
+.pytest_cache/**
+**/*.map
+**/.gitignore
 AGENTS.md
+CASES.md
 KCODE_MVP.md
+kilo.json
 PLAN.md
 PROJECT.md
 TASKS.md
 docs/**
-out/**/*.map
 node_modules/**
 !node_modules/@agentclientprotocol/**
 !node_modules/zod/**
@@ -17,3 +22,5 @@ node_modules/**
 src/**
 scripts/**
 tsconfig.json
+vitest.config.ts
+package-lock.json

@@ -170,8 +170,21 @@ export class AgentService implements IAgentService {
         return true;
     }
 
+    private _kiloConfigPath(): string {
+        const xdgConfig = process.env.XDG_CONFIG_HOME;
+        if (xdgConfig) return path.join(xdgConfig, 'kilo', 'kilo.jsonc');
+        if (process.platform === 'win32') {
+            const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+            return path.join(appData, 'kilo', 'kilo.jsonc');
+        }
+        if (process.platform === 'darwin') {
+            return path.join(os.homedir(), 'Library', 'Application Support', 'kilo', 'kilo.jsonc');
+        }
+        return path.join(os.homedir(), '.config', 'kilo', 'kilo.jsonc');
+    }
+
     private _readKiloConfig(): any {
-        const configPath = path.join(os.homedir(), '.config', 'kilo', 'kilo.jsonc');
+        const configPath = this._kiloConfigPath();
         try {
             return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
         } catch { return null; }
