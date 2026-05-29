@@ -188,7 +188,6 @@ function renderCards() {
                 html += `</div></div>`;
             }
 
-            html += cardConfirmButtons(phase, status);
             card2.innerHTML = html;
         } else if (phase === 'execute' && planSteps.length === 0) {
             card2.innerHTML = '<div class="card-empty">等待 AI 开始执行...</div>';
@@ -223,18 +222,7 @@ function renderCards() {
             html += `<div class="card-section"><div style="display:flex;gap:6px;flex-wrap:wrap">`;
             html += `<button class="card-action-btn primary" data-action="approveReview" data-taskid="${activeTaskId}">✅ 验收通过</button>`;
             html += `<button class="card-action-btn secondary" data-action="showRejectPresets" data-taskid="${activeTaskId}">↩️ 驳回</button>`;
-            html += `</div>`;
-            html += `<div id="card-reject-presets-${activeTaskId}" class="card-reject-presets hidden">`;
-            const rejectReasons = ['代码质量不达标','未处理边界情况','缺少单元测试','与需求不符','存在安全隐患','性能问题'];
-            html += `<div class="card-reject-preset-title">选择驳回理由：</div>`;
-            for (const reason of rejectReasons) {
-                html += `<button class="card-reject-preset-btn" data-action="rejectReview" data-taskid="${activeTaskId}" data-reason="${escapeHtml(reason)}">${reason}</button>`;
-            }
-            html += `<button class="card-reject-preset-btn custom" data-action="showRejectInput" data-taskid="${activeTaskId}">✏️ 自定义输入...</button>`;
-            html += `<div id="card-reject-custom-${activeTaskId}" class="hidden" style="margin-top:4px">`;
-            html += `<textarea id="card-reject-text-${activeTaskId}" class="card-reject-textarea" placeholder="输入驳回原因..." rows="2"></textarea>`;
-            html += `<button class="card-action-btn secondary" data-action="sendReject" data-taskid="${activeTaskId}">确认驳回</button>`;
-            html += `</div></div></div>`;
+            html += `</div></div>`;
             card3.innerHTML = html;
             _fileChangesMap = new Map(lastReviewChanges.map((ch: any) => [ch.filePath, { original: ch.original, modified: ch.modified }]));
         } else {
@@ -325,8 +313,16 @@ function initCardComments() {
                     break;
                 }
                 case 'showRejectPresets': {
-                    const presets = document.getElementById(`card-reject-presets-${taskId}`);
-                    if (presets) presets.classList.toggle('hidden');
+                    const taskId2 = actionBtn.dataset.taskid || activeTaskId;
+                    let presets = document.getElementById(`card-reject-presets-${taskId2}`);
+                    if (!presets) {
+                        presets = createRejectPresets(taskId2!);
+                        const section = actionBtn.closest('.card-section');
+                        if (section && section.parentNode) {
+                            section.parentNode.insertBefore(presets, section.nextSibling);
+                        }
+                    }
+                    presets.classList.toggle('hidden');
                     break;
                 }
                 case 'showRejectInput': {
@@ -343,6 +339,24 @@ function initCardComments() {
             }
         });
     }
+}
+
+function createRejectPresets(taskId: string): HTMLElement {
+    const div = document.createElement('div');
+    div.id = `card-reject-presets-${taskId}`;
+    div.className = 'card-reject-presets hidden';
+    const rejectReasons = ['代码质量不达标','未处理边界情况','缺少单元测试','与需求不符','存在安全隐患','性能问题'];
+    let html = '<div class="card-reject-preset-title">选择驳回理由：</div>';
+    for (const reason of rejectReasons) {
+        html += `<button class="card-reject-preset-btn" data-action="rejectReview" data-taskid="${escapeHtml(taskId)}" data-reason="${escapeHtml(reason)}">${reason}</button>`;
+    }
+    html += `<button class="card-reject-preset-btn custom" data-action="showRejectInput" data-taskid="${escapeHtml(taskId)}">✏️ 自定义输入...</button>`;
+    html += `<div id="card-reject-custom-${escapeHtml(taskId)}" class="hidden" style="margin-top:4px">`;
+    html += `<textarea id="card-reject-text-${escapeHtml(taskId)}" class="card-reject-textarea" placeholder="输入驳回原因..." rows="2"></textarea>`;
+    html += `<button class="card-action-btn secondary" data-action="sendReject" data-taskid="${escapeHtml(taskId)}">确认驳回</button>`;
+    html += `</div>`;
+    div.innerHTML = html;
+    return div;
 }
 
 function loadCardComments(messages: any[]) {

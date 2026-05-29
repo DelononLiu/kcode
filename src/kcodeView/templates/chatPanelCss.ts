@@ -635,7 +635,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .card-plan-step{font-size:12px;color:#aaa;padding:2px 0 2px 4px;display:flex;align-items:center;gap:4px}
 .card-plan-status{flex-shrink:0;font-size:11px}
 .card-actions{display:flex;gap:6px;padding:6px 0 0;flex-wrap:wrap}
-.card-action-btn{flex:1;min-width:80px;padding:5px 10px;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .2s;white-space:nowrap;text-align:center}
+.card-action-btn{flex:1;max-width:130px;padding:5px 10px;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .2s;white-space:nowrap;text-align:center}
 .card-action-btn.primary{background:#4a8bb5;color:#fff}
 .card-action-btn.primary:hover{background:#5a9bc8}
 .card-action-btn.secondary{background:rgba(255,255,255,.06);color:#d2d2d4}

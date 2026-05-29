@@ -180,6 +180,7 @@ function initMessageHandler() {
                 activeTaskType = message.taskType || '';
 
                 if (message.taskType === 'assistant') {
+                    (window as any).__cardApp?.hideCardView?.();
                     const header = document.getElementById('chat-header');
                     if (header) header.style.removeProperty('display');
                     showHeaderRow('row1', true);
@@ -270,6 +271,7 @@ function initMessageHandler() {
                 break;
             case 'updateTaskInfo':
                 if (message.taskType === 'assistant') {
+                    (window as any).__cardApp?.hideCardView?.();
                     activeTaskStatus = '';
                     activeTaskPhase = '';
                     const chatHeader = document.getElementById('chat-header');
@@ -316,6 +318,7 @@ function initMessageHandler() {
                         ca.showCardView();
                         ca.renderCards();
                     }
+                    updateTaskInfo(message);
                     break;
                 }
                 // Show knowledge extract button for task mode
