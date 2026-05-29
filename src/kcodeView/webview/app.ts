@@ -4,6 +4,7 @@ import { AppState, type FileChange } from './state';
 
 declare function acquireVsCodeApi(): any;
 const vscode = acquireVsCodeApi();
+(window as any).vscode = vscode;
 (window as any).__vscode = vscode;
 
 marked.use({
@@ -86,6 +87,10 @@ document.addEventListener('DOMContentLoaded', () => {
     (window as any).__openNativeDiff = (original: string, modified: string, filePath: string) => {
         vscode.postMessage({ type: 'openNativeDiff', original, modified, filePath });
     };
+
+    if (isCardMode) {
+        (window as any).__cardApp?.initCardComments();
+    }
 });
 
 function initNavButtons() {
@@ -203,6 +208,26 @@ function initMessageHandler() {
                     break;
                 }
 
+                if (isCardMode) {
+                    const ca = (window as any).__cardApp;
+                    if (ca) {
+                        ca.updateInfo({
+                            taskId: message.taskId,
+                            phase: message.taskPhase || '',
+                            status: message.taskStatus || '',
+                            goal: '', title: '',
+                        });
+                        if (message.reviewChanges && message.reviewChanges.length > 0) {
+                            ca.updateReview(message.reviewChanges);
+                        }
+                        ca.loadCardComments(message.messages || []);
+                        ca.showCardView();
+                        ca.renderCards();
+                    }
+                    renderMessages(message.messages);
+                    break;
+                }
+
                 renderAcpLog();
                 const gutter = document.getElementById('node-timeline-gutter');
                 if (gutter) gutter.classList.remove('hidden');
@@ -269,6 +294,28 @@ function initMessageHandler() {
                     if (outPanel) outPanel.style.display = 'none';
                     const extractBtn2 = document.getElementById('btn-knowledge-extract');
                     if (extractBtn2) extractBtn2.classList.add('hidden');
+                    break;
+                }
+                if (isCardMode) {
+                    const ca = (window as any).__cardApp;
+                    if (ca) {
+                        ca.updateInfo({
+                            taskId: message.taskId,
+                            phase: message.phase || '',
+                            status: message.status || '',
+                            goal: message.goal || '',
+                            title: message.title || '',
+                            planSteps: message.planSteps,
+                            confirmedItems: message.confirmedItems,
+                            riskItems: message.riskItems,
+                            boundaryItems: message.boundaryItems,
+                            terminalLogCount: message.terminalLogCount,
+                            planVersion: message.planVersion,
+                            filePathsFromTools: message.filePathsFromTools,
+                        });
+                        ca.showCardView();
+                        ca.renderCards();
+                    }
                     break;
                 }
                 // Show knowledge extract button for task mode
@@ -871,6 +918,7 @@ function flushMerge() {
 
 let activeTaskId: string | null = null;
 let activeTaskStatus: string = '';
+const isCardMode: boolean = (document.getElementById('__viewdata')?.dataset.viewmode || 'chat') === 'card';
 let activeTaskType: string = '';
 let activeTaskPhase: string = '';
 let activeTaskGoal: string = '';
@@ -3906,7 +3954,11 @@ function handleNodePanelUpdate(nodes: any[], taskType: string) {
 
         const label = document.createElement('span');
         label.className = 'tl-label';
-        label.textContent = getNodeLabel(node.type);
+        let labelText = getNodeLabel(node.type);
+        if (node.type === 'execute' && node.iteration > 0) {
+            labelText += ` ${node.iteration}${node.maxIteration ? '/' + node.maxIteration : ''}`;
+        }
+        label.textContent = labelText;
         dot.appendChild(label);
 
         wrap.appendChild(dot);

@@ -8,9 +8,13 @@ export const SELF_VERIFY_PROMPT = `当前阶段：自验（Self-Verify）
 
 [TASK_UPDATE]
 ACTION: finish_verify
+DECISION: success | continue | timeout | stagnation
+METRICS: {"latency": 320}
+ITERATION: 1
 [/TASK_UPDATE]
 
 注意事项：
 - 每次发现问题并修复后，重新验证
 - 最多自验 3 轮，如果仍无法通过请向用户说明情况并请求协助
-- 不要修改目标、计划等元数据，只关注执行产出的质量`;
+- 不要修改目标、计划等元数据，只关注执行产出的质量
+- 对于启用了迭代优化的任务，需额外输出 DECISION/METRICS/ITERATION 字段，系统会根据这些字段自动判断是否进入下一轮迭代`;

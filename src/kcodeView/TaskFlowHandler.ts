@@ -146,7 +146,7 @@ export class TaskFlowHandler {
             acceptanceCriteria = cat?.acceptanceCriteria;
         }
 
-        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskStatus: 'in_review', viewMode: ctx.viewMode, reviewChanges: changes.length > 0 ? changes : undefined, acceptanceCriteria });
+        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: task?.phase, taskStatus: 'in_review', viewMode: ctx.viewMode, reviewChanges: changes.length > 0 ? changes : undefined, acceptanceCriteria });
         ctx.sendNodePanelUpdate(tid);
         ctx.refreshSidebarCallback?.();
     }
@@ -251,7 +251,8 @@ export class TaskFlowHandler {
             filePathsFromTools: filePathsFromTools,
             hooks: task.hooks || {}, workspaceHooks: ctx.taskFlow['workspaceHooks'] || {},
             messageCount: messages.length, executeFinished: ctx.taskFlow.isExecuteFinished(taskId),
-            terminalLogCount: taskLogStore.getTerminalLog(taskId).length
+            terminalLogCount: taskLogStore.getTerminalLog(taskId).length,
+            flowIteration: task.flowIteration,
         });
 
         this.sendOutputPanelUpdate(taskId);
@@ -337,6 +338,10 @@ export class TaskFlowHandler {
             else interruptAt = 'review';
         }
 
+        const fi = task.flowIteration;
+        const iterCount = fi?.enabled ? fi.state.currentIteration : 0;
+        const maxIter = fi?.enabled ? fi.config.iterationLimit : 0;
+
         const ns = (id: string, completed: boolean, active: boolean): 'pending' | 'active' | 'completed' | 'cancelled' => {
             if (s === 'cancelled' && id === interruptAt) return 'cancelled';
             if (completed) return 'completed';
@@ -349,7 +354,7 @@ export class TaskFlowHandler {
             { id: 'demand', type: 'demand' as const, label: '需求提交', status: ns('demand', hasGoal || hasConfirmedGoal || s === 'in_review' || s === 'completed', !(hasGoal || hasConfirmedGoal) && s !== 'cancelled'), order: 1, messageId: nm.demand },
             { id: 'goal', type: 'goal' as const, label: '目标确认', status: ns('goal', hasConfirmedGoal, hasGoal && !hasConfirmedGoal && s !== 'cancelled'), order: 2, messageId: nm.goal },
             { id: 'plan', type: 'plan' as const, label: '计划', status: ns('plan', hasPlan || s === 'in_review' || s === 'completed', phase === 'plan'), order: 3, messageId: nm.plan },
-            { id: 'execute', type: 'execute' as const, label: '执行', status: ns('execute', s === 'in_review' || s === 'completed' || phase === 'self_verify', phase === 'execute' && s === 'active'), order: 4, messageId: nm.execute },
+            { id: 'execute', type: 'execute' as const, label: '执行', status: ns('execute', s === 'in_review' || s === 'completed' || phase === 'self_verify', phase === 'execute' && s === 'active'), order: 4, messageId: nm.execute, iteration: iterCount, maxIteration: maxIter },
             { id: 'self_verify', type: 'self_verify' as const, label: '自验', status: ns('self_verify', hasSelfVerify && s !== 'active', phase === 'self_verify'), order: 5, messageId: nm.self_verify },
             { id: 'review', type: 'review' as const, label: '验收', status: ns('review', s === 'completed', phase === 'review' && s === 'in_review'), order: 6, messageId: nm.review },
         ];

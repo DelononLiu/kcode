@@ -3,6 +3,21 @@ import type { KCodePanelContext } from '../PanelContext';
 import type { PlanStep } from '../../types';
 import { taskLogStore } from '../../store/TaskLogStore';
 
+const _output = (() => {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const v = require('vscode');
+        const ch = v.window.createOutputChannel('KCode Debug');
+        ch.show(true);
+        return ch;
+    } catch { return null; }
+})();
+function debug(msg: string) {
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    console.log(line);
+    if (_output) _output.appendLine(line);
+}
+
 export class TaskStreamHandler extends StreamHandlerBase {
     constructor(
         tid: string,
@@ -82,7 +97,7 @@ export class TaskStreamHandler extends StreamHandlerBase {
             }
             this.ctx.taskFlow.resetGeneration(this.tid);
             const task = this.ctx.store.getTask(this.tid);
-            this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskStatus: task?.status });
+            this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskPhase: task?.phase, taskStatus: task?.status });
             return;
         }
 
@@ -172,6 +187,7 @@ export class TaskStreamHandler extends StreamHandlerBase {
                 this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskStatus: this.ctx.store.getTask(this.tid)?.status });
                 setTimeout(() => this.ctx.startAutoGeneration(this.tid), 100);
             } else if (genResult.selfVerifyFinished && task?.type === 'task' && task?.phase === 'self_verify') {
+                debug('confirmSelfVerifyDone triggered, phase → review');
                 this.ctx.taskFlow.confirmSelfVerifyDone(this.tid);
                 this.ctx.triggerReviewRequest(this.tid, cleanedText || '自验完成，请验收变更');
             } else {

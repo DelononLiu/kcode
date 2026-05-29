@@ -335,47 +335,55 @@ export class KCodePanel {
 
         if (!env.nodeInstalled) {
             stream('\n\n⚠️ Node.js 未安装，请先安装 Node.js https://nodejs.org');
+            this.assistantHandler.transitionAfterSetup(false);
             return;
         }
 
         if (!env.kiloInstalled && !env.opencodeInstalled) {
             stream('\n\n⚠️ 未检测到 Kilo CLI 或 OpenCode CLI，请先安装其中一个：\n- Kilo: https://kilo.ai\n- OpenCode: https://opencode.ai');
+            this.assistantHandler.transitionAfterSetup(false);
             return;
         }
 
         const agentToUse = env.kiloInstalled ? 'kilo' : 'opencode';
+        const configWasMissing = !env.configReady;
 
-        if (!env.configReady) {
-            stream('\n\n正在配置 Agent…');
-            this.configService.set('agentName', agentToUse);
-            await this.configService.save();
-            stream(`\n\n✅ 已自动配置 agentName = "${agentToUse}"`);
+        try {
+            if (!env.configReady) {
+                stream('\n\n正在配置 Agent…');
+                this.configService.set('agentName', agentToUse);
+                await this.configService.save();
+                stream(`\n\n✅ 已自动配置 agentName = "${agentToUse}"`);
+            }
+
+            this._streamModelConfig(stream);
+
+            stream('\n\n正在连接 Agent…');
+            if (this.agentService.isConnected) {
+                await this.agentService.disconnect();
+            }
+            const connected = await this.agentService.connectByLabel(agentToUse);
+            if (connected) {
+                stream('\n\n✅ **环境已就绪**');
+            } else {
+                const err = this.agentService.lastError;
+                stream(`\n\n⚠️ 环境配置完成，但连接仍有问题\n${err ? `\n**错误**: ${err}` : ''}\n\n👉 请检查 Agent 配置是否正确`);
+            }
+
+            if (this.agentService.isConnected) {
+                this.router.PostMessage({
+                    type: 'agentStatus', status: 'connected',
+                    message: agentToUse === 'opencode' ? 'OpenCode' : 'Kilo',
+                    agentName: this.agentService.agentName,
+                    modelName: this.agentService.modelName,
+                });
+                this.sessionHandler.sendAgentList();
+            }
+        } catch (err: any) {
+            stream(`\n\n⚠️ 环境配置异常: ${err?.message || err}`);
         }
 
-        this._streamModelConfig(stream);
-
-        stream('\n\n正在连接 Agent…');
-        if (this.agentService.isConnected) {
-            await this.agentService.disconnect();
-        }
-        const connected = await this.agentService.connectByLabel(agentToUse);
-        if (connected) {
-            stream('\n\n✅ **环境已就绪**');
-        } else {
-            stream('\n\n⚠️ 环境配置完成，但连接仍有问题，请在设置中检查。');
-        }
-
-        if (this.agentService.isConnected) {
-            this.router.PostMessage({
-                type: 'agentStatus', status: 'connected',
-                message: agentToUse === 'opencode' ? 'OpenCode' : 'Kilo',
-                agentName: this.agentService.agentName,
-                modelName: this.agentService.modelName,
-            });
-            this.sessionHandler.sendAgentList();
-        }
-
-        this.assistantHandler.transitionAfterSetup();
+        this.assistantHandler.transitionAfterSetup(configWasMissing);
     }
 
     private _streamModelConfig(stream: (text: string) => void) {

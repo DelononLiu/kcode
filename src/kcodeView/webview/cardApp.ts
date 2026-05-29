@@ -1,7 +1,6 @@
 export {};
-declare function acquireVsCodeApi(): any;
-const vscode = acquireVsCodeApi();
-(window as any).vscode = vscode;
+
+const vscode = (window as any).vscode;
 
 let activeTaskId: string | null = null;
 let activeTaskPhase: string = '';
@@ -24,14 +23,6 @@ function formatTimestamp(ts: number): string {
     return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function addSystemMessage(content: string): void {
-    const el = document.getElementById('system-narration');
-    if (!el) return;
-    el.innerHTML = `<div style="padding:4px 8px;font-size:12px;color:#e8a84c;border:1px solid rgba(232,168,76,.15);border-radius:4px;background:rgba(232,168,76,.04)">${escapeHtml(content)}</div>`;
-    el.classList.remove('hidden');
-    setTimeout(() => el.classList.add('hidden'), 5000);
-}
-
 function phaseLabel(phase: string): string {
     const labels: Record<string, string> = { demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收' };
     return labels[phase] || phase;
@@ -39,7 +30,8 @@ function phaseLabel(phase: string): string {
 
 function cardConfirmButtons(phase: string, status: string): string {
     if (status === 'cancelled' || status === 'completed') return '';
-    const btns: Record<string, { label: string; action: string }[]> = {
+    type BtnDef = { label: string; action: string };
+    const btns: Record<string, BtnDef[]> = {
         goal: [{ label: '✅ 确认目标', action: 'confirmGoalFromHeader' }],
         plan: [{ label: '📋 确认计划', action: 'confirmPlan' }],
         execute: [{ label: '⚡ 确认完成', action: 'confirmExecuteDone' }],
@@ -48,10 +40,14 @@ function cardConfirmButtons(phase: string, status: string): string {
     if (!phaseBtns) return '';
     let html = '<div class="card-section card-actions">';
     for (const btn of phaseBtns) {
-        html += `<button class="card-action-btn primary" onclick="vscode.postMessage({type:'${btn.action}',taskId:'${activeTaskId}'})">${btn.label}</button>`;
+        html += `<button class="card-action-btn primary" data-action="${btn.action}" data-taskid="${activeTaskId}">${btn.label}</button>`;
     }
     html += '</div>';
     return html;
+}
+
+function cardLinkButton(action: string, taskId: string | null, label: string, extra?: string): string {
+    return `<button class="card-link-btn" data-action="${action}" data-taskid="${taskId || ''}" ${extra || ''}>${label}</button>`;
 }
 
 function renderCards() {
@@ -73,7 +69,6 @@ function renderCards() {
         : [];
     const fileList = [...new Set([...filePathsFromTools, ...reviewFileList])];
 
-    // Card 1: Goal & Plan
     const card1 = document.getElementById('card-1-body');
     if (card1) {
         const subEl = card1.closest('.card-container')?.querySelector('.card-header-sub');
@@ -132,7 +127,6 @@ function renderCards() {
         }
     }
 
-    // Card 2: Execute & Self-verify
     const card2 = document.getElementById('card-2-body');
     if (card2) {
         const subEl = card2.closest('.card-container')?.querySelector('.card-header-sub');
@@ -190,7 +184,7 @@ function renderCards() {
             if (terminalLogCount > 0) {
                 html += `<div class="card-section"><div class="card-section-title collapsible-header" onclick="this.classList.toggle('collapsed');this.nextElementSibling.classList.toggle('collapsed')">💻 终端日志 <span class="card-count-badge">${terminalLogCount}</span></div>`;
                 html += `<div class="card-collapsible-body">`;
-                html += `<div class="card-terminal-hint">终端日志共 ${terminalLogCount} 条记录。<br><button class="card-link-btn" onclick="vscode.postMessage({type:'openTerminalReplay',taskId:'${activeTaskId}'})">📋 查看完整日志</button></div>`;
+                html += `<div class="card-terminal-hint">终端日志共 ${terminalLogCount} 条记录。<br>${cardLinkButton('openTerminalReplay', activeTaskId, '📋 查看完整日志')}</div>`;
                 html += `</div></div>`;
             }
 
@@ -203,76 +197,53 @@ function renderCards() {
         }
     }
 
-    // Card 3: Review
     const card3 = document.getElementById('card-3-body');
     if (card3) {
         const subEl = card3.closest('.card-container')?.querySelector('.card-header-sub');
         if (subEl) subEl.textContent = phase === 'review' ? '🔍 待验收' : '等待中';
-        if (phase === 'review' && lastReviewChanges.length > 0) {
-            let html = '';
-            const testTools = cardActiveTools.filter((t: any) => {
-                const out = (t.output || '').toLowerCase();
-                return /test|spec|vitest|jest|assert|expect/i.test(t.title || '') ||
-                    out.includes('✓') || out.includes('pass') || out.includes('fail');
-            });
-            if (testTools.length > 0) {
-                html += `<div class="card-section"><div class="card-section-title">🧪 自动化测试</div>`;
-                for (const tt of testTools) {
-                    const ok = !/fail|error/i.test(tt.output || '');
-                    html += `<div class="card-test-item ${ok ? 'pass' : 'fail'}">${ok ? '✅' : '❌'} ${escapeHtml(tt.title || '')}</div>`;
-                }
-                html += `</div>`;
-            }
+        let html = `<div style="font-size:11px;color:#888;padding:4px 8px;border-bottom:1px solid #333">phase: ${phase}, changes: ${lastReviewChanges.length}</div>`;
+        if (phase === 'review') {
             html += `<div class="card-section"><div class="card-section-title">📄 变更文件</div>`;
-            for (const ch of lastReviewChanges) {
-                const ext = ch.filePath ? ch.filePath.split('.').pop() || '' : '';
-                const icon = ext === 'ts' || ext === 'tsx' ? '📝' : ext === 'css' ? '🎨' : ext === 'json' ? '📋' : '📄';
-                html += `<div class="card-review-file" onclick="vscode.postMessage({type:'openNativeDiff',original:${JSON.stringify(ch.original || '')},modified:${JSON.stringify(ch.modified || '')},filePath:${JSON.stringify(ch.filePath || '')}})">${icon} ${escapeHtml(ch.filePath || '')}</div>`;
+            if (lastReviewChanges.length > 0) {
+                for (const ch of lastReviewChanges) {
+                    const ext = ch.filePath ? ch.filePath.split('.').pop() || '' : '';
+                    const icon = ext === 'ts' || ext === 'tsx' ? '📝' : ext === 'css' ? '🎨' : ext === 'json' ? '📋' : '📄';
+                    html += `<div class="card-review-file" data-action="openNativeDiff" data-filepath="${escapeHtml(ch.filePath || '')}">${icon} ${escapeHtml(ch.filePath || '')}</div>`;
+                }
+            } else {
+                html += `<div class="card-empty">本次任务无文件变更</div>`;
             }
             html += `</div>`;
             html += `<div class="card-section"><div class="card-section-title">👤 人工验证指引</div>`;
             html += `<ul class="card-verify-steps">`;
-            html += `<li class="card-verify-step">1. 审查变更文件的 diff 内容</li>`;
-            html += `<li class="card-verify-step">2. 确认代码无逻辑错误和安全问题</li>`;
-            html += `<li class="card-verify-step">3. 点击文件查看完整 diff，或打开原生对比</li>`;
+            html += `<li class="card-verify-step">1. 检查执行结果是否符合预期</li>`;
+            html += `<li class="card-verify-step">2. 如有变更文件，点击上方文件查看 diff</li>`;
+            html += `<li class="card-verify-step">3. 确认无误后点击「验收通过」，否则「驳回」</li>`;
             html += `</ul></div>`;
             html += `<div class="card-section"><div style="display:flex;gap:6px;flex-wrap:wrap">`;
-            html += `<button class="card-action-btn primary" onclick="vscode.postMessage({type:'approveReview',taskId:'${activeTaskId}'})">✅ 验收通过</button>`;
-            html += `<button class="card-action-btn secondary" onclick="showCardRejectPresets('${activeTaskId}')">↩️ 驳回</button>`;
+            html += `<button class="card-action-btn primary" data-action="approveReview" data-taskid="${activeTaskId}">✅ 验收通过</button>`;
+            html += `<button class="card-action-btn secondary" data-action="showRejectPresets" data-taskid="${activeTaskId}">↩️ 驳回</button>`;
             html += `</div>`;
             html += `<div id="card-reject-presets-${activeTaskId}" class="card-reject-presets hidden">`;
             const rejectReasons = ['代码质量不达标','未处理边界情况','缺少单元测试','与需求不符','存在安全隐患','性能问题'];
             html += `<div class="card-reject-preset-title">选择驳回理由：</div>`;
             for (const reason of rejectReasons) {
-                html += `<button class="card-reject-preset-btn" onclick="vscode.postMessage({type:'rejectReview',taskId:'${activeTaskId}',reason:'${reason}'})">${reason}</button>`;
+                html += `<button class="card-reject-preset-btn" data-action="rejectReview" data-taskid="${activeTaskId}" data-reason="${escapeHtml(reason)}">${reason}</button>`;
             }
-            html += `<button class="card-reject-preset-btn custom" onclick="showCardRejectInput('${activeTaskId}')">✏️ 自定义输入...</button>`;
+            html += `<button class="card-reject-preset-btn custom" data-action="showRejectInput" data-taskid="${activeTaskId}">✏️ 自定义输入...</button>`;
             html += `<div id="card-reject-custom-${activeTaskId}" class="hidden" style="margin-top:4px">`;
             html += `<textarea id="card-reject-text-${activeTaskId}" class="card-reject-textarea" placeholder="输入驳回原因..." rows="2"></textarea>`;
-            html += `<button class="card-action-btn secondary" onclick="sendCardReject('${activeTaskId}')">确认驳回</button>`;
+            html += `<button class="card-action-btn secondary" data-action="sendReject" data-taskid="${activeTaskId}">确认驳回</button>`;
             html += `</div></div></div>`;
             card3.innerHTML = html;
-        } else if (phase === 'review') {
-            card3.innerHTML = '<div class="card-empty">暂无可验收文件...</div>';
+            _fileChangesMap = new Map(lastReviewChanges.map((ch: any) => [ch.filePath, { original: ch.original, modified: ch.modified }]));
         } else {
-            card3.innerHTML = '<div class="card-empty">等待进入验收阶段...</div>';
+            html += '<div class="card-empty">等待进入验收阶段...</div>';
+            card3.innerHTML = html;
         }
     }
 }
 
-function showCardRejectPresets(taskId: string) {
-    const el = document.getElementById('card-reject-presets-' + taskId);
-    if (el) el.classList.toggle('hidden');
-}
-function showCardRejectInput(taskId: string) {
-    const el = document.getElementById('card-reject-custom-' + taskId);
-    if (el) el.classList.remove('hidden');
-}
-function sendCardReject(taskId: string) {
-    const ta = document.getElementById('card-reject-text-' + taskId) as HTMLTextAreaElement;
-    const reason = ta?.value?.trim() || '用户驳回';
-    vscode.postMessage({ type: 'rejectReview', taskId, reason });
-}
 
 function initCardComments() {
     document.querySelectorAll('.card-comment-toggle').forEach(btn => {
@@ -295,7 +266,7 @@ function initCardComments() {
             if (!input || !input.value.trim()) return;
             const text = input.value.trim();
             input.value = '';
-            vscode.postMessage({ type: 'sendCardComment', cardIndex: parseInt(cardIdx || '1'), text, taskId: activeTaskId });
+            (window as any).vscode?.postMessage({ type: 'sendCardComment', cardIndex: parseInt(cardIdx || '1'), text, taskId: activeTaskId });
             const list = document.getElementById(`card-comment-list-${cardIdx}`);
             if (list) {
                 const item = document.createElement('div');
@@ -318,6 +289,60 @@ function initCardComments() {
             }
         });
     });
+
+    const cardView = document.getElementById('card-view');
+    if (cardView) {
+        cardView.addEventListener('click', (e) => {
+            const target = e.target as HTMLElement;
+            const actionBtn = target.closest('[data-action]') as HTMLElement;
+            if (!actionBtn) return;
+            const action = actionBtn.dataset.action;
+            const taskId = actionBtn.dataset.taskid || activeTaskId;
+
+            switch (action) {
+                case 'confirmPlan':
+                case 'confirmGoalFromHeader':
+                case 'confirmExecuteDone':
+                case 'approveReview':
+                    vscode.postMessage({ type: action, taskId });
+                    break;
+                case 'openTerminalReplay':
+                    vscode.postMessage({ type: 'openTerminalReplay', taskId });
+                    break;
+                case 'openNativeDiff': {
+                    const fp = actionBtn.dataset.filepath || '';
+                    const ch = _fileChangesMap.get(fp);
+                    if (ch) {
+                        vscode.postMessage({ type: 'showDiff', original: ch.original, modified: ch.modified });
+                    } else if ((window as any).showDiff) {
+                        (window as any).showDiff('', '');
+                    }
+                    break;
+                }
+                case 'rejectReview': {
+                    const reason = actionBtn.dataset.reason || '用户驳回';
+                    vscode.postMessage({ type: 'rejectReview', taskId, reason });
+                    break;
+                }
+                case 'showRejectPresets': {
+                    const presets = document.getElementById(`card-reject-presets-${taskId}`);
+                    if (presets) presets.classList.toggle('hidden');
+                    break;
+                }
+                case 'showRejectInput': {
+                    const custom = document.getElementById(`card-reject-custom-${taskId}`);
+                    if (custom) custom.classList.remove('hidden');
+                    break;
+                }
+                case 'sendReject': {
+                    const ta = document.getElementById(`card-reject-text-${taskId}`) as HTMLTextAreaElement;
+                    const reason = ta?.value?.trim() || '用户驳回';
+                    vscode.postMessage({ type: 'rejectReview', taskId, reason });
+                    break;
+                }
+            }
+        });
+    }
 }
 
 function loadCardComments(messages: any[]) {
@@ -353,6 +378,8 @@ function updateCardCommentCount(cardIndex: number) {
     }
 }
 
+let _fileChangesMap: Map<string, { original: string; modified: string }> = new Map();
+
 function showCardView() {
     const cardView = document.getElementById('card-view');
     if (cardView) cardView.classList.add('visible');
@@ -362,49 +389,32 @@ function showCardView() {
     if (gutter) gutter.classList.add('hidden');
 }
 
-window.addEventListener('message', (event) => {
-    const msg = event.data;
-    switch (msg.type) {
-        case 'loadMessages':
-            activeTaskId = msg.taskId;
-            activeTaskPhase = msg.taskPhase || '';
-            activeTaskStatus = msg.taskStatus || '';
-            loadCardComments(msg.messages || []);
-            if (msg.reviewChanges && msg.reviewChanges.length > 0) {
-                lastReviewChanges = msg.reviewChanges;
-            }
-            showCardView();
-            renderCards();
-            break;
-        case 'updateTaskInfo':
-            lastTaskInfo = msg;
-            activeTaskId = msg.taskId;
-            activeTaskPhase = msg.phase || '';
-            activeTaskStatus = msg.status || '';
-            activeTaskGoal = msg.goal || '';
-            activeTaskTitle = msg.title || '';
-            if (msg.terminalLogCount !== undefined) lastTaskInfo.terminalLogCount = msg.terminalLogCount;
-            showCardView();
-            renderCards();
-            break;
-        case 'updateNodePanel':
-            break;
-        case 'addUserMessage':
-            addSystemMessage('用户消息已发送');
-            break;
-        case 'addSystemMessage':
-            addSystemMessage(msg.content || '');
-            break;
-        case 'agentStreamUpdate':
-            break;
-        case 'showDiff':
-            if ((window as any).showDiff) (window as any).showDiff(msg.original, msg.modified);
-            break;
-    }
-});
+function hideCardView() {
+    const cardView = document.getElementById('card-view');
+    if (cardView) cardView.classList.remove('visible');
+    const chatBody = document.getElementById('chat-body');
+    if (chatBody) chatBody.classList.remove('hidden');
+}
 
-document.addEventListener('DOMContentLoaded', () => {
-    showCardView();
-    initCardComments();
-    vscode.postMessage({ type: 'ready' });
-});
+// Expose for app.ts in card mode
+(window as any).__cardApp = {
+    updateInfo(info: any) {
+        activeTaskId = info.taskId || null;
+        activeTaskPhase = info.phase || '';
+        activeTaskStatus = info.status || '';
+        activeTaskGoal = info.goal || '';
+        activeTaskTitle = info.title || '';
+        lastTaskInfo = info;
+    },
+    updateReview(changes: any[]) {
+        lastReviewChanges = changes;
+    },
+    setActiveTools(tools: any[]) {
+        cardActiveTools = tools;
+    },
+    showCardView,
+    hideCardView,
+    renderCards,
+    loadCardComments,
+    initCardComments,
+};

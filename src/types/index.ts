@@ -18,6 +18,28 @@ export interface InputField {
     required: boolean;
 }
 
+export interface IterationRecord {
+    iteration: number;
+    metrics: Record<string, number>;
+    passed: boolean;
+    improved: boolean;
+    timestamp: number;
+}
+
+export interface TargetDef {
+    key: string;
+    label: string;
+    direction: 'lower' | 'higher';
+    unit: string;
+}
+
+export interface FlowIterationTemplate {
+    loopPhases: [string, string];
+    defaultTargets: TargetDef[];
+    defaultIterationLimit: number;
+    defaultCorrectnessTests?: string[];
+}
+
 export interface TaskTemplate {
     label: string;
     icon: string;
@@ -27,6 +49,7 @@ export interface TaskTemplate {
     executionHints: string[];
     acceptanceCriteria: string[];
     flowOverride?: Array<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review'>;
+    flowIteration?: FlowIterationTemplate;
 }
 
 export interface CategoryDef {
@@ -84,6 +107,21 @@ export interface Task {
     nodeMessageIds?: Partial<Record<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string>>;
     hooks?: Partial<Record<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string[]>>;
     sessionId?: string;  // ACP session ID for agent context persistence
+    flowIteration?: {
+        enabled: boolean;
+        loopPhases: [string, string];
+        config: {
+            correctnessTests: string[];
+            targets: Record<string, number>;
+            iterationLimit: number;
+        };
+        state: {
+            currentIteration: number;
+            stagnatedCount: number;
+            baselines: Record<string, number>;
+            history: IterationRecord[];
+        };
+    };
 }
 
 export interface ChatMessage {
@@ -191,6 +229,8 @@ export interface ProgressNode {
     status: 'pending' | 'active' | 'completed' | 'cancelled';
     order: number;
     messageId?: string;
+    iteration?: number;
+    maxIteration?: number;
 }
 
 export interface AcpLogEntry {

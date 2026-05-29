@@ -344,8 +344,10 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         </div>
     </div>
 
+    <div id="__viewdata" style="display:none" data-viewmode="${viewMode || 'chat'}"></div>
     ${viewMode === 'card'
-        ? `<script src="${scriptUri('cardApp.bundle')}"></script>`
+        ? `<script src="${scriptUri('app.bundle')}"></script>
+    <script src="${scriptUri('cardApp.bundle')}"></script>`
         : `<script src="${scriptUri('app.bundle')}"></script>
     <script src="${scriptUri('outputPanel')}"></script>
     <script src="${scriptUri('device.bundle')}"></script>`}

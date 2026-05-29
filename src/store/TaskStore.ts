@@ -266,6 +266,10 @@ export class TaskStore {
         }
     }
 
+    updateTaskFlowIteration(taskId: string, flowIteration: Task['flowIteration']): void {
+        this.fs.updateTask(taskId, { flowIteration } as any);
+    }
+
     updateTaskNodeMessageId(taskId: string, nodeType: string, messageId: string): void {
         const task = this.fs.getTask(taskId);
         if (task) {

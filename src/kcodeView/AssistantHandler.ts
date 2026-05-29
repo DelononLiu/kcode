@@ -208,9 +208,10 @@ export class AssistantHandler {
         return lines.join('\n');
     }
 
-    transitionAfterSetup() {
+    transitionAfterSetup(configWasMissing?: boolean) {
+        const shouldGuide = this._isFirstLaunch || configWasMissing;
         this._envPhase = '';
-        if (this._isFirstLaunch) {
+        if (shouldGuide) {
             this.store.setAssistantMessages([]);
             this.startGuide();
         } else {
@@ -300,7 +301,10 @@ export class AssistantHandler {
         if (!this.agentService.isConnected) {
             await this.sessionHandler.ensureConnection();
             if (!this.agentService.isConnected) {
-                this.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n---\n⚠️ **Agent 未配置**\n\n\`👉 在 KCode 侧边栏底部齿轮图标 → 设置 → Agent 配置 中填写 agentName\`\n---` });
+                const errDetail = this.agentService.lastError
+                    ? `\n\n**错误详情**: ${this.agentService.lastError}`
+                    : '';
+                this.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n---\n⚠️ **Agent 未连接**${errDetail}\n\n\`👉 在 KCode 侧边栏底部齿轮图标 → 设置 → Agent 配置 中检查 agentName\`\n---` });
                 return;
             }
         }

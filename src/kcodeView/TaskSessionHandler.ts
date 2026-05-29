@@ -19,6 +19,7 @@ export class TaskSessionHandler {
             const agentArgs = cfg.get<string[]>('agentArgs', []);
 
             const connected = await ctx.agentService.connect(agentName, agentArgs);
+
             if (connected) {
                 const displayName = ctx.agentService.agentName;
                 const modelName = ctx.agentService.modelName;
@@ -32,7 +33,12 @@ export class TaskSessionHandler {
                 ctx.router.PostMessage({ type: 'agentStatus', status: 'connected', message: msg, agentName: displayName, modelName });
                 this.sendAgentList();
             } else {
-                ctx.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: ctx.agentService.lastError || 'Agent 未连接', agentName: '' });
+                const errMsg = ctx.agentService.lastError
+                    ? `连接失败: ${ctx.agentService.lastError}`
+                    : (!agentName || agentName === 'npx')
+                        ? 'Agent 未配置'
+                        : 'Agent 未连接';
+                ctx.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: errMsg, agentName: '' });
             }
         } catch (err: any) {
             ctx.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: 'Agent 连接失败', agentName: '' });
@@ -100,6 +106,27 @@ export class TaskSessionHandler {
         if (category) {
             ctx.store.updateTaskCategory(tid, category as any);
             if (subType) ctx.store.updateTaskSubType(tid, subType);
+            const tmpl = subType ? getTemplate(category as any, subType) : null;
+            if (tmpl?.flowIteration) {
+                const task = ctx.store.getTask(tid);
+                if (task && !task.flowIteration) {
+                    ctx.store.updateTaskFlowIteration(tid, {
+                        enabled: true,
+                        loopPhases: tmpl.flowIteration.loopPhases,
+                        config: {
+                            correctnessTests: tmpl.flowIteration.defaultCorrectnessTests || [],
+                            targets: Object.fromEntries(tmpl.flowIteration.defaultTargets.map(t => [t.key, 0])),
+                            iterationLimit: tmpl.flowIteration.defaultIterationLimit,
+                        },
+                        state: {
+                            currentIteration: 0,
+                            stagnatedCount: 0,
+                            baselines: {},
+                            history: [],
+                        }
+                    });
+                }
+            }
         }
 
         const isFirstMessage = ctx.store.getMessages(tid).length === 0;

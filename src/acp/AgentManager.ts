@@ -1,5 +1,20 @@
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, execSync, ChildProcess } from 'child_process';
 import { Writable, Readable } from 'stream';
+
+let _agentChannel: any = null;
+function logAgent(msg: string): void {
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    console.log(line);
+    try {
+        if (!_agentChannel) {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const v = require('vscode');
+            _agentChannel = v.window.createOutputChannel('KCode Agent');
+            _agentChannel.show(true);
+        }
+        _agentChannel.appendLine(line);
+    } catch { }
+}
 
 export interface AgentProcess {
     process: ChildProcess;
@@ -19,6 +34,14 @@ export class AgentManager {
             this.stopAgent();
         }
 
+        let resolvedPath = command;
+        try {
+            resolvedPath = execSync(`which "${command}"`, { encoding: 'utf-8' }).trim();
+        } catch {
+            resolvedPath = command + ' (NOT FOUND on PATH)';
+        }
+        logAgent(`Spawning: ${resolvedPath} ${args.join(' ')}`);
+
         const agentProcess = spawn(command, args, {
             stdio: ['pipe', 'pipe', 'inherit'],
             env: { ...process.env }
@@ -31,12 +54,12 @@ export class AgentManager {
         const output = Readable.toWeb(agentProcess.stdout) as ReadableStream<Uint8Array>;
 
         agentProcess.on('exit', (code) => {
-            console.log(`Agent process exited with code ${code}`);
+            logAgent(`Process exited with code ${code}`);
             this.process = null;
         });
 
         agentProcess.on('error', (err) => {
-            console.error('Agent process error:', err);
+            logAgent(`Process error: ${(err as Error)?.message || err}`);
             this.process = null;
         });
 

@@ -353,6 +353,150 @@ describe('edge cases', () => {
 });
 
 // ==============================
+// Test 6: P27-01 迭代循环 execute ↔ self_verify
+// ==============================
+
+describe('迭代循环 (execute ↔ self_verify)', () => {
+
+    function makeIterFlow(phase: Task['phase'] = 'execute') {
+        const task: Task = {
+            id: 'task_iter', title: 'Iter Test', goal: '优化查询性能', type: 'task',
+            status: phase === 'self_verify' ? 'active' : 'active',
+            phase, confirmedItems: ['性能优化'], pendingItems: [],
+            planSteps: [{ content: '优化', status: 'active' }],
+            planVersion: 1, riskItems: [], boundaryItems: [], createdAt: Date.now(),
+            flowIteration: {
+                enabled: true,
+                loopPhases: ['execute', 'self_verify'],
+                config: { correctnessTests: ['npm test'], targets: { latency: 200 }, iterationLimit: 3 },
+                state: { currentIteration: 0, stagnatedCount: 0, baselines: {}, history: [] },
+            },
+        };
+        const store = new MockTaskStore();
+        store.addTask(task);
+        const delegate = new MockDelegate();
+        const flow = new TaskFlow(store, delegate);
+        flow.loadTask(task.id);
+        return { flow, store, delegate, pid: task.id };
+    }
+
+    it('finish_verify + DECISION=continue → phase 回切到 execute', () => {
+        const { flow, store, delegate, pid } = makeIterFlow('self_verify');
+        expect(store.getTask(pid)!.phase).toBe('self_verify');
+
+        flow.processChunk(pid,
+            '[TASK_UPDATE]\nACTION: finish_verify\nDECISION: continue\nMETRICS: {"latency": 320}\nITERATION: 1\n[/TASK_UPDATE]'
+        );
+
+        // 应回到 execute，不走 review
+        expect(store.getTask(pid)!.phase).toBe('execute');
+        expect(store.getTask(pid)!.status).toBe('active');
+        expect(delegate.selfVerifyFinished).not.toContain(pid);  // 没走 onSelfVerifyFinished
+        expect(delegate.phaseChanged).toContain(pid);             // 走了 onPhaseChanged
+    });
+
+    it('finish_verify + DECISION=success → 正常走 review', () => {
+        const { flow, store, delegate, pid } = makeIterFlow('self_verify');
+
+        flow.processChunk(pid,
+            '[TASK_UPDATE]\nACTION: finish_verify\nDECISION: success\nMETRICS: {"latency": 180}\nITERATION: 2\n[/TASK_UPDATE]'
+        );
+
+        // 不回切，标记 selfVerifyFinished
+        expect(store.getTask(pid)!.phase).toBe('self_verify');   // 未修改 phase
+        expect(delegate.selfVerifyFinished).toContain(pid);       // 走了 onSelfVerifyFinished
+        expect(flow.isSelfVerifyFinished(pid)).toBe(true);
+    });
+
+    it('finish_verify + DECISION=continue 但无 flowIteration → 走正常路径', () => {
+        // 普通任务没有 flowIteration，发 DECISION=continue 应忽略
+        const { flow, store, delegate, pid } = makeFlow({ phase: 'self_verify' });
+
+        flow.processChunk(pid,
+            '[TASK_UPDATE]\nACTION: finish_verify\nDECISION: continue\n[/TASK_UPDATE]'
+        );
+
+        // 不走迭代回切，走正常 onSelfVerifyFinished
+        expect(delegate.selfVerifyFinished).toContain(pid);
+        expect(store.getTask(pid)!.phase).toBe('self_verify');
+    });
+
+    it('迭代任务 execute 阶段的 prompt 包含迭代上下文', () => {
+        const { flow, pid } = makeIterFlow('execute');
+        const result = flow.buildPhaseTransitionPrompt(pid, '继续');
+
+        expect(result).toContain('迭代优化');
+        expect(result).toContain('第 1/3 轮');
+        expect(result).toContain('在前一轮基础上继续优化');
+    });
+
+    it('迭代任务 self_verify 阶段的 prompt 包含决策规则', () => {
+        const { flow, pid } = makeIterFlow('self_verify');
+        const result = flow.buildPhaseTransitionPrompt(pid, '请自验');
+
+        expect(result).toContain('迭代优化');
+        expect(result).toContain('正确性测试');
+        expect(result).toContain('决策规则');
+        expect(result).toContain('npm test');
+        expect(result).toContain('DECISION=continue');
+        expect(result).toContain('DECISION=success');
+    });
+
+    it('非迭代任务 prompt 不注入动态迭代上下文', () => {
+        const { flow, pid } = makeFlow({ phase: 'execute' });
+        const result = flow.buildPhaseTransitionPrompt(pid, '继续');
+        expect(result).not.toContain('【迭代优化 - 第');
+        expect(result).not.toContain('决策规则');
+    });
+
+    it('非迭代任务 prompt 不注入动态迭代上下文(self_verify)', () => {
+        const { flow, pid } = makeFlow({ phase: 'self_verify' });
+        const result = flow.buildPhaseTransitionPrompt(pid, '自验');
+        expect(result).not.toContain('【迭代优化 - 第');
+        expect(result).not.toContain('决策规则');
+    });
+
+    it('完整两轮迭代: execute → finish_execute → confirmExecuteDone → self_verify(continue) → execute → finish_execute → self_verify(success) → review', () => {
+        const { flow, store, delegate, pid } = makeIterFlow('execute');
+
+        // Round 1: execute
+        expect(store.getTask(pid)!.phase).toBe('execute');
+        flow.processChunk(pid, '[TASK_UPDATE]\nACTION: finish_execute\n[/TASK_UPDATE]');
+        expect(delegate.executeFinished).toContain(pid);
+
+        // 进入 self_verify
+        flow.confirmExecuteDone(pid);
+        expect(store.getTask(pid)!.phase).toBe('self_verify');
+
+        // Round 1: self_verify → continue（迭代）
+        flow.processChunk(pid,
+            '[TASK_UPDATE]\nACTION: finish_verify\nDECISION: continue\nMETRICS: {"latency": 300}\nITERATION: 1\n[/TASK_UPDATE]'
+        );
+        expect(store.getTask(pid)!.phase).toBe('execute');  // 回切到 execute
+        expect(delegate.selfVerifyFinished.length).toBe(0);  // 未触发
+
+        // Round 2: execute → finish
+        flow.processChunk(pid, '[TASK_UPDATE]\nACTION: finish_execute\n[/TASK_UPDATE]');
+
+        // 进入 self_verify
+        flow.confirmExecuteDone(pid);
+        expect(store.getTask(pid)!.phase).toBe('self_verify');
+
+        // Round 2: self_verify → success（达标）
+        flow.processChunk(pid,
+            '[TASK_UPDATE]\nACTION: finish_verify\nDECISION: success\nMETRICS: {"latency": 180}\nITERATION: 2\n[/TASK_UPDATE]'
+        );
+        expect(store.getTask(pid)!.phase).toBe('self_verify');  // 不回切
+        expect(delegate.selfVerifyFinished.length).toBe(1);      // 触发
+
+        // 正常进 review
+        flow.confirmSelfVerifyDone(pid);
+        expect(store.getTask(pid)!.phase).toBe('review');
+        expect(store.getTask(pid)!.status).toBe('in_review');
+    });
+});
+
+// ==============================
 // Test 5: External prompt cascade (P11-07)
 // ==============================
 

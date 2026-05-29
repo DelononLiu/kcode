@@ -8,4 +8,8 @@ export const EXECUTE_PROMPT = `当前阶段：执行（Execute）
 
 [TASK_UPDATE]
 ACTION: finish_execute
-[/TASK_UPDATE]`;
+[/TASK_UPDATE]
+
+注意事项：
+- 如果这是迭代优化中的一轮执行，系统会自动在阶段提示中追加迭代上下文和历史指标
+- 请参考迭代上下文中的基线指标和历史记录，有针对性地进行优化`;

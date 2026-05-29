@@ -416,8 +416,21 @@ export class TaskFlow {
                 if (task.phase === 'self_verify' && payload.ACTION === 'finish_verify') {
                     text = text.replace(match[0], '');
                     this.accumulatedText.set(taskId, text);
-                    this.selfVerifyFinished.set(taskId, true);
-                    this.delegate.onSelfVerifyFinished(taskId);
+                    if (payload.DECISION === 'continue' && task.flowIteration?.enabled) {
+                        const state = task.flowIteration.state;
+                        state.currentIteration++;
+                        this.store.updateTaskPhase(taskId, 'execute');
+                        this.store.updateTaskStatus(taskId, 'active');
+                        this.store.addTimelineEntry(taskId, {
+                            timestamp: Date.now(),
+                            type: 'phase_change',
+                            summary: `自验通过 → 继续执行（第 ${state.currentIteration} 轮迭代）`,
+                        });
+                        this.delegate.onPhaseChanged(taskId);
+                    } else {
+                        this.selfVerifyFinished.set(taskId, true);
+                        this.delegate.onSelfVerifyFinished(taskId);
+                    }
                     regex.lastIndex = 0;
                     continue;
                 }
@@ -434,7 +447,7 @@ export class TaskFlow {
         }
     }
 
-    private static readonly PROTOCOL_KEYS = new Set(['ACTION', 'CONFIRMED', 'PENDING', 'STEPS', 'INDEX', 'STATUS']);
+    private static readonly PROTOCOL_KEYS = new Set(['ACTION', 'CONFIRMED', 'PENDING', 'STEPS', 'INDEX', 'STATUS', 'DECISION', 'METRICS', 'ITERATION']);
 
     private parseSimplePayload(body: string): any {
         const payload: any = {};
@@ -775,6 +788,42 @@ export class TaskFlow {
         }
         if (extraParts.length > 0) {
             basePrompt = basePrompt + '\n\n' + extraParts.join('\n\n');
+        }
+
+        if (task.flowIteration?.enabled && (task.phase === 'execute' || task.phase === 'self_verify')) {
+            const { state, config } = task.flowIteration;
+            const iterLines: string[] = [
+                '',
+                `【迭代优化 - 第 ${state.currentIteration + 1}/${config.iterationLimit} 轮】`,
+                '',
+            ];
+            if (state.currentIteration > 0) {
+                const last = state.history[state.history.length - 1];
+                if (last) {
+                    const metricsStr = Object.entries(last.metrics)
+                        .map(([k, v]) => `${k}=${v}${config.targets[k] !== undefined ? `(目标: ${config.targets[k]})` : ''}`)
+                        .join(', ');
+                    iterLines.push(`当前基线: ${metricsStr}`);
+                }
+                iterLines.push(`历史迭代: ${state.history.map(h => `iter ${h.iteration}: ${h.passed ? '✅' : '❌'} ${h.improved ? '有改进' : '停滞'}`).join('; ')}`);
+                iterLines.push('');
+            }
+            if (task.phase === 'self_verify') {
+                if (config.correctnessTests.length > 0) {
+                    iterLines.push('【正确性测试】');
+                    config.correctnessTests.forEach(t => iterLines.push(`  ${t}`));
+                    iterLines.push('');
+                }
+                iterLines.push('【决策规则】');
+                iterLines.push('1. 正确性测试失败 → 最多自动修复 3 次，仍失败则 DECISION=continue');
+                iterLines.push('2. 全部指标达标 → DECISION=success');
+                iterLines.push('3. 未达标 + 未达上限 + 有改进 → DECISION=continue');
+                iterLines.push('4. 已达迭代上限 → DECISION=timeout');
+                iterLines.push('5. 连续 2 轮无改进 → DECISION=stagnation');
+            } else {
+                iterLines.push('当前需要在前一轮基础上继续优化。');
+            }
+            basePrompt = basePrompt + '\n\n' + iterLines.join('\n');
         }
 
         const externalContent = loadExternalPrompt(task.type, task.category, task.subType, task.phase);
