@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if (isCardMode) {
-        (window as any).__cardApp?.initCardComments();
+        (window as any).__cardApp?.initCardEvents();
     }
 });
 

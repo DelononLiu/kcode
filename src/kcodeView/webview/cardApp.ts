@@ -6,486 +6,239 @@ let activeTaskId: string | null = null;
 let activeTaskPhase: string = '';
 let activeTaskStatus: string = '';
 let activeTaskGoal: string = '';
-let activeTaskTitle: string = '';
 let lastTaskInfo: any = {};
 let lastReviewChanges: any[] = [];
 let cardActiveTools: { toolCallId: string; title: string; kind: string; status: string; output?: string }[] = [];
+let _fileChangesMap: Map<string, { original: string; modified: string }> = new Map();
+
+const PHASE_ORDER = ['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'];
 
 function escapeHtml(text: string): string {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function formatTimestamp(ts: number): string {
-    const d = new Date(ts);
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    if (d.toDateString() === now.toDateString()) return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+function phaseIndex(p: string): number { return PHASE_ORDER.indexOf(p); }
+
+function getStepStates() {
+    const info = lastTaskInfo || {};
+    const phase = activeTaskPhase || info.phase || '';
+    const status = activeTaskStatus || info.status || '';
+    const pi = phaseIndex(phase);
+    const d1 = status === 'completed' || pi > 1, a1 = !d1 && pi <= 1;
+    const d2 = status === 'completed' || pi > 4, a2 = !d2 && pi >= 3 && pi <= 4;
+    const d3 = status === 'completed', a3 = !d3 && pi === 5;
+    return { steps: [{ d: d1, a: a1 }, { d: d2, a: a2 }, { d: d3, a: a3 }], phase, status, pi };
 }
 
-function phaseLabel(phase: string): string {
-    const labels: Record<string, string> = { demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收' };
-    return labels[phase] || phase;
+function renderBreadcrumbs() {
+    const { steps } = getStepStates();
+    const segCls = ['seg-waiting', 'seg-waiting', 'seg-waiting'];
+    const sepCls = ['sep-waiting', 'sep-waiting'];
+    for (let i = 0; i < 3; i++) {
+        const s = steps[i];
+        segCls[i] = s.d ? 'seg-done' : s.a ? 'seg-active' : 'seg-waiting';
+        if (i < 2) sepCls[i] = s.d ? 'sep-done' : s.a ? 'sep-active' : 'sep-waiting';
+    }
+
+    for (let i = 0; i < 3; i++) {
+        const seg = document.getElementById(`cseg-${i + 1}`);
+        if (seg) seg.className = `cseg ${segCls[i]}`;
+    }
+    for (let i = 0; i < 2; i++) {
+        const sep = document.getElementById(`csep-${i + 1}`);
+        if (sep) sep.className = `csep ${sepCls[i]}`;
+    }
+
+    const ds = document.getElementById('cdot-s');
+    const de = document.getElementById('cdot-e');
+    if (ds) ds.className = steps[0].d ? 'cdot dot-done' : steps[0].a ? 'cdot dot-active' : 'cdot';
+    if (de) de.className = steps[2].d ? 'cdot dot-done' : steps[2].a ? 'cdot dot-active' : 'cdot';
+
+    const lines = [
+        { id: 'cl-1', cls: steps[0].d ? 'ln-done' : steps[0].a ? 'ln-active' : '' },         // ●→目标
+        { id: 'cl-2', cls: steps[0].d ? 'ln-done' : '' },                                    // 目标→▶
+        { id: 'cl-3', cls: steps[1].d ? 'ln-done' : steps[1].a ? 'ln-active' : '' },         // ▶→执行
+        { id: 'cl-4', cls: steps[1].d ? 'ln-done' : '' },                                    // 执行→▶
+        { id: 'cl-5', cls: steps[2].d ? 'ln-done' : steps[2].a ? 'ln-active' : '' },         // ▶→验收
+        { id: 'cl-6', cls: steps[2].d ? 'ln-done' : '' },                                    // 验收→●
+    ];
+    for (const l of lines) {
+        const el = document.getElementById(l.id);
+        if (el) { el.className = 'cline'; if (l.cls) el.classList.add(l.cls); }
+    }
 }
 
-function cardConfirmButtons(phase: string, status: string): string {
+function renderColumns() {
+    const { steps, phase, status } = getStepStates();
+    for (let i = 0; i < 3; i++) {
+        const col = document.getElementById(i === 0 ? 'col-plan' : i === 1 ? 'col-exec' : 'col-review');
+        if (!col) continue;
+        col.classList.remove('col-active', 'col-done', 'col-waiting');
+        col.classList.add(steps[i].d ? 'col-done' : steps[i].a ? 'col-active' : 'col-waiting');
+    }
+
+    const info = lastTaskInfo || {};
+    const goal = activeTaskGoal || info.goal || '';
+    const planSteps: any[] = info.planSteps || [];
+    const confirmedItems: string[] = info.confirmedItems || [];
+    const terminalLogCount: number = info.terminalLogCount || 0;
+    const riskItems: string[] = info.riskItems || [];
+    const boundaryItems: string[] = info.boundaryItems || [];
+    const acceptanceItems: any[] = info.acceptanceItems || [];
+    const planDone = planSteps.filter((s: any) => s.status === 'completed').length;
+    const planTotal = planSteps.length;
+
+    renderCol1(goal, confirmedItems, riskItems, boundaryItems, phase, status);
+    renderCol2(planSteps, planDone, planTotal, phase, status, terminalLogCount);
+    renderCol3(acceptanceItems, phase, status);
+}
+
+function renderCol1(goal: string, confirmed: string[], risks: string[], boundaries: string[], phase: string, status: string) {
+    const el = document.getElementById('col-body-1'); if (!el) return;
+    let html = '';
+    if (goal) html += cs('🎯 目标', `<div class="col-goal">${escapeHtml(goal)}</div>`);
+    if (confirmed.length > 0) html += cs('✓ 共识', confirmed.map(i => `<div class="col-confirmed">✅ ${escapeHtml(i)}</div>`).join(''));
+    if (risks.length > 0) html += cs('⚠️ 风险', risks.map(i => `<span class="col-risk medium">${escapeHtml(i)}</span>`).join(' '));
+    if (boundaries.length > 0) html += cs('🚧 边界', boundaries.map(i => `<div class="col-boundary">${escapeHtml(i)}</div>`).join(''));
+    if (status === 'completed') html += `<div class="col-done-block"><div class="col-done-icon">🎉</div><div class="col-done-text">已完成</div></div>`;
+    else if (['demand', 'goal'].includes(phase) && !goal) { if (!html) html = `<div class="col-empty">等待 AI 生成目标方案...</div>`; }
+    html += _btns(phase, status);
+    el.innerHTML = html || `<div class="col-empty">等待确认目标...</div>`;
+}
+
+function renderCol2(planSteps: any[], planDone: number, planTotal: number, phase: string, status: string, terminalLogCount: number) {
+    const el = document.getElementById('col-body-2'); if (!el) return;
+    let html = '';
+    const hasStarted = ['execute', 'self_verify', 'review'].includes(phase);
+
+    if (planSteps.length > 0) {
+        const pct = planTotal > 0 ? Math.round((planDone / planTotal) * 100) : 0;
+        let s = `<div class="col-progress">${planDone}/${planTotal} <span class="col-progress-bar"><span class="col-progress-fill" style="width:${pct}%"></span></span></div>`;
+        for (const st of planSteps) {
+            const d = st.status === 'completed';
+            s += `<div class="col-list-item${d ? ' done' : ''}"><span class="col-list-status">${d ? '✅' : st.status === 'active' ? '⏳' : '⬜'}</span>${escapeHtml(st.content)}</div>`;
+        }
+        html += cs('📋 步骤进度', s);
+    } else if (hasStarted) html += `<div class="col-empty">等待 AI 开始执行...</div>`;
+    else html += `<div class="col-empty">等待进入执行阶段...</div>`;
+
+    if (cardActiveTools.length > 0) {
+        let t = '';
+        for (const tool of cardActiveTools) {
+            const icon = tool.kind === 'bash' || tool.kind === 'command' ? '💻' : tool.kind === 'read' ? '📖' : tool.kind === 'write' ? '✏️' : tool.kind === 'thinking' ? '💭' : '🔧';
+            t += `<div class="col-tool"><span class="col-tool-dot ${tool.status}"></span>${icon} ${escapeHtml(tool.title || '')}`;
+            if (tool.status === 'running') t += ' <span class="col-tool-spinner"></span>';
+            if (tool.output) t += `<div class="col-tool-preview">${escapeHtml(tool.output.substring(0, 150))}</div>`;
+            t += `</div>`;
+        }
+        html += cs('🔧 工具', t);
+    }
+
+    const bt = cardActiveTools.filter(t => /build|test|npm (run )?(build|test)|npx (tsc|vitest|jest)|make/i.test(t.title || ''));
+    if (bt.length > 0) {
+        html += cs('🏗️ 构建', bt.map(t => {
+            const ok = t.status === 'completed' && !/error|fail/i.test(t.output || '');
+            return `<div class="col-build ${ok ? 'pass' : t.status === 'running' ? 'running' : 'fail'}">${ok ? '✅' : t.status === 'running' ? '🔄' : '❌'} ${escapeHtml(t.title || '')}</div>`;
+        }).join(''));
+    }
+
+    if (phase === 'self_verify') {
+        let sv = `<div class="col-sv">`;
+        const svTools = cardActiveTools.filter(t => t.kind === 'thinking' || /verify|check|review/i.test(t.title || ''));
+        sv += svTools.length > 0
+            ? svTools.map(t => `<div class="col-sv-item">💭 ${escapeHtml(t.title || '')}${t.output ? `<div class="col-sv-pre">${escapeHtml(t.output.substring(0, 200))}</div>` : ''}</div>`).join('')
+            : `<div class="col-empty">自验中...</div>`;
+        sv += `</div>`;
+        html += cs('🔍 自验', sv);
+    }
+
+    if (terminalLogCount > 0) html += cs('💻 日志', `<span class="col-terminal" data-action="openTerminalReplay" data-taskid="${activeTaskId}">📋 ${terminalLogCount} 条</span>`);
+    html += _btns(phase, status);
+    el.innerHTML = html;
+}
+
+function renderCol3(acceptanceItems: any[], phase: string, status: string) {
+    const el = document.getElementById('col-body-3'); if (!el) return;
+    let html = '';
+    if (status === 'completed') { el.innerHTML = `<div class="col-done-block"><div class="col-done-icon">🎉</div><div class="col-done-text">验收通过</div></div>`; return; }
+    if (phase !== 'review') { el.innerHTML = `<div class="col-empty">等待验收阶段...</div>`; return; }
+
+    if (acceptanceItems.length > 0) {
+        let a = '';
+        const tagMap: Record<string, string> = { file: '📄', test: '🧪', doc: '📋' };
+        for (const item of acceptanceItems) {
+            const icon = tagMap[item.type] || '📄';
+            a += `<div class="col-accept-item"><span class="col-list-status">⬜</span>${icon} ${escapeHtml(item.description || '')}` + (item.type ? `<span class="col-accept-tag">${item.type}</span>` : '') + `</div>`;
+        }
+        html += cs('📄 验收产物', a);
+    }
+
+    if (lastReviewChanges.length > 0) {
+        html += cs('📝 变更文件', lastReviewChanges.map(ch => {
+            const ext = ch.filePath ? ch.filePath.split('.').pop() || '' : '';
+            const icon = ext === 'ts' || ext === 'tsx' ? '📝' : ext === 'css' ? '🎨' : ext === 'json' ? '📋' : '📄';
+            return `<div class="col-file" data-action="openNativeDiff" data-filepath="${escapeHtml(ch.filePath || '')}">${icon} ${escapeHtml(ch.filePath || '')}</div>`;
+        }).join(''));
+        _fileChangesMap = new Map(lastReviewChanges.map(ch => [ch.filePath, { original: ch.original, modified: ch.modified }]));
+    }
+
+    html += cs('👤 指引', `<ul class="col-verify"><li>检查产物是否符合预期</li><li>逐条验收上方清单</li><li>确认后点通过，否则驳回</li></ul>`);
+    html += `<div class="col-actions"><button class="col-btn primary" data-action="approveReview" data-taskid="${activeTaskId}">✅ 通过</button><button class="col-btn secondary" data-action="showRejectPresets" data-taskid="${activeTaskId}">↩️ 驳回</button></div>`;
+    el.innerHTML = html;
+}
+
+function cs(title: string, content: string): string { return `<div class="col-section"><div class="col-section-title">${title}</div>${content}</div>`; }
+
+function _btns(phase: string, status: string): string {
     if (status === 'cancelled' || status === 'completed') return '';
-    type BtnDef = { label: string; action: string };
-    const btns: Record<string, BtnDef[]> = {
+    const map: Record<string, { label: string; action: string }[]> = {
         goal: [{ label: '✅ 确认目标', action: 'confirmGoalFromHeader' }],
         plan: [{ label: '📋 确认计划', action: 'confirmPlan' }],
         execute: [{ label: '⚡ 确认完成', action: 'confirmExecuteDone' }],
     };
-    const phaseBtns = btns[phase];
-    if (!phaseBtns) return '';
-    let html = '<div class="card-section card-actions">';
-    for (const btn of phaseBtns) {
-        html += `<button class="card-action-btn primary" data-action="${btn.action}" data-taskid="${activeTaskId}">${btn.label}</button>`;
-    }
-    html += '</div>';
-    return html;
+    const btns = map[phase]; if (!btns) return '';
+    return `<div class="col-actions">` + btns.map(b => `<button class="col-btn primary" data-action="${b.action}" data-taskid="${activeTaskId}">${b.label}</button>`).join('') + `</div>`;
 }
 
-function cardLinkButton(action: string, taskId: string | null, label: string, extra?: string): string {
-    return `<button class="card-link-btn" data-action="${action}" data-taskid="${taskId || ''}" ${extra || ''}>${label}</button>`;
-}
+function renderCards() { renderBreadcrumbs(); renderColumns(); }
 
-function renderCards() {
-    const info = lastTaskInfo || {};
-    const phase = activeTaskPhase || info.phase || '';
-    const status = activeTaskStatus || info.status || '';
-    const goal = activeTaskGoal || info.goal || '';
-    const planSteps: any[] = info.planSteps || [];
-    const confirmedItems: string[] = info.confirmedItems || [];
-    const pendingItems: string[] = info.pendingItems || [];
-    const terminalLogCount: number = info.terminalLogCount || 0;
-    const planVersion: number = info.planVersion || 1;
-    const riskItems: string[] = info.riskItems || [];
-    const boundaryItems: string[] = info.boundaryItems || [];
-    const filePathsFromTools: string[] = info.filePathsFromTools || [];
-    const reviewFileList = lastReviewChanges && lastReviewChanges.length > 0
-        ? lastReviewChanges.map((ch: any) => ch.filePath).filter(Boolean)
-        : [];
-    const fileList = [...new Set([...filePathsFromTools, ...reviewFileList])];
-
-    const beforePlan = ['demand', 'goal'].includes(phase);
-    const beforeExec = ['demand', 'goal', 'plan'].includes(phase);
-    const afterExec = ['execute', 'self_verify', 'review'].includes(phase);
-    const inOrAfter = (from: string, to: string) => {
-        const order = ['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'];
-        const fi = order.indexOf(from), ti = order.indexOf(to), pi = order.indexOf(phase);
-        return pi >= fi && pi <= ti;
-    };
-
-    const c1Done = status === 'completed' || !['demand', 'goal'].includes(phase);
-    const c1Active = !c1Done && beforePlan;
-    const c2Done = status === 'completed' || afterExec;
-    const c2Active = !c2Done && inOrAfter('execute', 'self_verify');
-    const c3Done = status === 'completed';
-    const c3Active = !c3Done && phase === 'review';
-
-    function setCardState(cardId: string, done: boolean, active: boolean, tagText: string) {
-        const el = document.getElementById(cardId);
-        if (!el) return;
-        el.classList.remove('state-done', 'state-active', 'state-waiting');
-        if (done) el.classList.add('state-done');
-        else if (active) el.classList.add('state-active');
-        else el.classList.add('state-waiting');
-        const tag = el.querySelector('.card-status-tag') as HTMLElement;
-        if (tag) {
-            tag.textContent = tagText;
-            tag.className = 'card-status-tag';
-            if (done) tag.classList.add('tag-done');
-            else if (active) tag.classList.add('tag-active');
+function initCardEvents() {
+    const cardView = document.getElementById('card-view'); if (!cardView) return;
+    cardView.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        const actionBtn = target.closest('[data-action]') as HTMLElement; if (!actionBtn) return;
+        const action = actionBtn.dataset.action, taskId = actionBtn.dataset.taskid || activeTaskId;
+        switch (action) {
+            case 'confirmPlan': case 'confirmGoalFromHeader': case 'confirmExecuteDone': case 'approveReview': vscode.postMessage({ type: action, taskId }); break;
+            case 'openTerminalReplay': vscode.postMessage({ type: 'openTerminalReplay', taskId }); break;
+            case 'openNativeDiff': { const fp = actionBtn.dataset.filepath || ''; const ch = _fileChangesMap.get(fp); if (ch) vscode.postMessage({ type: 'showDiff', original: ch.original, modified: ch.modified }); break; }
+            case 'rejectReview': vscode.postMessage({ type: 'rejectReview', taskId, reason: actionBtn.dataset.reason || '用户驳回' }); break;
+            case 'showRejectPresets': { const id = actionBtn.dataset.taskid || activeTaskId; let p = document.getElementById(`kc-reject-${id}`); if (!p) { p = _createReject(id!); actionBtn.parentElement?.after(p); } p.classList.toggle('hidden'); break; }
+            case 'showRejectInput': { const c = document.getElementById(`kc-custom-${taskId}`); if (c) c.classList.remove('hidden'); break; }
+            case 'sendReject': { const ta = document.getElementById(`kc-text-${taskId}`) as HTMLTextAreaElement; vscode.postMessage({ type: 'rejectReview', taskId, reason: ta?.value?.trim() || '用户驳回' }); break; }
         }
-    }
-
-    function setFooter(cardId: string, html: string) {
-        const el = document.getElementById(cardId);
-        if (el) el.innerHTML = html;
-    }
-
-    function setFlowArrow(from: string, done: boolean, active: boolean) {
-        const arrow = document.querySelector(`.card-flow-arrow[data-from="${from}"]`) as HTMLElement;
-        if (!arrow) return;
-        arrow.classList.remove('flow-done', 'flow-active');
-        if (done) arrow.classList.add('flow-done');
-        else if (active) arrow.classList.add('flow-active');
-    }
-
-    setCardState('card-1', c1Done, c1Active, c1Done ? '已完成' : c1Active ? '进行中' : '待开始');
-    setCardState('card-2', c2Done, c2Active, c2Done ? '已完成' : c2Active ? '进行中' : '待开始');
-    setCardState('card-3', c3Done, c3Active, c3Done ? '已完成' : c3Active ? '验收中' : '待开始');
-    setFlowArrow('1', c2Done, c2Active);
-    setFlowArrow('2', c3Done, c3Active);
-
-    const planDone = planSteps.filter((s: any) => s.status === 'completed').length;
-    const planTotal = planSteps.length;
-
-    setFooter('card-1-footer', planTotal > 0 ? `<span class="footer-stat">📋 ${planDone}/${planTotal} 步骤</span>` : '');
-    setFooter('card-2-footer', planTotal > 0 ? `<span class="footer-stat">⚡ 进度 ${planDone}/${planTotal}</span>` : '');
-    setFooter('card-3-footer',
-        status === 'completed' ? '<span class="footer-stat">✅ 已完成</span>' :
-        phase === 'review' ? '<span class="footer-stat">🔍 待验收</span>' : '');
-
-    const card1 = document.getElementById('card-1-body');
-    if (card1) {
-        if (['demand', 'goal'].includes(phase) && !goal) {
-            card1.innerHTML = '<div class="card-empty">等待 AI 生成目标方案...</div>';
-        } else if (goal || confirmedItems.length > 0) {
-            let html = '';
-            if (goal) html += `<div class="card-section"><div class="card-section-title">🎯 目标</div><div class="card-goal-text">${escapeHtml(goal)}</div></div>`;
-            if (confirmedItems.length > 0) {
-                html += `<div class="card-section"><div class="card-section-title">✓ 已确认共识</div>`;
-                html += confirmedItems.map((item: string) => `<div class="card-confirmed-item">✅ ${escapeHtml(item)}</div>`).join('');
-                html += `</div>`;
-            }
-            if (riskItems.length > 0) {
-                html += `<div class="card-section"><div class="card-section-title risk-title">⚠️ 风险项</div>`;
-                for (const item of riskItems) {
-                    html += `<div class="card-risk-badge medium">${escapeHtml(item)}</div>`;
-                }
-                html += `</div>`;
-            }
-            if (boundaryItems.length > 0) {
-                html += `<div class="card-section"><div class="card-section-title">🚧 边界约束</div>`;
-                for (const item of boundaryItems) {
-                    html += `<div class="card-boundary-item">${escapeHtml(item)}</div>`;
-                }
-                html += `</div>`;
-            }
-            if (['plan', 'execute', 'self_verify', 'review'].includes(phase) && planSteps.length > 0) {
-                html += `<div class="card-section"><div class="card-section-title">📋 计划步骤</div>`;
-                const done = planSteps.filter((s: any) => s.status === 'completed').length;
-                html += `<div class="card-plan-progress">${done}/${planSteps.length} 完成`;
-                if (planSteps.length > 0) {
-                    const pct = Math.round((done / planSteps.length) * 100);
-                    html += ` <span class="card-plan-bar"><span class="card-plan-fill" style="width:${pct}%"></span></span>`;
-                }
-                html += `</div>`;
-                planSteps.forEach((s: any) => {
-                    html += `<div class="card-plan-step"><span class="card-plan-status">${s.status === 'completed' ? '✅' : '⬜'}</span> ${escapeHtml(s.content)}</div>`;
-                });
-                html += `</div>`;
-            }
-            if (fileList.length > 0) {
-                html += `<div class="card-section"><div class="card-section-title">📝 变更文件</div>`;
-                for (const fp of fileList) {
-                    const ext = fp ? fp.split('.').pop() || '' : '';
-                    const icon = ['ts', 'tsx', 'js', 'jsx'].includes(ext) ? '📄' : ext === 'json' ? '📋' : '📄';
-                    html += `<div class="card-file-item">${icon} ${escapeHtml(fp || '')}</div>`;
-                }
-                html += `</div>`;
-            }
-            html += cardConfirmButtons(phase, status);
-            card1.innerHTML = html;
-        } else {
-            card1.innerHTML = '<div class="card-empty">等待 AI 生成方案...</div>';
-        }
-    }
-
-    const card2 = document.getElementById('card-2-body');
-    if (card2) {
-        const isActive = ['execute', 'self_verify', 'review'].includes(phase);
-        if (isActive && planSteps.length > 0) {
-            let html = '';
-            const done = planSteps.filter((s: any) => s.status === 'completed').length;
-            const pct = planSteps.length > 0 ? Math.round((done / planSteps.length) * 100) : 0;
-            html += `<div class="card-section"><div class="card-section-title">⚡ 执行进度</div>`;
-            html += `<div class="card-progress-row"><span class="card-progress-bar"><span class="card-progress-fill" style="width:${pct}%"></span></span><span class="card-progress-label">${done}/${planSteps.length}</span></div></div>`;
-
-            if (cardActiveTools.length > 0) {
-                html += `<div class="card-section"><div class="card-section-title">🔧 当前工具</div>`;
-                for (const tool of cardActiveTools) {
-                    const icon = tool.kind === 'bash' || tool.kind === 'command' ? '💻' : tool.kind === 'read' ? '📖' : tool.kind === 'write' ? '✏️' : tool.kind === 'thinking' ? '💭' : '🔧';
-                    html += `<div class="card-tool-item"><span class="card-tool-status ${tool.status}"></span>${icon} ${escapeHtml(tool.title || '')}`;
-                    if (tool.status === 'running') html += ' <span class="card-tool-spinner"></span>';
-                    if (tool.output) html += `<div class="card-tool-preview">${escapeHtml(tool.output.substring(0, 200))}</div>`;
-                    html += `</div>`;
-                }
-                html += `</div>`;
-            }
-
-            const buildTools = cardActiveTools.filter((t: any) =>
-                /build|test|npm (run )?(build|test)|npx (tsc|vitest|jest)|make/i.test(t.title || '')
-            );
-            if (buildTools.length > 0) {
-                html += `<div class="card-section"><div class="card-section-title">🏗️ 构建/测试</div>`;
-                for (const bt of buildTools) {
-                    const ok = bt.status === 'completed' && !/error|fail/i.test(bt.output || '');
-                    html += `<div class="card-build-item ${ok ? 'pass' : bt.status === 'running' ? 'running' : 'fail'}">`;
-                    html += ok ? '✅' : bt.status === 'running' ? '🔄' : '❌';
-                    html += ` ${escapeHtml(bt.title || '')}</div>`;
-                }
-                html += `</div>`;
-            }
-
-            if (phase === 'self_verify') {
-                html += `<div class="card-section"><div class="card-section-title">🔍 自验报告</div>`;
-                html += `<div class="card-self-verify-report">`;
-                html += `<div class="card-sv-header">AI 正在对执行结果进行自我审查...</div>`;
-                const svTools = cardActiveTools.filter((t: any) => t.kind === 'thinking' || /verify|check|review/i.test(t.title || ''));
-                if (svTools.length > 0) {
-                    for (const sv of svTools) {
-                        html += `<div class="card-sv-item">💭 ${escapeHtml(sv.title || '')}</div>`;
-                        if (sv.output) html += `<div class="card-sv-preview">${escapeHtml(sv.output.substring(0, 300))}</div>`;
-                    }
-                } else {
-                    html += `<div class="card-sv-hint">等待自验完成...</div>`;
-                }
-                html += `</div></div>`;
-            }
-
-            if (terminalLogCount > 0) {
-                html += `<div class="card-section"><div class="card-section-title collapsible-header" onclick="this.classList.toggle('collapsed');this.nextElementSibling.classList.toggle('collapsed')">💻 终端日志 <span class="card-count-badge">${terminalLogCount}</span></div>`;
-                html += `<div class="card-collapsible-body">`;
-                html += `<div class="card-terminal-hint">终端日志共 ${terminalLogCount} 条记录。<br>${cardLinkButton('openTerminalReplay', activeTaskId, '📋 查看完整日志')}</div>`;
-                html += `</div></div>`;
-            }
-
-            card2.innerHTML = html;
-        } else if (phase === 'execute' && planSteps.length === 0) {
-            card2.innerHTML = '<div class="card-empty">等待 AI 开始执行...</div>';
-        } else {
-            card2.innerHTML = '<div class="card-empty">等待进入执行阶段...</div>';
-        }
-    }
-
-    const card3 = document.getElementById('card-3-body');
-    if (card3) {
-        let html = '';
-        if (status === 'completed') {
-            html += `<div class="card-section"><div class="card-section-title">🎉 任务已完成</div>`;
-            html += `<div style="font-size:12px;color:#5a9d6b;padding:8px 0">该任务已验收通过并完成。</div></div>`;
-            card3.innerHTML = html;
-        } else if (phase === 'review') {
-            html += `<div class="card-section"><div class="card-section-title">📄 变更文件</div>`;
-            if (lastReviewChanges.length > 0) {
-                for (const ch of lastReviewChanges) {
-                    const ext = ch.filePath ? ch.filePath.split('.').pop() || '' : '';
-                    const icon = ext === 'ts' || ext === 'tsx' ? '📝' : ext === 'css' ? '🎨' : ext === 'json' ? '📋' : '📄';
-                    html += `<div class="card-review-file" data-action="openNativeDiff" data-filepath="${escapeHtml(ch.filePath || '')}">${icon} ${escapeHtml(ch.filePath || '')}</div>`;
-                }
-            } else {
-                html += `<div class="card-empty">本次任务无文件变更</div>`;
-            }
-            html += `</div>`;
-            html += `<div class="card-section"><div class="card-section-title">👤 人工验证指引</div>`;
-            html += `<ul class="card-verify-steps">`;
-            html += `<li class="card-verify-step">1. 检查执行结果是否符合预期</li>`;
-            html += `<li class="card-verify-step">2. 如有变更文件，点击上方文件查看 diff</li>`;
-            html += `<li class="card-verify-step">3. 确认无误后点击「验收通过」，否则「驳回」</li>`;
-            html += `</ul></div>`;
-            html += `<div class="card-section"><div style="display:flex;gap:6px;flex-wrap:wrap">`;
-            html += `<button class="card-action-btn primary" data-action="approveReview" data-taskid="${activeTaskId}">✅ 验收通过</button>`;
-            html += `<button class="card-action-btn secondary" data-action="showRejectPresets" data-taskid="${activeTaskId}">↩️ 驳回</button>`;
-            html += `</div></div>`;
-            card3.innerHTML = html;
-            _fileChangesMap = new Map(lastReviewChanges.map((ch: any) => [ch.filePath, { original: ch.original, modified: ch.modified }]));
-        } else {
-            html += '<div class="card-empty">等待进入验收阶段...</div>';
-            card3.innerHTML = html;
-        }
-    }
-}
-
-
-function initCardComments() {
-    document.querySelectorAll('.card-comment-toggle').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const cardIdx = (e.currentTarget as HTMLElement).dataset.card;
-            const section = document.getElementById(`card-comment-${cardIdx}`);
-            if (section) {
-                section.classList.toggle('hidden');
-                if (!section.classList.contains('hidden')) {
-                    const input = document.getElementById(`card-comment-input-${cardIdx}`) as HTMLInputElement;
-                    input?.focus();
-                }
-            }
-        });
     });
-    document.querySelectorAll('.card-comment-send').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const cardIdx = (e.currentTarget as HTMLElement).dataset.card;
-            const input = document.getElementById(`card-comment-input-${cardIdx}`) as HTMLInputElement;
-            if (!input || !input.value.trim()) return;
-            const text = input.value.trim();
-            input.value = '';
-            (window as any).vscode?.postMessage({ type: 'sendCardComment', cardIndex: parseInt(cardIdx || '1'), text, taskId: activeTaskId });
-            const list = document.getElementById(`card-comment-list-${cardIdx}`);
-            if (list) {
-                const item = document.createElement('div');
-                item.className = 'card-comment-item';
-                item.innerHTML = `<div class="card-comment-meta"><span class="card-comment-author">You</span><span class="card-comment-time">刚刚</span></div><div class="card-comment-text">${escapeHtml(text)}</div>`;
-                list.appendChild(item);
-                list.scrollTop = list.scrollHeight;
-            }
-            updateCardCommentCount(parseInt(cardIdx || '1'));
-        });
-    });
-    document.querySelectorAll('.card-comment-input').forEach(input => {
-        input.addEventListener('keydown', (e: Event) => {
-            const ke = e as KeyboardEvent;
-            if (ke.key === 'Enter' && !ke.shiftKey) {
-                e.preventDefault();
-                const cardIdx = (e.currentTarget as HTMLElement).id.replace('card-comment-input-', '');
-                const btn = document.querySelector(`.card-comment-send[data-card="${cardIdx}"]`) as HTMLButtonElement;
-                btn?.click();
-            }
-        });
-    });
-
-    const cardView = document.getElementById('card-view');
-    if (cardView) {
-        cardView.addEventListener('click', (e) => {
-            const target = e.target as HTMLElement;
-            const actionBtn = target.closest('[data-action]') as HTMLElement;
-            if (!actionBtn) return;
-            const action = actionBtn.dataset.action;
-            const taskId = actionBtn.dataset.taskid || activeTaskId;
-
-            switch (action) {
-                case 'confirmPlan':
-                case 'confirmGoalFromHeader':
-                case 'confirmExecuteDone':
-                case 'approveReview':
-                    vscode.postMessage({ type: action, taskId });
-                    break;
-                case 'openTerminalReplay':
-                    vscode.postMessage({ type: 'openTerminalReplay', taskId });
-                    break;
-                case 'openNativeDiff': {
-                    const fp = actionBtn.dataset.filepath || '';
-                    const ch = _fileChangesMap.get(fp);
-                    if (ch) {
-                        vscode.postMessage({ type: 'showDiff', original: ch.original, modified: ch.modified });
-                    } else if ((window as any).showDiff) {
-                        (window as any).showDiff('', '');
-                    }
-                    break;
-                }
-                case 'rejectReview': {
-                    const reason = actionBtn.dataset.reason || '用户驳回';
-                    vscode.postMessage({ type: 'rejectReview', taskId, reason });
-                    break;
-                }
-                case 'showRejectPresets': {
-                    const taskId2 = actionBtn.dataset.taskid || activeTaskId;
-                    let presets = document.getElementById(`card-reject-presets-${taskId2}`);
-                    if (!presets) {
-                        presets = createRejectPresets(taskId2!);
-                        const section = actionBtn.closest('.card-section');
-                        if (section && section.parentNode) {
-                            section.parentNode.insertBefore(presets, section.nextSibling);
-                        }
-                    }
-                    presets.classList.toggle('hidden');
-                    break;
-                }
-                case 'showRejectInput': {
-                    const custom = document.getElementById(`card-reject-custom-${taskId}`);
-                    if (custom) custom.classList.remove('hidden');
-                    break;
-                }
-                case 'sendReject': {
-                    const ta = document.getElementById(`card-reject-text-${taskId}`) as HTMLTextAreaElement;
-                    const reason = ta?.value?.trim() || '用户驳回';
-                    vscode.postMessage({ type: 'rejectReview', taskId, reason });
-                    break;
-                }
-            }
-        });
-    }
 }
 
-function createRejectPresets(taskId: string): HTMLElement {
-    const div = document.createElement('div');
-    div.id = `card-reject-presets-${taskId}`;
-    div.className = 'card-reject-presets hidden';
-    const rejectReasons = ['代码质量不达标','未处理边界情况','缺少单元测试','与需求不符','存在安全隐患','性能问题'];
-    let html = '<div class="card-reject-preset-title">选择驳回理由：</div>';
-    for (const reason of rejectReasons) {
-        html += `<button class="card-reject-preset-btn" data-action="rejectReview" data-taskid="${escapeHtml(taskId)}" data-reason="${escapeHtml(reason)}">${reason}</button>`;
-    }
-    html += `<button class="card-reject-preset-btn custom" data-action="showRejectInput" data-taskid="${escapeHtml(taskId)}">✏️ 自定义输入...</button>`;
-    html += `<div id="card-reject-custom-${escapeHtml(taskId)}" class="hidden" style="margin-top:4px">`;
-    html += `<textarea id="card-reject-text-${escapeHtml(taskId)}" class="card-reject-textarea" placeholder="输入驳回原因..." rows="2"></textarea>`;
-    html += `<button class="card-action-btn secondary" data-action="sendReject" data-taskid="${escapeHtml(taskId)}">确认驳回</button>`;
-    html += `</div>`;
-    div.innerHTML = html;
-    return div;
+function _createReject(taskId: string): HTMLElement {
+    const div = document.createElement('div'); div.id = `kc-reject-${taskId}`; div.className = 'col-reject hidden';
+    const reasons = ['代码质量不达标', '未处理边界情况', '缺少单元测试', '与需求不符', '存在安全隐患', '性能问题'];
+    let html = '<div class="col-reject-title">驳回理由：</div>';
+    for (const r of reasons) html += `<button class="col-reject-btn" data-action="rejectReview" data-taskid="${escapeHtml(taskId)}" data-reason="${escapeHtml(r)}">${r}</button>`;
+    html += `<button class="col-reject-btn custom" data-action="showRejectInput" data-taskid="${escapeHtml(taskId)}">✏️ 自定义</button>`;
+    html += `<div id="kc-custom-${escapeHtml(taskId)}" class="hidden" style="margin-top:4px">`;
+    html += `<textarea id="kc-text-${escapeHtml(taskId)}" class="col-reject-ta" placeholder="输入原因..." rows="2"></textarea>`;
+    html += `<div class="col-actions"><button class="col-btn secondary" data-action="sendReject" data-taskid="${escapeHtml(taskId)}">确认</button></div></div>`;
+    div.innerHTML = html; return div;
 }
 
-function loadCardComments(messages: any[]) {
-    for (let ci = 1; ci <= 3; ci++) {
-        const list = document.getElementById(`card-comment-list-${ci}`);
-        if (!list) continue;
-        list.innerHTML = '';
-        const cardComments = messages.filter((m: any) => m.type === 'card_comment');
-        const relevant = cardComments.filter((m: any) => {
-            try { const d = JSON.parse(m.content); return d.cardIndex === ci; } catch { return false; }
-        });
-        for (const cm of relevant) {
-            let data: any = {};
-            try { data = JSON.parse(cm.content); } catch { continue; }
-            const item = document.createElement('div');
-            item.className = 'card-comment-item';
-            const ts = cm.timestamp ? formatTimestamp(cm.timestamp) : '';
-            item.innerHTML = `<div class="card-comment-meta"><span class="card-comment-author">${escapeHtml(data.author || '用户')}</span><span class="card-comment-time">${ts}</span></div><div class="card-comment-text">${escapeHtml(data.text || '')}</div>`;
-            list.appendChild(item);
-        }
-        updateCardCommentCount(ci);
-    }
-}
+function loadCardComments(_: any[]) {}
+function showCardView() { const el = document.getElementById('card-view'); if (el) el.classList.add('visible'); const c = document.getElementById('chat-body'); if (c) c.classList.add('hidden'); const g = document.getElementById('node-timeline-gutter'); if (g) g.classList.add('hidden'); }
+function hideCardView() { const el = document.getElementById('card-view'); if (el) el.classList.remove('visible'); const c = document.getElementById('chat-body'); if (c) c.classList.remove('hidden'); const g = document.getElementById('node-timeline-gutter'); if (g) g.classList.remove('hidden'); }
 
-function updateCardCommentCount(cardIndex: number) {
-    const list = document.getElementById(`card-comment-list-${cardIndex}`);
-    const countEl = document.querySelector(`.card-comment-toggle[data-card="${cardIndex}"] .card-comment-count`);
-    const toggle = document.querySelector(`.card-comment-toggle[data-card="${cardIndex}"]`);
-    if (list && countEl) {
-        const count = list.children.length;
-        countEl.textContent = String(count);
-        if (toggle) toggle.classList.toggle('has-comments', count > 0);
-    }
-}
-
-let _fileChangesMap: Map<string, { original: string; modified: string }> = new Map();
-
-function showCardView() {
-    const cardView = document.getElementById('card-view');
-    if (cardView) cardView.classList.add('visible');
-    const chatBody = document.getElementById('chat-body');
-    if (chatBody) chatBody.classList.add('hidden');
-    const gutter = document.getElementById('node-timeline-gutter');
-    if (gutter) gutter.classList.add('hidden');
-}
-
-function hideCardView() {
-    const cardView = document.getElementById('card-view');
-    if (cardView) cardView.classList.remove('visible');
-    const chatBody = document.getElementById('chat-body');
-    if (chatBody) chatBody.classList.remove('hidden');
-}
-
-// Expose for app.ts in card mode
 (window as any).__cardApp = {
-    updateInfo(info: any) {
-        activeTaskId = info.taskId || null;
-        activeTaskPhase = info.phase || '';
-        activeTaskStatus = info.status || '';
-        activeTaskGoal = info.goal || '';
-        activeTaskTitle = info.title || '';
-        lastTaskInfo = info;
-    },
-    updateReview(changes: any[]) {
-        lastReviewChanges = changes;
-    },
-    setActiveTools(tools: any[]) {
-        cardActiveTools = tools;
-    },
-    showCardView,
-    hideCardView,
-    renderCards,
-    loadCardComments,
-    initCardComments,
+    updateInfo(info: any) { activeTaskId = info.taskId || null; activeTaskPhase = info.phase || ''; activeTaskStatus = info.status || ''; activeTaskGoal = info.goal || ''; lastTaskInfo = info; },
+    updateReview(changes: any[]) { lastReviewChanges = changes; },
+    setActiveTools(tools: any[]) { cardActiveTools = tools; },
+    showCardView, hideCardView, renderCards, loadCardComments, initCardEvents,
 };

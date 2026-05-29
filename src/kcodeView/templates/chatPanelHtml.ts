@@ -105,57 +105,40 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             </div>
             </div>
 
-            <!-- Card View — Three Cards with Flow Arrows -->
+            <!-- Card View — Three-Column Kanban -->
             <div id="card-view" class="card-view hidden">
-                <div id="card-1" class="card-container" data-step="1">
-                    <div class="card-header-bar">
-                        <span class="card-step">Step 1</span>
-                        <span class="card-header-label">目标&amp;方案</span>
-                        <span class="card-status-tag" id="card-1-tag">待开始</span>
-                        <button class="card-comment-toggle" data-card="1" title="评论">💬 <span class="card-comment-count">0</span></button>
+                <div id="card-steps">
+                    <div class="crumb-bar">
+                        <span class="cdot" id="cdot-s"></span>
+                        <span class="cline" id="cl-1"></span>
+                        <span class="cnode"><span class="cseg" id="cseg-1">目标计划</span></span>
+                        <span class="cline" id="cl-2"></span>
+                        <span class="csep" id="csep-1"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1l5 4-5 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                        <span class="cline" id="cl-3"></span>
+                        <span class="cnode"><span class="cseg" id="cseg-2">执行自验</span></span>
+                        <span class="cline" id="cl-4"></span>
+                        <span class="csep" id="csep-2"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1l5 4-5 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                        <span class="cline" id="cl-5"></span>
+                        <span class="cnode"><span class="cseg" id="cseg-3">人工验收</span></span>
+                        <span class="cline" id="cl-6"></span>
+                        <span class="cdot" id="cdot-e"></span>
                     </div>
-                    <div class="card-body" id="card-1-body">
-                        <div class="card-empty">等待 AI 生成方案...</div>
-                    </div>
-                    <div class="card-footer-bar" id="card-1-footer"></div>
                 </div>
-
-                <div class="card-flow-arrow" data-from="1" data-to="2">
-                    <svg width="14" height="20" viewBox="0 0 14 20">
-                        <path d="M7 2v14M2 12l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-
-                <div id="card-2" class="card-container" data-step="2">
-                    <div class="card-header-bar">
-                        <span class="card-step">Step 2</span>
-                        <span class="card-header-label">执行&amp;自检</span>
-                        <span class="card-status-tag" id="card-2-tag">待开始</span>
-                        <button class="card-comment-toggle" data-card="2" title="评论">💬 <span class="card-comment-count">0</span></button>
+                <div id="card-columns">
+                    <div class="kanban-col" id="col-plan" style="flex:0 0 35%">
+                        <div class="col-header"><span class="col-dot"></span>计划-目标</div>
+                        <div class="col-body" id="col-body-1"></div>
                     </div>
-                    <div class="card-body" id="card-2-body">
-                        <div class="card-empty">等待进入执行阶段...</div>
+                    <div class="col-divider"></div>
+                    <div class="kanban-col" id="col-exec" style="flex:0 0 40%">
+                        <div class="col-header"><span class="col-dot"></span>执行-自验</div>
+                        <div class="col-body" id="col-body-2"></div>
                     </div>
-                    <div class="card-footer-bar" id="card-2-footer"></div>
-                </div>
-
-                <div class="card-flow-arrow" data-from="2" data-to="3">
-                    <svg width="14" height="20" viewBox="0 0 14 20">
-                        <path d="M7 2v14M2 12l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-
-                <div id="card-3" class="card-container" data-step="3">
-                    <div class="card-header-bar">
-                        <span class="card-step">Step 3</span>
-                        <span class="card-header-label">变更验收</span>
-                        <span class="card-status-tag" id="card-3-tag">待开始</span>
-                        <button class="card-comment-toggle" data-card="3" title="评论">💬 <span class="card-comment-count">0</span></button>
+                    <div class="col-divider"></div>
+                    <div class="kanban-col" id="col-review" style="flex:0 0 25%">
+                        <div class="col-header"><span class="col-dot"></span>验收</div>
+                        <div class="col-body" id="col-body-3"></div>
                     </div>
-                    <div class="card-body" id="card-3-body">
-                        <div class="card-empty">等待进入验收阶段...</div>
-                    </div>
-                    <div class="card-footer-bar" id="card-3-footer"></div>
                 </div>
             </div>
             <div id="chat-bottom">
