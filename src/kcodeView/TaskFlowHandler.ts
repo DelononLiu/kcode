@@ -314,7 +314,7 @@ export class TaskFlowHandler {
         } else if (task?.category && task?.status === 'in_review') {
             acceptanceCriteria = getCategory(task.category)?.acceptanceCriteria;
         }
-        ctx.router.PostMessage({ type: 'loadMessages', messages, taskId, taskType: task?.type, taskStatus: task?.status, viewMode: ctx.viewMode, reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined, acceptanceCriteria });
+        ctx.router.PostMessage({ type: 'loadMessages', messages, taskId, taskType: task?.type, taskStatus: task?.status, taskPhase: task?.phase, viewMode: ctx.viewMode, reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined, acceptanceCriteria });
     }
 
     deriveNodes(taskId: string): ProgressNode[] {

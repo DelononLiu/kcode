@@ -352,16 +352,27 @@ function updateCardCommentCount(cardIndex: number) {
     }
 }
 
+function showCardView() {
+    const cardView = document.getElementById('card-view');
+    if (cardView) cardView.classList.add('visible');
+    const chatBody = document.getElementById('chat-body');
+    if (chatBody) chatBody.classList.add('hidden');
+    const gutter = document.getElementById('node-timeline-gutter');
+    if (gutter) gutter.classList.add('hidden');
+}
+
 window.addEventListener('message', (event) => {
     const msg = event.data;
     switch (msg.type) {
         case 'loadMessages':
             activeTaskId = msg.taskId;
+            activeTaskPhase = msg.taskPhase || '';
             activeTaskStatus = msg.taskStatus || '';
             loadCardComments(msg.messages || []);
             if (msg.reviewChanges && msg.reviewChanges.length > 0) {
                 lastReviewChanges = msg.reviewChanges;
             }
+            showCardView();
             renderCards();
             break;
         case 'updateTaskInfo':
@@ -372,6 +383,7 @@ window.addEventListener('message', (event) => {
             activeTaskGoal = msg.goal || '';
             activeTaskTitle = msg.title || '';
             if (msg.terminalLogCount !== undefined) lastTaskInfo.terminalLogCount = msg.terminalLogCount;
+            showCardView();
             renderCards();
             break;
         case 'updateNodePanel':
@@ -391,6 +403,7 @@ window.addEventListener('message', (event) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    showCardView();
     initCardComments();
     vscode.postMessage({ type: 'ready' });
 });
