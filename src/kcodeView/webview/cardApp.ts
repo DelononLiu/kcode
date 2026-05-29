@@ -1,6 +1,7 @@
 export {};
 declare function acquireVsCodeApi(): any;
 const vscode = acquireVsCodeApi();
+(window as any).vscode = vscode;
 
 let activeTaskId: string | null = null;
 let activeTaskPhase: string = '';
