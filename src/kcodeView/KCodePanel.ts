@@ -230,6 +230,12 @@ export class KCodePanel {
         this.router.on('partialApproveReview', (msg) => this.flowHandler.handlePartialApproveReview(msg.taskId, msg.passed, msg.failed));
         this.router.on('toggleAcpLog', (msg) => { this.acpLogManager.enabled = msg.enabled; this.configService.set('log.acpLogEnabled', msg.enabled); this.configService.save(); });
         this.router.on('newTask', () => vscode.commands.executeCommand('kcode.newTask'));
+        this.router.on('newTaskWithText', async (msg) => {
+            await vscode.commands.executeCommand('kcode.newTask');
+            if (this.currentTaskId && msg.text) {
+                this.sessionHandler.handleSendMessage(msg.text, this.currentTaskId);
+            }
+        });
         this.router.on('cancelQueuedMessage', (msg) => { if (msg.index >= 0 && msg.index < this.pendingMessages.length) { this.pendingMessages.splice(msg.index, 1); this.sendPendingQueueUpdate(); } });
         this.router.on('clearPendingQueue', () => { this.pendingMessages = []; this.sendPendingQueueUpdate(); });
         this.router.on('openTerminal', () => vscode.commands.executeCommand('workbench.action.terminal.new'));

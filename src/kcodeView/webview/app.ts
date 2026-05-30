@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTlFilterBar();
     initPluginManager();
     (window as any).initOutputPanel?.();
+    initV3Layout();
 
     const dataEl = document.getElementById('__panelData');
     if (dataEl) {
@@ -168,6 +169,218 @@ function initNavButtons() {
     update();
 }
 
+/* ========== V3: Init Space ========== */
+function initV3Layout() {
+    const initInput = document.getElementById('initial-task-input') as HTMLInputElement;
+    if (initInput) {
+        initInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && initInput.value.trim()) {
+                const taskText = initInput.value;
+                const nameEl = document.getElementById('task-board-task-name');
+                if (nameEl) nameEl.textContent = taskText;
+                if (activeTaskId) {
+                    vscode.postMessage({ type: 'sendMessage', text: taskText, taskId: activeTaskId });
+                } else {
+                    vscode.postMessage({ type: 'newTaskWithText', text: taskText });
+                }
+                transitionToControlPanel();
+            }
+        });
+    }
+
+    const newTaskBtn = document.getElementById('header-new-task');
+    if (newTaskBtn) {
+        newTaskBtn.addEventListener('click', () => {
+            vscode.postMessage({ type: 'newTask' });
+        });
+    }
+
+    const inlineInput = document.getElementById('inline-intervention-input') as HTMLInputElement;
+    if (inlineInput) {
+        inlineInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && inlineInput.value.trim()) {
+                const text = inlineInput.value;
+                inlineInput.value = '';
+                if (activeTaskId && !activeTaskType?.startsWith('assistant')) {
+                    vscode.postMessage({ type: 'sendMessage', text, taskId: activeTaskId });
+                }
+            }
+        });
+    }
+
+    const timeTravelBtn = document.getElementById('btn-time-travel');
+    if (timeTravelBtn) timeTravelBtn.addEventListener('click', () => {
+        if (activeTaskId) vscode.postMessage({ type: 'stopGeneration', taskId: activeTaskId });
+    });
+
+    const pauseBtn = document.getElementById('btn-pause');
+    if (pauseBtn) pauseBtn.addEventListener('click', () => {
+        if (activeTaskId) vscode.postMessage({ type: 'stopGeneration', taskId: activeTaskId });
+    });
+
+    const capsuleModel = document.getElementById('header-model-capsule');
+    if (capsuleModel) capsuleModel.addEventListener('click', () => {
+        // toggle agent/model dropdown - reuse existing
+        const agentBtn = document.getElementById('agent-dropdown-btn');
+        if (agentBtn) agentBtn.click();
+    });
+}
+
+function transitionToControlPanel() {
+    const initScreen = document.getElementById('init-screen');
+    const controlPanel = document.getElementById('control-panel');
+    if (!initScreen || !controlPanel) return;
+    initScreen.style.opacity = '0';
+    initScreen.style.transform = 'translateY(-30px)';
+    setTimeout(() => {
+        initScreen.style.display = 'none';
+        controlPanel.classList.add('activated');
+    }, 400);
+}
+
+function toggleTaskRow(header: HTMLElement) {
+    const row = header.parentElement as HTMLElement;
+    if (!row) return;
+    row.classList.toggle('expanded');
+}
+(window as any).toggleTaskRow = toggleTaskRow;
+
+/* ========== V3: Update Stage Cards ========== */
+const STAGE_ORDER = ['demand', 'goal', 'plan', 'execute', 'verify', 'review'];
+const STAGE_LABELS: Record<string, string> = {
+    demand: '1. 需求提取 (REQUIREMENT)',
+    goal: '2. 目标锚定 (TARGET)',
+    plan: '3. 计划编排 (PLANNING)',
+    execute: '4. 代码执行 (EXECUTION)',
+    verify: '5. 自动化自验 (VERIFY)',
+    review: '6. 最终签署 (CLOSE)',
+};
+
+function updateRailAndStages(phase: string, status: string) {
+    const idx = STAGE_ORDER.indexOf(phase);
+    const statusIdx = status === 'completed' ? 6
+        : status === 'cancelled' ? -1
+        : idx >= 0 ? idx : -1;
+
+    // Update rail nodes
+    document.querySelectorAll('.stage-node').forEach((el, i) => {
+        const stage = STAGE_ORDER[i] || '';
+        el.classList.toggle('done', i < statusIdx);
+        el.classList.toggle('active', i === statusIdx && status !== 'completed' && status !== 'cancelled');
+    });
+
+    // Update rail track active height
+    const track = document.getElementById('rail-track-active');
+    if (track && statusIdx > 0) {
+        track.style.height = (40 + (statusIdx) * (26 + 38)) + 'px';
+    } else if (track && statusIdx === 0) {
+        track.style.height = '40px';
+        track.style.opacity = '0.3';
+    } else if (track) {
+        track.style.height = '0';
+    }
+
+    // Update stage cards
+    document.querySelectorAll('.task-row').forEach((el) => {
+        const stage = (el as HTMLElement).dataset.stage || '';
+        const si = STAGE_ORDER.indexOf(stage);
+        const iconBox = el.querySelector('.status-icon-box') as HTMLElement;
+        if (!iconBox) return;
+
+        if (si < statusIdx) {
+            iconBox.className = 'status-icon-box success';
+            iconBox.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#04d361" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+        } else if (si === statusIdx && status !== 'completed' && status !== 'cancelled') {
+            iconBox.className = 'status-icon-box running';
+            iconBox.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#04d361" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+            // Auto-expand active stage
+            el.classList.add('expanded');
+        } else {
+            iconBox.className = 'status-icon-box pending';
+            iconBox.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg>';
+        }
+    });
+
+    // Update header phase count
+    const phaseCount = document.getElementById('header-phase-count');
+    if (phaseCount) phaseCount.textContent = `${Math.max(0, statusIdx)}/6`;
+
+    // Duration updates
+    if (phase) {
+        const durEl = document.getElementById(`dur-${phase}`);
+        if (durEl) durEl.textContent = '▶';
+    }
+
+    // Show exec terminal & controls when in execute phase
+    const execTerminal = document.getElementById('exec-terminal');
+    const execControls = document.getElementById('exec-controls');
+    const execIntervention = document.getElementById('exec-intervention');
+    const execWarning = document.getElementById('exec-warning');
+    if (phase === 'execute' || status === 'active') {
+        if (execWarning) execWarning.style.display = '';
+        if (execTerminal) execTerminal.style.display = '';
+        if (execControls) execControls.style.display = '';
+        if (execIntervention) execIntervention.style.display = '';
+    }
+}
+
+/* ========== V3: Update Monitor Tower ========== */
+function updateMonitorTower(taskInfo: any, changes: any[]) {
+    // TODO section
+    const todoList = document.getElementById('tower-todo-list');
+    const todoEmpty = document.getElementById('tower-todo-empty');
+    if (todoList && todoEmpty) {
+        const steps = (taskInfo?.planSteps || []);
+        const allTodos = [
+            ...steps.map((s: any) => ({ text: s.content, done: s.status === 'completed' })),
+            ...(taskInfo?.todos || []).map((t: any) => ({ text: t.content, done: t.status === 'completed' })),
+        ];
+        if (allTodos.length > 0) {
+            todoEmpty.style.display = 'none';
+            todoList.innerHTML = allTodos.map((t: any) =>
+                `<div class="todo-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>${escapeHtml(t.text)}</div>`
+            ).join('');
+        } else {
+            todoEmpty.style.display = '';
+            todoList.innerHTML = '';
+        }
+    }
+
+    // DIFF section
+    const diffList = document.getElementById('tower-diff-list');
+    const diffEmpty = document.getElementById('tower-diff-empty');
+    if (diffList && diffEmpty) {
+        if (changes && changes.length > 0) {
+            diffEmpty.style.display = 'none';
+            diffList.innerHTML = changes.map((c: any) => {
+                const added = c.modified && !c.original ? 'new'
+                    : !c.modified ? 'del'
+                    : 'mod';
+                const lineCount = c.modified && c.original
+                    ? `[+${c.modified.split('\n').length - c.original.split('\n').length}行]`
+                    : c.modified ? '[+new]' : '[-del]';
+                return `<div class="diff-file-row"><span>📄 ${escapeHtml(c.filePath || '')}</span><span class="diff-add">${lineCount}</span></div>`;
+            }).join('');
+        } else {
+            diffEmpty.style.display = '';
+            diffList.innerHTML = '';
+        }
+    }
+}
+
+/* ========== V3: resetToInput ========== */
+(window as any).resetToInput = function resetToInput() {
+    const initScreen = document.getElementById('init-screen');
+    const controlPanel = document.getElementById('control-panel');
+    if (initScreen) { initScreen.style.display = ''; initScreen.style.opacity = '1'; initScreen.style.transform = ''; }
+    if (controlPanel) controlPanel.classList.remove('activated');
+    const initInput = document.getElementById('initial-task-input') as HTMLInputElement;
+    if (initInput) initInput.value = '';
+};
+
+let lastV3TaskInfo: any = null;
+let lastV3Changes: any[] = [];
+
 function initMessageHandler() {
     window.addEventListener('message', (event) => {
         const message = event.data;
@@ -180,38 +393,17 @@ function initMessageHandler() {
                 activeTaskType = message.taskType || '';
 
                 if (message.taskType === 'assistant') {
-                    (window as any).__cardApp?.hideCardView?.();
-                    const header = document.getElementById('chat-header');
-                    if (header) { header.style.removeProperty('display'); header.classList.add('assistant-header'); }
-                    showHeaderRow('row1', true);
-                    showHeaderRow('sub', true);
-                    showHeaderRow('row2', false);
-                    showHeaderRow('row3', false);
-                    const titleEl = document.querySelector('.task-info-title');
-                    if (titleEl) titleEl.textContent = '🤖 小助手';
-                    const statusBadge = document.getElementById('task-status-badge');
-                    if (statusBadge) statusBadge.classList.add('hidden');
-                    const modelBadge = document.getElementById('task-model-badge');
-                    if (modelBadge) {
-                        if (activeModelName) { modelBadge.textContent = activeModelName; modelBadge.classList.remove('hidden'); }
-                        else modelBadge.classList.add('hidden');
-                    }
-                    const subEl = document.getElementById('task-info-created');
-                    if (subEl) subEl.textContent = '专业陪聊 · 答疑解惑 · 出谋划策 · 代码评审 · 技术调研 · 问题分析';
-                    const sep = document.getElementById('task-info-sep');
-                    if (sep) sep.classList.add('hidden');
-                    const reviewEl = document.getElementById('task-info-review');
-                    if (reviewEl) reviewEl.classList.add('hidden');
-                    const gutter = document.getElementById('node-timeline-gutter');
-                    if (gutter) gutter.classList.add('hidden');
-                    const outputPanel = document.getElementById('right-output-panel');
-                    if (outputPanel) outputPanel.style.display = 'none';
-                    const extractBtn = document.getElementById('btn-knowledge-extract');
-                    if (extractBtn) extractBtn.classList.add('hidden');
+                    const tb = document.getElementById('task-board-task-name');
+                    if (tb) tb.textContent = '🤖 小助手';
+                    transitionToControlPanel();
                     renderMessages(message.messages || []);
-                    const input = document.getElementById('chat-input') as HTMLTextAreaElement;
-                    if (input) input.placeholder = '与小助手对话...';
                     break;
+                }
+                if (message.taskId && message.taskType !== 'assistant') {
+                    const tb = document.getElementById('task-board-task-name');
+                    if (tb) tb.textContent = message.title || '任务';
+                    transitionToControlPanel();
+                    updateRailAndStages(message.taskPhase || message.phase || '', message.taskStatus || message.status || '');
                 }
 
                 if (isCardMode) {
@@ -277,36 +469,8 @@ function initMessageHandler() {
                 break;
             case 'updateTaskInfo':
                 if (message.taskType === 'assistant') {
-                    (window as any).__cardApp?.hideCardView?.();
-                    activeTaskStatus = '';
-                    activeTaskPhase = '';
-                    const chatHeader = document.getElementById('chat-header');
-                    if (chatHeader) { chatHeader.style.removeProperty('display'); chatHeader.classList.add('assistant-header'); }
-                    showHeaderRow('row1', true);
-                    showHeaderRow('sub', true);
-                    showHeaderRow('row2', false);
-                    showHeaderRow('row3', false);
-                    const titleEl = document.querySelector('.task-info-title');
-                    if (titleEl) titleEl.textContent = '🤖 小助手';
-                    const statusBadge = document.getElementById('task-status-badge');
-                    if (statusBadge) statusBadge.classList.add('hidden');
-                    const modelBadge = document.getElementById('task-model-badge');
-                    if (modelBadge) {
-                        if (activeModelName) { modelBadge.textContent = activeModelName; modelBadge.classList.remove('hidden'); }
-                        else modelBadge.classList.add('hidden');
-                    }
-                    const subEl = document.getElementById('task-info-created');
-                    if (subEl) subEl.textContent = '专业陪聊 · 答疑解惑 · 出谋划策 · 代码评审 · 技术调研 · 问题分析';
-                    const sep = document.getElementById('task-info-sep');
-                    if (sep) sep.classList.add('hidden');
-                    const reviewEl = document.getElementById('task-info-review');
-                    if (reviewEl) reviewEl.classList.add('hidden');
-                    const gutter = document.getElementById('node-timeline-gutter');
-                    if (gutter) gutter.classList.add('hidden');
-                    const outPanel = document.getElementById('right-output-panel');
-                    if (outPanel) outPanel.style.display = 'none';
-                    const extractBtn2 = document.getElementById('btn-knowledge-extract');
-                    if (extractBtn2) extractBtn2.classList.add('hidden');
+                    const tb2 = document.getElementById('task-board-task-name');
+                    if (tb2) tb2.textContent = '🤖 小助手';
                     break;
                 }
                 if (isCardMode) {
@@ -333,16 +497,11 @@ function initMessageHandler() {
                     updateTaskInfo(message);
                     break;
                 }
-                // Show knowledge extract button for task mode
-                const extractBtn2 = document.getElementById('btn-knowledge-extract');
-                if (extractBtn2) extractBtn2.classList.remove('hidden');
-                // Restore task mode UI elements (was hidden by assistant)
-                const ch = document.getElementById('chat-header');
-                if (ch) ch.style.removeProperty('display');
-                const op = document.getElementById('right-output-panel');
-                if (op) op.style.removeProperty('display');
+                const tb3 = document.getElementById('task-board-task-name');
+                if (tb3 && message.title) tb3.textContent = message.title;
                 lastTaskInfo = message;
                 updateTaskInfo(message);
+                updateRailAndStages(message.phase || '', message.status || '');
                 break;
             case 'flashInput':
                 flashInput();
@@ -410,6 +569,7 @@ function initMessageHandler() {
                 break;
             case 'updateOutputPanel':
                 (window as any).updateOutputPanel?.(message.taskInfo || {}, message.changes || []);
+                updateMonitorTower(message.taskInfo || {}, message.changes || []);
                 break;
             case 'agentList':
                 initAgentSelector(message.agents || []);
@@ -830,7 +990,14 @@ function initModelSelector(models: string[]) {
     const btn = document.getElementById('model-dropdown-btn');
     const label = document.getElementById('model-dropdown-label');
     const list = document.getElementById('model-dropdown-list');
-    if (!btn || !label || !list) return;
+    if (!btn || !label || !list) {
+        // V3: update header model capsule
+        const capsule = document.getElementById('header-model-capsule');
+        if (capsule && models.length > 0) {
+            capsule.textContent = '模型: ' + models[0].split('/').pop() || models[0];
+        }
+        return;
+    }
     list.innerHTML = '';
     for (const m of models) {
         const item = document.createElement('li');
@@ -864,6 +1031,12 @@ function handleAgentStatus(status: string, message: string, agentName: string, m
     if (statusDot) {
         statusDot.className = 'status-dot ' + (status === 'connected' ? 'online' : 'offline');
         statusDot.title = message;
+    }
+    // V3 header agent dot
+    const headerDot = document.getElementById('header-agent-dot');
+    if (headerDot) {
+        headerDot.className = 'agent-dot ' + (status === 'connected' ? 'online' : 'offline');
+        headerDot.title = message;
     }
     const label = document.getElementById('agent-dropdown-label');
     const list = document.getElementById('agent-dropdown-list');
@@ -1036,7 +1209,18 @@ function sendMessageFromInput() {
 
 function initChat() {
     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
-    if (!input) return;
+    if (!input) {
+        // V3 layout: no global chat input. Set up keyboard shortcut for init space.
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const initInput = document.getElementById('initial-task-input') as HTMLInputElement;
+                if (initInput && document.getElementById('init-screen')?.style.display !== 'none') {
+                    // handled by initV3Layout
+                }
+            }
+        });
+        return;
+    }
 
     input.addEventListener('keydown', (e) => {
         if (_slashMenuEl && e.key === 'Escape') { hideSlashMenu(); return; }
@@ -1331,14 +1515,9 @@ function initChat() {
 function handleGenerationState(isGenerating: boolean) {
     const sendBtn = document.getElementById('send-btn');
     const stopBtn = document.getElementById('stop-btn');
-    if (!sendBtn || !stopBtn) return;
-
-    if (isGenerating) {
-        sendBtn.classList.add('hidden');
-        stopBtn.classList.remove('hidden');
-    } else {
-        sendBtn.classList.remove('hidden');
-        stopBtn.classList.add('hidden');
+    if (sendBtn && stopBtn) {
+        if (isGenerating) { sendBtn.classList.add('hidden'); stopBtn.classList.remove('hidden'); }
+        else { sendBtn.classList.remove('hidden'); stopBtn.classList.add('hidden'); }
     }
 }
 
@@ -2339,136 +2518,26 @@ function updateTaskInfo(info: any) {
     activeTaskTitle = info.title || '';
     activeTaskGoal = info.goal || '';
 
-    // Row 1: Title + status badge
-    const titleEl = document.querySelector('.task-info-title');
-    if (titleEl) titleEl.textContent = info.title || '选择任务开始对话';
-
-    const badge = document.getElementById('task-status-badge');
-    if (badge) {
-        const hasStatus = !!info.status && info.status !== 'pending' && info.title;
-        badge.classList.toggle('hidden', !hasStatus);
-        if (hasStatus) {
+    // V3: Update header status pill
+    const statusPill = document.getElementById('header-status-pill');
+    if (statusPill) {
+        const statusText = document.getElementById('header-status-text');
+        if (statusText) {
             const statusMap: Record<string, string> = {
-                pending: 'Pending', active: 'Active', in_review: 'In Review',
-                completed: 'Completed', cancelled: 'Cancelled'
+                pending: '待确认', active: '任务攻坚中', in_review: '待验收',
+                completed: '已完成', cancelled: '已取消'
             };
-            badge.textContent = statusMap[info.status] || info.status;
-            badge.className = 'task-status-badge';
-            badge.classList.add('status-' + info.status);
+            statusText.textContent = statusMap[info.status] || '任务攻坚中';
         }
     }
 
-    // Sub row: created + review info
-    const createdEl = document.getElementById('task-info-created');
-    const sep = document.getElementById('task-info-sep');
-    const reviewEl = document.getElementById('task-info-review');
-    if (createdEl && info.createdAt) {
-        const d = new Date(info.createdAt);
-        createdEl.textContent = `创建 ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-    }
-    if (reviewEl) {
-        const hasFiles = (info.pendingReviewFiles || 0) > 0;
-        reviewEl.textContent = hasFiles ? `待验收 ${info.pendingReviewFiles} 个文件` : '';
-        if (sep) sep.classList.toggle('hidden', !hasFiles);
+    // V3: Update header mode capsule
+    if (info.category) {
+        const modeCapsule = document.getElementById('header-mode-capsule');
+        if (modeCapsule) modeCapsule.textContent = info.category;
     }
 
-    // Row 2: Goal + confirmed tags
-    const row2 = document.getElementById('chat-header-row2');
-    const goalText = document.getElementById('goal-header-text');
-    const confirmTags = document.getElementById('confirmed-tags');
-    if (row2 && goalText && confirmTags) {
-        const hasGoal = info.taskType === 'task' && info.goal && info.status !== 'cancelled' && info.status !== 'completed';
-        row2.classList.toggle('hidden', !hasGoal);
-        if (hasGoal) {
-            goalText.textContent = (info.goal || '').split('\n')[0].replace(/[*_#`>\[\]]/g, '').trim() || '目标';
-            const confirmed = info.confirmedItems || [];
-            confirmTags.innerHTML = confirmed.map((item: string) =>
-                `<span class="confirmed-tag">${escapeHtml(item)}</span>`
-            ).join('');
-        }
-    }
-
-    // Row 3: Phase badge + desc + confirm buttons + progress
-    const row3 = document.getElementById('chat-header-row3');
-    const phaseBadge = document.getElementById('task-phase-badge');
-    const phaseDesc = document.getElementById('phase-desc');
-    const goalConfirmBtn = document.getElementById('goal-confirm-btn');
-    const planConfirmBtn = document.getElementById('plan-confirm-btn');
-    const executeConfirmBtn = document.getElementById('execute-confirm-btn');
-    const progHeader = document.getElementById('plan-progress-header');
-    const progFill = document.getElementById('header-progress-fill');
-    const progLabel = document.getElementById('header-progress-label');
-
-    if (row3 && phaseBadge && phaseDesc) {
-        const hasPhase = info.taskType === 'task' && info.phase && info.status !== 'cancelled' && info.status !== 'completed';
-        row3.classList.toggle('hidden', !hasPhase);
-        if (hasPhase) {
-            const phaseLabels: Record<string, string> = {
-                demand: 'D 需求', goal: 'T 目标', plan: 'P 计划',
-                execute: 'E 执行', self_verify: 'V 自验', review: 'C 验收'
-            };
-            const phaseDescs: Record<string, string> = {
-                demand: '收集需求，明确目标', goal: '确认任务目标',
-                plan: '制定执行计划', execute: '执行实现',
-                self_verify: 'AI 自验代码', review: '最终验收'
-            };
-            phaseBadge.textContent = phaseLabels[info.phase] || info.phase;
-            phaseDesc.textContent = phaseDescs[info.phase] || '';
-        }
-        if (goalConfirmBtn) {
-            goalConfirmBtn.classList.toggle('hidden', !(info.taskType === 'task' && info.phase === 'goal' && info.status !== 'cancelled' && info.status !== 'completed'));
-        }
-        if (planConfirmBtn) {
-            planConfirmBtn.classList.toggle('hidden', !(info.taskType === 'task' && info.phase === 'plan' && info.status !== 'cancelled' && info.status !== 'completed'));
-        }
-        if (executeConfirmBtn) {
-            executeConfirmBtn.classList.toggle('hidden', !(info.taskType === 'task' && info.phase === 'execute' && info.status !== 'cancelled' && info.status !== 'completed'));
-        }
-
-        // Progress bar in header
-        const steps = info.planSteps || [];
-        const hasSteps = info.taskType === 'task' && info.phase === 'execute' && steps.length > 0;
-        if (progHeader && progFill && progLabel) {
-            progHeader.classList.toggle('hidden', !hasSteps);
-            if (hasSteps) {
-                const done = steps.filter((s: any) => s.status === 'completed').length;
-                const pct = Math.round((done / steps.length) * 100);
-                progFill.style.width = pct + '%';
-                progLabel.textContent = `${done}/${steps.length}`;
-            }
-        }
-    }
-
-    // Hooks count
-    const hooksCount = document.getElementById('hooks-count');
-    if (hooksCount) {
-        if (info.hooks) taskHooks = info.hooks;
-        if (info.workspaceHooks) workspaceHooks = info.workspaceHooks;
-        const phase = info.phase || '';
-        const wsCount = (info.workspaceHooks?.[phase] || []).length;
-        const taskCount = (info.hooks?.[phase] || []).length;
-        const total = wsCount + taskCount;
-        if (total > 0 && info.taskType === 'task' && info.status !== 'cancelled' && info.status !== 'completed') {
-            const parts: string[] = [];
-            if (wsCount > 0) parts.push(`📋${wsCount}`);
-            if (taskCount > 0) parts.push(`⚙️${taskCount}`);
-            hooksCount.textContent = parts.join(' · ');
-            hooksCount.className = 'hooks-count' + (wsCount > 0 ? ' has-workspace' : '') + (taskCount > 0 ? ' has-task' : '');
-        } else {
-            hooksCount.classList.add('hidden');
-        }
-    }
-
-    // Terminal replay button visibility
-    const termBtn = document.getElementById('terminal-replay-btn');
-    if (termBtn) {
-        const hasLogs = !!info.terminalLogCount && info.terminalLogCount > 0;
-        const hasTask = info.taskType === 'task' && !!info.title && info.status !== 'cancelled' && info.status !== 'completed';
-        termBtn.classList.toggle('hidden', !(hasLogs && hasTask));
-    }
-
-    // Update left panel + output panel
-    (window as any).renderProcessPanel?.(info, []);
+    // Update output panel (legacy)
     (window as any).updateOutputPanel?.(info, []);
 }
 

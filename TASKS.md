@@ -1171,6 +1171,28 @@ AI 可以通过该协议自主启动 dev server 让用户立即预览。
 
 **状态**: 📋 已调研（本条目即为调研结果）
 
----
+## Phase 32: V3 全自动化自主任务控制台
+
+_目标：将 KCode 页面架构与交互逻辑从"传统对话框模式"升级为"全自动化自主任务控制台（Autonomous Task Console）"。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P32-01 | V3 设计系统 — CSS tokens + 两态栅格布局 (Init Space + Control Panel) | ✅ 已完成 |
+| P32-02 | HTML 模板重写 — 三栏网格(56px/1fr/340px)、Header 胶囊、侧栏导轨、监控塔 | ✅ 已完成 |
+| P32-03 | app.ts 适配 — Init Space 过渡、阶段卡片手风琴、导轨节点联动、监控塔数据绑定 | ✅ 已完成 |
+| P32-04 | 协议集成 — init space Enter 创建任务、newTaskWithText 消息、inline intervention | ✅ 已完成 |
+
+### P32-01~04: V3 控制台完整实现
+
+**涉及文件**:
+- `src/kcodeView/templates/chatPanelCss.ts` — 全面替换为 V3 设计系统 (#0d0d0f/#141417/#1c1c1f/#04d361)
+- `src/kcodeView/templates/chatPanelHtml.ts` — 全面替换为 V3 两态布局 (Init Space + Control Panel)
+- `src/kcodeView/webview/app.ts` — 新增 V3 交互逻辑（transitionToControlPanel/toggleTaskRow/updateRailAndStages/updateMonitorTower），适配消息处理器
+- `src/kcodeView/KCodePanel.ts` — 新增 `newTaskWithText` 消息路由
+- `src/kcodeView/templates/__tests__/chatPanelCss.test.ts` — 更新 CSS 测试断言匹配 V3 类名
+
+**状态**: ✅ 已完成
+
 ---
 
+---

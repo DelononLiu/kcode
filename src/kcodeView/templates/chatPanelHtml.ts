@@ -5,6 +5,23 @@ function escapeAttr(str: string): string {
     return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&#62;');
 }
 
+function svgIcon(name: string): string {
+    const icons: Record<string, string> = {
+        cube: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+        check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#04d361" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
+        hourglass: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6l2 2-2 2v6"/><path d="M12 2v6l-2 2 2 2v6"/><rect x="4" y="2" width="16" height="20" rx="2"/></svg>',
+        spinner: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>',
+        circle: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg>',
+        warning: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff9b26" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+        clock: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+        pause: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>',
+        send: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+        plus: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+        dot: '<svg width="6" height="6" viewBox="0 0 6 6"><circle cx="3" cy="3" r="3" fill="currentColor"/></svg>',
+    };
+    return icons[name] || '';
+}
+
 export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, agents?: { label: string; type: string }[], viewMode?: string): string {
     const scriptUri = (name: string) => webview.asWebviewUri(
         vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', `${name}.js`)
@@ -21,330 +38,277 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
     <title>KCode</title>
 </head>
 <body>
-    <div id="container">
-        <!-- Middle Panel — Chat -->
-        <div id="chat-area">
-            <div id="chat-header">
-                <!-- Row 1: Title + type + status + secondary info -->
-                <div id="chat-header-row1">
-                    <span class="task-info-title">选择任务开始对话</span>
-                    <span id="task-status-badge" class="task-status-badge hidden"></span>
-                    <span id="task-model-badge" class="task-model-badge hidden"></span>
-                </div>
-                <div id="chat-header-sub">
-                    <span id="task-info-created"></span>
-                    <span id="task-info-sep" class="hidden">|</span>
-                    <span id="task-info-review"></span>
-                </div>
 
-                <!-- Row 2: Goal + confirmed tags -->
-                <div id="chat-header-row2" class="hidden">
-                    <span class="header-label">🎯</span>
-                    <span id="goal-header-text" class="goal-header-text"></span>
-                    <div id="confirmed-tags" class="confirmed-tags"></div>
-                </div>
+<!-- ======== State A: Init Space ======== -->
+<div class="init-space" id="init-screen">
+    <div class="init-logo">
+        ${svgIcon('cube')}
+        <span class="accent">KCode</span> Task
+    </div>
+    <div class="center-input-box">
+        <input type="text" id="initial-task-input" placeholder="输入原始工程任务（例如：帮我构造一个生成1-20数字并打印的Python脚本）..." autofocus>
+        <span class="enter-badge">↵ Enter 下达任务</span>
+    </div>
+    <div class="init-hint">
+        <span><span style="color:var(--warning)">✳</span> 需求开发</span>
+        <span>● 问题分析</span>
+        <span>◌ 代码评审</span>
+        <span onclick="(window as any).resetToInput?.()">⟲ 返回大本营</span>
+    </div>
+</div>
 
-                <!-- Row 3: Phase + progress bar -->
-                <div id="chat-header-row3" class="hidden">
-                    <span id="task-phase-badge" class="task-phase-badge"></span>
-                    <span id="phase-desc" class="phase-desc"></span>
-                    <div id="phase-confirm-btns">
-                        <button id="goal-confirm-btn" class="plan-confirm-btn hidden">确认目标 ✓</button>
-                        <button id="plan-confirm-btn" class="plan-confirm-btn hidden">确认计划</button>
-                        <button id="execute-confirm-btn" class="plan-confirm-btn hidden">确认完成 ✓</button>
-                    </div>
-                    <div id="plan-progress-header" class="plan-progress-header hidden">
-                        <div class="plan-progress-bar"><div class="plan-progress-fill" id="header-progress-fill" style="width:0%"></div></div>
-                        <span id="header-progress-label" class="plan-progress-label">0/0</span>
-                    </div>
-                    <button id="hooks-edit-btn" class="hooks-edit-btn" title="编辑阶段提示词">⚙️</button>
-                    <span id="hooks-count" class="hooks-count hidden"></span>
-                    <button id="terminal-replay-btn" class="hooks-edit-btn hidden" title="终端日志重放">💻 终端</button>
-                </div>
+<!-- ======== State B: Control Panel ======== -->
+<div class="app-container" id="control-panel">
 
-                <div id="hooks-editor" class="hooks-editor hidden">
-                    <div class="hooks-editor-header">
-                        <span class="hooks-editor-title">阶段提示词命令</span>
-                        <button id="hooks-close-btn" class="hooks-close-btn" title="关闭">✕</button>
-                    </div>
-                    <div id="hooks-phases-list"></div>
+    <!-- Header -->
+    <header class="header" id="app-header">
+        <div class="header-title">
+            ${svgIcon('cube')}
+            <strong>KCODE 任务面板</strong>
+        </div>
+        <span class="status-pill" id="header-status-pill"><span id="header-spinner">${svgIcon('spinner')}</span> <span id="header-status-text">任务攻坚中</span></span>
+
+        <div class="header-meta-controls" id="header-meta-controls">
+            <span class="header-capsule active" id="header-mode-capsule">✳ 需求开发</span>
+            <span class="header-capsule" id="header-model-capsule">模型: Kilo</span>
+            <div class="header-agent-select" id="header-agent-select">
+                <span class="agent-dot offline" id="header-agent-dot"></span>
+            </div>
+        </div>
+
+        <div style="margin-left: auto; color: var(--text-dim); font-size: 12px; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; display: flex; align-items: center; gap: 12px;">
+            <span id="header-new-task" style="text-decoration:underline; cursor:pointer; display:flex; align-items:center; gap:4px;">${svgIcon('plus')} 新建其他任务</span>
+            <span>|</span>
+            <span id="header-duration">⏱️ 阶段: <span id="header-phase-count">0/6</span></span>
+        </div>
+    </header>
+
+    <!-- Sidebar Rail -->
+    <aside class="sidebar-rail" id="sidebar-rail">
+        <div class="rail-track" id="rail-track"></div>
+        <div class="rail-track-active" id="rail-track-active"></div>
+        <div class="stage-node" data-stage="demand">D</div>
+        <div class="stage-node" data-stage="goal">T</div>
+        <div class="stage-node" data-stage="plan">P</div>
+        <div class="stage-node" data-stage="execute">E</div>
+        <div class="stage-node" data-stage="verify">V</div>
+        <div class="stage-node" data-stage="review">C</div>
+    </aside>
+
+    <!-- Main Task Board -->
+    <main class="main-task-board" id="main-task-board">
+        <div style="margin-bottom: 20px;">
+            <div class="task-board-title">当前执行任务</div>
+            <div class="task-board-task-name" id="task-board-task-name">-</div>
+        </div>
+
+        <!-- Stage Cards -->
+        <div id="stage-cards">
+            <!-- D: Demand -->
+            <div class="task-row" data-stage="demand">
+                <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
+                    <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
+                    <span class="task-step-name">1. 需求提取 (REQUIREMENT)</span>
+                    <span class="task-duration" id="dur-demand">0s</span>
+                </div>
+                <div class="task-body" id="stage-body-demand">
+                    <div style="color: var(--text-dim); font-size: 12px; font-style: italic;">等待任务启动...</div>
                 </div>
             </div>
 
-            <div id="chat-body">
-                <div id="node-timeline-gutter" class="hidden">
-                    <div id="tl-dots"></div>
+            <!-- T: Goal -->
+            <div class="task-row" data-stage="goal">
+                <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
+                    <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
+                    <span class="task-step-name">2. 目标锚定 (TARGET)</span>
+                    <span class="task-duration" id="dur-goal">0s</span>
                 </div>
-                <div id="chat-scroll" class="chat-empty">
-                    <div id="chat-messages">
-                    <div id="tl-filter-bar" class="tl-filter-bar hidden">
-                        <button class="tl-filter-btn active" data-tl-filter="all">全部</button>
-                        <button class="tl-filter-btn" data-tl-filter="thinking">💭 思考</button>
-                        <button class="tl-filter-btn" data-tl-filter="file">📄 文件</button>
-                        <button class="tl-filter-btn" data-tl-filter="command">💻 命令</button>
-                        <button class="tl-filter-btn" data-tl-filter="search">🔍 搜索</button>
-                    </div>
-                    <div id="working-indicator" class="hidden">
-                        <span class="working-spinner"></span>
-                        <span class="working-text">思考中</span>
-                    </div>
+                <div class="task-body" id="stage-body-goal">
+                    <div style="color: var(--text-dim); font-size: 12px;">等待目标确认...</div>
                 </div>
-            </div>
-            <div id="chat-nav-btns" class="hidden">
-                <button id="nav-top-btn" class="chat-nav-btn nav-top-btn" title="回到顶部">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 13V5M4 9l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
-                <button id="nav-prev-btn" class="chat-nav-btn" title="上一条用户消息">↑</button>
-                <button id="nav-next-btn" class="chat-nav-btn" title="下一条用户消息">↓</button>
-                <button id="nav-bottom-btn" class="chat-nav-btn nav-bottom-btn" title="回到底部">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 3v8M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
-            </div>
             </div>
 
-            <!-- Card View — Three-Column Kanban -->
-            <div id="card-view" class="card-view hidden">
-                <div id="card-header">
-                    <div id="card-header-row1">
-                        <span id="card-header-title" class="card-header-title">选择任务开始对话</span>
-                        <span id="card-status-badge" class="task-status-badge hidden"></span>
-                        <span id="card-type-badge" class="card-type-badge hidden"></span>
-                    </div>
-                    <div id="card-header-row2">
-                        <span class="header-label">🎯</span>
-                        <span id="card-goal-text" class="card-goal-text"></span>
-                    </div>
+            <!-- P: Plan -->
+            <div class="task-row" data-stage="plan">
+                <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
+                    <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
+                    <span class="task-step-name">3. 计划编排 (PLANNING)</span>
+                    <span class="task-duration" id="dur-plan">0s</span>
                 </div>
-                <div id="card-steps">
-                    <div class="crumb-bar">
-                        <span class="cdot" id="cdot-s"></span>
-                        <span class="cline" id="cl-1"></span>
-                        <span class="cnode"><span class="cseg" id="cseg-1">目标计划</span></span>
-                        <span class="cline" id="cl-2"></span>
-                        <span class="csep" id="csep-1"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1l5 4-5 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                        <span class="cline" id="cl-3"></span>
-                        <span class="cnode"><span class="cseg" id="cseg-2">执行自验</span></span>
-                        <span class="cline" id="cl-4"></span>
-                        <span class="csep" id="csep-2"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1l5 4-5 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                        <span class="cline" id="cl-5"></span>
-                        <span class="cnode"><span class="cseg" id="cseg-3">人工验收</span></span>
-                        <span class="cline" id="cl-6"></span>
-                        <span class="cdot" id="cdot-e"></span>
+                <div class="task-body" id="stage-body-plan">
+                    <div class="sandbox-toolbar" id="plan-toolbar" style="display:none;">
+                        <span><strong>人机协同沙盘</strong></span>
+                        <span>[ 📂 拖拽重排 ]</span>
+                        <span>[ ✎ 双击编辑 ]</span>
+                        <span>[ 🔒 锁定并执行 ]</span>
                     </div>
-                </div>
-                <div id="card-columns">
-                    <div class="kanban-col" id="col-plan" style="flex:0 0 35%">
-                        <div class="col-header"><span class="col-dot"></span>计划-目标</div>
-                        <div class="col-body" id="col-body-1"></div>
-                    </div>
-                    <div class="col-divider"></div>
-                    <div class="kanban-col" id="col-exec" style="flex:0 0 40%">
-                        <div class="col-header"><span class="col-dot"></span>执行-自验</div>
-                        <div class="col-body" id="col-body-2"></div>
-                    </div>
-                    <div class="col-divider"></div>
-                    <div class="kanban-col" id="col-review" style="flex:0 0 25%">
-                        <div class="col-header"><span class="col-dot"></span>验收</div>
-                        <div class="col-body" id="col-body-3"></div>
-                    </div>
+                    <div id="plan-substeps"></div>
+                    <div style="color: var(--text-dim); font-size: 12px;">等待计划生成...</div>
                 </div>
             </div>
-            <div id="chat-bottom">
-                <div id="chat-toolbar">
-                    <button id="btn-knowledge-extract" class="toolbar-btn hidden" title="从当前任务萃取知识">📚 知识萃取</button>
-                    <button id="acp-log-btn" class="toolbar-btn" title="查看 ACP 协议日志">🔍 查看日志</button>
-                    <button id="btn-terminal" class="toolbar-btn" title="打开终端">💻 打开终端</button>
-                    <button id="btn-plugin-manager" class="toolbar-btn" title="插件管理">🔌 插件</button>
-                </div>
-                <div id="chat-input-area">
-                    <div id="queue-bar" class="hidden">
-                        <div class="queue-header" id="queue-header">
-                            <span id="queue-summary"></span>
-                            <button id="queue-toggle" class="queue-action-btn"></button>
-                            <button id="queue-clear-all" class="queue-action-btn queue-clear" title="全部取消">全部取消</button>
-                        </div>
-                        <div id="queue-list" class="hidden"></div>
-                    </div>
-                    <div id="system-narration" class="hidden"></div>
-                    <div class="input-wrapper">
-                        <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
-                        <div class="input-footer">
-                            <div class="input-footer-left">
-                                <span id="agent-status-dot" class="status-dot offline"></span>
-                                <div class="agent-dropdown" id="agent-dropdown">
-                                    <button class="agent-dropdown-btn pill-btn" id="agent-dropdown-btn">
-                                        <span id="agent-dropdown-label">Agent</span>
-                                        <svg class="agent-dropdown-arrow" width="8" height="5" viewBox="0 0 8 5"><path d="M1 1l3 3 3-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                    </button>
-                                    <ul class="agent-dropdown-list hidden" id="agent-dropdown-list"></ul>
-                                </div>
-                                <div class="agent-dropdown" id="model-dropdown">
-                                    <button class="agent-dropdown-btn pill-btn" id="model-dropdown-btn">
-                                        <span id="model-dropdown-label">模型</span>
-                                        <svg class="agent-dropdown-arrow" width="8" height="5" viewBox="0 0 8 5"><path d="M1 1l3 3 3-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                    </button>
-                                    <ul class="agent-dropdown-list hidden" id="model-dropdown-list"></ul>
-                                </div>
-                            </div>
-                            <div id="input-template-bar" class="input-footer-center"></div>
-                            <div class="input-footer-right">
-                                <button class="input-tool-btn image-btn" title="图片">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                        <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/>
-                                        <circle cx="5" cy="6" r="1.5" fill="currentColor"/>
-                                        <path d="M1.5 11l3.5-3 2.5 2 3-3 3.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                                    </svg>
-                                </button>
-                                <button class="input-tool-btn attach-btn" title="附件">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                        <path d="M8 3v7a2 2 0 004 0V4.5a3.5 3.5 0 00-7 0V10a4.5 4.5 0 009 0V3h-1v7a3.5 3.5 0 01-7 0V4.5a2.5 2.5 0 015 0V10a1 1 0 01-2 0V3H8z" fill="currentColor"/>
-                                    </svg>
-                                </button>
-                                <button id="send-btn" class="input-tool-btn" title="发送">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                        <path d="M2 14L14 8L2 2v4.5l6 1.5-6 1.5V14z" fill="currentColor"/>
-                                    </svg>
-                                </button>
-                                <button id="stop-btn" class="input-tool-btn hidden" title="停止生成">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                        <rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor"/>
-                                    </svg>
-                                </button>
 
-                            </div>
+            <!-- E: Execute -->
+            <div class="task-row active" data-stage="execute">
+                <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
+                    <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
+                    <span class="task-step-name">4. 代码执行 (EXECUTION)</span>
+                    <span class="task-duration" id="dur-execute">0s</span>
+                </div>
+                <div class="task-body" id="stage-body-execute">
+                    <div style="font-size: 13px; color: var(--warning); margin-bottom: 8px; font-weight: 500; display:none;" id="exec-warning">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <span id="exec-warning-text">正在处理...</span>
+                    </div>
+                    <div class="terminal-block" id="exec-terminal" style="display:none;">
+                        <div id="exec-terminal-lines"></div>
+                    </div>
+                    <div id="exec-messages" style="color: var(--text-dim); font-size: 12px;">等待开始执行...</div>
+                    <div class="control-trigger-group" id="exec-controls" style="display:none;">
+                        <button class="btn-trigger warn" id="btn-time-travel">${svgIcon('clock')} 时间旅行 (回滚至此)</button>
+                        <button class="btn-trigger" id="btn-pause">${svgIcon('pause')} 暂停管道监控</button>
+                    </div>
+                    <div class="inline-intervention-zone" id="exec-intervention" style="display:none;">
+                        <div class="zone-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> 就地追加局部微调指令 (可选)：</div>
+                        <div class="inline-input-wrapper">
+                            <input type="text" id="inline-intervention-input" placeholder="只针对当前代码执行进行微调...">
+                            ${svgIcon('send')}
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- V: Verify -->
+            <div class="task-row" data-stage="verify">
+                <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
+                    <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
+                    <span class="task-step-name">5. 自动化自验 (VERIFY)</span>
+                    <span class="task-duration" id="dur-verify">0s</span>
+                </div>
+                <div class="task-body" id="stage-body-verify">
+                    <div style="color: var(--text-dim); font-size: 12px;">等待自验...</div>
+                </div>
+            </div>
+
+            <!-- C: Close/Review -->
+            <div class="task-row" data-stage="review">
+                <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
+                    <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
+                    <span class="task-step-name">6. 最终签署 (CLOSE)</span>
+                    <span class="task-duration" id="dur-review">0s</span>
+                </div>
+                <div class="task-body" id="stage-body-review">
+                    <div style="color: var(--text-dim); font-size: 12px;">等待验收...</div>
                 </div>
             </div>
         </div>
 
-        <!-- Right Output Panel — vertical sections, collapse via edge handle -->
-        <div id="output-resize-handle" class="output-resize-handle"></div>
-        <div id="right-output-panel">
-            <div id="right-output-content">
-                <div class="op-section">
-                    <div class="op-section-title">TODO区</div>
-                    <div id="op-plan-list"><div class="op-empty">暂无待办</div></div>
-                </div>
-                <div class="op-section">
-                    <div class="op-section-title">变更列表</div>
-                    <div id="op-code-list"><div class="op-empty">暂无变更</div></div>
-                </div>
-                <div class="op-section" style="padding-bottom:4px">
-                    <div class="op-section-title">
-                        <span>知识wiki</span>
-                        <button id="op-export-btn" class="op-export-btn hidden" title="导出对话内容到项目 Wiki">📤 导出 Wiki</button>
-                    </div>
-                    <div id="op-knowledge-list"><div class="op-empty">暂无知识</div></div>
-                </div>
+        <!-- Chat messages container — renders below stage cards -->
+        <div id="chat-scroll">
+            <div id="tl-filter-bar" class="tl-filter-bar hidden">
+                <button class="tl-filter-btn active" data-tl-filter="all">全部</button>
+                <button class="tl-filter-btn" data-tl-filter="thinking">💭 思考</button>
+                <button class="tl-filter-btn" data-tl-filter="file">📄 文件</button>
+                <button class="tl-filter-btn" data-tl-filter="command">💻 命令</button>
+                <button class="tl-filter-btn" data-tl-filter="search">🔍 搜索</button>
+            </div>
+            <div id="chat-messages"></div>
+            <div id="working-indicator" class="hidden">
+                <span class="working-spinner"></span>
+                <span class="working-text">思考中</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Monitor Tower -->
+    <aside class="monitor-tower" id="monitor-tower">
+        <div>
+            <div class="panel-section-title">实时待办项 (TODO)</div>
+            <div class="tower-card" id="tower-todo">
+                <div class="tower-card-empty" id="tower-todo-empty">暂无待办</div>
+                <div id="tower-todo-list"></div>
             </div>
         </div>
 
-        <!-- Overlay Right Panel — Diff / ACP Log -->
-        <div id="right-panel" class="hidden">
-            <div id="right-panel-header">
-                <div class="tabs">
-                    <button class="tab active" data-tab="diff">Diff</button>
-                    <button class="tab" data-tab="device">Device</button>
-                    <button class="tab" data-tab="acplog">ACP Log</button>
-                </div>
-                <button id="right-panel-close" class="close-btn" title="关闭右侧面板">✕</button>
+        <div>
+            <div class="panel-section-title">实时文件变更 (DIFF)</div>
+            <div class="tower-card" id="tower-diff">
+                <div class="tower-card-empty" id="tower-diff-empty">暂无变更</div>
+                <div id="tower-diff-list"></div>
             </div>
-            <div id="right-panel-content">
-                <div id="tab-diff" class="tab-content active">Diff</div>
-                <div id="tab-device" class="tab-content">
-                    <div id="device-connect-form">
-                        <div class="device-field-row">
-                            <select id="device-preset-select">
-                                <option value="">— 从配置加载 —</option>
-                            </select>
-                        </div>
-                        <div style="border-top:1px solid rgba(255,255,255,.06);margin:4px 0 8px;"></div>
-                        <div class="device-field-row">
-                            <select id="device-type">
-                                <option value="ssh">SSH</option>
-                                <option value="telnet">Telnet</option>
-                                <option value="adb">ADB</option>
-                                <option value="local">Local</option>
-                            </select>
-                        </div>
-                        <div class="device-field-row" id="device-host-row">
-                            <input id="device-host" type="text" placeholder="主机地址">
-                        </div>
-                        <div class="device-field-row" id="device-port-row">
-                            <input id="device-port" type="number" placeholder="端口">
-                        </div>
-                        <div class="device-field-row device-auth-row" id="device-username-row">
-                            <input id="device-username" type="text" placeholder="用户名">
-                        </div>
-                        <div class="device-field-row device-auth-row" id="device-password-row">
-                            <input id="device-password" type="password" placeholder="密码">
-                        </div>
-                        <div class="device-field-row device-auth-row" id="device-key-row" style="display:none;">
-                            <input id="device-key-path" type="text" placeholder="私钥路径">
-                        </div>
-                        <div class="device-btn-row">
-                            <button id="btn-device-connect" class="device-btn primary">连接</button>
-                        </div>
-                    </div>
-                    <div id="device-connected-view" style="display:none;">
-                        <div id="device-connected-header">
-                            <span id="device-status-indicator" class="device-status-ok">●</span>
-                            <span id="device-connected-label"></span>
-                            <button id="btn-device-disconnect" class="device-btn small danger">断开</button>
-                        </div>
-                        <div id="device-terminal">
-                            <div id="device-output"></div>
-                            <div id="device-input-row">
-                                <span id="device-prompt">$</span>
-                                <input id="device-command-input" type="text" placeholder="输入命令...">
-                                <button id="btn-device-send" class="device-btn small">发送</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="device-status-bar">
-                        <span id="device-connection-status">未连接</span>
-                    </div>
-                </div>
-                <div id="tab-acplog" class="tab-content">
-                    <div id="acp-log-toolbar">
-                        <label><input type="checkbox" id="acp-log-enable"> 采集日志</label>
-                        <button id="acp-log-clear" class="toolbar-btn">清空</button>
-                    </div>
-                    <div id="acp-log-content"></div>
+        </div>
+
+        <div>
+            <div class="panel-section-title">知识库沉淀 (WIKI)</div>
+            <div class="tower-card" id="tower-wiki" style="background:transparent;border:none;padding:0;">
+                <div class="wiki-incubator-box" id="tower-wiki-box">
+                    <div class="wiki-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg> 避坑指南孵化区</div>
+                    <div class="wiki-desc">当前任务正在推进。可在最终签署 (Approval) 阶段一键让 AI 将策略固化至 Wiki 文档。</div>
                 </div>
             </div>
+        </div>
+    </aside>
+</div>
+
+<!-- ======== Overlay Right Panel (Diff / Device / ACP Log) ======== -->
+<div id="right-panel" class="hidden">
+    <div id="right-panel-header">
+        <div class="tabs">
+            <button class="tab active" data-tab="diff">Diff</button>
+            <button class="tab" data-tab="device">Device</button>
+            <button class="tab" data-tab="acplog">ACP Log</button>
+        </div>
+        <button id="right-panel-close" class="close-btn">✕</button>
+    </div>
+    <div id="right-panel-content">
+        <div id="tab-diff" class="tab-content active">Diff</div>
+        <div id="tab-device" class="tab-content">
+            <div id="device-connect-form">
+                <div class="device-field-row"><select id="device-preset-select"><option value="">— 从配置加载 —</option></select></div>
+                <div style="border-top:1px solid rgba(255,255,255,.06);margin:4px 0 8px;"></div>
+                <div class="device-field-row"><select id="device-type"><option value="ssh">SSH</option><option value="telnet">Telnet</option><option value="adb">ADB</option><option value="local">Local</option></select></div>
+                <div class="device-field-row" id="device-host-row"><input id="device-host" type="text" placeholder="主机地址"></div>
+                <div class="device-field-row" id="device-port-row"><input id="device-port" type="number" placeholder="端口"></div>
+                <div class="device-field-row device-auth-row" id="device-username-row"><input id="device-username" type="text" placeholder="用户名"></div>
+                <div class="device-field-row device-auth-row" id="device-password-row"><input id="device-password" type="password" placeholder="密码"></div>
+                <div class="device-field-row device-auth-row" id="device-key-row" style="display:none;"><input id="device-key-path" type="text" placeholder="私钥路径"></div>
+                <div class="device-btn-row"><button id="btn-device-connect" class="device-btn primary">连接</button></div>
+            </div>
+            <div id="device-connected-view" style="display:none;">
+                <div id="device-connected-header"><span id="device-status-indicator" class="device-status-ok">●</span><span id="device-connected-label"></span><button id="btn-device-disconnect" class="device-btn small danger">断开</button></div>
+                <div id="device-terminal"><div id="device-output"></div><div id="device-input-row"><span id="device-prompt">$</span><input id="device-command-input" type="text" placeholder="输入命令..."><button id="btn-device-send" class="device-btn small">发送</button></div></div>
+            </div>
+            <div id="device-status-bar"><span id="device-connection-status">未连接</span></div>
+        </div>
+        <div id="tab-acplog" class="tab-content">
+            <div id="acp-log-toolbar"><label><input type="checkbox" id="acp-log-enable"> 采集日志</label><button id="acp-log-clear" class="toolbar-btn">清空</button></div>
+            <div id="acp-log-content"></div>
         </div>
     </div>
+</div>
 
-    <div id="__panelData"
-         data-available-agents="${escapeAttr(JSON.stringify(agents || []))}"
-         style="display:none"></div>
+<!-- ======== Hidden data containers ======== -->
+<div id="__panelData"
+     data-available-agents="${escapeAttr(JSON.stringify(agents || []))}"
+     style="display:none"></div>
+<div id="__viewdata" style="display:none" data-viewmode="${viewMode || 'chat'}"></div>
 
-    <!-- Plugin Management Modal -->
-    <div id="plugin-manager-overlay" class="hidden">
-        <div id="plugin-manager-dialog">
-            <div id="plugin-manager-header">
-                <span>🔌 插件管理</span>
-                <button id="plugin-manager-close" class="close-btn" title="关闭">✕</button>
-            </div>
-            <div id="plugin-manager-body">
-                <div class="plugin-manager-hint">加载中...</div>
-            </div>
-        </div>
+<!-- Plugin Management Modal -->
+<div id="plugin-manager-overlay" class="hidden">
+    <div id="plugin-manager-dialog">
+        <div id="plugin-manager-header"><span>🔌 插件管理</span><button id="plugin-manager-close" class="close-btn">✕</button></div>
+        <div id="plugin-manager-body"><div class="plugin-manager-hint">加载中...</div></div>
     </div>
+</div>
 
-    <div id="__viewdata" style="display:none" data-viewmode="${viewMode || 'chat'}"></div>
-    ${viewMode === 'card'
-        ? `<script src="${scriptUri('app.bundle')}"></script>
-    <script src="${scriptUri('cardApp.bundle')}"></script>`
-        : `<script src="${scriptUri('app.bundle')}"></script>
-    <script src="${scriptUri('outputPanel')}"></script>
-    <script src="${scriptUri('device.bundle')}"></script>`}
+<script src="${scriptUri('app.bundle')}"></script>
+<script src="${scriptUri('outputPanel')}"></script>
+<script src="${scriptUri('device.bundle')}"></script>
 </body>
 </html>`;
 }
