@@ -236,9 +236,53 @@ function loadCardComments(_: any[]) {}
 function showCardView() { const el = document.getElementById('card-view'); if (el) el.classList.add('visible'); const c = document.getElementById('chat-body'); if (c) c.classList.add('hidden'); const g = document.getElementById('node-timeline-gutter'); if (g) g.classList.add('hidden'); }
 function hideCardView() { const el = document.getElementById('card-view'); if (el) el.classList.remove('visible'); const c = document.getElementById('chat-body'); if (c) c.classList.remove('hidden'); const g = document.getElementById('node-timeline-gutter'); if (g) g.classList.remove('hidden'); }
 
+const TYPE_LABELS: Record<string, string> = {
+    requirement_dev: '需求开发',
+    code_review: '代码评审',
+    problem_analysis: '问题分析',
+    defect_analysis: '缺陷分析',
+    log_analysis: '日志分析',
+    task: '任务',
+};
+
+function updateHeader(title: string, status: string, category: string, goal: string) {
+    const titleEl = document.getElementById('card-header-title');
+    if (titleEl) titleEl.textContent = title || '选择任务开始对话';
+
+    const statusBadge = document.getElementById('card-status-badge');
+    if (statusBadge) {
+        const hasStatus = !!status && status !== 'pending';
+        statusBadge.classList.toggle('hidden', !hasStatus);
+        if (hasStatus) {
+            const statusMap: Record<string, string> = {
+                pending: 'Pending', active: 'Active', in_review: 'In Review',
+                completed: 'Completed', cancelled: 'Cancelled',
+            };
+            statusBadge.textContent = statusMap[status] || status;
+            statusBadge.className = 'task-status-badge';
+            statusBadge.classList.add('status-' + status);
+        }
+    }
+
+    const typeBadge = document.getElementById('card-type-badge');
+    if (typeBadge) {
+        const label = TYPE_LABELS[category];
+        if (label) {
+            typeBadge.textContent = label;
+            typeBadge.classList.remove('hidden');
+        } else {
+            typeBadge.classList.add('hidden');
+        }
+    }
+
+    const goalEl = document.getElementById('card-goal-text');
+    if (goalEl) goalEl.textContent = goal || '';
+}
+
 (window as any).__cardApp = {
     updateInfo(info: any) { activeTaskId = info.taskId || null; activeTaskPhase = info.phase || ''; activeTaskStatus = info.status || ''; activeTaskGoal = info.goal || ''; lastTaskInfo = info; },
     updateReview(changes: any[]) { lastReviewChanges = changes; },
     setActiveTools(tools: any[]) { cardActiveTools = tools; },
     showCardView, hideCardView, renderCards, loadCardComments, initCardEvents,
+    updateHeader,
 };

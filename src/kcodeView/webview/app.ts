@@ -182,7 +182,7 @@ function initMessageHandler() {
                 if (message.taskType === 'assistant') {
                     (window as any).__cardApp?.hideCardView?.();
                     const header = document.getElementById('chat-header');
-                    if (header) header.style.removeProperty('display');
+                    if (header) { header.style.removeProperty('display'); header.classList.add('assistant-header'); }
                     showHeaderRow('row1', true);
                     showHeaderRow('sub', true);
                     showHeaderRow('row2', false);
@@ -191,6 +191,11 @@ function initMessageHandler() {
                     if (titleEl) titleEl.textContent = '🤖 小助手';
                     const statusBadge = document.getElementById('task-status-badge');
                     if (statusBadge) statusBadge.classList.add('hidden');
+                    const modelBadge = document.getElementById('task-model-badge');
+                    if (modelBadge) {
+                        if (activeModelName) { modelBadge.textContent = activeModelName; modelBadge.classList.remove('hidden'); }
+                        else modelBadge.classList.add('hidden');
+                    }
                     const subEl = document.getElementById('task-info-created');
                     if (subEl) subEl.textContent = '专业陪聊 · 答疑解惑 · 出谋划策 · 代码评审 · 技术调研 · 问题分析';
                     const sep = document.getElementById('task-info-sep');
@@ -218,6 +223,7 @@ function initMessageHandler() {
                             status: message.taskStatus || '',
                             goal: '', title: '',
                         });
+                        ca.updateHeader(message.title, message.taskStatus, message.category, '');
                         if (message.reviewChanges && message.reviewChanges.length > 0) {
                             ca.updateReview(message.reviewChanges);
                         }
@@ -275,7 +281,7 @@ function initMessageHandler() {
                     activeTaskStatus = '';
                     activeTaskPhase = '';
                     const chatHeader = document.getElementById('chat-header');
-                    if (chatHeader) chatHeader.style.removeProperty('display');
+                    if (chatHeader) { chatHeader.style.removeProperty('display'); chatHeader.classList.add('assistant-header'); }
                     showHeaderRow('row1', true);
                     showHeaderRow('sub', true);
                     showHeaderRow('row2', false);
@@ -284,6 +290,11 @@ function initMessageHandler() {
                     if (titleEl) titleEl.textContent = '🤖 小助手';
                     const statusBadge = document.getElementById('task-status-badge');
                     if (statusBadge) statusBadge.classList.add('hidden');
+                    const modelBadge = document.getElementById('task-model-badge');
+                    if (modelBadge) {
+                        if (activeModelName) { modelBadge.textContent = activeModelName; modelBadge.classList.remove('hidden'); }
+                        else modelBadge.classList.add('hidden');
+                    }
                     const subEl = document.getElementById('task-info-created');
                     if (subEl) subEl.textContent = '专业陪聊 · 答疑解惑 · 出谋划策 · 代码评审 · 技术调研 · 问题分析';
                     const sep = document.getElementById('task-info-sep');
@@ -315,6 +326,7 @@ function initMessageHandler() {
                             planVersion: message.planVersion,
                             filePathsFromTools: message.filePathsFromTools,
                         });
+                        ca.updateHeader(message.title, message.status, message.category, message.goal);
                         ca.showCardView();
                         ca.renderCards();
                     }
@@ -868,6 +880,14 @@ function handleAgentStatus(status: string, message: string, agentName: string, m
             modelLabel.textContent = truncateModel(modelName);
             modelLabel.title = modelName;
         }
+        if (modelName) {
+            activeModelName = modelName;
+            const modelBadge = document.getElementById('task-model-badge');
+            if (modelBadge && activeTaskType === 'assistant') {
+                modelBadge.textContent = modelName;
+                modelBadge.classList.remove('hidden');
+            }
+        }
     }
 }
 
@@ -923,6 +943,8 @@ let activeTaskId: string | null = null;
 let activeTaskStatus: string = '';
 const isCardMode: boolean = (document.getElementById('__viewdata')?.dataset.viewmode || 'chat') === 'card';
 let activeTaskType: string = '';
+let activeModelName: string = '';
+
 let activeTaskPhase: string = '';
 let activeTaskGoal: string = '';
 let activeTaskTitle: string = '';

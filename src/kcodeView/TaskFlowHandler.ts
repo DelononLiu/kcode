@@ -245,7 +245,7 @@ export class TaskFlowHandler {
         ctx.router.PostMessage({
             type: 'updateTaskInfo', taskId: taskId, title: task.title, goal: task.goal, goalHint: task.goal ? '🎯 ' + task.goal : '',
             status: task.status, phase: task.phase, phaseLabel: phaseLabels[task.phase] || task.phase,
-            taskType: task.type, viewMode: ctx.viewMode, createdAt: task.createdAt, pendingReviewFiles: 0,
+            taskType: task.type, category: task.category, viewMode: ctx.viewMode, createdAt: task.createdAt, pendingReviewFiles: 0,
             confirmedItems: task.confirmedItems, pendingItems: task.pendingItems, planSteps: task.planSteps,
             planVersion: task.planVersion || 1,
             riskItems: task.riskItems || [],
@@ -317,7 +317,7 @@ export class TaskFlowHandler {
         } else if (task?.category && task?.status === 'in_review') {
             acceptanceCriteria = getCategory(task.category)?.acceptanceCriteria;
         }
-        ctx.router.PostMessage({ type: 'loadMessages', messages, taskId, taskType: task?.type, taskStatus: task?.status, taskPhase: task?.phase, viewMode: ctx.viewMode, reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined, acceptanceCriteria });
+        ctx.router.PostMessage({ type: 'loadMessages', messages, taskId, title: task?.title, taskType: task?.type, taskStatus: task?.status, taskPhase: task?.phase, category: task?.category, viewMode: ctx.viewMode, reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined, acceptanceCriteria });
     }
 
     deriveNodes(taskId: string): ProgressNode[] {

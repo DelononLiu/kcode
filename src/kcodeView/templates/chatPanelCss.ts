@@ -38,6 +38,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
 /* === Three-Row Header === */
 #chat-header{flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);width:100%;max-width:900px;margin:0 auto}
+#chat-header.assistant-header{height:46px;overflow:hidden}
+#chat-header.assistant-header #chat-header-row1{height:24px;padding:4px 24px 0}
+#chat-header.assistant-header #chat-header-sub{height:18px;padding:0 24px;overflow:hidden}
 #chat-header-row1{display:flex;align-items:center;gap:8px;padding:8px 24px 0}
 .task-info-title{font-size:14px;font-weight:600;color:#e0e0e0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
 .task-status-badge{font-size:10px;padding:1px 7px;border-radius:3px;background:rgba(255,255,255,.06);color:#888;flex-shrink:0;white-space:nowrap}
@@ -47,6 +50,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .task-status-badge.status-in_review{background:rgba(78,201,176,.12);color:#4ec9b0}
 .task-status-badge.status-completed{background:rgba(90,157,107,.12);color:#5a9d6b}
 .task-status-badge.status-cancelled{background:rgba(224,96,96,.1);color:#e06060}
+.task-model-badge{font-size:10px;padding:1px 7px;border-radius:3px;background:rgba(74,139,181,.12);color:#5a9bc8;flex-shrink:0;white-space:nowrap;font-weight:500}
+.task-model-badge.hidden{display:none}
 #chat-header-sub{display:flex;align-items:center;gap:8px;font-size:10px;color:#555;padding:0 24px 4px;flex-wrap:wrap}
 #task-info-created,#task-info-review{color:#555}
 #task-info-sep{color:#333}
@@ -619,8 +624,16 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #card-view{flex:1;display:none;flex-direction:column;align-items:center;padding:0;overflow:hidden;min-height:0;background:#121212}
 #card-view.visible{display:flex}
 
+/* Card Header — fixed height so columns don't shift */
+#card-header{flex-shrink:0;width:100%;max-width:760px;box-sizing:border-box;padding:6px 10px 0;height:46px}
+#card-header-row1{display:flex;align-items:center;gap:6px;height:24px}
+.card-header-title{font-size:13px;font-weight:600;color:#e0e0e0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.card-type-badge{font-size:10px;padding:1px 7px;border-radius:3px;background:rgba(255,255,255,.06);color:#888;flex-shrink:0;white-space:nowrap;letter-spacing:.2px}
+#card-header-row2{display:flex;align-items:center;gap:6px;height:18px;overflow:hidden}
+.card-goal-text{font-size:12px;color:#4ec9b0;line-height:1.3;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
 /* Breadcrumb line */
-#card-steps{width:100%;max-width:760px;flex-shrink:0;padding:14px 0 6px;box-sizing:border-box}
+#card-steps{width:100%;max-width:760px;flex-shrink:0;padding:2px 0 6px;height:44px;box-sizing:border-box}
 .crumb-bar{display:flex;align-items:center;height:38px;margin:0;padding:0 10px}
 .cline{flex:1;height:2px;background:rgba(255,255,255,.06);border-radius:1px;transition:background .3s}
 .cline.ln-done{background:#22C55E}
@@ -636,6 +649,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .cseg.seg-done{color:#22C55E}
 .cseg.seg-active{color:#4A9EFF;font-weight:700}
 .cseg.seg-active::after{content:' ◇';font-weight:400;font-size:10px;opacity:.6}
+
 .cseg.seg-waiting{color:#6B7280}
 .csep{flex-shrink:0;display:flex;align-items:center;color:#555;position:relative;z-index:1;transition:color .15s}
 .csep svg{display:block}

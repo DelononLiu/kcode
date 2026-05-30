@@ -29,6 +29,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                 <div id="chat-header-row1">
                     <span class="task-info-title">选择任务开始对话</span>
                     <span id="task-status-badge" class="task-status-badge hidden"></span>
+                    <span id="task-model-badge" class="task-model-badge hidden"></span>
                 </div>
                 <div id="chat-header-sub">
                     <span id="task-info-created"></span>
@@ -107,6 +108,17 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 
             <!-- Card View — Three-Column Kanban -->
             <div id="card-view" class="card-view hidden">
+                <div id="card-header">
+                    <div id="card-header-row1">
+                        <span id="card-header-title" class="card-header-title">选择任务开始对话</span>
+                        <span id="card-status-badge" class="task-status-badge hidden"></span>
+                        <span id="card-type-badge" class="card-type-badge hidden"></span>
+                    </div>
+                    <div id="card-header-row2">
+                        <span class="header-label">🎯</span>
+                        <span id="card-goal-text" class="card-goal-text"></span>
+                    </div>
+                </div>
                 <div id="card-steps">
                     <div class="crumb-bar">
                         <span class="cdot" id="cdot-s"></span>
