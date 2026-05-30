@@ -30,7 +30,6 @@ export interface KCodePanelContext {
     router: MessageRouter;
 
     currentTaskId: string | null;
-    viewMode: 'chat' | 'card';
     activeToolCalls: Map<string, ToolCallState>;
     isGenerating: boolean;
     pendingMessages: PendingMessage[];

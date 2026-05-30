@@ -88,10 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
     (window as any).__openNativeDiff = (original: string, modified: string, filePath: string) => {
         vscode.postMessage({ type: 'openNativeDiff', original, modified, filePath });
     };
-
-    if (isCardMode) {
-        (window as any).__cardApp?.initCardEvents();
-    }
 });
 
 function initNavButtons() {
@@ -169,7 +165,38 @@ function initNavButtons() {
     update();
 }
 
-/* ========== V3: Init Space ========== */
+/* ========== V3: Init Space + View Switching ========== */
+function showAssistantView() {
+    const taskView = document.getElementById('task-view');
+    const assistantView = document.getElementById('assistant-view');
+    if (taskView) taskView.style.display = 'none';
+    if (assistantView) assistantView.style.display = '';
+    const chatBody = document.getElementById('chat-body');
+    const chatScroll = document.getElementById('chat-scroll');
+    if (chatBody && chatScroll) chatBody.appendChild(chatScroll);
+}
+
+function showTaskView(asControlPanel: boolean = false) {
+    const assistantView = document.getElementById('assistant-view');
+    const taskView = document.getElementById('task-view');
+    if (assistantView) assistantView.style.display = 'none';
+    if (taskView) taskView.style.display = '';
+
+    const initScreen = document.getElementById('init-screen');
+    const controlPanel = document.getElementById('control-panel');
+    if (asControlPanel) {
+        if (initScreen) initScreen.style.display = 'none';
+        if (controlPanel) controlPanel.classList.add('activated');
+    } else {
+        if (initScreen) { initScreen.style.display = ''; initScreen.style.opacity = '1'; initScreen.style.transform = ''; }
+        if (controlPanel) controlPanel.classList.remove('activated');
+    }
+
+    const anchor = document.getElementById('main-task-board');
+    const chatScroll = document.getElementById('chat-scroll');
+    if (anchor && chatScroll) anchor.appendChild(chatScroll);
+}
+
 function initV3Layout() {
     const initInput = document.getElementById('initial-task-input') as HTMLInputElement;
     if (initInput) {
@@ -183,17 +210,13 @@ function initV3Layout() {
                 } else {
                     vscode.postMessage({ type: 'newTaskWithText', text: taskText });
                 }
-                transitionToControlPanel();
+                showTaskView(true);
             }
         });
     }
 
     const newTaskBtn = document.getElementById('header-new-task');
-    if (newTaskBtn) {
-        newTaskBtn.addEventListener('click', () => {
-            vscode.postMessage({ type: 'newTask' });
-        });
-    }
+    if (newTaskBtn) newTaskBtn.addEventListener('click', () => vscode.postMessage({ type: 'newTask' }));
 
     const inlineInput = document.getElementById('inline-intervention-input') as HTMLInputElement;
     if (inlineInput) {
@@ -220,22 +243,9 @@ function initV3Layout() {
 
     const capsuleModel = document.getElementById('header-model-capsule');
     if (capsuleModel) capsuleModel.addEventListener('click', () => {
-        // toggle agent/model dropdown - reuse existing
         const agentBtn = document.getElementById('agent-dropdown-btn');
         if (agentBtn) agentBtn.click();
     });
-}
-
-function transitionToControlPanel() {
-    const initScreen = document.getElementById('init-screen');
-    const controlPanel = document.getElementById('control-panel');
-    if (!initScreen || !controlPanel) return;
-    initScreen.style.opacity = '0';
-    initScreen.style.transform = 'translateY(-30px)';
-    setTimeout(() => {
-        initScreen.style.display = 'none';
-        controlPanel.classList.add('activated');
-    }, 400);
 }
 
 function toggleTaskRow(header: HTMLElement) {
@@ -245,55 +255,37 @@ function toggleTaskRow(header: HTMLElement) {
 }
 (window as any).toggleTaskRow = toggleTaskRow;
 
-/* ========== V3: Update Stage Cards ========== */
+/* ========== V3: Stage Cards ========== */
 const STAGE_ORDER = ['demand', 'goal', 'plan', 'execute', 'verify', 'review'];
-const STAGE_LABELS: Record<string, string> = {
-    demand: '1. 需求提取 (REQUIREMENT)',
-    goal: '2. 目标锚定 (TARGET)',
-    plan: '3. 计划编排 (PLANNING)',
-    execute: '4. 代码执行 (EXECUTION)',
-    verify: '5. 自动化自验 (VERIFY)',
-    review: '6. 最终签署 (CLOSE)',
-};
 
 function updateRailAndStages(phase: string, status: string) {
     const idx = STAGE_ORDER.indexOf(phase);
-    const statusIdx = status === 'completed' ? 6
-        : status === 'cancelled' ? -1
-        : idx >= 0 ? idx : -1;
+    const statusIdx = status === 'completed' ? 6 : status === 'cancelled' ? -1 : idx >= 0 ? idx : -1;
 
-    // Update rail nodes
     document.querySelectorAll('.stage-node').forEach((el, i) => {
-        const stage = STAGE_ORDER[i] || '';
         el.classList.toggle('done', i < statusIdx);
         el.classList.toggle('active', i === statusIdx && status !== 'completed' && status !== 'cancelled');
     });
 
-    // Update rail track active height
     const track = document.getElementById('rail-track-active');
     if (track && statusIdx > 0) {
-        track.style.height = (40 + (statusIdx) * (26 + 38)) + 'px';
+        track.style.height = Math.min((40 + statusIdx * (26 + 38)), (40 + STAGE_ORDER.length * 26 + (STAGE_ORDER.length - 1) * 38)) + 'px';
     } else if (track && statusIdx === 0) {
-        track.style.height = '40px';
-        track.style.opacity = '0.3';
+        track.style.height = '40px'; track.style.opacity = '0.3';
     } else if (track) {
         track.style.height = '0';
     }
 
-    // Update stage cards
     document.querySelectorAll('.task-row').forEach((el) => {
-        const stage = (el as HTMLElement).dataset.stage || '';
-        const si = STAGE_ORDER.indexOf(stage);
+        const si = STAGE_ORDER.indexOf((el as HTMLElement).dataset.stage || '');
         const iconBox = el.querySelector('.status-icon-box') as HTMLElement;
         if (!iconBox) return;
-
         if (si < statusIdx) {
             iconBox.className = 'status-icon-box success';
             iconBox.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#04d361" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
         } else if (si === statusIdx && status !== 'completed' && status !== 'cancelled') {
             iconBox.className = 'status-icon-box running';
             iconBox.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#04d361" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
-            // Auto-expand active stage
             el.classList.add('expanded');
         } else {
             iconBox.className = 'status-icon-box pending';
@@ -301,38 +293,29 @@ function updateRailAndStages(phase: string, status: string) {
         }
     });
 
-    // Update header phase count
     const phaseCount = document.getElementById('header-phase-count');
     if (phaseCount) phaseCount.textContent = `${Math.max(0, statusIdx)}/6`;
 
-    // Duration updates
     if (phase) {
         const durEl = document.getElementById(`dur-${phase}`);
         if (durEl) durEl.textContent = '▶';
     }
 
-    // Show exec terminal & controls when in execute phase
-    const execTerminal = document.getElementById('exec-terminal');
-    const execControls = document.getElementById('exec-controls');
-    const execIntervention = document.getElementById('exec-intervention');
-    const execWarning = document.getElementById('exec-warning');
     if (phase === 'execute' || status === 'active') {
-        if (execWarning) execWarning.style.display = '';
-        if (execTerminal) execTerminal.style.display = '';
-        if (execControls) execControls.style.display = '';
-        if (execIntervention) execIntervention.style.display = '';
+        ['exec-warning', 'exec-terminal', 'exec-controls', 'exec-intervention'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = '';
+        });
     }
 }
 
-/* ========== V3: Update Monitor Tower ========== */
+/* ========== V3: Monitor Tower ========== */
 function updateMonitorTower(taskInfo: any, changes: any[]) {
-    // TODO section
     const todoList = document.getElementById('tower-todo-list');
     const todoEmpty = document.getElementById('tower-todo-empty');
     if (todoList && todoEmpty) {
-        const steps = (taskInfo?.planSteps || []);
         const allTodos = [
-            ...steps.map((s: any) => ({ text: s.content, done: s.status === 'completed' })),
+            ...(taskInfo?.planSteps || []).map((s: any) => ({ text: s.content, done: s.status === 'completed' })),
             ...(taskInfo?.todos || []).map((t: any) => ({ text: t.content, done: t.status === 'completed' })),
         ];
         if (allTodos.length > 0) {
@@ -340,47 +323,23 @@ function updateMonitorTower(taskInfo: any, changes: any[]) {
             todoList.innerHTML = allTodos.map((t: any) =>
                 `<div class="todo-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>${escapeHtml(t.text)}</div>`
             ).join('');
-        } else {
-            todoEmpty.style.display = '';
-            todoList.innerHTML = '';
-        }
+        } else { todoEmpty.style.display = ''; todoList.innerHTML = ''; }
     }
 
-    // DIFF section
     const diffList = document.getElementById('tower-diff-list');
     const diffEmpty = document.getElementById('tower-diff-empty');
     if (diffList && diffEmpty) {
         if (changes && changes.length > 0) {
             diffEmpty.style.display = 'none';
             diffList.innerHTML = changes.map((c: any) => {
-                const added = c.modified && !c.original ? 'new'
-                    : !c.modified ? 'del'
-                    : 'mod';
                 const lineCount = c.modified && c.original
                     ? `[+${c.modified.split('\n').length - c.original.split('\n').length}行]`
                     : c.modified ? '[+new]' : '[-del]';
                 return `<div class="diff-file-row"><span>📄 ${escapeHtml(c.filePath || '')}</span><span class="diff-add">${lineCount}</span></div>`;
             }).join('');
-        } else {
-            diffEmpty.style.display = '';
-            diffList.innerHTML = '';
-        }
+        } else { diffEmpty.style.display = ''; diffList.innerHTML = ''; }
     }
 }
-
-/* ========== V3: resetToInput ========== */
-(window as any).resetToInput = function resetToInput() {
-    const initScreen = document.getElementById('init-screen');
-    const controlPanel = document.getElementById('control-panel');
-    if (initScreen) { initScreen.style.display = ''; initScreen.style.opacity = '1'; initScreen.style.transform = ''; }
-    if (controlPanel) controlPanel.classList.remove('activated');
-    const initInput = document.getElementById('initial-task-input') as HTMLInputElement;
-    if (initInput) initInput.value = '';
-};
-
-let lastV3TaskInfo: any = null;
-let lastV3Changes: any[] = [];
-let _v3FirstLoad = true;
 
 function initMessageHandler() {
     window.addEventListener('message', (event) => {
@@ -396,48 +355,18 @@ function initMessageHandler() {
                 if (message.taskType === 'assistant') {
                     const tb = document.getElementById('task-board-task-name');
                     if (tb) tb.textContent = '🤖 小助手';
-                    // Skip transition on very first load (automatic startup assistant)
-                    // so user sees the init space instead
-                    if (!_v3FirstLoad) transitionToControlPanel();
-                    _v3FirstLoad = false;
+                    showAssistantView();
                     renderMessages(message.messages || []);
                     break;
                 }
-                if (message.taskId && message.taskType !== 'assistant') {
+                if (message.taskId) {
                     const tb = document.getElementById('task-board-task-name');
                     if (tb) tb.textContent = message.title || '任务';
-                    transitionToControlPanel();
+                    showTaskView(true);
                     updateRailAndStages(message.taskPhase || message.phase || '', message.taskStatus || message.status || '');
                 }
 
-                if (isCardMode) {
-                    const ca = (window as any).__cardApp;
-                    if (ca) {
-                        ca.updateInfo({
-                            taskId: message.taskId,
-                            phase: message.taskPhase || '',
-                            status: message.taskStatus || '',
-                            goal: '', title: '',
-                        });
-                        ca.updateHeader(message.title, message.taskStatus, message.category, '');
-                        if (message.reviewChanges && message.reviewChanges.length > 0) {
-                            ca.updateReview(message.reviewChanges);
-                        }
-                        ca.loadCardComments(message.messages || []);
-                        ca.showCardView();
-                        ca.renderCards();
-                    }
-                    renderMessages(message.messages);
-                    break;
-                }
-
                 renderAcpLog();
-                const gutter = document.getElementById('node-timeline-gutter');
-                if (gutter) gutter.classList.remove('hidden');
-                const outPanel = document.getElementById('right-output-panel');
-                if (outPanel) outPanel.style.display = '';
-                const extractBtn = document.getElementById('btn-knowledge-extract');
-                if (extractBtn) extractBtn.classList.remove('hidden');
                 if (message.reviewChanges && message.reviewChanges.length > 0) {
                     reviewChangesMap.set(message.taskId, message.reviewChanges);
                     lastReviewChanges = message.reviewChanges;
@@ -475,30 +404,6 @@ function initMessageHandler() {
                 if (message.taskType === 'assistant') {
                     const tb2 = document.getElementById('task-board-task-name');
                     if (tb2) tb2.textContent = '🤖 小助手';
-                    break;
-                }
-                if (isCardMode) {
-                    const ca = (window as any).__cardApp;
-                    if (ca) {
-                        ca.updateInfo({
-                            taskId: message.taskId,
-                            phase: message.phase || '',
-                            status: message.status || '',
-                            goal: message.goal || '',
-                            title: message.title || '',
-                            planSteps: message.planSteps,
-                            confirmedItems: message.confirmedItems,
-                            riskItems: message.riskItems,
-                            boundaryItems: message.boundaryItems,
-                            terminalLogCount: message.terminalLogCount,
-                            planVersion: message.planVersion,
-                            filePathsFromTools: message.filePathsFromTools,
-                        });
-                        ca.updateHeader(message.title, message.status, message.category, message.goal);
-                        ca.showCardView();
-                        ca.renderCards();
-                    }
-                    updateTaskInfo(message);
                     break;
                 }
                 const tb3 = document.getElementById('task-board-task-name');
@@ -1118,7 +1023,6 @@ function flushMerge() {
 
 let activeTaskId: string | null = null;
 let activeTaskStatus: string = '';
-const isCardMode: boolean = (document.getElementById('__viewdata')?.dataset.viewmode || 'chat') === 'card';
 let activeTaskType: string = '';
 let activeModelName: string = '';
 

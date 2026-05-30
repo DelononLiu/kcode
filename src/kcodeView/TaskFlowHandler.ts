@@ -146,7 +146,7 @@ export class TaskFlowHandler {
             acceptanceCriteria = cat?.acceptanceCriteria;
         }
 
-        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: task?.phase, taskStatus: 'in_review', viewMode: ctx.viewMode, reviewChanges: changes.length > 0 ? changes : undefined, acceptanceCriteria });
+        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: task?.phase, taskStatus: 'in_review', reviewChanges: changes.length > 0 ? changes : undefined, acceptanceCriteria });
         ctx.sendNodePanelUpdate(tid);
         ctx.refreshSidebarCallback?.();
     }
@@ -245,7 +245,7 @@ export class TaskFlowHandler {
         ctx.router.PostMessage({
             type: 'updateTaskInfo', taskId: taskId, title: task.title, goal: task.goal, goalHint: task.goal ? '🎯 ' + task.goal : '',
             status: task.status, phase: task.phase, phaseLabel: phaseLabels[task.phase] || task.phase,
-            taskType: task.type, category: task.category, viewMode: ctx.viewMode, createdAt: task.createdAt, pendingReviewFiles: 0,
+            taskType: task.type, category: task.category, createdAt: task.createdAt, pendingReviewFiles: 0,
             confirmedItems: task.confirmedItems, pendingItems: task.pendingItems, planSteps: task.planSteps,
             planVersion: task.planVersion || 1,
             riskItems: task.riskItems || [],
@@ -317,7 +317,7 @@ export class TaskFlowHandler {
         } else if (task?.category && task?.status === 'in_review') {
             acceptanceCriteria = getCategory(task.category)?.acceptanceCriteria;
         }
-        ctx.router.PostMessage({ type: 'loadMessages', messages, taskId, title: task?.title, taskType: task?.type, taskStatus: task?.status, taskPhase: task?.phase, category: task?.category, viewMode: ctx.viewMode, reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined, acceptanceCriteria });
+        ctx.router.PostMessage({ type: 'loadMessages', messages, taskId, title: task?.title, taskType: task?.type, taskStatus: task?.status, taskPhase: task?.phase, category: task?.category, reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined, acceptanceCriteria });
     }
 
     deriveNodes(taskId: string): ProgressNode[] {
@@ -363,7 +363,7 @@ export class TaskFlowHandler {
     }
 
     sendNodePanelUpdate(taskId: string) {
-        this.ctx.router.PostMessage({ type: 'updateNodePanel', nodes: this.deriveNodes(taskId), taskType: this.ctx.store.getTask(taskId)?.type || 'task', viewMode: this.ctx.viewMode });
+        this.ctx.router.PostMessage({ type: 'updateNodePanel', nodes: this.deriveNodes(taskId), taskType: this.ctx.store.getTask(taskId)?.type || 'task' });
     }
 
     private _syncTodosToPlanSteps(taskId: string) {

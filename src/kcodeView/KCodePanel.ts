@@ -27,7 +27,6 @@ export class KCodePanel {
     readonly assistantHandler: AssistantHandler;
     readonly pluginManager: PluginManager;
 
-    viewMode: 'chat' | 'card';
     currentTaskId: string | null = null;
     activeToolCalls: Map<string, ToolCallState> = new Map();
     isGenerating: boolean = false;
@@ -117,12 +116,11 @@ export class KCodePanel {
 
         this.sendSlashCommandList();
 
-        this.viewMode = vscode.workspace.getConfiguration('kcode').get<'chat' | 'card'>('viewMode', 'chat');
         this.panel.webview.html = this.getWebviewContent();
 
         const ctx: KCodePanelContext = {
             store: this.store, taskFlow: this.taskFlow, agentService: this.agentService, router: this.router,
-            currentTaskId: this.currentTaskId, viewMode: this.viewMode,
+            currentTaskId: this.currentTaskId,
             activeToolCalls: this.activeToolCalls,
             isGenerating: this.isGenerating, pendingMessages: this.pendingMessages,
             hasSetPlanMessage: this.hasSetPlanMessage, hasSetExecuteMessage: this.hasSetExecuteMessage,
@@ -241,14 +239,6 @@ export class KCodePanel {
         this.router.on('openTerminal', () => vscode.commands.executeCommand('workbench.action.terminal.new'));
         this.router.on('convertAssistantToTask', () => { this.assistantHandler.convertToTask(); });
         this.router.on('updateHooks', (msg) => { if (msg.phase && Array.isArray(msg.commands)) { this.store.updateTaskHooks(msg.taskId, msg.phase, msg.commands); this.flowHandler.sendTaskInfo(msg.taskId); } });
-        this.router.on('sendCardComment', (msg) => {
-            if (!msg.taskId || !msg.text) return;
-            const data = JSON.stringify({ cardIndex: msg.cardIndex, text: msg.text, author: '用户', version: 'V1.0' });
-            this.storeMessage(msg.taskId, 'user', data);
-            const msgId = this.store.nextMessageId(msg.taskId);
-            this.store.addMessage({ id: msgId, taskId: msg.taskId, role: 'user', type: 'card_comment', content: data, timestamp: Date.now() });
-            this.flowHandler.sendTaskMessages(msg.taskId);
-        });
         this.router.on('selectTask', (msg) => { this.loadTask(msg.taskId); this.refreshSidebarCallback?.(); });
         this.router.on('sendAssistantMessage', async (msg) => { await this.assistantHandler.handleMessage(msg.text); });
         this.router.on('slashCommand', async (msg) => { await this.handleSlashCommand(msg.text, msg.taskId); });
@@ -532,7 +522,7 @@ export class KCodePanel {
             { label: 'Kilo', type: 'kilo' },
             { label: 'OpenCode', type: 'opencode' },
         ];
-        return getTemplateHtml(this.panel.webview, this.context.extensionUri, agents, this.viewMode);
+        return getTemplateHtml(this.panel.webview, this.context.extensionUri, agents);
     }
 
     private async loadWorkspaceHooks(): Promise<Record<string, string[]>> {
