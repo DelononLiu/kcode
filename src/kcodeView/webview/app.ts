@@ -380,6 +380,7 @@ function updateMonitorTower(taskInfo: any, changes: any[]) {
 
 let lastV3TaskInfo: any = null;
 let lastV3Changes: any[] = [];
+let _v3FirstLoad = true;
 
 function initMessageHandler() {
     window.addEventListener('message', (event) => {
@@ -395,7 +396,10 @@ function initMessageHandler() {
                 if (message.taskType === 'assistant') {
                     const tb = document.getElementById('task-board-task-name');
                     if (tb) tb.textContent = '🤖 小助手';
-                    transitionToControlPanel();
+                    // Skip transition on very first load (automatic startup assistant)
+                    // so user sees the init space instead
+                    if (!_v3FirstLoad) transitionToControlPanel();
+                    _v3FirstLoad = false;
                     renderMessages(message.messages || []);
                     break;
                 }
