@@ -260,11 +260,7 @@ export function handleToolCallUpdate(msg: any) {
             const content = msg.content || msg.output || '';
             const tlBody = existingEntry.querySelector('.tl-entry-body');
             const preview = existingEntry.querySelector('.tl-thinking-preview') as HTMLElement | null;
-            if (content && !content.includes('\n')) {
-                if (tlBody) tlBody.classList.add('open');
-                if (preview) preview.classList.add('hidden');
-            } else if (content) {
-                if (tlBody) tlBody.classList.remove('open');
+            if (content) {
                 if (preview) {
                     preview.classList.remove('hidden');
                     preview.textContent = content.split('\n')[0].trim();

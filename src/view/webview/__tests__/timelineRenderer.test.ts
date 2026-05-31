@@ -116,14 +116,14 @@ describe('createTimelineEntry', () => {
         expect(wrap.querySelector('pre')?.textContent).toBe('output text');
     });
 
-    it('auto-expands for running status', () => {
+    it('collapsed by default for running status', () => {
         const entry = createTimelineEntry({ kind: 'bash', title: 'run', content: 'output', status: 'running' });
-        expect(entry.querySelector('.tl-entry-body')?.className).toContain('open');
+        expect(entry.querySelector('.tl-entry-body')?.className).not.toContain('open');
     });
 
-    it('auto-expands for failed status', () => {
+    it('collapsed by default for failed status', () => {
         const entry = createTimelineEntry({ kind: 'bash', title: 'run', content: 'error', status: 'failed' });
-        expect(entry.querySelector('.tl-entry-body')?.className).toContain('open');
+        expect(entry.querySelector('.tl-entry-body')?.className).not.toContain('open');
     });
 
     it('thinking entry shows preview for multi-line content', () => {
@@ -133,9 +133,9 @@ describe('createTimelineEntry', () => {
         expect(preview.textContent).toBe('第一行');
     });
 
-    it('single-line thinking is auto-expanded', () => {
+    it('single-line thinking is collapsed by default', () => {
         const entry = createTimelineEntry({ kind: 'thinking', title: '快速思考', content: '简短结论', status: 'completed' });
-        expect(entry.querySelector('.tl-entry-body')?.className).toContain('open');
+        expect(entry.querySelector('.tl-entry-body')?.className).not.toContain('open');
     });
 });
 
@@ -161,12 +161,12 @@ describe('createMergedTimelineEntry', () => {
         expect(body.textContent).toContain('bash output');
     });
 
-    it('auto-expands body for running tools', () => {
+    it('collapsed by default for running tools', () => {
         const entry = createMergedTimelineEntry(
             { title: '分析', content: '思考' },
             [{ kind: 'bash', title: 'run', content: 'output', status: 'running' }],
         );
-        expect(entry.querySelector('.tl-entry-body')?.className).toContain('open');
+        expect(entry.querySelector('.tl-entry-body')?.className).not.toContain('open');
     });
 });
 

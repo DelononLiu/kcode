@@ -90,9 +90,7 @@ export function createTimelineEntry(msg: any): HTMLElement {
         }
     }
 
-    const autoExpand = status === 'running' || status === 'pending' || status === 'failed' || status === 'error'
-        || (tlKind === 'thinking' && output && !output.includes('\n'));
-    if (output && autoExpand) body.classList.add('open');
+
 
     header.appendChild(iconEl);
     header.appendChild(titleEl);
@@ -118,11 +116,6 @@ export function createTimelineEntry(msg: any): HTMLElement {
     togglers.push(toggleBody);
 
     header.addEventListener('click', () => togglers.forEach(fn => fn()));
-
-    if (tlKind === 'thinking' && output && !output.includes('\n')) {
-        body.classList.add('open');
-        if (preview) preview.classList.add('hidden');
-    }
 
     main.appendChild(header);
     if (preview) main.appendChild(preview);
@@ -192,10 +185,6 @@ export function createMergedTimelineEntry(thinkingMsg: any, tools: any[]): HTMLE
         }
     }
 
-    if (status === 'running' || status === 'pending' || status === 'failed' || status === 'error') {
-        body.classList.add('open');
-    }
-
     header.appendChild(iconEl);
     header.appendChild(titleEl);
 
@@ -206,7 +195,6 @@ export function createMergedTimelineEntry(thinkingMsg: any, tools: any[]): HTMLE
     main.appendChild(header);
 
     const thinkingOutput = thinkingMsg.content || '';
-    const hasOneLine = thinkingOutput && !thinkingOutput.includes('\n');
     let preview: HTMLElement | null = null;
     if (thinkingOutput) {
         const lines = thinkingOutput.split('\n');
@@ -229,11 +217,6 @@ export function createMergedTimelineEntry(thinkingMsg: any, tools: any[]): HTMLE
     main.appendChild(body);
     entry.appendChild(bar);
     entry.appendChild(main);
-
-    if (hasOneLine) {
-        body.classList.add('open');
-        if (preview) preview.classList.add('hidden');
-    }
 
     return entry;
 }
