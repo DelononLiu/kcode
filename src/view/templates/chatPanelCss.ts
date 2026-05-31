@@ -28,6 +28,7 @@ export function getInlineStyles(): string {
 
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:var(--text-main);background:var(--bg-deep)}
+.hidden{display:none}
 
 /* ========== Shared #chat-scroll ========== */
 #chat-scroll{overflow-y:auto;position:relative;min-height:0}
@@ -253,6 +254,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
 /* When chat-scroll is inside #chat-body (assistant view) */
 #assistant-view #chat-scroll{flex:1;overflow-y:auto;min-height:0;background:var(--bg-deep);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
+#assistant-view #chat-scroll.chat-empty{display:none}
 #assistant-view #chat-messages{padding:0 24px 0 38px;min-height:100%;max-width:900px;margin:0 auto}
 
 /* When chat-scroll is inside main-task-board (task view) */

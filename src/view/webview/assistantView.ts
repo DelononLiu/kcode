@@ -12,6 +12,8 @@ export function showAssistantView(): void {
     const chatBody = document.getElementById('chat-body');
     const chatScroll = document.getElementById('chat-scroll');
     if (chatBody && chatScroll) chatBody.appendChild(chatScroll);
+    const titleEl = document.querySelector('.task-info-title');
+    if (titleEl) titleEl.textContent = '🤖 小助手';
 }
 
 let _agentSelectorInited = false;

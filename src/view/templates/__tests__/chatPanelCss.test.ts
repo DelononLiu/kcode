@@ -76,4 +76,18 @@ describe('getInlineStyles', () => {
         expect(css).toContain('.demo-card-status-badge.completed');
         expect(css).toContain('.demo-card-status-badge.failed');
     });
+
+    it('has global .hidden rule to hide elements', () => {
+        const css = getInlineStyles();
+        const rule = findRule(css, '.hidden');
+        expect(rule).not.toBeNull();
+        expect(rule).toContain('display:none');
+    });
+
+    it('chat-scroll inside assistant-view is hidden when empty', () => {
+        const css = getInlineStyles();
+        const rule = findRule(css, '#assistant-view #chat-scroll.chat-empty');
+        expect(rule).not.toBeNull();
+        expect(rule).toContain('display:none');
+    });
 });
