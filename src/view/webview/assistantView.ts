@@ -10,9 +10,15 @@ export function showAssistantView(): void {
     if (taskView) taskView.style.display = 'none';
     if (assistantView) assistantView.style.display = 'block';
     const titleEl = document.querySelector('.task-info-title');
-    if (titleEl) titleEl.textContent = '🤖 小助手';
+    if (titleEl) titleEl.textContent = '🤖 KCode 小助手';
     const sloganEl = document.getElementById('chat-header-slogan');
     if (sloganEl) sloganEl.classList.remove('hidden');
+    const headerSub = document.getElementById('chat-header-sub');
+    if (headerSub) headerSub.classList.add('hidden');
+    const headerRow3 = document.getElementById('chat-header-row3');
+    if (headerRow3) headerRow3.classList.add('hidden');
+    const headerAssistant = document.getElementById('chat-header-row-assistant');
+    if (headerAssistant) headerAssistant.classList.remove('hidden');
 }
 
 let _agentSelectorInited = false;

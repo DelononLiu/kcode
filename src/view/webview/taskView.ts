@@ -9,6 +9,12 @@ export function showTaskView(asControlPanel: boolean = false): void {
     const taskView = document.getElementById('task-view');
     if (assistantView) assistantView.style.display = 'none';
     if (taskView) taskView.style.display = 'block';
+    const headerSub = document.getElementById('chat-header-sub');
+    if (headerSub) headerSub.classList.remove('hidden');
+    const headerAssistant = document.getElementById('chat-header-row-assistant');
+    if (headerAssistant) headerAssistant.classList.add('hidden');
+    const headerRow3 = document.getElementById('chat-header-row3');
+    if (headerRow3) headerRow3.classList.remove('hidden');
 
     const initScreen = document.getElementById('init-screen');
     const controlPanel = document.getElementById('control-panel');

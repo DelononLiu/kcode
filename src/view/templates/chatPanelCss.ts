@@ -443,14 +443,14 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #assistant-view #chat-area{position:relative;flex:1;display:flex;flex-direction:column;min-width:300px;background:var(--bg-deep)}
 #assistant-view #chat-header{flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);width:100%;max-width:900px;margin:0 auto}
 #assistant-view #chat-header.assistant-header{height:46px;overflow:hidden}
-#assistant-view #chat-header-row1{display:flex;align-items:center;gap:8px;padding:8px 24px 0}
-#assistant-view .task-info-title{font-size:14px;font-weight:600;color:#e0e0e0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+#assistant-view #chat-header-row1{display:flex;align-items:center;gap:8px;padding:16px 24px 4px}
+#assistant-view .task-info-title{font-size:14px;font-weight:600;color:#e0e0e0;white-space:nowrap}
 #assistant-view .task-status-badge{font-size:10px;padding:1px 7px;border-radius:3px;background:rgba(255,255,255,.06);color:#888;flex-shrink:0;white-space:nowrap}
 #assistant-view .task-status-badge.hidden{display:none}
 #assistant-view .task-model-badge{font-size:10px;padding:1px 7px;border-radius:3px;background:rgba(74,139,181,.12);color:#5a9bc8;flex-shrink:0;white-space:nowrap;font-weight:500}
 #assistant-view .task-model-badge.hidden{display:none}
-#assistant-view #chat-header-sub{display:flex;align-items:center;gap:8px;font-size:10px;color:#555;padding:0 24px 4px;flex-wrap:wrap}
-#assistant-view #chat-header-slogan{display:flex;align-items:center;gap:8px;font-size:10px;color:#555;padding:0 24px 4px;flex-wrap:wrap;line-height:1.4}
+#assistant-view #chat-header-sub{display:flex;align-items:center;gap:8px;font-size:10px;color:#555;padding:4px 24px 6px;flex-wrap:wrap}
+#assistant-view #chat-header-slogan{font-size:11px;color:#777;white-space:nowrap}
 #assistant-view #chat-header-slogan.hidden{display:none}
 #assistant-view #chat-header-row2{display:flex;align-items:center;gap:6px;padding:2px 24px;background:rgba(78,201,176,.03)}
 #assistant-view #chat-header-row2.hidden{display:none}
@@ -486,9 +486,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #task-view #chat-messages{max-width:100%;padding:0}
 
 #assistant-view #chat-bottom{margin-top:auto}
-#assistant-view #chat-toolbar{display:flex;gap:4px;padding:8px 12px;background:var(--bg-deep);flex-shrink:0;justify-content:center;max-width:900px;margin:0 auto}
-#assistant-view .toolbar-btn{background:transparent;border:none;color:#aaa;cursor:pointer;font-size:11px;padding:3px 10px;border-radius:3px;white-space:nowrap}
-#assistant-view .toolbar-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
+#assistant-view #near-input-tools{display:flex;gap:8px;padding:0 0 8px;flex-shrink:0;flex-wrap:wrap;max-width:900px;margin:0 auto}
+#assistant-view .near-tool-btn{background:transparent;border:none;color:#888;cursor:pointer;font-size:11px;padding:2px 8px;border-radius:3px;white-space:nowrap;display:flex;align-items:center;gap:4px}
+#assistant-view .near-tool-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
 #assistant-view #chat-input-area{border-top:1px solid rgba(255,255,255,.06);padding:12px 24px 10px;background:var(--bg-deep);flex-shrink:0;max-width:900px;margin:0 auto;width:100%}
 #assistant-view #system-narration{max-width:900px;margin:0 auto;width:100%;padding:6px 24px 0;font-size:12px;color:#888;display:flex;align-items:center;gap:6px;flex-shrink:0}
 #assistant-view #system-narration.hidden{display:none}
@@ -521,6 +521,13 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #assistant-view .agent-model{font-size:10px;color:#888}
 
 #assistant-view #input-template-bar{display:inline-flex;align-items:center;gap:3px}
+#assistant-view .shortcut-hint{font-size:11px;color:#888;display:flex;align-items:center;gap:4px}
+#assistant-view .shortcut-hint code{font-family:monospace;font-size:10.5px;background:rgba(255,255,255,.04);padding:1px 5px;border-radius:3px;color:#666}
+#assistant-view #chat-header-row-assistant{display:flex;align-items:center;gap:6px;font-size:11px;color:#777;padding:4px 24px 8px;flex-wrap:wrap;font-family:'Fira Code',monospace}
+#assistant-view #chat-header-row-assistant.hidden{display:none}
+#assistant-view #chat-header-row-assistant strong{color:#bbb;font-weight:500}
+#assistant-view #chat-header-row-assistant .header-sep{color:#444;font-size:10px}
+#assistant-view #header-codemap-status{color:#2fa87b}
 #assistant-view .template-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;font-size:12px;color:#666;background:rgba(255,255,255,.03);border-radius:3px;cursor:pointer;user-select:none;transition:all .15s;font-family:inherit;line-height:1.5;white-space:nowrap}
 #assistant-view .template-chip:hover{color:#bbb;background:rgba(255,255,255,.07)}
 #assistant-view .template-chip.active{color:#4a8bb5;background:rgba(74,139,181,.15)}

@@ -108,7 +108,7 @@ describe('updateLastMsgConvertBtn', () => {
 
         const btn = row.querySelector('.convert-task-btn')!;
         expect(btn).toBeTruthy();
-        expect(btn.textContent).toBe('转为任务');
+        expect(btn.textContent).toBe('🌿 转为任务');
     });
 
     it('does not add button for non-assistant task type', () => {

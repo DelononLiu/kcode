@@ -24,9 +24,9 @@ describe('showAssistantView', () => {
         expect(assistantView.style.display).toBe('block');
     });
 
-    it('sets task-info-title to 🤖 小助手', () => {
+    it('sets task-info-title to 🤖 KCode 小助手', () => {
         (window as any).__assistantView.showAssistantView();
         const titleEl = document.querySelector('.task-info-title')!;
-        expect(titleEl.textContent).toBe('🤖 小助手');
+        expect(titleEl.textContent).toBe('🤖 KCode 小助手');
     });
 });

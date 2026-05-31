@@ -41,6 +41,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             <div id="chat-header">
                 <div id="chat-header-row1">
                     <span class="task-info-title">选择任务开始对话</span>
+                    <span id="chat-header-slogan" class="hidden">专业陪聊 · 答疑解惑 · 出谋划策 · 代码评审</span>
                     <span id="task-status-badge" class="task-status-badge hidden"></span>
                     <span id="task-model-badge" class="task-model-badge hidden"></span>
                 </div>
@@ -49,7 +50,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     <span id="task-info-sep" class="hidden">|</span>
                     <span id="task-info-review"></span>
                 </div>
-                <div id="chat-header-slogan" class="hidden">专业陪聊 · 答疑解惑 · 出谋划策 · 代码评审 · 技术调研 · 问题分析</div>
                 <div id="chat-header-row2" class="hidden">
                     <span class="header-label">🎯</span>
                     <span id="goal-header-text" class="goal-header-text"></span>
@@ -70,6 +70,13 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     <button id="hooks-edit-btn" class="hooks-edit-btn" title="编辑阶段提示词">⚙️</button>
                     <span id="hooks-count" class="hooks-count hidden"></span>
                     <button id="terminal-replay-btn" class="hooks-edit-btn hidden" title="终端日志重放">💻 终端</button>
+                </div>
+                <div id="chat-header-row-assistant" class="hidden">
+                    <span>智能体: <strong id="header-agent-name">-</strong></span>
+                    <span class="header-sep">|</span>
+                    <span>驱动模型: <strong id="header-model-name">-</strong></span>
+                    <span class="header-sep">|</span>
+                    <span id="header-codemap-status">Codewiki: 已连接</span>
                 </div>
                 <div id="hooks-editor" class="hooks-editor hidden">
                     <div class="hooks-editor-header">
@@ -105,12 +112,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             </div>
 
             <div id="chat-bottom">
-                <div id="chat-toolbar">
-                    <button id="btn-knowledge-extract" class="toolbar-btn hidden" title="从当前任务萃取知识">📚 知识萃取</button>
-                    <button id="acp-log-btn" class="toolbar-btn" title="查看 ACP 协议日志">🔍 查看日志</button>
-                    <button id="btn-terminal" class="toolbar-btn" title="打开终端">💻 打开终端</button>
-                    <button id="btn-plugin-manager" class="toolbar-btn" title="插件管理">🔌 插件</button>
-                </div>
                 <div id="chat-input-area">
                     <div id="queue-bar" class="hidden">
                         <div class="queue-header" id="queue-header">
@@ -121,8 +122,14 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                         <div id="queue-list" class="hidden"></div>
                     </div>
                     <div id="system-narration" class="hidden"></div>
+                    <div id="near-input-tools">
+                        <button id="btn-knowledge-extract" class="near-tool-btn hidden" title="从当前任务萃取知识">📚 知识萃取</button>
+                        <button id="acp-log-btn" class="near-tool-btn" title="查看 ACP 协议日志">🔍 查看日志</button>
+                        <button id="btn-terminal" class="near-tool-btn" title="打开终端">💻 打开终端</button>
+                        <button id="btn-plugin-manager" class="near-tool-btn" title="插件管理">🔌 插件</button>
+                    </div>
                     <div class="input-wrapper">
-                        <textarea id="chat-input" placeholder="提出后续修改要求"></textarea>
+                        <textarea id="chat-input" placeholder="提出后续修改要求... 键入 /agent 或 /model 快捷切换后台引擎"></textarea>
                         <div class="input-footer">
                             <div class="input-footer-left">
                                 <span id="agent-status-dot" class="status-dot offline"></span>
@@ -141,7 +148,9 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                                     <ul class="agent-dropdown-list hidden" id="model-dropdown-list"></ul>
                                 </div>
                             </div>
-                            <div id="input-template-bar" class="input-footer-center"></div>
+                            <div id="input-template-bar" class="input-footer-center">
+                                <span class="shortcut-hint">快捷指令: <code>/agent</code> <code>/model</code></span>
+                            </div>
                             <div class="input-footer-right">
                                 <button class="input-tool-btn image-btn" title="图片">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/><circle cx="5" cy="6" r="1.5" fill="currentColor"/><path d="M1.5 11l3.5-3 2.5 2 3-3 3.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>

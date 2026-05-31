@@ -300,6 +300,7 @@ function initMessageHandler() {
                 G.categoryDefs = message.categories;
                 initTemplateChips();
                 break;
+
             case 'startTemplateFlow':
                 renderCategorySelection();
                 break;

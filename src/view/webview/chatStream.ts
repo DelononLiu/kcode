@@ -82,7 +82,7 @@ export function updateLastMsgConvertBtn() {
     const btn = document.createElement('button');
     btn.className = 'convert-task-btn';
     btn.title = '将当前对话转为正式任务';
-    btn.textContent = '转为任务';
+    btn.textContent = '🌿 转为任务';
     btn.addEventListener('click', () => {
         G.vscode.postMessage({ type: 'convertAssistantToTask' });
     });
@@ -181,6 +181,13 @@ export function handleAgentStatus(status: string, message: string, agentName: st
                 modelBadge.textContent = modelName;
                 modelBadge.classList.remove('hidden');
             }
+        }
+        const headerAgentName = document.getElementById('header-agent-name');
+        if (headerAgentName) headerAgentName.textContent = agentName;
+        const headerModelName = document.getElementById('header-model-name');
+        if (headerModelName && modelName) {
+            headerModelName.textContent = truncateModel(modelName);
+            headerModelName.title = modelName;
         }
     }
 }
