@@ -118,7 +118,7 @@ describe('addMessageElement', () => {
         addMessageElement({ role: 'user', content: 'hello', id: 'm1' });
         const msgDiv = document.querySelector('.chat-msg.user')!;
         expect(msgDiv).toBeTruthy();
-        expect(msgDiv.dataset.msgId).toBe('m1');
+        expect((msgDiv as HTMLElement).dataset.msgId).toBe('m1');
     });
 
     it('renders agent message element', () => {
@@ -156,7 +156,7 @@ describe('addMessageElement', () => {
         addMessageElement({ role: 'tool', content: toolContent, id: 'm6' });
         const card = document.querySelector('.msg-card')!;
         expect(card).toBeTruthy();
-        expect(card.dataset.toolKind).toBe('bash');
+        expect((card as HTMLElement).dataset.toolKind).toBe('bash');
     });
 });
 

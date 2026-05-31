@@ -82,7 +82,7 @@ describe('renderToolBubbleContent', () => {
         renderToolBubbleContent(bubble, { kind: 'thinking', title: '思考中', content: '思考内容', status: 'completed' });
         const card = bubble.querySelector('.msg-card')!;
         expect(card).toBeTruthy();
-        expect(card.dataset.toolKind).toBe('thinking');
+        expect((card as HTMLElement).dataset.toolKind).toBe('thinking');
         expect(bubble.textContent).toContain('思考');
     });
 
@@ -91,7 +91,7 @@ describe('renderToolBubbleContent', () => {
         renderToolBubbleContent(bubble, { kind: 'bash', title: 'ls -la', content: 'file1\nfile2', status: 'completed' });
         const card = bubble.querySelector('.msg-card')!;
         expect(card).toBeTruthy();
-        expect(card.dataset.toolKind).toBe('bash');
+        expect((card as HTMLElement).dataset.toolKind).toBe('bash');
         expect(bubble.textContent).toContain('ls -la');
     });
 
@@ -100,7 +100,7 @@ describe('renderToolBubbleContent', () => {
         renderToolBubbleContent(bubble, { kind: 'write', title: 'src/file.ts', content: '<content>written</content>', status: 'completed' });
         const card = bubble.querySelector('.msg-card')!;
         expect(card).toBeTruthy();
-        expect(card.dataset.toolKind).toBe('write');
+        expect((card as HTMLElement).dataset.toolKind).toBe('write');
         const pre = card.querySelector('pre')!;
         expect(pre.textContent).toBe('written');
     });

@@ -121,9 +121,9 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ && node scripts/build-webview.js",
+    "compile": "tsc -p tsconfig.build.json && node scripts/build-webview.js",
     "watch": "tsc -watch -p ./",
-    "test": "vitest run",
+    "test": "tsc --noEmit && vitest run",
     "test:watch": "vitest",
     "lint": "eslint src --ext .ts",
     "package": "npx @vscode/vsce package --allow-missing-repository",
