@@ -8,7 +8,7 @@ export function showAssistantView(): void {
     const taskView = document.getElementById('task-view');
     const assistantView = document.getElementById('assistant-view');
     if (taskView) taskView.style.display = 'none';
-    if (assistantView) assistantView.style.display = '';
+    if (assistantView) assistantView.style.display = 'block';
     const chatBody = document.getElementById('chat-body');
     const chatScroll = document.getElementById('chat-scroll');
     if (chatBody && chatScroll) chatBody.appendChild(chatScroll);

@@ -187,8 +187,11 @@ function initMessageHandler() {
                 if (message.taskId) {
                     const tb = document.getElementById('task-board-task-name');
                     if (tb) tb.textContent = message.title || '任务';
-                    showTaskView(true);
-                    updateRailAndStages(message.taskPhase || message.phase || '', message.taskStatus || message.status || '');
+                    const hasContent = message.messages && message.messages.length > 0;
+                    showTaskView(hasContent);
+                    if (hasContent) {
+                        updateRailAndStages(message.taskPhase || message.phase || '', message.taskStatus || message.status || '');
+                    }
                 }
 
                 renderAcpLog();

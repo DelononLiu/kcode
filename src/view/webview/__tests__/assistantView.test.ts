@@ -21,7 +21,7 @@ describe('showAssistantView', () => {
         const taskView = document.getElementById('task-view')!;
         const assistantView = document.getElementById('assistant-view')!;
         expect(taskView.style.display).toBe('none');
-        expect(assistantView.style.display).toBe('');
+        expect(assistantView.style.display).toBe('block');
     });
 
     it('moves chat-scroll into chat-body', () => {

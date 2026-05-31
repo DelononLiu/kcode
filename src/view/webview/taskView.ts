@@ -6,7 +6,7 @@ export function showTaskView(asControlPanel: boolean = false): void {
     const assistantView = document.getElementById('assistant-view');
     const taskView = document.getElementById('task-view');
     if (assistantView) assistantView.style.display = 'none';
-    if (taskView) taskView.style.display = '';
+    if (taskView) taskView.style.display = 'block';
 
     const initScreen = document.getElementById('init-screen');
     const controlPanel = document.getElementById('control-panel');
