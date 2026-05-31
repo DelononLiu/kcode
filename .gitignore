@@ -3,5 +3,7 @@ out/
 *.vsix
 .vscode/
 *.vsix
-# .kilo — tracked for project configuration and tasks.md
+
 agent-manager.json
+
+.codegraph

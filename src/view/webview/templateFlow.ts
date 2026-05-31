@@ -191,38 +191,8 @@ export function startTaskFromForm(template: any, formFields: Record<string, stri
 
 export function initTemplateChips() {
     const bar = document.getElementById('input-template-bar');
-    if (!bar || !G.categoryDefs || G.categoryDefs.length === 0) return;
+    if (!bar) return;
     bar.innerHTML = '';
-    const importChip = document.createElement('span');
-    importChip.className = 'template-chip import-chip';
-    importChip.innerHTML = '<span class="tmpl-icon">⤓</span> 导入任务';
-    importChip.addEventListener('click', () => {
-        G.selectedCategory = null;
-        bar.querySelectorAll('.template-chip').forEach(c => c.classList.remove('active'));
-        G.vscode.postMessage({ type: 'importGitHubIssue' });
-    });
-    bar.appendChild(importChip);
-    const sep = document.createElement('span');
-    sep.className = 'template-chip-sep';
-    sep.textContent = '|';
-    bar.appendChild(sep);
-    for (const cat of G.categoryDefs) {
-        const chip = document.createElement('span');
-        chip.className = 'template-chip' + (G.selectedCategory === cat.key ? ' active' : '');
-        chip.innerHTML = `<span class="tmpl-icon">${cat.icon}</span> ${cat.label}`;
-        chip.addEventListener('click', () => {
-            if (G.selectedCategory === cat.key) {
-                G.selectedCategory = null;
-                bar.querySelectorAll('.template-chip').forEach(c => c.classList.remove('active'));
-            } else {
-                G.selectedCategory = cat.key;
-                G.selectedSubType = null;
-                bar.querySelectorAll('.template-chip').forEach(c => c.classList.remove('active'));
-                chip.classList.add('active');
-            }
-        });
-        bar.appendChild(chip);
-    }
 }
 
 export function focusChatInput() {

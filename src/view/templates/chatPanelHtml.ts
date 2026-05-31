@@ -179,9 +179,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             <span class="enter-badge">↵ Enter 下达任务</span>
         </div>
         <div class="init-hint">
-            <span><span style="color:var(--warning)">✳</span> 需求开发</span>
-            <span>● 问题分析</span>
-            <span>◌ 代码评审</span>
             <span>⟲ 返回大本营</span>
         </div>
     </div>
