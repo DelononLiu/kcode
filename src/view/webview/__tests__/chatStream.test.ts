@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { G } from '../state';
-import { __resetStream, showAgentThinking, hideWorkingIndicator, updateWorkingIndicator, appendToChatMessages, updateLastMsgConvertBtn } from '../chatStream';
+import { showAgentThinking, updateWorkingIndicator, appendToChatMessages, updateLastMsgConvertBtn } from '../chatStream';
 
 function setupDom() {
     document.body.innerHTML = `
@@ -23,14 +23,6 @@ function setupDom() {
     G.vscode = { postMessage: vi.fn() } as any;
 }
 
-describe('__resetStream', () => {
-    it('clears streamMessageEl', () => {
-        G.streamMessageEl = document.createElement('div');
-        __resetStream();
-        expect(G.streamMessageEl).toBeNull();
-    });
-});
-
 describe('showAgentThinking', () => {
     beforeEach(setupDom);
 
@@ -40,17 +32,6 @@ describe('showAgentThinking', () => {
         expect(indicator.className).not.toContain('hidden');
         const placeholder = document.querySelector('.chat-placeholder');
         expect(placeholder).toBeFalsy();
-    });
-});
-
-describe('hideWorkingIndicator', () => {
-    beforeEach(setupDom);
-
-    it('hides working indicator', () => {
-        const indicator = document.getElementById('working-indicator')!;
-        indicator.classList.remove('hidden');
-        hideWorkingIndicator();
-        expect(indicator.className).toContain('hidden');
     });
 });
 

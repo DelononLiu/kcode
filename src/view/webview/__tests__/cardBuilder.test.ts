@@ -1,15 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { createCard, createCardMessageElement, createCopyButton } from '../cardBuilder';
+import { createCard, createCardMessageElement } from '../cardBuilder';
 
-describe('createCopyButton', () => {
-    it('creates button with correct classes and attributes', () => {
-        const btn = createCopyButton('test text');
-        expect(btn.className).toBe('copy-msg-btn');
-        expect(btn.title).toBe('复制内容');
-        expect(btn.querySelector('svg')).toBeTruthy();
-    });
-});
+
 
 describe('createCardMessageElement', () => {
     it('creates agent message wrapper', () => {

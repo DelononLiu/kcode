@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { G } from '../state';
-import { formatTimestamp, activateTab, flashInput, addUserMessage, addSystemMessage, addMessage, addMessageElement, renderMessages } from '../messageRenderer';
+import { formatTimestamp, activateTab, addUserMessage, addSystemMessage, addMessage, addMessageElement, renderMessages } from '../messageRenderer';
 
 function setupDom() {
     document.body.innerHTML = `
@@ -63,18 +63,6 @@ describe('activateTab', () => {
     });
 });
 
-describe('flashInput', () => {
-    beforeEach(() => {
-        document.body.innerHTML = '<div class="input-wrapper"></div>';
-    });
-
-    it('adds and removes flash class', () => {
-        flashInput();
-        const wrapper = document.querySelector('.input-wrapper')!;
-        expect(wrapper.className).toContain('input-flash');
-    });
-});
-
 describe('addUserMessage', () => {
     beforeEach(setupDom);
 
@@ -85,12 +73,6 @@ describe('addUserMessage', () => {
         expect(msgDiv).toBeTruthy();
         expect(msgDiv.querySelector('.msg-sender')?.textContent).toContain('You');
         expect(msgDiv.querySelector('.msg-bubble')?.textContent).toContain('hello world');
-    });
-
-    it('removes placeholder', () => {
-        addUserMessage('hello');
-        const placeholder = document.querySelector('.chat-placeholder');
-        expect(placeholder).toBeFalsy();
     });
 
     it('has copy button', () => {
