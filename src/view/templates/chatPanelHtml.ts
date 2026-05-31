@@ -126,30 +126,12 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                         <button id="btn-knowledge-extract" class="near-tool-btn hidden" title="从当前任务萃取知识">📚 知识萃取</button>
                         <button id="acp-log-btn" class="near-tool-btn" title="查看 ACP 协议日志">🔍 查看日志</button>
                         <button id="btn-terminal" class="near-tool-btn" title="打开终端">💻 打开终端</button>
-                        <button id="btn-plugin-manager" class="near-tool-btn" title="插件管理">🔌 插件</button>
                     </div>
                     <div class="input-wrapper">
-                        <textarea id="chat-input" placeholder="提出后续修改要求... 键入 /agent 或 /model 快捷切换后台引擎"></textarea>
+                        <textarea id="chat-input" placeholder="向小助手描述你的问题..."></textarea>
                         <div class="input-footer">
                             <div class="input-footer-left">
-                                <span id="agent-status-dot" class="status-dot offline"></span>
-                                <div class="agent-dropdown" id="agent-dropdown">
-                                    <button class="agent-dropdown-btn pill-btn" id="agent-dropdown-btn">
-                                        <span id="agent-dropdown-label">Agent</span>
-                                        <svg class="agent-dropdown-arrow" width="8" height="5" viewBox="0 0 8 5"><path d="M1 1l3 3 3-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                    </button>
-                                    <ul class="agent-dropdown-list hidden" id="agent-dropdown-list"></ul>
-                                </div>
-                                <div class="agent-dropdown" id="model-dropdown">
-                                    <button class="agent-dropdown-btn pill-btn" id="model-dropdown-btn">
-                                        <span id="model-dropdown-label">模型</span>
-                                        <svg class="agent-dropdown-arrow" width="8" height="5" viewBox="0 0 8 5"><path d="M1 1l3 3 3-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                    </button>
-                                    <ul class="agent-dropdown-list hidden" id="model-dropdown-list"></ul>
-                                </div>
-                            </div>
-                            <div id="input-template-bar" class="input-footer-center">
-                                <span class="shortcut-hint">快捷指令: <code>/agent</code> <code>/model</code></span>
+                                <span class="shortcut-hint">快捷指令: <code>/tasks</code> <code>/next</code> <code>/models</code></span>
                             </div>
                             <div class="input-footer-right">
                                 <button class="input-tool-btn image-btn" title="图片">
@@ -197,9 +179,9 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         <header class="header">
             <div class="header-title">
                 ${svgIcon('cube')}
-                <strong>KCODE 任务面板</strong>
+                <strong>KCode 任务面板</strong>
             </div>
-            <span class="status-pill"><span style="animation:spin 2s linear infinite;display:inline-block">◌</span> <span id="header-status-text">任务攻坚中</span></span>
+            <span class="status-pill"><span style="animation:spin 2s linear infinite;display:inline-block">◌</span> <span id="header-status-text">任务攻坚中</span></span>Code
             <div class="header-meta-controls">
                 <span class="header-capsule active" id="header-mode-capsule">✳ 需求开发</span>
                 <span class="header-capsule" id="header-model-capsule">模型: Kilo</span>

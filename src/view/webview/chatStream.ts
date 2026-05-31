@@ -149,39 +149,20 @@ export function handleAgentStreamUpdate(text: string) {
 }
 
 export function handleAgentStatus(status: string, message: string, agentName: string, modelName?: string) {
-    const statusDot = document.getElementById('agent-status-dot');
-    if (statusDot) {
-        statusDot.className = 'status-dot ' + (status === 'connected' ? 'online' : 'offline');
-        statusDot.title = message;
-    }
     const headerDot = document.getElementById('header-agent-dot');
     if (headerDot) {
         headerDot.className = 'agent-dot ' + (status === 'connected' ? 'online' : 'offline');
         headerDot.title = message;
     }
-    const label = document.getElementById('agent-dropdown-label');
-    const list = document.getElementById('agent-dropdown-list');
-    const modelLabel = document.getElementById('model-dropdown-label');
-    if (!label || !list) return;
+    if (modelName) {
+        G.activeModelName = modelName;
+        const modelBadge = document.getElementById('task-model-badge');
+        if (modelBadge && G.activeTaskType === 'assistant') {
+            modelBadge.textContent = modelName;
+            modelBadge.classList.remove('hidden');
+        }
+    }
     if (status === 'connected') {
-        const activeItem = list.querySelector(`.agent-dropdown-item[data-value="${agentName}"]`) as HTMLElement;
-        const displayName = activeItem?.querySelector('.agent-name')?.textContent || agentName;
-        label.textContent = displayName;
-        list.querySelectorAll('.agent-dropdown-item').forEach(el => {
-            el.classList.toggle('active', (el as HTMLElement).dataset.value === agentName);
-        });
-        if (modelLabel && modelName) {
-            modelLabel.textContent = truncateModel(modelName);
-            modelLabel.title = modelName;
-        }
-        if (modelName) {
-            G.activeModelName = modelName;
-            const modelBadge = document.getElementById('task-model-badge');
-            if (modelBadge && G.activeTaskType === 'assistant') {
-                modelBadge.textContent = modelName;
-                modelBadge.classList.remove('hidden');
-            }
-        }
         const headerAgentName = document.getElementById('header-agent-name');
         if (headerAgentName) headerAgentName.textContent = agentName;
         const headerModelName = document.getElementById('header-model-name');

@@ -186,7 +186,7 @@ export function renderMessages(messages: any[]) {
     document.getElementById('chat-body')?.classList.remove('showing-categories');
     const chatHeader = document.getElementById('chat-header');
     if (chatHeader) chatHeader.style.display = '';
-    if (inputEl) inputEl.placeholder = '提出后续修改要求';
+    if (inputEl) inputEl.placeholder = G.activeTaskType === 'assistant' ? '向小助手描述你的问题...' : '提出后续修改要求';
 
     const changedFilesMap = new Map<number, string[]>();
     for (let i = 0; i < messages.length; i++) {

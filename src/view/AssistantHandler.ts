@@ -216,7 +216,7 @@ export class AssistantHandler {
             this.startGuide();
         } else {
             this._addAssistantMessage('✅ **环境已就绪**\n\n现在可以开始使用 KCode 了！输入问题或需求即可。');
-            this.router.PostMessage({ type: 'setInputPlaceholder', text: '提出后续修改要求' });
+            this.router.PostMessage({ type: 'setInputPlaceholder', text: '向小助手描述你的问题...' });
         }
     }
 

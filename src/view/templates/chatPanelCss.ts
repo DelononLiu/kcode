@@ -494,11 +494,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #assistant-view #system-narration.hidden{display:none}
 #assistant-view .input-wrapper{background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:10px 12px 6px;transition:border-color .2s,box-shadow .2s}
 #assistant-view .input-wrapper:focus-within{border-color:#007fd4;box-shadow:0 0 8px rgba(0,127,212,.3)}
-#assistant-view #chat-input{width:100%;background:transparent;color:#d2d2d4;border:none;font-family:inherit;font-size:13.5px;resize:none;outline:none;min-height:52px;max-height:200px;line-height:1.5}
+#assistant-view #chat-input{width:100%;background:transparent;color:#d2d2d4;border:none;font-family:inherit;font-size:13.5px;resize:none;outline:none;min-height:36px;max-height:200px;line-height:1.35}
 #assistant-view #chat-input::placeholder{color:#555}
-#assistant-view .input-footer{display:flex;align-items:center;padding-top:4px;min-height:28px}
-#assistant-view .input-footer-left{display:flex;align-items:center;gap:4px;flex-shrink:0}
-#assistant-view .input-footer-center{display:inline-flex;align-items:center;gap:6px;flex:1;justify-content:center}
+#assistant-view .input-footer{display:flex;align-items:center;padding-top:4px;min-height:28px;justify-content:space-between}
+#assistant-view .input-footer-left{display:flex;align-items:center;gap:4px;flex:1}
 #assistant-view .input-footer-right{display:flex;align-items:center;gap:2px;flex-shrink:0}
 #assistant-view .input-tool-btn{background:none;border:none;color:#666;cursor:pointer;padding:4px;border-radius:3px;display:flex;align-items:center;justify-content:center;transition:color .2s,background .2s}
 #assistant-view .input-tool-btn.hidden{display:none}
@@ -521,8 +520,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #assistant-view .agent-model{font-size:10px;color:#888}
 
 #assistant-view #input-template-bar{display:inline-flex;align-items:center;gap:3px}
-#assistant-view .shortcut-hint{font-size:11px;color:#888;display:flex;align-items:center;gap:4px}
-#assistant-view .shortcut-hint code{font-family:monospace;font-size:10.5px;background:rgba(255,255,255,.04);padding:1px 5px;border-radius:3px;color:#666}
+#assistant-view .shortcut-hint{font-size:10px;color:#555;margin-right:4px;white-space:nowrap}
 #assistant-view #chat-header-row-assistant{display:flex;align-items:center;gap:6px;font-size:11px;color:#777;padding:4px 24px 8px;flex-wrap:wrap;font-family:'Fira Code',monospace}
 #assistant-view #chat-header-row-assistant.hidden{display:none}
 #assistant-view #chat-header-row-assistant strong{color:#bbb;font-weight:500}
