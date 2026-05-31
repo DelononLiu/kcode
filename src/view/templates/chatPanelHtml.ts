@@ -49,6 +49,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     <span id="task-info-sep" class="hidden">|</span>
                     <span id="task-info-review"></span>
                 </div>
+                <div id="chat-header-slogan" class="hidden">专业陪聊 · 答疑解惑 · 出谋划策 · 代码评审 · 技术调研 · 问题分析</div>
                 <div id="chat-header-row2" class="hidden">
                     <span class="header-label">🎯</span>
                     <span id="goal-header-text" class="goal-header-text"></span>

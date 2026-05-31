@@ -11,6 +11,8 @@ export function showAssistantView(): void {
     if (assistantView) assistantView.style.display = 'block';
     const titleEl = document.querySelector('.task-info-title');
     if (titleEl) titleEl.textContent = '🤖 小助手';
+    const sloganEl = document.getElementById('chat-header-slogan');
+    if (sloganEl) sloganEl.classList.remove('hidden');
 }
 
 let _agentSelectorInited = false;

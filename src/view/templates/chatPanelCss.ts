@@ -450,6 +450,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #assistant-view .task-model-badge{font-size:10px;padding:1px 7px;border-radius:3px;background:rgba(74,139,181,.12);color:#5a9bc8;flex-shrink:0;white-space:nowrap;font-weight:500}
 #assistant-view .task-model-badge.hidden{display:none}
 #assistant-view #chat-header-sub{display:flex;align-items:center;gap:8px;font-size:10px;color:#555;padding:0 24px 4px;flex-wrap:wrap}
+#assistant-view #chat-header-slogan{display:flex;align-items:center;gap:8px;font-size:10px;color:#555;padding:0 24px 4px;flex-wrap:wrap;line-height:1.4}
+#assistant-view #chat-header-slogan.hidden{display:none}
 #assistant-view #chat-header-row2{display:flex;align-items:center;gap:6px;padding:2px 24px;background:rgba(78,201,176,.03)}
 #assistant-view #chat-header-row2.hidden{display:none}
 #assistant-view .goal-header-text{font-size:12.5px;color:#4ec9b0;line-height:1.4;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
