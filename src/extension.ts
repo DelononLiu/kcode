@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { KCodePanel } from './view/KCodePanel';
-import { KCodeSidebarProvider } from './view/KCodeSidebarProvider';
+import { Panel } from './view/Panel';
+import { SidebarProvider } from './view/SidebarProvider';
 import { TaskStore } from './store/TaskStore';
 import { ProjectFs } from './store/ProjectFs';
 import { Task } from './types';
@@ -10,9 +10,9 @@ import { SettingsProvider } from './view/SettingsProvider';
 import { MyTasksProvider } from './view/MyTasksProvider';
 import { KnowledgePanel } from './view/KnowledgePanel';
 
-let panel: KCodePanel | undefined;
+let panel: Panel | undefined;
 let store: TaskStore | undefined;
-let sidebarProvider: KCodeSidebarProvider | undefined;
+let sidebarProvider: SidebarProvider | undefined;
 let configService: ConfigService | undefined;
 let settingsProvider: SettingsProvider | undefined;
 let myTasksProvider: MyTasksProvider | undefined;
@@ -23,7 +23,7 @@ function openTaskInPanel(context: vscode.ExtensionContext, taskId: string, autoS
         panel.reveal();
         panel.loadTask(taskId);
     } else {
-        panel = new KCodePanel(context, store!, configService);
+        panel = new Panel(context, store!, configService);
         panel.onDidDispose(() => { panel = undefined; });
         panel.setRefreshSidebarCallback(refreshSidebar);
         panel.loadTask(taskId);
@@ -56,7 +56,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }));
 
     // Register sidebar view provider
-    sidebarProvider = new KCodeSidebarProvider(
+    sidebarProvider = new SidebarProvider(
         context,
         store,
         (taskId) => openTaskInPanel(context, taskId)
@@ -66,7 +66,7 @@ export async function activate(context: vscode.ExtensionContext) {
     sidebarProvider.setSelectAssistantCallback(() => { if (panel) { panel.loadAssistant(); refreshSidebar(); } });
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
-            KCodeSidebarProvider.viewType,
+            SidebarProvider.viewType,
             sidebarProvider,
             { webviewOptions: { retainContextWhenHidden: true } }
         )
@@ -79,7 +79,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     // Auto-create the main panel when KCode is activated (shows assistant by default)
-    panel = new KCodePanel(context, store!, configService);
+            panel = new Panel(context, store!, configService);
     panel.onDidDispose(() => { panel = undefined; });
     panel.setRefreshSidebarCallback(refreshSidebar);
     panel.loadAssistant(isFirstLaunch);
@@ -90,7 +90,7 @@ export async function activate(context: vscode.ExtensionContext) {
         if (panel) {
             panel.reveal();
         } else {
-            panel = new KCodePanel(context, store!, configService);
+        panel = new Panel(context, store!, configService);
             panel.onDidDispose(() => { panel = undefined; });
         }
     });

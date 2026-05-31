@@ -4,7 +4,7 @@ import { Task, ContainerEntity } from '../types';
 
 const _output = vscode.window.createOutputChannel('KCode Sidebar');
 
-export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
+export class SidebarProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'kcode.viewsMain';
 
     private _view?: vscode.WebviewView;
@@ -46,7 +46,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
 
         this._messageListener?.dispose();
         this._messageListener = webviewView.webview.onDidReceiveMessage(async (message: any) => {
-            _output.appendLine('[KCodeSidebarProvider] onDidReceiveMessage: type=' + message.type);
+            _output.appendLine('[SidebarProvider] onDidReceiveMessage: type=' + message.type);
             switch (message.type) {
                 case 'debugLog':
                     _output.appendLine('[WebView] ' + message.text);

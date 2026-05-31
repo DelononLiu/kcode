@@ -15,7 +15,7 @@ import { CommandRegistry } from '../commands/CommandRegistry';
 import { PluginManager } from '../core/plugin/PluginManager';
 import type { KCodePanelContext, ToolCallState, PendingMessage } from './PanelContext';
 
-export class KCodePanel {
+export class Panel {
     readonly panel: vscode.WebviewPanel;
     readonly store: TaskStore;
     readonly taskFlow: TaskFlow;
