@@ -604,3 +604,151 @@ if (out) {
 - **`acquireVsCodeApi` 是全 WebView 单例**：所有脚本共享同一个实例。同一 WebView 内多脚本需要通信必须通过 `window` 全局变量传递实例引用，绝不能各自调用
 - **静默失败的叠加效应**：根因 1 导致脚本崩溃 + 根因 2 导致消息丢弃 + 根因 3 导致 UI 隐藏 = 用户视角"完全无效"。排错时必须逐层剥离验证，不能只看表象
 - **WebView DevTools 是调试利器**：`Ctrl+Shift+P` → `Developer: Open Webview Developer Tools` → 可看到 `console.error` 和 `ReferenceError`，直接暴露根因 1
+
+---
+
+## case008 — V3 CSS 重构缺失 ~250 行共享组件样式
+
+**分类**: `case:refactoring` `case:css` `case:webview-css` `case:regression` `case:test-coverage`
+
+**严重程度**: 高
+
+### 问题描述
+
+V3 重构时从零编写了 `chatPanelCss.ts`（368 行），仅覆盖了 task-view 的静态 HTML 样式和 assistant-view 的基础布局。运行时 JS（app.ts / messageRenderer.ts / toolRenderer.ts 等）动态生成大量 DOM 元素（代码块卡片、时间线、审核面板、Diff、TODO、计划编辑、模板流、ACP 日志等），这些元素在旧 CSS 中有完整的组件/状态/交互样式（~400 行），新 CSS 完全缺失。
+
+具体表现：
+- **复制按钮始终可见** — 缺少 `.copy-msg-btn{opacity:0}` / `.chat-msg:hover .copy-msg-btn{opacity:1}`
+- **消息对齐错乱** — 缺少 `.msg-row`、`.chat-msg.user{text-align:right}` 等关键布局规则
+- **空状态 header/body 不隐藏** — 缺少 `#chat-area:has(#chat-scroll.chat-empty)` 规则
+- **卡片工具缺少 color accent** — 缺少 `[data-tool-kind="bash"]` 等边框色
+- **Diff/Todo/Plan编辑/模板流 无样式** — 大量组件 CSS 完全缺失
+
+### 根因分析
+
+旧 CSS（616 行）是在开发中逐步累积的，包含了所有 JS 动态生成 DOM 的样式规则。V3 重写 CSS 时采用了"从零重写"策略，新建 `chatPanelCss.ts` 只写了 Task View 的新 UI 样式 + Assistant View 的基础静态布局，没有以旧 CSS 的选择器-属性值矩阵为基线做差分补齐。
+
+**为什么测试没发现**：现有的测试体系是"双盲验证"——
+
+| 测试层 | 测试内容 | 盲区 |
+|--------|---------|------|
+| `messageRenderer.test.ts` | JS 生成的 DOM 结构正确（如 `.copy-msg-btn` 元素存在） | jsdom 不渲染样式，不验证 CSS 是否对该 DOM 生效 |
+| `chatPanelCss.test.ts` | CSS 字符串包含某些 class **名字**（`contain('demo-card')`） | 不验证选择器的属性值是否正确（如 `opacity:0` vs `opacity:1`） |
+
+两个测试层的交集（"CSS 规则对 JS 生成的 DOM 是否生效"）为零覆盖。
+
+### 涉及文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/view/templates/chatPanelCss.ts` | 新 CSS（修复主目标，补齐 ~250 行缺失规则） |
+| `src/view/templates/chatPanelCss.test.ts` | CSS 测试（新增 23 个规则级属性验证） |
+| `src/view/webview/app.ts` | JS 动态生成 DOM（引用 `.copy-msg-btn`、`.msg-row` 等） |
+| `src/view/webview/messageRenderer.ts` | 消息渲染（生成 `.chat-msg.user/agent/system`） |
+| `src/view/webview/toolRenderer.ts` | 工具卡片渲染（生成 `[data-tool-kind]`） |
+| `src/view/webview/timelineRenderer.ts` | 时间线渲染（生成 `.tl-entry`/`.tl-node` 等） |
+| `src/view/webview/cardBuilder.ts` | 卡片构建（生成 `.msg-card`/`.todo-item` 等） |
+| `src/kcodeView/templates/chatPanelCss.ts` | **对照基线**：旧 CSS（616 行完整规则集） |
+
+### 解决方案
+
+**策略：分层补齐，不改变已有结构**
+
+```
+新 CSS 三层组织：
+┌────────────────────────────────────┐
+│ L1: V3 Design Tokens (:root)       │  已存在，不动
+├────────────────────────────────────┤
+│ L2: Shared 全局组件样式             │  补齐 ~250 行
+│  .copy-msg-btn / .msg-row         │
+│  .tl-node / .tl-filter-bar        │
+│  .review-changes / .diff-*        │
+│  .todo-list / .plan-edit-*        │
+│  .demo-card-* / .template-flow-*  │
+│  .acp-log-* / .device-*           │
+│  所有 class 基的交互/组件/状态样式   │
+├────────────────────────────────────┤
+│ L3: View-scoped 布局样式            │  已存在，不动
+│  #assistant-view #chat-area       │
+│  #task-view .app-container        │
+└────────────────────────────────────┘
+```
+
+按 15 个类别补齐：
+1. 空状态 `:has()` 规则
+2. 交互 hover 状态（`.copy-msg-btn`、`.convert-msg-btn`、`.convert-task-btn` opacity 显隐）
+3. 消息布局（`.msg-row`、`.chat-msg.user/agent/system/tool`）
+4. 消息气泡扩展（表格、分割线、代码块滚动条）
+5. 工具卡片 color accent + tool-body-* + tool-spinner
+6. 状态 badge 颜色变体（`.task-status-badge.status-*`）
+7. hooks 状态变体（`.hooks-count.has-*`）
+8. 时间线节点详情（`.tl-node.status-*`、`.tl-label`、`.tl-filter-bar`）
+9. 审核/diff（`.diff-*`、`.review-changes-*`、`.review-criteria`）
+10. 计划编辑（`.plan-edit-*`、`.goal-edit-textarea`）
+11. 模板流（`.template-flow-*`、`.form-field-*`）
+12. Todo 卡片（`.todo-list/item/checkbox/progress`）
+13. Demo 卡扩展（`.demo-card-info/env-header/env-body/status-row`）
+14. 队列条（`.queue-item-*`、`.queue-header:hover`）
+15. Hooks 编辑器详情（`.hooks-phase-*`）
+16. 其他交互状态（`.image-btn:hover`、`.input-tool-btn:hover`、`.pill-btn:hover` 等）
+
+**测试加固**：新增 23 个 CSS 规则级测试，验证关键选择器**存在且属性值正确**：
+
+```typescript
+// 之前：只测类名存在
+expect(css).toContain('.demo-card'); // ✅ 但不知道 opacity 是 0 还是 1
+
+// 之后：测属性值
+expect(css).toContain('.copy-msg-btn{opacity:0');          // 默认隐藏
+expect(css).toContain('.chat-msg:hover .copy-msg-btn{opacity:1}'); // hover 显示
+expect(css).toContain('[data-tool-kind="bash"]');            // tool-kind accent
+```
+
+### 关键改动
+
+```diff
+// chatPanelCss.ts — 新增 ~250 行
++ /* 空状态 */
++ #chat-area:has(#chat-scroll.chat-empty) #chat-header{display:none}
++ #chat-area:has(#chat-scroll.chat-empty) #chat-body{display:none}
+
++ /* 交互显隐 */
++ .copy-msg-btn{opacity:0;...}
++ .chat-msg:hover .copy-msg-btn{opacity:1}
+
++ /* 消息布局 */
++ .msg-row{display:flex;align-items:center;min-height:20px}
++ .chat-msg.user{text-align:right}
++ .chat-msg.agent .msg-row{justify-content:flex-start;padding-left:2px}
+
++ /* 工具卡片 */
++ .msg-card[data-tool-kind="bash"] .msg-card-header{border-left-color:var(--tool-color-bash)}
++ .card-copy-raw-btn{...}
++ .tool-spinner{...}
+
++ /* 时间线 */
++ .tl-node.status-completed{background:#1e7a32}
++ .tl-node.status-active{background:#1a5f9e;animation:tl-pulse 2s infinite}
++ .tl-label{...position:absolute;left:18px;...}
+
++ /* diff / review / plan / todo / template-flow / demo-card / queue / hooks */
++ // ... (15 个类别共 ~250 行)
+```
+
+```diff
+// chatPanelCss.test.ts — 新增 23 个测试
++ it('.copy-msg-btn is hidden by default (opacity:0)',
++   () => { expect(css).toContain('.copy-msg-btn{opacity:0'); });
++ it('contains tool-kind color accent rules',
++   () => { expect(css).toContain('[data-tool-kind="bash"]'); });
++ it('contains timeline node status variants',
++   () => { expect(css).toContain('.tl-node.status-completed'); });
++ // ... (20 more)
+```
+
+### 教训
+
+- **CSS 重构不应"从零重写"**：以旧 CSS 的选择器-属性值矩阵为基线，用测试验证 parity，而非完全重写后靠肉眼对比
+- **"双盲测试"是两个测试的交集为零**：JS 测试只测 DOM 结构，CSS 测试只测字符串存在性，两者都不回答"这条 CSS 规则对 JS 生成的 DOM 是否生效"。需要 CSS 规则级属性测试或视觉回归测试填补盲区
+- **动态 DOM + 静态 CSS 是一体两面**：改 CSS 时必须 grep 所有 JS 文件中的 `classList`/`className`/`createElement` 来确认哪些 class 会被动态生成，反过来查 CSS 覆盖情况
+- **重构时应有"规则清单"差分检查**：解析新旧两个 CSS 字符串，提取 (selector, property, value) 三元组，diff 出 old 有 new 无的规则，逐个评审是"有意删除"还是"意外遗漏"

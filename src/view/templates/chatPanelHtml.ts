@@ -84,13 +84,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     <div id="tl-dots"></div>
                 </div>
                 <div id="chat-scroll" class="chat-empty">
-                    <div id="tl-filter-bar" class="tl-filter-bar hidden">
-                        <button class="tl-filter-btn active" data-tl-filter="all">全部</button>
-                        <button class="tl-filter-btn" data-tl-filter="thinking">💭 思考</button>
-                        <button class="tl-filter-btn" data-tl-filter="file">📄 文件</button>
-                        <button class="tl-filter-btn" data-tl-filter="command">💻 命令</button>
-                        <button class="tl-filter-btn" data-tl-filter="search">🔍 搜索</button>
-                    </div>
                     <div id="chat-messages"></div>
                     <div id="working-indicator" class="hidden">
                         <span class="working-spinner"></span>
@@ -168,14 +161,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             </div>
         </div>
 
-        <div id="output-resize-handle" class="output-resize-handle"></div>
-        <div id="right-output-panel">
-            <div id="right-output-content">
-                <div class="op-section"><div class="op-section-title">TODO区</div><div id="op-plan-list"><div class="op-empty">暂无待办</div></div></div>
-                <div class="op-section"><div class="op-section-title">变更列表</div><div id="op-code-list"><div class="op-empty">暂无变更</div></div></div>
-                <div class="op-section" style="padding-bottom:4px"><div class="op-section-title"><span>知识wiki</span><button id="op-export-btn" class="op-export-btn hidden">📤 导出 Wiki</button></div><div id="op-knowledge-list"><div class="op-empty">暂无知识</div></div></div>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -326,20 +311,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             </div>
         </main>
 
-        <aside class="monitor-tower" id="monitor-tower">
-            <div>
-                <div class="panel-section-title">实时待办项 (TODO)</div>
-                <div class="tower-card" id="tower-todo"><div class="tower-card-empty" id="tower-todo-empty">暂无待办</div><div id="tower-todo-list"></div></div>
-            </div>
-            <div>
-                <div class="panel-section-title">实时文件变更 (DIFF)</div>
-                <div class="tower-card" id="tower-diff"><div class="tower-card-empty" id="tower-diff-empty">暂无变更</div><div id="tower-diff-list"></div></div>
-            </div>
-            <div>
-                <div class="panel-section-title">知识库沉淀 (WIKI)</div>
-                <div class="tower-card" style="background:transparent;border:none;padding:0"><div class="wiki-incubator-box"><div class="wiki-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg> 避坑指南孵化区</div><div class="wiki-desc">当前任务正在推进。可在最终签署阶段一键让 AI 将策略固化至 Wiki 文档。</div></div></div>
-            </div>
-        </aside>
     </div>
 </div>
 
@@ -389,7 +360,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 </div>
 
 <script src="${scriptUri('app.bundle')}"></script>
-<script src="${scriptUri('outputPanel')}"></script>
 <script src="${scriptUri('device.bundle')}"></script>
 </body>
 </html>`;

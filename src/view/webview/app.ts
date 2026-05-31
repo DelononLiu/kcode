@@ -1,6 +1,6 @@
 import { G, type FileChange } from './state';
 import { showAssistantView, initAgentSelector, initModelSelector, truncateModel } from './assistantView';
-import { showTaskView, toggleTaskRow, updateRailAndStages, updateMonitorTower, handleNodePanelUpdate, initNodePanel } from './taskView';
+import { showTaskView, toggleTaskRow, updateRailAndStages, handleNodePanelUpdate, initNodePanel } from './taskView';
 import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpdate, sendMessageFromInput } from './chatInteraction';
 import { initTemplateChips, renderCategorySelection, focusChatInput } from './templateFlow';
 import { initPluginManager, renderPluginList } from './pluginRegistry';
@@ -304,8 +304,6 @@ function initMessageHandler() {
                 renderCategorySelection();
                 break;
             case 'updateOutputPanel':
-                (window as any).updateOutputPanel?.(message.taskInfo || {}, message.changes || []);
-                updateMonitorTower(message.taskInfo || {}, message.changes || []);
                 break;
             case 'agentList':
                 initAgentSelector(message.agents || []);
@@ -394,7 +392,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavButtons();
     initTlFilterBar();
     initPluginManager();
-    (window as any).initOutputPanel?.();
     initV3Layout();
 
     const dataEl = document.getElementById('__panelData');

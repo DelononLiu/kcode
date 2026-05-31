@@ -81,37 +81,6 @@ export function updateRailAndStages(phase: string, status: string): void {
     }
 }
 
-export function updateMonitorTower(taskInfo: any, changes: any[]): void {
-    const todoList = document.getElementById('tower-todo-list');
-    const todoEmpty = document.getElementById('tower-todo-empty');
-    if (todoList && todoEmpty) {
-        const allTodos = [
-            ...(taskInfo?.planSteps || []).map((s: any) => ({ text: s.content, done: s.status === 'completed' })),
-            ...(taskInfo?.todos || []).map((t: any) => ({ text: t.content, done: t.status === 'completed' })),
-        ];
-        if (allTodos.length > 0) {
-            todoEmpty.style.display = 'none';
-            todoList.innerHTML = allTodos.map((t: any) =>
-                `<div class="todo-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>${escapeHtml(t.text)}</div>`
-            ).join('');
-        } else { todoEmpty.style.display = ''; todoList.innerHTML = ''; }
-    }
-
-    const diffList = document.getElementById('tower-diff-list');
-    const diffEmpty = document.getElementById('tower-diff-empty');
-    if (diffList && diffEmpty) {
-        if (changes && changes.length > 0) {
-            diffEmpty.style.display = 'none';
-            diffList.innerHTML = changes.map((c: any) => {
-                const lineCount = c.modified && c.original
-                    ? `[+${c.modified.split('\n').length - c.original.split('\n').length}行]`
-                    : c.modified ? '[+new]' : '[-del]';
-                return `<div class="diff-file-row"><span>📄 ${escapeHtml(c.filePath || '')}</span><span class="diff-add">${lineCount}</span></div>`;
-            }).join('');
-        } else { diffEmpty.style.display = ''; diffList.innerHTML = ''; }
-    }
-}
-
 export function getNodeLetter(type: string): string {
     switch (type) {
         case 'demand': return 'D';
