@@ -2,6 +2,8 @@ function escapeHtml(text: string): string {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+import { getChatScroll } from './domContainers';
+
 export function showTaskView(asControlPanel: boolean = false): void {
     const assistantView = document.getElementById('assistant-view');
     const taskView = document.getElementById('task-view');
@@ -17,10 +19,6 @@ export function showTaskView(asControlPanel: boolean = false): void {
         if (initScreen) { initScreen.style.display = ''; initScreen.style.opacity = '1'; initScreen.style.transform = ''; }
         if (controlPanel) controlPanel.classList.remove('activated');
     }
-
-    const anchor = document.getElementById('main-task-board');
-    const chatScroll = document.getElementById('chat-scroll');
-    if (anchor && chatScroll) anchor.appendChild(chatScroll);
 }
 
 export function toggleTaskRow(header: HTMLElement): void {
@@ -210,7 +208,7 @@ export function handleNodePanelUpdate(nodes: any[], taskType: string): void {
 export function scrollToMessage(msgId: string): void {
     const el = document.querySelector(`[data-msg-id="${msgId}"]`) as HTMLElement;
     if (!el) return;
-    const scrollContainer = document.getElementById('chat-scroll');
+    const scrollContainer = getChatScroll();
     if (!scrollContainer) return;
     const offset = el.getBoundingClientRect().top - scrollContainer.getBoundingClientRect().top + scrollContainer.scrollTop - 16;
     scrollContainer.scrollTo({ top: offset, behavior: 'smooth' });

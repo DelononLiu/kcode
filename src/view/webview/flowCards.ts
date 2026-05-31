@@ -1,5 +1,6 @@
 import { G, type FileChange } from './state';
 import { renderMarkdown, createCard, createCardMessageElement, escapeHtml, hideWorkingIndicator, appendToChatMessages, activateTab } from './messageRenderer';
+import { getChatScroll, getChatMessages } from './domContainers';
 
 export const _demoCards: Map<string, HTMLElement> = new Map();
 
@@ -16,7 +17,7 @@ export function handleDemoCardUpdate(msg: any) {
         bubble.appendChild(card);
         msgDiv.appendChild(bubble);
         appendToChatMessages(msgDiv);
-        const scrollContainer = document.getElementById('chat-scroll');
+        const scrollContainer = getChatScroll();
         if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
     }
@@ -255,7 +256,7 @@ export function attachReviewChanges(message: any) {
     if (!changes || changes.length === 0) return;
     reviewChangesMap.set(message.taskId, changes);
 
-    const lastReviewMsg = document.querySelector('#chat-messages > .chat-msg.agent:last-of-type') as HTMLElement;
+    const lastReviewMsg = getChatMessages()?.querySelector('.chat-msg.agent:last-of-type') as HTMLElement;
     if (!lastReviewMsg) return;
 
     const existing = lastReviewMsg.querySelector('.review-changes');
@@ -396,8 +397,8 @@ export function findParentCard(el: HTMLElement): HTMLElement | null {
 
 export function showGoalConfirmationCard(info: any) {
     hideWorkingIndicator();
-    const container = document.getElementById('chat-messages')!;
-    const scrollContainer = document.getElementById('chat-scroll')!;
+    const container = getChatMessages()!;
+    const scrollContainer = getChatScroll()!;
 
     if (G.streamMessageEl) {
         const bubbleParent = G.streamMessageEl.closest('.chat-msg');
@@ -545,8 +546,8 @@ export function handleShowPlanProposal(message: any) {
 
     hideWorkingIndicator();
 
-    const container = document.getElementById('chat-messages')!;
-    const scrollContainer = document.getElementById('chat-scroll')!;
+    const container = getChatMessages()!;
+    const scrollContainer = getChatScroll()!;
 
     let currentGoal = message.goal || '';
     let currentSteps = planSteps.map((s: any) => ({ content: s.content, status: s.status }));

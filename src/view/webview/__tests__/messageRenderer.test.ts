@@ -5,17 +5,19 @@ import { formatTimestamp, activateTab, addUserMessage, addSystemMessage, addMess
 
 function setupDom() {
     document.body.innerHTML = `
-        <div id="chat-messages">
-            <div class="chat-placeholder">placeholder</div>
-        </div>
-        <div id="chat-scroll" class="chat-empty"></div>
-        <div id="working-indicator" class="hidden">
-            <span class="working-text">思考中</span>
-        </div>
-        <div id="chat-header"></div>
-        <div id="chat-body"></div>
-        <div id="chat-input" class="input-wrapper">
-            <textarea id="chat-input"></textarea>
+        <div id="assistant-view">
+            <div id="chat-messages">
+                <div class="chat-placeholder">placeholder</div>
+            </div>
+            <div id="chat-scroll" class="chat-empty"></div>
+            <div id="working-indicator" class="hidden">
+                <span class="working-text">思考中</span>
+            </div>
+            <div id="chat-header"></div>
+            <div id="chat-body"></div>
+            <div id="chat-input" class="input-wrapper">
+                <textarea id="chat-input"></textarea>
+            </div>
         </div>
     `;
     (window as any).acquireVsCodeApi = () => ({

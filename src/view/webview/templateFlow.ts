@@ -1,5 +1,6 @@
 import { G } from './state';
 import { escapeHtml } from './messageRenderer';
+import { getChatMessages, getChatScroll } from './domContainers';
 
 export function getCategoryDef(catKey: string): any {
     return G.categoryDefs.find((c: any) => c.key === catKey);
@@ -11,9 +12,9 @@ export function getTemplateDef(catKey: string, subKey: string): any {
 }
 
 export function renderCategorySelection() {
-    const container = document.getElementById('chat-messages');
+    const container = getChatMessages();
     if (!container) return;
-    const scrollContainer = document.getElementById('chat-scroll');
+    const scrollContainer = getChatScroll();
     if (scrollContainer) scrollContainer.classList.remove('chat-empty');
     container.innerHTML = '';
     const chatHeader = document.getElementById('chat-header');

@@ -1,9 +1,10 @@
 import { G } from './state';
 import { showAgentThinking, hideWorkingIndicator, escapeHtml, renderMarkdown, appendToChatMessages } from './messageRenderer';
 import { activateTab } from './messageRenderer';
+import { getChatScroll } from './domContainers';
 
 export function initNavButtons() {
-    const scrollContainer = document.getElementById('chat-scroll');
+    const scrollContainer = getChatScroll();
     const navBtns = document.getElementById('chat-nav-btns');
     const topBtn = document.getElementById('nav-top-btn') as HTMLButtonElement;
     const prevBtn = document.getElementById('nav-prev-btn') as HTMLButtonElement;
@@ -196,7 +197,7 @@ export function initChat() {
         }
     });
 
-    const scrollContainer = document.getElementById('chat-scroll');
+    const scrollContainer = getChatScroll();
     if (scrollContainer) {
         scrollContainer.addEventListener('wheel', (e) => {
             if (e.deltaY < 0) G._userScrolledUp = true;

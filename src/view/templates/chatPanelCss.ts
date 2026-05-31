@@ -30,7 +30,7 @@ export function getInlineStyles(): string {
 html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:var(--text-main);background:var(--bg-deep)}
 .hidden{display:none}
 
-/* ========== Shared #chat-scroll ========== */
+/* ========== #chat-scroll (scoped per view, duplicate in HTML) ========== */
 #chat-scroll{overflow-y:auto;position:relative;min-height:0}
 #chat-scroll.chat-empty{display:none}
 #chat-scroll .tl-filter-bar.hidden{display:none}

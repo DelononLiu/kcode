@@ -5,15 +5,17 @@ import { showAgentThinking, updateWorkingIndicator, appendToChatMessages, update
 
 function setupDom() {
     document.body.innerHTML = `
-        <div id="chat-messages">
-            <div class="chat-placeholder">placeholder</div>
+        <div id="assistant-view">
+            <div id="chat-messages">
+                <div class="chat-placeholder">placeholder</div>
+            </div>
+            <div id="chat-scroll"></div>
+            <div id="working-indicator" class="hidden">
+                <span class="working-text">思考中</span>
+            </div>
+            <div id="chat-header"></div>
+            <div id="chat-body"></div>
         </div>
-        <div id="chat-scroll"></div>
-        <div id="working-indicator" class="hidden">
-            <span class="working-text">思考中</span>
-        </div>
-        <div id="chat-header"></div>
-        <div id="chat-body"></div>
     `;
     (window as any).acquireVsCodeApi = () => ({
         postMessage: vi.fn(),

@@ -34,22 +34,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 </head>
 <body>
 
-<!-- ========== Shared #chat-scroll (moved between views by JS) ========== -->
-<div id="chat-scroll" class="chat-empty">
-    <div id="tl-filter-bar" class="tl-filter-bar hidden">
-        <button class="tl-filter-btn active" data-tl-filter="all">全部</button>
-        <button class="tl-filter-btn" data-tl-filter="thinking">💭 思考</button>
-        <button class="tl-filter-btn" data-tl-filter="file">📄 文件</button>
-        <button class="tl-filter-btn" data-tl-filter="command">💻 命令</button>
-        <button class="tl-filter-btn" data-tl-filter="search">🔍 搜索</button>
-    </div>
-    <div id="chat-messages"></div>
-    <div id="working-indicator" class="hidden">
-        <span class="working-spinner"></span>
-        <span class="working-text">思考中</span>
-    </div>
-</div>
-
 <!-- ========== Assistant View (V1 — 小助手) ========== -->
 <div id="assistant-view">
     <div id="container">
@@ -99,7 +83,20 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                 <div id="node-timeline-gutter" class="hidden">
                     <div id="tl-dots"></div>
                 </div>
-                <!-- #chat-scroll moved here by showAssistantView() -->
+                <div id="chat-scroll" class="chat-empty">
+                    <div id="tl-filter-bar" class="tl-filter-bar hidden">
+                        <button class="tl-filter-btn active" data-tl-filter="all">全部</button>
+                        <button class="tl-filter-btn" data-tl-filter="thinking">💭 思考</button>
+                        <button class="tl-filter-btn" data-tl-filter="file">📄 文件</button>
+                        <button class="tl-filter-btn" data-tl-filter="command">💻 命令</button>
+                        <button class="tl-filter-btn" data-tl-filter="search">🔍 搜索</button>
+                    </div>
+                    <div id="chat-messages"></div>
+                    <div id="working-indicator" class="hidden">
+                        <span class="working-spinner"></span>
+                        <span class="working-text">思考中</span>
+                    </div>
+                </div>
             </div>
 
             <div id="chat-nav-btns" class="hidden">
@@ -313,8 +310,20 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                 </div>
             </div>
 
-            <!-- #chat-scroll anchor in task view -->
-            <div id="task-chat-anchor"></div>
+            <div id="chat-scroll" class="chat-empty">
+                <div id="tl-filter-bar" class="tl-filter-bar hidden">
+                    <button class="tl-filter-btn active" data-tl-filter="all">全部</button>
+                    <button class="tl-filter-btn" data-tl-filter="thinking">💭 思考</button>
+                    <button class="tl-filter-btn" data-tl-filter="file">📄 文件</button>
+                    <button class="tl-filter-btn" data-tl-filter="command">💻 命令</button>
+                    <button class="tl-filter-btn" data-tl-filter="search">🔍 搜索</button>
+                </div>
+                <div id="chat-messages"></div>
+                <div id="working-indicator" class="hidden">
+                    <span class="working-spinner"></span>
+                    <span class="working-text">思考中</span>
+                </div>
+            </div>
         </main>
 
         <aside class="monitor-tower" id="monitor-tower">

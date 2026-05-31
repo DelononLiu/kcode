@@ -4,6 +4,7 @@ import { escapeHtml, renderMarkdown } from './markdownRenderer';
 import { createTimelineEntry, createMergedTimelineEntry, showTlFilterBar, forceTitle } from './timelineRenderer';
 import { _isTodoArray, _parseTodoStr, buildTodoBodyHtml } from './todoRenderer';
 import { renderToolBubbleContent } from './toolRenderer';
+import { getChatScroll, getChatMessages, getWorkingIndicator } from './domContainers';
 
 // ===== Module-level state =====
 
@@ -27,10 +28,10 @@ export function __resetStream() {
 }
 
 export function showAgentThinking() {
-    const indicator = document.getElementById('working-indicator');
+    const indicator = getWorkingIndicator();
     if (!indicator) return;
-    const container = document.getElementById('chat-messages');
-    const scrollContainer = document.getElementById('chat-scroll');
+    const container = getChatMessages();
+    const scrollContainer = getChatScroll();
     if (!container || !scrollContainer) return;
 
     scrollContainer.classList.remove('chat-empty');
@@ -47,7 +48,7 @@ export function showAgentThinking() {
 }
 
 export function updateWorkingIndicator(msg: any) {
-    const indicator = document.getElementById('working-indicator');
+    const indicator = getWorkingIndicator();
     if (!indicator || indicator.classList.contains('hidden')) return;
     const textEl = indicator.querySelector('.working-text') as HTMLElement;
     if (!textEl) return;
@@ -61,7 +62,7 @@ export function updateWorkingIndicator(msg: any) {
 }
 
 export function hideWorkingIndicator() {
-    const indicator = document.getElementById('working-indicator');
+    const indicator = getWorkingIndicator();
     if (indicator) indicator.classList.add('hidden');
 }
 
@@ -69,7 +70,7 @@ export function hideWorkingIndicator() {
 
 export function updateLastMsgConvertBtn() {
     if (G.activeTaskType !== 'assistant') return;
-    const messages = document.getElementById('chat-messages');
+    const messages = getChatMessages();
     if (!messages) return;
     const agentMsgs = messages.querySelectorAll('.chat-msg.agent');
     if (agentMsgs.length === 0) return;
@@ -89,8 +90,8 @@ export function updateLastMsgConvertBtn() {
 }
 
 export function appendToChatMessages(el: Element) {
-    const container = document.getElementById('chat-messages')!;
-    const indicator = document.getElementById('working-indicator');
+    const container = getChatMessages()!;
+    const indicator = getWorkingIndicator();
     if (indicator && indicator.parentElement === container) {
         container.insertBefore(el, indicator);
     } else {
@@ -104,8 +105,8 @@ export function appendToChatMessages(el: Element) {
 export function handleAgentStreamUpdate(text: string) {
     resetTabGroup();
     flushMerge();
-    const container = document.getElementById('chat-messages')!;
-    const scrollContainer = document.getElementById('chat-scroll')!;
+    const container = getChatMessages()!;
+    const scrollContainer = getChatScroll()!;
     scrollContainer.classList.remove('chat-empty');
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
@@ -211,8 +212,8 @@ export function flushMerge() {
 }
 
 export function handleToolCallUpdate(msg: any) {
-    const container = document.getElementById('chat-messages')!;
-    const scrollContainer = document.getElementById('chat-scroll')!;
+    const container = getChatMessages()!;
+    const scrollContainer = getChatScroll()!;
     scrollContainer.classList.remove('chat-empty');
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();

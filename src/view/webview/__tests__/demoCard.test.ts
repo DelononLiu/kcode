@@ -3,9 +3,11 @@ import { describe, it, expect, vi, beforeAll } from 'vitest';
 
 function setupDom() {
     document.body.innerHTML = `
-        <div id="chat-messages"></div>
-        <div id="chat-scroll"></div>
-        <div id="working-indicator" class="hidden"></div>
+        <div id="assistant-view">
+            <div id="chat-messages"></div>
+            <div id="chat-scroll"></div>
+            <div id="working-indicator" class="hidden"></div>
+        </div>
     `;
     (window as any).acquireVsCodeApi = () => ({
         postMessage: vi.fn(),

@@ -1201,22 +1201,79 @@ _目标：解决 #chat-scroll 共享 DOM 导致的耦合问题，将 assistant-v
 
 | 任务 | 说明 | 状态 | 优先级 |
 |------|------|------|--------|
-| P33-01 | 共享 DOM 审计 — 梳理 #chat-scroll、#chat-messages 等共享元素的所有引用点 | ⬜ 未开始 | P0 |
-| P33-02 | 拆分 #chat-scroll — assistant-view / task-view 各自持有一份独立的消息容器 | ⬜ 未开始 | P0 |
-| P33-03 | 移除 DOM 挪动逻辑 — showAssistantView/showTaskView 不再物理移动元素 | ⬜ 未开始 | P0 |
-| P33-04 | 验证 — 两个视图独立渲染，CSS 级联无冲突，主题变量共享正常 | ⬜ 未开始 | P1 |
+| P33-01 | 共享 DOM 审计 — 梳理 #chat-scroll、#chat-messages 等共享元素的所有引用点 | 📋 已调研 | P0 |
+| P33-02 | 拆分 #chat-scroll — assistant-view / task-view 各自持有一份独立的消息容器 | ✅ 已完成 | P0 |
+| P33-03 | 移除 DOM 挪动逻辑 — showAssistantView/showTaskView 不再物理移动元素 | ✅ 已完成 | P0 |
+| P33-04 | 验证 — 两个视图独立渲染，CSS 级联无冲突，主题变量共享正常 | ✅ 已完成 | P1 |
 
 ### P33-01: 共享 DOM 审计
 
-**涉及文件**: _待调研_
+**涉及文件**:
+- `src/view/templates/chatPanelHtml.ts:38-51` — 共享 `#chat-scroll` 定义
+- `src/view/templates/chatPanelCss.ts:256-262` — CSS 冲突规则
+- `src/view/webview/assistantView.ts:13-14` — DOM 挪出到 chat-body
+- `src/view/webview/taskView.ts:21-23,213-219` — DOM 挪入到 main-task-board + scrollToMessage
+- `src/view/webview/app.ts:129,183,191` — 视图切换调度
+- `src/view/webview/messageRenderer.ts:38-39,67-68,94-95,111-112,163-164,305-306` — 12 处 getElementById 引用
+- `src/view/webview/chatStream.ts:32-33,72,92,107-108,214-215` — 8 处 getElementById 引用
+- `src/view/webview/flowCards.ts:19-20,258,399-400,548-549` — 6 处 getElementById 引用
+- `src/view/webview/chatInteraction.ts:6,199` — 2 处 `#chat-scroll` 引用
+- `src/view/webview/templateFlow.ts:14-16` — 2 处 getElementById 引用
+- `src/view/webview/__tests__/assistantView.test.ts:12`
+- `src/view/webview/__tests__/messageRenderer.test.ts:8,11`
+- `src/view/webview/__tests__/chatStream.test.ts:8,11`
+- `src/view/webview/__tests__/demoCard.test.ts:6-7`
 
 **调研结果**: 当前共享元素：
 - `#chat-scroll` — 在 `chatPanelHtml.ts:38-51` 定义，JS 在 `assistantView.ts:14` 和 `taskView.ts:22` 之间物理挪动
 - `#tl-filter-bar`、`#chat-messages`、`#working-indicator` — 作为 `#chat-scroll` 的子节点跟随移动
 - CSS 为两种位置定义了不同的规则（`#assistant-view #chat-scroll` vs `#task-view #chat-scroll`），产生级联冲突
 
-**状态**: 🔍 调研中
+**状态**: 📋 已调研
 
----
+### P33-02: 拆分 #chat-scroll
+
+**涉及文件**:
+- `src/view/webview/domContainers.ts` — 新增：domContainers 抽象层（getChatScroll / getChatMessages / getWorkingIndicator）
+- `src/view/templates/chatPanelHtml.ts` — 移除共享 `#chat-scroll`；在 assistant-view / task-view 各嵌一套独立 `#chat-scroll` 及其子元素
+- `src/view/templates/chatPanelCss.ts:33` — CSS 注释更新
+- `src/view/webview/messageRenderer.ts` — 12 处 getElementById → getChatMessages()/getChatScroll()
+- `src/view/webview/chatStream.ts` — 8 处 getElementById → 各 helper
+- `src/view/webview/flowCards.ts` — 6 处 getElementById → 各 helper
+- `src/view/webview/chatInteraction.ts` — 2 处 getElementById → getChatScroll()
+- `src/view/webview/templateFlow.ts` — 2 处 getElementById → 各 helper
+
+**改动**：
+1. `chatPanelHtml.ts`：移除全局 `<div id="chat-scroll">` 定义，分别插入到 `#assistant-view #chat-body` 和 `#task-view #main-task-board`
+2. 新增 `domContainers.ts`：`getActiveView()` 判断当前可见视图，通过 `querySelector('#${view}-view #elementId')` 返回正确的 DOM 节点
+3. 6 个 JS 文件共 ~30 处引用替换为 helper 函数
+4. 测试 fixture 包裹 `#assistant-view` 容器
+
+**状态**: ✅ 已完成
+
+### P33-03: 移除 DOM 挪动逻辑
+
+**涉及文件**:
+- `src/view/webview/assistantView.ts:7-17` — `showAssistantView()` 移除 `chatBody.appendChild(chatScroll)`
+- `src/view/webview/taskView.ts:5-24` — `showTaskView()` 移除 `anchor.appendChild(chatScroll)`
+- `src/view/webview/taskView.ts:212-219` — `scrollToMessage()` 改用 `getChatScroll()`
+
+**状态**: ✅ 已完成
+
+### P33-04: 验证
+
+**涉及文件**:
+- `src/view/webview/__tests__/assistantView.test.ts` — 移除 DOM 挪动测试用例，更新 fixture
+- `src/view/webview/__tests__/messageRenderer.test.ts` — fixture 包裹 `#assistant-view`
+- `src/view/webview/__tests__/chatStream.test.ts` — fixture 包裹 `#assistant-view`
+- `src/view/webview/__tests__/demoCard.test.ts` — fixture 包裹 `#assistant-view`
+
+**验证结果**:
+- `npx tsc --noEmit` — 无类型错误
+- `npx vitest run` — 37 文件 454 测试全部通过
+- 两个视图各自持有独立 DOM 子树，`showAssistantView()`/`showTaskView()` 仅切换 display，不做物理移动
+- CSS 主题变量（--bg-deep 等）和公用工具类保持共享，未拆分
+
+**状态**: ✅ 已完成
 
 ---

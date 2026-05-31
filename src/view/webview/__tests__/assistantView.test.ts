@@ -24,12 +24,6 @@ describe('showAssistantView', () => {
         expect(assistantView.style.display).toBe('block');
     });
 
-    it('moves chat-scroll into chat-body', () => {
-        (window as any).__assistantView.showAssistantView();
-        const chatBody = document.getElementById('chat-body')!;
-        expect(chatBody.querySelector('#chat-scroll')).not.toBeNull();
-    });
-
     it('sets task-info-title to 🤖 小助手', () => {
         (window as any).__assistantView.showAssistantView();
         const titleEl = document.querySelector('.task-info-title')!;

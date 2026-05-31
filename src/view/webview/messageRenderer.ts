@@ -7,6 +7,7 @@ import { createTimelineEntry, createMergedTimelineEntry, showTlFilterBar, forceT
 import { renderTodoCard, _parseTodoStr, _isTodoArray } from './todoRenderer';
 import { renderToolBubbleContent } from './toolRenderer';
 import { appendToChatMessages, updateLastMsgConvertBtn, resetTabGroup, clearMergeState, activeToolCallElements } from './chatStream';
+import { getChatScroll, getChatMessages, getWorkingIndicator } from './domContainers';
 
 // ===== Remaining functions (message rendering) =====
 
@@ -35,8 +36,8 @@ export function formatTimestamp(ts: number): string {
 }
 
 export function addUserMessage(content: string) {
-    const container = document.getElementById('chat-messages')!;
-    const scrollContainer = document.getElementById('chat-scroll')!;
+    const container = getChatMessages()!;
+    const scrollContainer = getChatScroll()!;
     scrollContainer.classList.remove('chat-empty');
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
@@ -64,8 +65,8 @@ export function addUserMessage(content: string) {
 }
 
 export function handleKnowledgeExtract(entries: any[]) {
-    const container = document.getElementById('chat-messages');
-    const scrollContainer = document.getElementById('chat-scroll');
+    const container = getChatMessages();
+    const scrollContainer = getChatScroll();
     if (!container || !scrollContainer || entries.length === 0) return;
     scrollContainer.classList.remove('chat-empty');
     const placeholder = container.querySelector('.chat-placeholder');
@@ -91,8 +92,8 @@ export function handleKnowledgeExtract(entries: any[]) {
 }
 
 export function addSystemMessage(content: string) {
-    const container = document.getElementById('chat-messages');
-    const scrollContainer = document.getElementById('chat-scroll');
+    const container = getChatMessages();
+    const scrollContainer = getChatScroll();
     if (!container) return;
     const el = document.createElement('div');
     el.className = 'chat-msg system';
@@ -108,8 +109,8 @@ export function addMessage(role: 'user' | 'agent', content: string) {
         return;
     }
 
-    const container = document.getElementById('chat-messages')!;
-    const scrollContainer = document.getElementById('chat-scroll')!;
+    const container = getChatMessages()!;
+    const scrollContainer = getChatScroll()!;
 
     const msgDiv = document.createElement('div');
     msgDiv.className = `chat-msg ${role}`;
@@ -160,11 +161,11 @@ export function renderMessages(messages: any[]) {
     resetTabGroup();
     clearMergeState();
     activeToolCallElements.clear();
-    const container = document.getElementById('chat-messages');
-    const scrollContainer = document.getElementById('chat-scroll');
+    const container = getChatMessages();
+    const scrollContainer = getChatScroll();
     if (!container || !scrollContainer) return;
 
-    const existingIndicator = document.getElementById('working-indicator');
+    const existingIndicator = getWorkingIndicator();
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) (placeholder as HTMLElement).style.display = '';
 
@@ -302,8 +303,8 @@ export function renderMessages(messages: any[]) {
 }
 
 export function addMessageElement(msg: any, changedFiles?: string[]) {
-    const container = document.getElementById('chat-messages')!;
-    const scrollContainer = document.getElementById('chat-scroll')!;
+    const container = getChatMessages()!;
+    const scrollContainer = getChatScroll()!;
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
 
