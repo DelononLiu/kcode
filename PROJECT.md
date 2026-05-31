@@ -55,7 +55,7 @@ src/
 │   │   └── DelegationPlugin.ts   # 任务委派 + Chat→Task 转换
 │   └── _template/
 │       └── TemplatePlugin.ts     # 插件开发脚手架
-├── kcodeView/
+├── view/
 │   ├── KCodePanel.ts             # 编辑器聊天面板（使用 TaskFlow + PluginManager）
 │   ├── KCodeSidebarProvider.ts   # 侧边栏视图
 │   ├── PanelContext.ts           # KCodePanel 能力接口（含 PluginManager）

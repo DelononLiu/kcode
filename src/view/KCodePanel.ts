@@ -51,7 +51,7 @@ export class KCodePanel {
             enableScripts: true, retainContextWhenHidden: true,
             localResourceRoots: [
                 vscode.Uri.joinPath(context.extensionUri, 'out'),
-                vscode.Uri.joinPath(context.extensionUri, 'src', 'kcodeView', 'webview')
+                vscode.Uri.joinPath(context.extensionUri, 'src', 'view', 'webview')
             ]
         });
         this.panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'resources', 'kcode.png');

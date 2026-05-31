@@ -3,7 +3,7 @@ import { getKnowledgeStyles } from './knowledgeCss';
 
 export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     const scriptUri = webview.asWebviewUri(
-        vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', 'knowledge.bundle.js')
+        vscode.Uri.joinPath(extensionUri, 'out', 'view', 'webview', 'knowledge.bundle.js')
     ).toString();
     const styles = getKnowledgeStyles();
 

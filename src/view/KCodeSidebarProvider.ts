@@ -38,7 +38,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
             enableScripts: true,
             localResourceRoots: [
                 vscode.Uri.joinPath(this._context.extensionUri, 'out'),
-                vscode.Uri.joinPath(this._context.extensionUri, 'src', 'kcodeView', 'webview')
+                vscode.Uri.joinPath(this._context.extensionUri, 'src', 'view', 'webview')
             ]
         };
 
@@ -254,7 +254,7 @@ export class KCodeSidebarProvider implements vscode.WebviewViewProvider {
         const extensionUri = this._context.extensionUri;
 
         const scriptUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', 'sidebar.js')
+            vscode.Uri.joinPath(extensionUri, 'out', 'view', 'webview', 'sidebar.js')
         );
 
         const currentWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || '';

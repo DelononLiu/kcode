@@ -9,7 +9,7 @@ const plugin: KCodePlugin = {
 
     async activate(api: PluginAPI) {
         api.onMessage('checkEnv', async () => {
-            const { detectEnv } = await import('../../kcodeView/SetupWizard');
+            const { detectEnv } = await import('../../view/SetupWizard');
             const env = await detectEnv(() => {});
             api.getRouter().PostMessage({ type: 'envStatus', env });
         });

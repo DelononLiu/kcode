@@ -26,7 +26,7 @@ export class MyTasksProvider {
                 retainContextWhenHidden: true,
                 localResourceRoots: [
                     vscode.Uri.joinPath(context.extensionUri, 'out'),
-                    vscode.Uri.joinPath(context.extensionUri, 'src', 'kcodeView', 'webview'),
+                    vscode.Uri.joinPath(context.extensionUri, 'src', 'view', 'webview'),
                 ],
             }
         );
@@ -230,7 +230,7 @@ export class MyTasksProvider {
 
     private _getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         const scriptUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', 'myTasksApp.js')
+            vscode.Uri.joinPath(extensionUri, 'out', 'view', 'webview', 'myTasksApp.js')
         ).toString();
         const nonce = getNonce();
 

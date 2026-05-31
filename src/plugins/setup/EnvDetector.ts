@@ -1,4 +1,4 @@
-import { detectEnv } from '../../kcodeView/SetupWizard';
+import { detectEnv } from '../../view/SetupWizard';
 import type { ConfigService } from '../../core/ConfigService';
 
 export class EnvDetector {

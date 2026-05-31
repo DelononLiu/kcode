@@ -19,7 +19,7 @@ function svgIcon(name: string): string {
 
 export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, agents?: { label: string; type: string }[], _viewMode?: string): string {
     const scriptUri = (name: string) => webview.asWebviewUri(
-        vscode.Uri.joinPath(extensionUri, 'out', 'kcodeView', 'webview', `${name}.js`)
+        vscode.Uri.joinPath(extensionUri, 'out', 'view', 'webview', `${name}.js`)
     ).toString();
     const inlineStyles = getInlineStyles();
 

@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
-import { KCodePanel } from './kcodeView/KCodePanel';
-import { KCodeSidebarProvider } from './kcodeView/KCodeSidebarProvider';
+import { KCodePanel } from './view/KCodePanel';
+import { KCodeSidebarProvider } from './view/KCodeSidebarProvider';
 import { TaskStore } from './store/TaskStore';
 import { ProjectFs } from './store/ProjectFs';
 import { Task } from './types';
 import { importGitHubIssue } from './commands/importGitHubIssue';
 import { ConfigService } from './core/ConfigService';
-import { SettingsProvider } from './kcodeView/SettingsProvider';
-import { MyTasksProvider } from './kcodeView/MyTasksProvider';
-import { KnowledgePanel } from './kcodeView/KnowledgePanel';
+import { SettingsProvider } from './view/SettingsProvider';
+import { MyTasksProvider } from './view/MyTasksProvider';
+import { KnowledgePanel } from './view/KnowledgePanel';
 
 let panel: KCodePanel | undefined;
 let store: TaskStore | undefined;
