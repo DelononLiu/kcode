@@ -1,12 +1,32 @@
 import { describe, it, expect } from 'vitest';
 import { getInlineStyles } from '../chatPanelCss';
 
+function findRule(css: string, selector: string): string | null {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const m = css.match(new RegExp(`${escaped}\\{([^}]+)\\}`, 'i'));
+    return m ? m[1] : null;
+}
+
 describe('getInlineStyles', () => {
     it('returns non-empty CSS string', () => {
         const css = getInlineStyles();
         expect(css).toBeTruthy();
         expect(typeof css).toBe('string');
         expect(css.length).toBeGreaterThan(100);
+    });
+
+    it('assistant-view is visible by default (no display:none)', () => {
+        const css = getInlineStyles();
+        const rule = findRule(css, '#assistant-view');
+        expect(rule).not.toBeNull();
+        expect(rule).not.toContain('display:none');
+    });
+
+    it('task-view is hidden by default (display:none)', () => {
+        const css = getInlineStyles();
+        const rule = findRule(css, '#task-view');
+        expect(rule).not.toBeNull();
+        expect(rule).toContain('display:none');
     });
 
     it('contains V3 layout classes', () => {

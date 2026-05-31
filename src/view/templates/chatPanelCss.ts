@@ -34,6 +34,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #chat-scroll.chat-empty{display:none}
 #chat-scroll .tl-filter-bar.hidden{display:none}
 
+/* ========== Task View (V3) hidden by default ========== */
+#task-view{display:none}
+
 /* ========== State A: Init Space ========== */
 .init-space{position:fixed;top:0;left:0;width:100vw;height:100vh;background:var(--bg-deep);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:100;transition:all .4s cubic-bezier(.16,1,.3,1)}
 .init-logo{font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:10px;letter-spacing:1px}
@@ -212,7 +215,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .demo-card-btn:disabled{opacity:.35;cursor:default;pointer-events:none}
 
 /* ====== V1 Assistant Layout (scoped under #assistant-view) ====== */
-#assistant-view{display:none;height:100vh;width:100vw;overflow:hidden;position:relative}
+#assistant-view{height:100vh;width:100vw;overflow:hidden;position:relative}
 #assistant-view #container{display:flex;height:100vh;width:100vw;overflow:hidden;position:relative}
 #assistant-view #chat-area{position:relative;flex:1;display:flex;flex-direction:column;min-width:300px;background:var(--bg-deep)}
 #assistant-view #chat-header{flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);width:100%;max-width:900px;margin:0 auto}

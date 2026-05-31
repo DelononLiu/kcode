@@ -16,25 +16,33 @@ describe('getToolKindIcon', () => {
         expect(getToolKindIcon('terminal')).toContain('$');
     });
 
-    it('returns SVG for read', () => {
+    it('returns specific SVG for read (file icon)', () => {
         expect(getToolKindIcon('read')).toContain('<svg');
+        expect(getToolKindIcon('read')).toContain('M10.5 1H3.5');
     });
 
-    it('returns SVG for write/edit', () => {
+    it('returns specific SVG for write/edit (pencil icon)', () => {
         expect(getToolKindIcon('write')).toContain('<svg');
+        expect(getToolKindIcon('write')).toContain('M13.5 2.5l-1-1');
         expect(getToolKindIcon('edit')).toContain('<svg');
+        expect(getToolKindIcon('edit')).toContain('M13.5 2.5l-1-1');
     });
 
-    it('returns SVG for glob', () => {
+    it('returns specific SVG for glob (folder icon)', () => {
         expect(getToolKindIcon('glob')).toContain('<svg');
+        expect(getToolKindIcon('glob')).toContain('M14 4.5l-.5-.5h-5');
     });
 
-    it('returns SVG for grep/search', () => {
+    it('returns specific SVG for grep/search (magnifier icon)', () => {
         expect(getToolKindIcon('grep')).toContain('<svg');
+        expect(getToolKindIcon('grep')).toContain('M11.5 10.5l3.5 3.5-1 1');
+        expect(getToolKindIcon('search')).toContain('<svg');
+        expect(getToolKindIcon('search')).toContain('M11.5 10.5l3.5 3.5-1 1');
     });
 
-    it('returns SVG for thinking', () => {
+    it('returns specific SVG for thinking (bulb icon)', () => {
         expect(getToolKindIcon('thinking')).toContain('<svg');
+        expect(getToolKindIcon('thinking')).toContain('M8 1a5');
     });
 
     it('returns empty for unknown', () => {
