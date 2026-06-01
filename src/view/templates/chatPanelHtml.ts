@@ -285,13 +285,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             </div>
 
             <div id="chat-scroll" class="chat-empty">
-                <div id="tl-filter-bar" class="tl-filter-bar hidden">
-                    <button class="tl-filter-btn active" data-tl-filter="all">全部</button>
-                    <button class="tl-filter-btn" data-tl-filter="thinking">💭 思考</button>
-                    <button class="tl-filter-btn" data-tl-filter="file">📄 文件</button>
-                    <button class="tl-filter-btn" data-tl-filter="command">💻 命令</button>
-                    <button class="tl-filter-btn" data-tl-filter="search">🔍 搜索</button>
-                </div>
                 <div id="chat-messages"></div>
                 <div id="working-indicator" class="hidden">
                     <span class="working-spinner"></span>
@@ -300,6 +293,49 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             </div>
         </main>
 
+    </div>
+</div>
+
+<!-- ========== Shared: Card View (V3 breadcrumb + 3-column) ========== -->
+<div id="card-view">
+    <div id="card-header">
+        <span id="card-header-title">选择任务开始对话</span>
+        <span id="card-status-badge" class="task-status-badge hidden"></span>
+        <span id="card-type-badge" class="hidden"></span>
+    </div>
+    <div id="card-breadcrumb">
+        <div class="cdot" id="cdot-s"></div>
+        <div class="cline" id="cl-1"></div>
+        <div class="cseg seg-waiting" id="cseg-1">🎯 目标</div>
+        <div class="csep sep-waiting" id="csep-1"></div>
+        <div class="cseg seg-waiting" id="cseg-2">⚡ 执行</div>
+        <div class="csep sep-waiting" id="csep-2"></div>
+        <div class="cseg seg-waiting" id="cseg-3">✅ 验收</div>
+        <div class="cline" id="cl-6"></div>
+        <div class="cdot" id="cdot-e"></div>
+    </div>
+    <div id="card-columns">
+        <div class="col-plan col-waiting" id="col-plan">
+            <div class="col-header">🎯 目标 & 方案</div>
+            <div class="col-body-1" id="col-body-1"><div class="col-empty">等待 AI 生成目标方案...</div></div>
+        </div>
+        <div class="col-exec col-waiting" id="col-exec">
+            <div class="col-header">⚡ 执行 & 自检</div>
+            <div class="col-body-2" id="col-body-2"><div class="col-empty">等待进入执行阶段...</div></div>
+        </div>
+        <div class="col-review col-waiting" id="col-review">
+            <div class="col-header">✅ 变更验收</div>
+            <div class="col-body-3" id="col-body-3"><div class="col-empty">等待验收阶段...</div></div>
+        </div>
+    </div>
+    <div id="chat-body" class="hidden">
+        <div id="chat-scroll">
+            <div id="chat-messages"></div>
+            <div id="working-indicator" class="hidden">
+                <span class="working-spinner"></span>
+                <span class="working-text">思考中</span>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -349,6 +385,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 </div>
 
 <script src="${scriptUri('app.bundle')}"></script>
+<script src="${scriptUri('cardApp.bundle')}"></script>
 <script src="${scriptUri('device.bundle')}"></script>
 </body>
 </html>`;
