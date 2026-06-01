@@ -213,7 +213,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 
             <div id="stage-cards">
                 <div class="task-row" data-stage="demand">
-                    <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
+                    <div class="task-header" onclick="window.toggleTaskRow?.(this)">
                         <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                         <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
                         <span class="task-step-name">1. 需求提取 (REQUIREMENT)</span>
@@ -233,7 +233,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     </div>
                 </div>
                 <div class="task-row" data-stage="goal">
-                    <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
+                    <div class="task-header" onclick="window.toggleTaskRow?.(this)">
                         <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                         <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
                         <span class="task-step-name">2. 目标锚定 (TARGET)</span>
@@ -247,7 +247,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     </div>
                 </div>
                 <div class="task-row" data-stage="plan">
-                    <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
+                    <div class="task-header" onclick="window.toggleTaskRow?.(this)">
                         <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                         <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
                         <span class="task-step-name">3. 计划编排 (PLANNING)</span>
@@ -263,7 +263,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     </div>
                 </div>
                 <div class="task-row active" data-stage="execute">
-                    <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
+                    <div class="task-header" onclick="window.toggleTaskRow?.(this)">
                         <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                         <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
                         <span class="task-step-name">4. 代码执行 (EXECUTION)</span>
@@ -287,7 +287,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     </div>
                 </div>
                 <div class="task-row" data-stage="verify">
-                    <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
+                    <div class="task-header" onclick="window.toggleTaskRow?.(this)">
                         <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                         <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
                         <span class="task-step-name">5. 自动化自验 (VERIFY)</span>
@@ -301,7 +301,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                     </div>
                 </div>
                 <div class="task-row" data-stage="review">
-                    <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
+                    <div class="task-header" onclick="window.toggleTaskRow?.(this)">
                         <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                         <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
                         <span class="task-step-name">6. 最终签署 (CLOSE)</span>

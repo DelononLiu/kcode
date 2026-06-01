@@ -132,6 +132,7 @@ export function handleAgentStreamUpdate(text: string) {
 
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg agent';
+        if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
 
         const sender = document.createElement('div');
         sender.className = 'msg-sender';
@@ -205,6 +206,7 @@ export function flushMerge() {
         }
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg tool';
+        if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble';
         bubble.appendChild(mergedEntry);
@@ -243,6 +245,7 @@ export function handleToolCallUpdate(msg: any) {
             const msgDiv = document.createElement('div');
             msgDiv.className = 'chat-msg tool';
             msgDiv.dataset.msgId = 'tool_' + toolId;
+            if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
             const bubble = document.createElement('div');
             bubble.className = 'msg-bubble tool-bubble';
             msgDiv.appendChild(bubble);
@@ -291,6 +294,7 @@ export function handleToolCallUpdate(msg: any) {
             const msgDiv = document.createElement('div');
             msgDiv.className = 'chat-msg tool';
             msgDiv.dataset.msgId = 'tool_' + toolId;
+            if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
             const bubble = document.createElement('div');
             bubble.className = 'msg-bubble';
             bubble.appendChild(entry);

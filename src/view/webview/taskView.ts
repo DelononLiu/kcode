@@ -39,29 +39,30 @@ const STAGE_ORDER = ['demand', 'goal', 'plan', 'execute', 'verify', 'review'];
 export function updateRailAndStages(phase: string, status: string): void {
     const idx = STAGE_ORDER.indexOf(phase);
     const statusIdx = status === 'completed' ? 6 : status === 'cancelled' ? -1 : idx >= 0 ? idx : -1;
+    const effectiveIdx = statusIdx >= 0 ? statusIdx : 0; // default to first stage when pending
 
     document.querySelectorAll('.stage-node').forEach((el, i) => {
-        el.classList.toggle('done', i < statusIdx);
-        el.classList.toggle('active', i === statusIdx && status !== 'completed' && status !== 'cancelled');
+        el.classList.toggle('done', i < effectiveIdx);
+        el.classList.toggle('active', i === effectiveIdx && status !== 'completed' && status !== 'cancelled');
     });
 
     const track = document.getElementById('rail-track-active');
-    if (track && statusIdx > 0) {
-        track.style.height = Math.min((40 + statusIdx * (26 + 38)), (40 + STAGE_ORDER.length * 26 + (STAGE_ORDER.length - 1) * 38)) + 'px';
-    } else if (track && statusIdx === 0) {
-        track.style.height = '40px'; track.style.opacity = '0.3';
-    } else if (track) {
-        track.style.height = '0';
+    if (track) {
+        const trackHeight = effectiveIdx > 0
+            ? Math.min((40 + effectiveIdx * (26 + 38)), (40 + STAGE_ORDER.length * 26 + (STAGE_ORDER.length - 1) * 38))
+            : 40;
+        track.style.height = trackHeight + 'px';
+        track.style.opacity = effectiveIdx === 0 ? '0.3' : '1';
     }
 
     document.querySelectorAll('.task-row').forEach((el) => {
         const si = STAGE_ORDER.indexOf((el as HTMLElement).dataset.stage || '');
         const iconBox = el.querySelector('.status-icon-box') as HTMLElement;
         if (!iconBox) return;
-        if (si < statusIdx) {
+        if (si < effectiveIdx) {
             iconBox.className = 'status-icon-box success';
             iconBox.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#04d361" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
-        } else if (si === statusIdx && status !== 'completed' && status !== 'cancelled') {
+        } else if (si === effectiveIdx && status !== 'completed' && status !== 'cancelled') {
             iconBox.className = 'status-icon-box running';
             iconBox.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#04d361" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
             el.classList.add('expanded');

@@ -322,17 +322,20 @@ function distributeMessagesToStages() {
     const hasStageContainers = Object.values(phaseContainers).some(c => c !== null);
     if (!hasStageContainers) return;
 
-    // Clear stage containers
-    for (const container of Object.values(phaseContainers)) {
-        if (container) container.innerHTML = '';
-    }
-
-    // Move each message element to its phase container
+    // Move each message element to its phase container (without clearing, to preserve streaming state)
     const msgElements = mainContainer.querySelectorAll(':scope > .chat-msg');
     const workingIndicator = mainContainer.querySelector('#working-indicator');
+    const fallbackPhase = G.activeTaskPhase || 'demand';
+
     for (const el of msgElements) {
         const phase = (el as HTMLElement).dataset.phase;
-        const target = phase ? phaseContainers[phase] : null;
+        let target: HTMLElement | null = null;
+        if (phase && phaseContainers[phase]) {
+            target = phaseContainers[phase];
+        } else if (phaseContainers[fallbackPhase]) {
+            // Phase-less messages go to the active/demand stage so they're always visible
+            target = phaseContainers[fallbackPhase];
+        }
         if (target) {
             target.appendChild(el);
         }
