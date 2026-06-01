@@ -294,6 +294,7 @@ export async function importGitHubIssue(
         confirmedItems: [],
         pendingItems: [],
         planSteps: [],
+        originalRequest: issue.body || '',
         createdAt: Date.now(),
         workspace: vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,
         source,

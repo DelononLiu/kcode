@@ -225,6 +225,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             confirmedItems: [],
             pendingItems: [],
             planSteps: [],
+            originalRequest: '',
             createdAt: Date.now(),
             pinned: false,
             workspace: vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,

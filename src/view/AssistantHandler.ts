@@ -151,6 +151,7 @@ export class AssistantHandler {
             confirmedItems: [],
             pendingItems: [],
             planSteps: [],
+            originalRequest: '',
             createdAt: Date.now(),
             pinned: false,
             workspace: this.workspaceRoot,

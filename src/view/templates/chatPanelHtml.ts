@@ -217,30 +217,49 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                         <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                         <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
                         <span class="task-step-name">1. 需求提取 (REQUIREMENT)</span>
+                        <span class="stage-badge" id="badge-demand"></span>
                         <span class="task-duration" id="dur-demand">0s</span>
                     </div>
-                    <div class="task-body" id="stage-body-demand"><div style="color:var(--text-dim);font-size:12px;font-style:italic">等待任务启动...</div></div>
+                    <div class="task-body" id="stage-body-demand">
+                        <div id="demand-original-request" class="demand-original-request hidden">
+                            <div class="demand-original-label">📋 原始需求</div>
+                            <div class="demand-original-text" id="demand-original-text"></div>
+                        </div>
+                        <div id="demand-confirmed-list" class="demand-list"></div>
+                        <div id="demand-pending-list" class="demand-list"></div>
+                        <div id="demand-empty-hint" class="demand-empty-hint">添加初始需求项以启动任务</div>
+                        <div class="stage-messages" id="stage-messages-demand"></div>
+                        <div class="stage-input-row"><input type="text" class="stage-input" id="input-demand" placeholder="📝 需求补充..." data-stage="demand"><button class="stage-send-btn">发送</button></div>
+                    </div>
                 </div>
                 <div class="task-row" data-stage="goal">
                     <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
                         <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                         <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
                         <span class="task-step-name">2. 目标锚定 (TARGET)</span>
+                        <span class="stage-badge" id="badge-goal"></span>
                         <span class="task-duration" id="dur-goal">0s</span>
                     </div>
-                    <div class="task-body" id="stage-body-goal"><div style="color:var(--text-dim);font-size:12px">等待目标确认...</div></div>
+                    <div class="task-body" id="stage-body-goal">
+                        <div class="stage-messages" id="stage-messages-goal"></div>
+                        <div style="color:var(--text-dim);font-size:12px">等待目标确认...</div>
+                        <div class="stage-input-row"><input type="text" class="stage-input" id="input-goal" placeholder="🎯 目标调整..." data-stage="goal"><button class="stage-send-btn">发送</button></div>
+                    </div>
                 </div>
                 <div class="task-row" data-stage="plan">
                     <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
                         <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                         <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
                         <span class="task-step-name">3. 计划编排 (PLANNING)</span>
+                        <span class="stage-badge" id="badge-plan"></span>
                         <span class="task-duration" id="dur-plan">0s</span>
                     </div>
                     <div class="task-body" id="stage-body-plan">
                         <div class="sandbox-toolbar" style="display:none"><span><strong>人机协同沙盘</strong></span><span>[ 📂 拖拽重排 ]</span><span>[ ✎ 双击编辑 ]</span><span>[ 🔒 锁定并执行 ]</span></div>
                         <div id="plan-substeps"></div>
+                        <div class="stage-messages" id="stage-messages-plan"></div>
                         <div style="color:var(--text-dim);font-size:12px">等待计划生成...</div>
+                        <div class="stage-input-row"><input type="text" class="stage-input" id="input-plan" placeholder="🔧 计划调整..." data-stage="plan"><button class="stage-send-btn">发送</button></div>
                     </div>
                 </div>
                 <div class="task-row active" data-stage="execute">
@@ -248,6 +267,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                         <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                         <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
                         <span class="task-step-name">4. 代码执行 (EXECUTION)</span>
+                        <span class="stage-badge" id="badge-execute"></span>
                         <span class="task-duration" id="dur-execute">0s</span>
                     </div>
                     <div class="task-body" id="stage-body-execute">
@@ -262,6 +282,8 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                             <div class="zone-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> 就地追加局部微调指令 (可选)：</div>
                             <div class="inline-input-wrapper"><input type="text" id="inline-intervention-input" placeholder="只针对当前代码执行进行微调...">${svgIcon('send')}</div>
                         </div>
+                        <div class="stage-messages" id="stage-messages-execute"></div>
+                        <div class="stage-input-row"><input type="text" class="stage-input" id="input-execute" placeholder="💬 执行干预..." data-stage="execute"><button class="stage-send-btn">发送</button></div>
                     </div>
                 </div>
                 <div class="task-row" data-stage="verify">
@@ -269,27 +291,36 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                         <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                         <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
                         <span class="task-step-name">5. 自动化自验 (VERIFY)</span>
+                        <span class="stage-badge" id="badge-verify"></span>
                         <span class="task-duration" id="dur-verify">0s</span>
                     </div>
-                    <div class="task-body" id="stage-body-verify"><div style="color:var(--text-dim);font-size:12px">等待自验...</div></div>
+                    <div class="task-body" id="stage-body-verify">
+                        <div class="stage-messages" id="stage-messages-verify"></div>
+                        <div style="color:var(--text-dim);font-size:12px">等待自验...</div>
+                        <div class="stage-input-row"><input type="text" class="stage-input" id="input-verify" placeholder="🔍 分析失败..." data-stage="verify"><button class="stage-send-btn">发送</button></div>
+                    </div>
                 </div>
                 <div class="task-row" data-stage="review">
                     <div class="task-header" onclick="(window as any).toggleTaskRow?.(this)">
                         <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                         <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
                         <span class="task-step-name">6. 最终签署 (CLOSE)</span>
+                        <span class="stage-badge" id="badge-review"></span>
                         <span class="task-duration" id="dur-review">0s</span>
                     </div>
-                    <div class="task-body" id="stage-body-review"><div style="color:var(--text-dim);font-size:12px">等待验收...</div></div>
+                    <div class="task-body" id="stage-body-review">
+                        <div class="stage-messages" id="stage-messages-review"></div>
+                        <div style="color:var(--text-dim);font-size:12px">等待验收...</div>
+                        <div class="stage-input-row"><input type="text" class="stage-input" id="input-review" placeholder="📝 评审意见..." data-stage="review"><button class="stage-send-btn">发送</button></div>
+                    </div>
                 </div>
             </div>
 
-            <div id="chat-scroll" class="chat-empty">
-                <div id="chat-messages"></div>
-                <div id="working-indicator" class="hidden">
-                    <span class="working-spinner"></span>
-                    <span class="working-text">思考中</span>
-                </div>
+            <!-- hidden containers for streaming backward compat -->
+            <div id="chat-messages" style="display:none"></div>
+            <div id="working-indicator" class="hidden" style="position:fixed;bottom:60px;right:60px;z-index:50">
+                <span class="working-spinner"></span>
+                <span class="working-text">思考中</span>
             </div>
         </main>
 

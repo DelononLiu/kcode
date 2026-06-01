@@ -93,8 +93,48 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .status-icon-box.pending{color:var(--text-dim)}
 .task-step-name{font-size:13.5px;font-weight:500;flex:1;min-width:0}
 .task-duration{font-family:monospace;font-size:12px;color:var(--text-dim);flex-shrink:0}
+.stage-badge{font-size:11px;color:var(--accent);margin-right:8px;flex-shrink:0;font-family:monospace}
 .task-body{display:none;background:rgba(0,0,0,.15);border-top:1px solid var(--border);padding:12px 16px}
 .task-row.expanded .task-body{display:block}
+
+/* Demand card */
+.demand-original-request{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.demand-original-label{font-size:11px;color:var(--text-dim);margin-bottom:4px}
+.demand-original-text{font-size:13px;color:var(--text-main);line-height:1.5;padding:8px 10px;background:rgba(0,0,0,.2);border-radius:4px;border-left:2px solid var(--accent)}
+.demand-list{margin-bottom:8px}
+.demand-list-label{font-size:11px;color:var(--text-dim);margin-bottom:4px;font-weight:500}
+.demand-item{display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:13px;color:var(--text-main);border-radius:3px;cursor:pointer;transition:background .1s}
+.demand-item:hover{background:rgba(255,255,255,.03)}
+.demand-item .demand-item-icon{width:16px;text-align:center;flex-shrink:0;font-size:12px}
+.demand-item.confirmed .demand-item-icon{color:var(--accent)}
+.demand-item.pending .demand-item-icon{color:var(--text-dim)}
+.demand-item .demand-item-text{flex:1;min-width:0}
+.demand-item.confirmed .demand-item-text{color:var(--text-dim)}
+.demand-empty-hint{text-align:center;color:var(--text-dim);font-size:13px;padding:16px 0;font-style:italic}
+
+/* Stage messages inside card */
+.stage-messages{margin-bottom:8px}
+.stage-messages .chat-msg{padding:4px 0}
+.stage-messages .msg-bubble{font-size:12.5px;line-height:1.5}
+.stage-messages .msg-bubble p{margin:.2em 0}
+.stage-messages .msg-bubble code{font-size:11.5px}
+.stage-messages .chat-msg.user .msg-bubble{font-size:12.5px}
+.stage-messages .chat-msg.agent .msg-bubble{font-size:12.5px}
+.stage-messages .chat-msg.system .msg-bubble{font-size:11px}
+.stage-messages .msg-card{border:1px solid rgba(255,255,255,.04);margin-bottom:4px}
+.stage-messages .msg-card-header{font-size:11px;min-height:28px}
+.stage-messages .msg-card-body{font-size:12px;padding:6px 10px}
+.stage-messages .tl-entry{padding:0}
+.stage-messages .tl-entry-main .msg-bubble{font-size:11.5px}
+.stage-messages .chat-msg:last-child{padding-bottom:0}
+
+/* Stage inline input */
+.stage-input-row{display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)}
+.stage-input{flex:1;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-main);padding:6px 10px;border-radius:4px;font-size:12.5px;font-family:inherit;outline:none;transition:border-color .2s}
+.stage-input:focus{border-color:rgba(255,255,255,.2)}
+.stage-input::placeholder{color:#494952}
+.stage-send-btn{background:var(--bg-item);border:1px solid var(--border);color:var(--text-dim);padding:5px 12px;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:color .2s,background .2s}
+.stage-send-btn:hover{color:var(--accent);background:rgba(4,211,97,.08);border-color:rgba(4,211,97,.2)}
 
 .sandbox-toolbar{background:#18181c;border:1px solid var(--border);padding:6px 12px;border-radius:4px;font-size:12px;margin-bottom:12px;display:flex;gap:16px;color:var(--text-dim);flex-wrap:wrap}
 .sandbox-toolbar strong{color:var(--warning)}

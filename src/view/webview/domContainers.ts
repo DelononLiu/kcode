@@ -5,7 +5,11 @@ function getActiveView(): 'assistant' | 'task' {
 }
 
 export function getChatScroll(): HTMLElement | null {
-    return document.querySelector(`#${getActiveView()}-view #chat-scroll`);
+    const el = document.querySelector(`#${getActiveView()}-view #chat-scroll`);
+    if (el) return el as HTMLElement;
+    // Fallback for task view (no shared chat-scroll)
+    const taskChat = document.querySelector('#task-view #chat-messages');
+    return taskChat ? taskChat.parentElement || (taskChat as HTMLElement) : null;
 }
 
 export function getChatMessages(): HTMLElement | null {

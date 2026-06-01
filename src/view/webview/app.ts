@@ -158,6 +158,28 @@ function initV3Layout() {
         const agentBtn = document.getElementById('agent-dropdown-btn');
         if (agentBtn) agentBtn.click();
     });
+
+    // Stage inline inputs
+    const stages = ['demand', 'goal', 'plan', 'execute', 'verify', 'review'];
+    for (const stage of stages) {
+        const input = document.getElementById('input-' + stage) as HTMLInputElement;
+        const btn = input?.parentElement?.querySelector('.stage-send-btn') as HTMLElement;
+        const sendStageMsg = () => {
+            if (input && input.value.trim() && G.activeTaskId) {
+                const text = '[阶段:' + stage + '] ' + input.value.trim();
+                G.vscode.postMessage({ type: 'stageInput', text, taskId: G.activeTaskId });
+                input.value = '';
+            }
+        };
+        if (input) {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') sendStageMsg();
+            });
+        }
+        if (btn) {
+            btn.addEventListener('click', sendStageMsg);
+        }
+    }
 }
 
 // ===== Message Router =====

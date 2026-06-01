@@ -244,8 +244,8 @@ export class TaskFlowHandler {
 
         ctx.router.PostMessage({
             type: 'updateTaskInfo', taskId: taskId, title: task.title, goal: task.goal, goalHint: task.goal ? '🎯 ' + task.goal : '',
-            status: task.status, phase: task.phase, phaseLabel: phaseLabels[task.phase] || task.phase,
-            taskType: task.type, category: task.category, createdAt: task.createdAt, pendingReviewFiles: 0,
+            status: task.status, phase: task.phase,             phaseLabel: phaseLabels[task.phase] || task.phase,
+            taskType: task.type, category: task.category, createdAt: task.createdAt, originalRequest: task.originalRequest || '', pendingReviewFiles: 0,
             confirmedItems: task.confirmedItems, pendingItems: task.pendingItems, planSteps: task.planSteps,
             planVersion: task.planVersion || 1,
             riskItems: task.riskItems || [],
@@ -462,7 +462,7 @@ export class TaskFlowHandler {
         const fullGoal = payload.relevantSnippets ? `${payload.goal}\n\n技术上下文：${payload.relevantSnippets}` : payload.goal;
         const newTask: Task = {
             id: `task_${Date.now()}`, title: payload.title, goal: fullGoal, type: 'task', status: 'pending', phase: 'demand',
-            confirmedItems: payload.confirmedItems || [], pendingItems: [], planSteps: [], createdAt: Date.now(),
+            confirmedItems: payload.confirmedItems || [], pendingItems: [], planSteps: [], originalRequest: payload.title, createdAt: Date.now(),
             pinned: false, source: parentTask.source, containerId: parentTask.containerId, group: parentTask.group,
             workspace: vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,
         };

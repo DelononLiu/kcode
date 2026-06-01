@@ -44,6 +44,7 @@ export function addUserMessage(content: string) {
 
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg user';
+    if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
 
     const sender = document.createElement('div');
     sender.className = 'msg-sender';
@@ -97,6 +98,7 @@ export function addSystemMessage(content: string) {
     if (!container) return;
     const el = document.createElement('div');
     el.className = 'chat-msg system';
+    if (G.activeTaskPhase) el.dataset.phase = G.activeTaskPhase;
     el.innerHTML = `<div class="msg-bubble system">${content}</div>`;
     container.appendChild(el);
     updateLastMsgConvertBtn();
@@ -114,6 +116,7 @@ export function addMessage(role: 'user' | 'agent', content: string) {
 
     const msgDiv = document.createElement('div');
     msgDiv.className = `chat-msg ${role}`;
+    if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
 
     const sender = document.createElement('div');
     sender.className = 'msg-sender';
@@ -300,6 +303,52 @@ export function renderMessages(messages: any[]) {
     updateLastMsgConvertBtn();
 
     if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
+
+    // Distribute rendered messages into stage-specific containers
+    distributeMessagesToStages();
+}
+
+function distributeMessagesToStages() {
+    const mainContainer = getChatMessages();
+    if (!mainContainer) return;
+    const phaseContainers: Record<string, HTMLElement | null> = {
+        demand: document.getElementById('stage-messages-demand'),
+        goal: document.getElementById('stage-messages-goal'),
+        plan: document.getElementById('stage-messages-plan'),
+        execute: document.getElementById('stage-messages-execute'),
+        verify: document.getElementById('stage-messages-verify'),
+        review: document.getElementById('stage-messages-review'),
+    };
+    const hasStageContainers = Object.values(phaseContainers).some(c => c !== null);
+    if (!hasStageContainers) return;
+
+    // Clear stage containers
+    for (const container of Object.values(phaseContainers)) {
+        if (container) container.innerHTML = '';
+    }
+
+    // Move each message element to its phase container
+    const msgElements = mainContainer.querySelectorAll(':scope > .chat-msg');
+    const workingIndicator = mainContainer.querySelector('#working-indicator');
+    for (const el of msgElements) {
+        const phase = (el as HTMLElement).dataset.phase;
+        const target = phase ? phaseContainers[phase] : null;
+        if (target) {
+            target.appendChild(el);
+        }
+    }
+    // Move working indicator to active stage
+    if (workingIndicator) {
+        const activePhase = G.activeTaskPhase;
+        const activeTarget = activePhase ? phaseContainers[activePhase] : null;
+        if (activeTarget) {
+            activeTarget.appendChild(workingIndicator);
+        }
+    }
+    // Hide main container for task view (it's only for rendering pipeline)
+    if (!document.querySelector('#assistant-view') || document.getElementById('assistant-view')?.style.display === 'none') {
+        mainContainer.style.display = 'none';
+    }
 }
 
 export function addMessageElement(msg: any, changedFiles?: string[]) {
@@ -554,6 +603,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
     const msgDiv = document.createElement('div');
     msgDiv.className = `chat-msg ${role}`;
     msgDiv.dataset.msgId = msg.id;
+    if (msg.phase) msgDiv.dataset.phase = msg.phase;
 
     const sender = document.createElement('div');
     sender.className = 'msg-sender';
@@ -607,7 +657,125 @@ export function updateTaskInfo(info: any) {
         if (modeCapsule) modeCapsule.textContent = info.category;
     }
 
+    // Render demand card
+    renderDemandCard(info);
+
+    // Update stage badges
+    updateStageBadges(info);
+
     (window as any).updateOutputPanel?.(info, []);
+}
+
+function renderDemandCard(info: any) {
+    const confirmedItems: string[] = info.confirmedItems || [];
+    const pendingItems: string[] = info.pendingItems || [];
+    const originalRequest: string = info.originalRequest || '';
+
+    // Original request block
+    const origEl = document.getElementById('demand-original-request');
+    const origText = document.getElementById('demand-original-text');
+    if (origEl && origText) {
+        if (originalRequest) {
+            origEl.classList.remove('hidden');
+            origText.textContent = originalRequest;
+        } else {
+            origEl.classList.add('hidden');
+        }
+    }
+
+    // Empty hint
+    const emptyHint = document.getElementById('demand-empty-hint');
+    if (emptyHint) {
+        emptyHint.style.display = (confirmedItems.length === 0 && pendingItems.length === 0) ? 'block' : 'none';
+    }
+
+    // Confirmed items
+    const confirmedContainer = document.getElementById('demand-confirmed-list');
+    if (confirmedContainer) {
+        if (confirmedItems.length > 0) {
+            confirmedContainer.innerHTML = '<div class="demand-list-label">已确认需求（' + confirmedItems.length + '）</div>'
+                + confirmedItems.map((item: string) =>
+                    '<div class="demand-item confirmed"><span class="demand-item-icon">✅</span><span class="demand-item-text">' + escapeHtml(item) + '</span></div>'
+                ).join('');
+        } else {
+            confirmedContainer.innerHTML = '';
+        }
+    }
+
+    // Pending items
+    const pendingContainer = document.getElementById('demand-pending-list');
+    if (pendingContainer) {
+        if (pendingItems.length > 0) {
+            pendingContainer.innerHTML = '<div class="demand-list-label">待确认需求（' + pendingItems.length + '）</div>'
+                + pendingItems.map((item: string, idx: number) =>
+                    '<div class="demand-item pending" data-idx="' + idx + '"><span class="demand-item-icon">◻️</span><span class="demand-item-text">' + escapeHtml(item) + '</span></div>'
+                ).join('');
+            // Click to confirm
+            pendingContainer.querySelectorAll('.demand-item.pending').forEach(el => {
+                el.addEventListener('click', () => {
+                    const idx = parseInt((el as HTMLElement).dataset.idx || '0', 10);
+                    const taskId = G.activeTaskId;
+                    if (taskId && G.vscode) {
+                        G.vscode.postMessage({ type: 'confirmRequirement', taskId, index: idx });
+                    }
+                });
+            });
+        } else {
+            pendingContainer.innerHTML = '';
+        }
+    }
+}
+
+export function updateStageBadges(info: any) {
+    const confirmed = (info.confirmedItems || []).length;
+    const pending = (info.pendingItems || []).length;
+    const planSteps = info.planSteps || [];
+    const doneSteps = planSteps.filter((s: any) => s.status === 'completed').length;
+    const totalSteps = planSteps.length;
+
+    // Demand badge
+    const badgeDemand = document.getElementById('badge-demand');
+    if (badgeDemand) {
+        if (confirmed > 0 || pending > 0) {
+            badgeDemand.textContent = '✓' + confirmed + ' 待' + pending;
+        } else {
+            badgeDemand.textContent = info.phase === 'demand' ? '待确认' : '';
+        }
+    }
+
+    // Goal badge
+    const badgeGoal = document.getElementById('badge-goal');
+    if (badgeGoal) {
+        badgeGoal.textContent = info.goal ? '🎯 已确认' : (info.phase === 'goal' ? '⏳ 待确认' : '');
+    }
+
+    // Plan badge
+    const badgePlan = document.getElementById('badge-plan');
+    if (badgePlan) {
+        badgePlan.textContent = totalSteps > 0 ? doneSteps + '/' + totalSteps : '';
+    }
+
+    // Execute badge
+    const badgeExec = document.getElementById('badge-execute');
+    if (badgeExec) {
+        const hasFiles = info.filePathsFromTools && info.filePathsFromTools.length > 0;
+        badgeExec.textContent = hasFiles ? '📁' + info.filePathsFromTools.length : (info.executeFinished ? '✅ 完成' : '');
+    }
+
+    // Verify badge
+    const badgeVerify = document.getElementById('badge-verify');
+    if (badgeVerify) {
+        const fi = info.flowIteration;
+        const iter = fi?.state?.currentIteration || 0;
+        badgeVerify.textContent = iter > 0 ? '迭代 ' + iter : '';
+    }
+
+    // Review badge
+    const badgeReview = document.getElementById('badge-review');
+    if (badgeReview) {
+        const fileCount = info.pendingReviewFiles || 0;
+        badgeReview.textContent = fileCount > 0 ? '📁' + fileCount + ' 待签' : '';
+    }
 }
 
 export function flashInput() {

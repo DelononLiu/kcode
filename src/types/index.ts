@@ -97,6 +97,7 @@ export interface Task {
     planVersion?: number;
     riskItems?: string[];
     boundaryItems?: string[];
+    originalRequest?: string;
     createdAt: number;
     workspace?: string;
     pinned?: boolean;
@@ -130,6 +131,7 @@ export interface ChatMessage {
     role: 'user' | 'agent' | 'tool';
     type?: 'text' | 'goal_confirmation' | 'goal_confirmed' | 'goal_updated' | 'plan_proposal' | 'plan_confirmed' | 'review_request' | 'review_approved' | 'review_rejected' | 'tool_call' | 'stop_message' | 'todo' | 'card_comment';
     content: string;
+    phase?: string;
     timestamp: number;
 }
 

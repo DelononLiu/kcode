@@ -231,7 +231,28 @@ export class Panel {
         this.router.on('newTaskWithText', async (msg) => {
             await vscode.commands.executeCommand('kcode.newTask');
             if (this.currentTaskId && msg.text) {
+                this.store.updateTaskTitle(this.currentTaskId, msg.text);
+                this.flowHandler.sendTaskInfo(this.currentTaskId);
                 this.sessionHandler.handleSendMessage(msg.text, this.currentTaskId);
+            }
+        });
+        this.router.on('stageInput', async (msg) => {
+            if (msg.taskId && msg.text) {
+                this.sessionHandler.handleSendMessage(msg.text, msg.taskId);
+            }
+        });
+        this.router.on('confirmRequirement', (msg) => {
+            if (msg.taskId && typeof msg.index === 'number') {
+                const task = this.store.getTask(msg.taskId);
+                if (task && task.pendingItems[msg.index]) {
+                    const item = task.pendingItems[msg.index];
+                    const confirmed = [...task.confirmedItems, item];
+                    const pending = task.pendingItems.filter((_, i) => i !== msg.index);
+                    this.store.updateConfirmedItems(msg.taskId, confirmed);
+                    this.store.updatePendingItems(msg.taskId, pending);
+                    this.flowHandler.sendTaskInfo(msg.taskId);
+                    this.refreshSidebarCallback?.();
+                }
             }
         });
         this.router.on('cancelQueuedMessage', (msg) => { if (msg.index >= 0 && msg.index < this.pendingMessages.length) { this.pendingMessages.splice(msg.index, 1); this.sendPendingQueueUpdate(); } });

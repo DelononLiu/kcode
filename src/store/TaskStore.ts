@@ -127,6 +127,12 @@ export class TaskStore {
     }
 
     addMessage(msg: ChatMessage): void {
+        if (!msg.phase) {
+            const task = this.fs.getTask(msg.taskId);
+            if (task?.phase) {
+                msg.phase = task.phase;
+            }
+        }
         this.fs.addMessage(msg);
     }
 

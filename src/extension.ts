@@ -114,6 +114,7 @@ export async function activate(context: vscode.ExtensionContext) {
             confirmedItems: [],
             pendingItems: [],
             planSteps: [],
+            originalRequest: '',
             createdAt: Date.now(),
             workspace: workspaceRoot,
         };
@@ -145,6 +146,7 @@ export async function activate(context: vscode.ExtensionContext) {
             confirmedItems: [],
             pendingItems: [],
             planSteps: [],
+            originalRequest: '',
             createdAt: Date.now(),
             workspace: workspaceRoot,
         };
