@@ -5,6 +5,7 @@ import { createTimelineEntry, createMergedTimelineEntry, showTlFilterBar, forceT
 import { _isTodoArray, _parseTodoStr, buildTodoBodyHtml } from './todoRenderer';
 import { renderToolBubbleContent } from './toolRenderer';
 import { getChatScroll, getChatMessages, getWorkingIndicator } from './domContainers';
+import { groupPhases } from './taskView';
 
 // ===== Module-level state =====
 
@@ -98,6 +99,7 @@ export function appendToChatMessages(el: Element) {
         container.appendChild(el);
     }
     updateLastMsgConvertBtn();
+    groupPhases();
 }
 
 // ===== Stream handlers =====

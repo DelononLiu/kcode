@@ -296,7 +296,8 @@ export class Panel {
 
     storeMessage(taskId: string, role: 'user' | 'agent', content: string): string {
         const id = this.store.nextMessageId(taskId);
-        this.store.addMessage({ id, taskId, role, content, timestamp: Date.now() });
+        const task = this.store.getTask(taskId);
+        this.store.addMessage({ id, taskId, role, content, phase: task?.phase, timestamp: Date.now() });
         return id;
     }
 

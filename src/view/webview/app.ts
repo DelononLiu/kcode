@@ -1,6 +1,6 @@
 import { G, type FileChange } from './state';
 import { showAssistantView, initAgentSelector, initModelSelector, truncateModel } from './assistantView';
-import { showTaskView, renderTimeline, updateTaskInfo as updateTaskViewInfo, updatePhaseBadge } from './taskView';
+import { showTaskView, initPhaseView, updatePhaseBadge, resetPhaseState } from './taskView';
 import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpdate, sendMessageFromInput } from './chatInteraction';
 import { initTemplateChips, renderCategorySelection, focusChatInput } from './templateFlow';
 import { initPluginManager, renderPluginList } from './pluginRegistry';
@@ -181,6 +181,7 @@ function initMessageHandler() {
                 }
                 if (message.taskId) {
                     showTaskView(true);
+                    resetPhaseState();
                     const nameEl = document.getElementById('tv4-task-name');
                     if (nameEl) nameEl.textContent = message.title || '任务';
                     G.activeTaskPhase = message.taskPhase || message.phase || '';
@@ -385,6 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavButtons();
     initPluginManager();
     initV4Layout();
+    initPhaseView();
 
     const dataEl = document.getElementById('__panelData');
     if (dataEl) {

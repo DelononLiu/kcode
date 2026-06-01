@@ -64,45 +64,38 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
 /* === V4 Timeline === */
 .tv4-scroll{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
-.tv4-timeline{max-width:900px;margin:0 auto;padding:20px 24px 32px;min-height:100%}
 
-/* User request block */
-.tv4-user-request{margin-bottom:24px;padding:12px 16px;background:rgba(255,255,255,.015);border:1px solid var(--border);border-radius:6px}
-.tv4-user-request .tv4-ur-label{font-size:11px;color:var(--text-dim);margin-bottom:6px}
-.tv4-user-request .tv4-ur-text{font-size:14px;color:var(--text-main);line-height:1.5;white-space:pre-wrap}
+#task-view #chat-messages{max-width:900px;margin:0 auto;padding:24px 24px 32px;min-height:100%}
 
-/* AI preamble */
-.tv4-ai-preamble{padding:12px 0 4px;font-size:13px;color:var(--text-dim);line-height:1.6;margin-bottom:12px}
-.tv4-ai-preamble .tv4-ai-label{color:var(--accent);font-weight:600}
+/* === Phase Group Container === */
+.tv4-phase-group{border:1px solid var(--border);border-radius:6px;margin:8px 0;overflow:hidden}
+.tv4-pg-toggle{display:flex;align-items:center;gap:6px;padding:6px 10px;font-size:11px;color:#888;cursor:pointer;user-select:none;background:rgba(255,255,255,.015);transition:color .15s,background .15s}
+.tv4-pg-toggle:hover{color:#aaa;background:rgba(255,255,255,.03)}
+.tv4-pg-icon{display:inline-block;width:12px;font-size:10px;text-align:center;flex-shrink:0;transition:transform .2s}
+.tv4-pg-body{display:none;border-top:1px solid var(--border);background:rgba(0,0,0,.08)}
+.tv4-phase-group[data-collapsed="false"] .tv4-pg-body{display:block}
+.tv4-pg-body .chat-msg{padding:6px 12px}
 
-/* Timeline tree connector */
-.tv4-tree{position:relative;padding-left:24px}
-.tv4-tree::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:var(--border)}
+/* Task view: show message sender */
+#task-view .chat-msg .msg-sender{display:flex;font-size:11px;font-weight:500;color:var(--text-dim);margin-bottom:2px;gap:4px}
+#task-view .chat-msg .msg-sender .msg-timestamp{font-weight:400;color:#555;font-size:10px}
+#task-view .chat-msg .msg-row{display:none}
 
-/* Milestone row */
-.tv4-milestone{position:relative;padding:8px 0 4px}
-.tv4-milestone .tv4-ms-dot{position:absolute;left:-20px;top:12px;width:12px;height:12px;border-radius:50%;border:2px solid var(--accent);background:var(--bg-panel);z-index:2}
-.tv4-milestone .tv4-ms-dot.done{background:var(--accent)}
-.tv4-milestone .tv4-ms-header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-.tv4-milestone .tv4-ms-icon{font-size:16px;flex-shrink:0}
-.tv4-milestone .tv4-ms-label{font-size:12px;font-weight:600;color:var(--accent)}
-.tv4-milestone .tv4-ms-time{font-size:10px;color:var(--text-dim);margin-left:4px}
-.tv4-milestone .tv4-ms-body{font-size:13px;color:var(--text-main);line-height:1.5;padding:6px 12px;background:rgba(4,211,97,.03);border-left:2px solid var(--accent);border-radius:3px;white-space:pre-wrap}
-.tv4-milestone .tv4-ms-body.pending{border-left-color:var(--border);background:rgba(255,255,255,.01);color:var(--text-dim)}
+/* Task view: user message bubble */
+#task-view .chat-msg.user .msg-bubble{display:inline-block;text-align:left;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px 14px;background:rgba(255,255,255,.02);max-width:80%;line-height:1.5;font-size:13.5px;color:var(--text-main)}
+#task-view .chat-msg.agent .msg-bubble{font-size:13.5px;line-height:1.6;color:var(--text-main);padding:2px 0}
 
-/* Process collapse row */
-.tv4-process{position:relative;padding:6px 0 6px}
-.tv4-process .tv4-process-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:#555;cursor:pointer;user-select:none;padding:3px 8px;border-radius:3px;transition:color .15s,background .15s}
-.tv4-process .tv4-process-toggle:hover{color:#888;background:rgba(255,255,255,.02)}
-.tv4-process .tv4-process-toggle .tv4-chevron{display:inline-block;transition:transform .2s;width:12px;font-size:10px;line-height:1;text-align:center}
-.tv4-process .tv4-process-toggle.expanded .tv4-chevron{transform:rotate(90deg)}
-.tv4-process .tv4-process-body{display:none;margin-top:4px;padding:4px 0 4px 16px;border-left:1px solid var(--border)}
-.tv4-process .tv4-process-body.open{display:block}
-.tv4-process .tv4-process-body .chat-msg{padding:3px 0}
-.tv4-process .tv4-process-body .msg-bubble{font-size:12px;line-height:1.45}
-.tv4-process .tv4-process-body .msg-bubble p{margin:.15em 0}
-.tv4-process .tv4-process-info{font-size:11px;color:#555;padding:1px 0 1px 8px}
-.tv4-process-dur{color:#555;font-size:10px;margin-left:4px}
+/* === Task View: Tool Card Collapse === */
+#task-view .chat-msg.tool{position:relative;cursor:pointer;margin:2px 0;padding:3px 0;border-left:2px solid transparent;transition:border-color .15s}
+#task-view .chat-msg.tool:hover{border-left-color:rgba(255,255,255,.08)}
+#task-view .chat-msg.tool .msg-card-body,
+#task-view .chat-msg.tool .tl-entry-body{display:none!important}
+#task-view .chat-msg.tool.expanded .msg-card-body,
+#task-view .chat-msg.tool.expanded .tl-entry-body{display:block!important}
+#task-view .chat-msg.tool .msg-card-header{border-bottom:none;min-height:26px}
+#task-view .chat-msg.tool.expanded .msg-card-header{border-bottom:1px solid rgba(255,255,255,.05)}
+#task-view .chat-msg.tool .tl-entry-header{min-height:20px}
+#task-view .chat-msg.tool .tl-entry-bar{min-height:24px}
 
 /* === V4 Input Area === */
 .tv4-input-area{flex-shrink:0;border-top:1px solid var(--border);padding:10px 16px 8px;background:var(--bg-deep)}

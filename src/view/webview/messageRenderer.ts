@@ -8,7 +8,7 @@ import { renderTodoCard, _parseTodoStr, _isTodoArray } from './todoRenderer';
 import { renderToolBubbleContent } from './toolRenderer';
 import { appendToChatMessages, updateLastMsgConvertBtn, resetTabGroup, clearMergeState, activeToolCallElements } from './chatStream';
 import { getChatScroll, getChatMessages, getWorkingIndicator } from './domContainers';
-import { renderTimeline } from './taskView';
+import { groupPhases } from './taskView';
 
 // ===== Remaining functions (message rendering) =====
 
@@ -305,9 +305,7 @@ export function renderMessages(messages: any[]) {
 
     if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
 
-    if (document.getElementById('tv4-timeline')) {
-        renderTimeline();
-    }
+    groupPhases();
 }
 
 
@@ -549,6 +547,8 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg tool';
         msgDiv.dataset.msgId = msg.id;
+        if (msg.phase) msgDiv.dataset.phase = msg.phase;
+        else if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
 
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble tool-bubble';
@@ -565,6 +565,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
     msgDiv.className = `chat-msg ${role}`;
     msgDiv.dataset.msgId = msg.id;
     if (msg.phase) msgDiv.dataset.phase = msg.phase;
+    else if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
 
     const sender = document.createElement('div');
     sender.className = 'msg-sender';

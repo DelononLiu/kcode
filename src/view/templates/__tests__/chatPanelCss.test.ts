@@ -33,9 +33,9 @@ describe('getInlineStyles', () => {
         const css = getInlineStyles();
         expect(css).toContain('tv4-init');
         expect(css).toContain('tv4-panel');
-        expect(css).toContain('tv4-timeline');
+        expect(css).toContain('tv4-scroll');
         expect(css).toContain('tv4-header');
-        expect(css).toContain('tv4-milestone');
+        expect(css).toContain('tv4-phase-group');
         expect(css).toContain('chat-messages');
     });
 
@@ -48,12 +48,12 @@ describe('getInlineStyles', () => {
         expect(css).toContain('--text-main');
     });
 
-    it('contains V4 timeline and process styles', () => {
+    it('contains V4 phase group and tool collapse styles', () => {
         const css = getInlineStyles();
-        expect(css).toContain('tv4-tree');
-        expect(css).toContain('tv4-process');
-        expect(css).toContain('tv4-process-toggle');
-        expect(css).toContain('tv4-milestone');
+        expect(css).toContain('tv4-phase-group');
+        expect(css).toContain('tv4-pg-toggle');
+        expect(css).toContain('tv4-pg-body');
+        expect(css).toContain('chat-msg.tool');
         expect(css).toContain('tv4-input-area');
     });
 

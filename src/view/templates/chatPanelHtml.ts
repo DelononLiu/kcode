@@ -183,8 +183,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         </header>
 
         <div class="tv4-scroll" id="tv4-scroll">
-            <div class="tv4-timeline" id="tv4-timeline"></div>
-            <div id="chat-messages" style="display:none"></div>
+            <div id="chat-messages"></div>
         </div>
 
         <div class="tv4-input-area">
@@ -207,10 +206,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         </div>
     </div>
 
-    <div id="working-indicator" class="hidden" style="position:fixed;bottom:60px;right:60px;z-index:50">
-        <span class="working-spinner"></span>
-        <span class="working-text">思考中</span>
-    </div>
 </div>
 
 
