@@ -14,6 +14,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     private _onFlashInput?: () => void;
     private _onToggleRightPanel?: () => void;
     private _onSelectAssistant?: () => void;
+    private _onShowNewTaskView?: () => void;
     private _activeTaskId: string | null = null;
     private _messageListener?: vscode.Disposable;
 
@@ -156,6 +157,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 case 'selectAssistant':
                     this._onSelectAssistant?.();
                     break;
+                case 'showNewTaskView':
+                    this._onShowNewTaskView?.();
+                    break;
             }
         });
     }
@@ -189,6 +193,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
     setSelectAssistantCallback(cb: () => void) {
         this._onSelectAssistant = cb;
+    }
+
+    setShowNewTaskViewCallback(cb: () => void) {
+        this._onShowNewTaskView = cb;
     }
 
     setFlashInputCallback(cb: () => void) {
@@ -560,8 +568,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 <span>小助手</span>
             </div>
 
-            <div class="new-task-actions">
-                <button id="btn-new-task" class="sidebar-btn"><span class="sidebar-btn-icon">📝</span> 新建任务</button>
+            <div id="new-task-entry" class="assistant-entry">
+                <span class="assistant-icon">📝</span>
+                <span>新建任务</span>
             </div>
 
             <div id="project-list"></div>

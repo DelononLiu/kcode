@@ -17,10 +17,12 @@ declare function acquireVsCodeApi(): any;
             });
         }
 
-        // New task action buttons
-        const newTaskBtn = document.getElementById('btn-new-task');
-        if (newTaskBtn) {
-            newTaskBtn.addEventListener('click', () => vscode.postMessage({ type: 'newTask' }));
+        // New task entry (selectable, like assistant)
+        const newTaskEntry = document.getElementById('new-task-entry');
+        if (newTaskEntry) {
+            newTaskEntry.addEventListener('click', () => {
+                vscode.postMessage({ type: 'showNewTaskView' });
+            });
         }
         // Footer buttons
         const settingsBtn = document.getElementById('btn-settings');
@@ -64,12 +66,17 @@ declare function acquireVsCodeApi(): any;
 
     function renderSidebar(tasks: any[], containers: any[], activeTaskId?: string, currentWorkspace?: string) {
         const projectList = document.getElementById('project-list');
-        if (!projectList) return;
+        if (!projectList) { vscode.postMessage({ type: 'debugLog', text: '[renderSidebar] project-list NOT FOUND in DOM' }); return; }
 
         // Highlight assistant entry when active
         const assistantEntry = document.getElementById('assistant-entry');
         if (assistantEntry) {
             assistantEntry.classList.toggle('active', activeTaskId === '__assistant__');
+        }
+        // Highlight new task entry when active
+        const newTaskEntry = document.getElementById('new-task-entry');
+        if (newTaskEntry) {
+            newTaskEntry.classList.toggle('active', activeTaskId === '__newtask__');
         }
 
         const validIds = new Set(tasks.map((t: any) => t.id));
@@ -86,7 +93,6 @@ declare function acquireVsCodeApi(): any;
         }
 
         projectList.innerHTML = '';
-
         const visible = tasks.filter((t: any) => !t.archived);
         const allProjects = containers.filter((c: any) => c.type === 'project');
 
@@ -195,7 +201,7 @@ declare function acquireVsCodeApi(): any;
 
         const name = document.createElement('span');
         name.className = 'project-name';
-        name.textContent = escapeHtml(project.name);
+        name.textContent = escapeHtml(typeof project.name === 'string' ? project.name : '');
         header.appendChild(name);
 
         const progress = computeProgress(project.id, containers, tasks);
@@ -315,7 +321,7 @@ declare function acquireVsCodeApi(): any;
 
         const label = document.createElement('span');
         label.className = 'group-label';
-        label.textContent = escapeHtml(groupName);
+        label.textContent = escapeHtml(typeof groupName === 'string' ? groupName : '');
         header.appendChild(label);
 
         let collapsed = _collapsed.get(groupName) ?? false;
@@ -471,7 +477,7 @@ declare function acquireVsCodeApi(): any;
 
         const label = document.createElement('span');
         label.className = 'task-title';
-        label.textContent = escapeHtml(task.title);
+        label.textContent = escapeHtml(typeof task.title === 'string' ? task.title : '');
         item.appendChild(label);
 
         // Drag events

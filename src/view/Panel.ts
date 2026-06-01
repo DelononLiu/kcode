@@ -315,6 +315,13 @@ export class Panel {
         }
     }
 
+    showNewTaskView() {
+        this.currentTaskId = null;
+        this.pendingMessages = [];
+        this.sendSlashCommandList();
+        this.router.PostMessage({ type: 'showNewTaskView' });
+    }
+
     loadAssistantWithGuide() {
         this.loadAssistant(true);
     }

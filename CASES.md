@@ -752,3 +752,64 @@ expect(css).toContain('[data-tool-kind="bash"]');            // tool-kind accent
 - **"双盲测试"是两个测试的交集为零**：JS 测试只测 DOM 结构，CSS 测试只测字符串存在性，两者都不回答"这条 CSS 规则对 JS 生成的 DOM 是否生效"。需要 CSS 规则级属性测试或视觉回归测试填补盲区
 - **动态 DOM + 静态 CSS 是一体两面**：改 CSS 时必须 grep 所有 JS 文件中的 `classList`/`className`/`createElement` 来确认哪些 class 会被动态生成，反过来查 CSS 覆盖情况
 - **重构时应有"规则清单"差分检查**：解析新旧两个 CSS 字符串，提取 (selector, property, value) 三元组，diff 出 old 有 new 无的规则，逐个评审是"有意删除"还是"意外遗漏"
+
+---
+
+## case009 — escapeHtml 收到非字符串值导致侧边栏空白
+
+**分类**: `case:type-safety` `case:webview-crash` `case:data-corruption`
+
+**严重程度**: 高
+
+### 问题描述
+
+点击侧边栏"新建任务"后，整个侧边栏任务列表变成空白。`renderSidebar` 的 debug log 显示已收到 34 条任务、7 条未分类，但实际渲染在 `projectList.innerHTML = ''` 后崩溃，DOM 中无任何任务元素。
+
+错误信息：`str.replace is not a function`，来源 `escapeHtml(str)` 中的 `str.replace(...)`。
+
+### 根因分析
+
+某个 Task 对象的 `title` 字段在 JSON 序列化/反序列化后不是 `string` 类型（可能是 `number`、`boolean` 或 `object`），导致 `escapeHtml` 调用 `str.replace()` 时抛出 TypeError。
+
+崩溃时序：
+```
+renderSidebar()
+  ├─ projectList.innerHTML = ''        // 清空 DOM ✅
+  ├─ visible.filter(...)                // 无异常 ✅
+  ├─ createVirtualProjectSection()      // 遍历 7 条未分类任务
+  │    └─ createTaskItem(task)
+  │         └─ escapeHtml(task.title)           // ← title 不是 string，崩溃
+  └─ (未执行) projectList.appendChild(...)     // DOM 已清空但未重建
+```
+
+`renderSidebar` 每次调用都经过 `projectList.innerHTML = ''`，因此崩溃后侧边栏持续为空。
+
+3 处 `escapeHtml` 调用点（`createTaskItem`、`createProjectSection`、`createGroupSection`）均未防御非字符串输入。
+
+### 涉及文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/view/webview/sidebar.ts` | 侧边栏渲染逻辑，`escapeHtml` 的 3 处调用 + `renderSidebar` |
+
+### 解决方案
+
+所有 `escapeHtml` 调用前加 `typeof === 'string'` 类型检查，非字符串降级为空字符串：
+
+```diff
+- label.textContent = escapeHtml(task.title);
++ label.textContent = escapeHtml(typeof task.title === 'string' ? task.title : '');
+
+- name.textContent = escapeHtml(project.name);
++ name.textContent = escapeHtml(typeof project.name === 'string' ? project.name : '');
+
+- label.textContent = escapeHtml(groupName);
++ label.textContent = escapeHtml(typeof groupName === 'string' ? groupName : '');
+```
+
+### 教训
+
+- **WebView 脚本崩溃是静默的**：`renderSidebar` 中无 try-catch，错误直接中断整个函数但不会显示到 UI，导致"DOM 内容消失"的诡异现象
+- **JSON 反序列化不保证类型安全**：Task 对象的 `title: string` 是 TypeScript 编译时约束，运行时 JSON.parse 后可以是任意类型。对外部数据入口的 string 字段做 `typeof` 防御是必要的
+- **DOM 清理-重建的原子性问题**：`innerHTML = ''` 是破坏性操作，若后续重建过程中崩溃，UI 将永久空白。应在清空前备份或使用 DocumentFragment 批量替换
+- **调试此类问题需在 WebView 脚本中加入 try-catch + postMessage 传递错误信息到 extension output channel**，否则错误仅出现在 DevTools console 中，不主动查看无法发现

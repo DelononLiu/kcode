@@ -121,11 +121,7 @@ function initV3Layout() {
                 const taskText = initInput.value;
                 const nameEl = document.getElementById('task-board-task-name');
                 if (nameEl) nameEl.textContent = taskText;
-                if (G.activeTaskId) {
-                    G.vscode.postMessage({ type: 'sendMessage', text: taskText, taskId: G.activeTaskId });
-                } else {
-                    G.vscode.postMessage({ type: 'newTaskWithText', text: taskText });
-                }
+                G.vscode.postMessage({ type: 'newTaskWithText', text: taskText });
                 showTaskView(true);
             }
         });
@@ -187,9 +183,8 @@ function initMessageHandler() {
                 if (message.taskId) {
                     const tb = document.getElementById('task-board-task-name');
                     if (tb) tb.textContent = message.title || '任务';
-                    const hasContent = message.messages && message.messages.length > 0;
-                    showTaskView(hasContent);
-                    if (hasContent) {
+                    showTaskView(true);
+                    if (message.messages && message.messages.length > 0) {
                         updateRailAndStages(message.taskPhase || message.phase || '', message.taskStatus || message.status || '');
                     }
                 }
@@ -292,7 +287,10 @@ function initMessageHandler() {
                     renderAcpLog();
                 }
                 break;
-            case 'setViewMode':
+            case 'showNewTaskView':
+                showTaskView(false);
+                const newInput = document.getElementById('initial-task-input') as HTMLInputElement;
+                if (newInput) { newInput.value = ''; newInput.focus(); }
                 break;
             case 'toggleViewMode':
                 break;

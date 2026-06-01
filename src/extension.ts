@@ -64,6 +64,7 @@ export async function activate(context: vscode.ExtensionContext) {
     sidebarProvider.setFlashInputCallback(() => panel?.flashInput());
     sidebarProvider.setToggleRightPanelCallback(() => panel?.toggleRightPanel());
     sidebarProvider.setSelectAssistantCallback(() => { if (panel) { panel.loadAssistant(); refreshSidebar(); } });
+    sidebarProvider.setShowNewTaskViewCallback(() => { if (panel) { panel.showNewTaskView(); } sidebarProvider?.refresh('__newtask__'); });
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
             SidebarProvider.viewType,
