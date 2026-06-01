@@ -156,219 +156,64 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
     </div>
 </div>
 
-<!-- ========== Task View (V3 — 自主任务控制台) ========== -->
+<!-- ========== Task View (V4 — 单时间轴) ========== -->
 <div id="task-view">
 
-    <!-- State A: Init Space -->
-    <div class="init-space" id="init-screen">
-        <div class="init-logo">
+    <div class="tv4-init" id="tv4-init">
+        <div class="tv4-init-logo">
             ${svgIcon('cube')}
-            <span class="accent">KCode</span> Task
+            <span class="tv4-accent">KCode</span> Task
         </div>
-        <div class="center-input-box">
-            <input type="text" id="initial-task-input" placeholder="输入原始工程任务..." autofocus>
-            <span class="enter-badge">↵ Enter 下达任务</span>
-        </div>
-        <div class="init-hint">
-            <span>⟲ 返回大本营</span>
+        <div class="tv4-init-box">
+            <input type="text" id="tv4-init-input" placeholder="输入原始工程任务..." autofocus>
+            <span class="tv4-enter-badge">↵ Enter</span>
         </div>
     </div>
 
-    <!-- State B: Control Panel -->
-    <div class="app-container" id="control-panel">
-        <header class="header">
-            <div class="header-title">
-                ${svgIcon('cube')}
-                <strong>KCode 任务面板</strong>
-            </div>
-            <span class="status-pill"><span style="animation:spin 2s linear infinite;display:inline-block">◌</span> <span id="header-status-text">任务攻坚中</span></span>Code
-            <div class="header-meta-controls">
-                <span class="header-capsule active" id="header-mode-capsule">✳ 需求开发</span>
-                <span class="header-capsule" id="header-model-capsule">模型: Kilo</span>
-                <div class="header-agent-select"><span class="agent-dot offline" id="header-agent-dot"></span></div>
-            </div>
-            <div style="margin-left:auto;color:var(--text-dim);font-size:12px;font-family:monospace;display:flex;align-items:center;gap:12px;">
-                <span id="header-new-task" style="text-decoration:underline;cursor:pointer;display:flex;align-items:center;gap:4px;">${svgIcon('plus')} 新建其他任务</span>
+    <div class="tv4-panel" id="tv4-panel">
+        <header class="tv4-header">
+            <span class="tv4-header-name" id="tv4-task-name">-</span>
+            <span class="tv4-status-badge" id="tv4-status">待确认</span>
+            <span class="tv4-model-badge" id="tv4-model"></span>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:12px;font-size:11px;color:var(--text-dim)">
+                <span id="tv4-new-task" style="cursor:pointer;text-decoration:underline">${svgIcon('plus')} 新建任务</span>
                 <span>|</span>
-                <span>⏱️ 阶段: <span id="header-phase-count">0/6</span></span>
+                <span>阶段 <span id="tv4-phase-count">0/6</span></span>
             </div>
         </header>
 
-        <aside class="sidebar-rail">
-            <div class="rail-track"></div>
-            <div class="rail-track-active"></div>
-            <div class="stage-node" data-stage="demand">D</div>
-            <div class="stage-node" data-stage="goal">T</div>
-            <div class="stage-node" data-stage="plan">P</div>
-            <div class="stage-node" data-stage="execute">E</div>
-            <div class="stage-node" data-stage="verify">V</div>
-            <div class="stage-node" data-stage="review">C</div>
-        </aside>
-
-        <main class="main-task-board" id="main-task-board">
-            <div style="margin-bottom:20px;">
-                <div class="task-board-title">当前执行任务</div>
-                <div class="task-board-task-name" id="task-board-task-name">-</div>
-            </div>
-
-            <div id="stage-cards">
-                <div class="task-row" data-stage="demand">
-                    <div class="task-header" onclick="window.toggleTaskRow?.(this)">
-                        <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                        <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
-                        <span class="task-step-name">1. 需求提取 (REQUIREMENT)</span>
-                        <span class="stage-badge" id="badge-demand"></span>
-                        <span class="task-duration" id="dur-demand">0s</span>
-                    </div>
-                    <div class="task-body" id="stage-body-demand">
-                        <div id="demand-original-request" class="demand-original-request hidden">
-                            <div class="demand-original-label">📋 原始需求</div>
-                            <div class="demand-original-text" id="demand-original-text"></div>
-                        </div>
-                        <div id="demand-confirmed-list" class="demand-list"></div>
-                        <div id="demand-pending-list" class="demand-list"></div>
-                        <div id="demand-empty-hint" class="demand-empty-hint">添加初始需求项以启动任务</div>
-                        <div class="stage-messages" id="stage-messages-demand"></div>
-                        <div class="stage-input-row"><input type="text" class="stage-input" id="input-demand" placeholder="📝 需求补充..." data-stage="demand"><button class="stage-send-btn">发送</button></div>
-                    </div>
-                </div>
-                <div class="task-row" data-stage="goal">
-                    <div class="task-header" onclick="window.toggleTaskRow?.(this)">
-                        <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                        <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
-                        <span class="task-step-name">2. 目标锚定 (TARGET)</span>
-                        <span class="stage-badge" id="badge-goal"></span>
-                        <span class="task-duration" id="dur-goal">0s</span>
-                    </div>
-                    <div class="task-body" id="stage-body-goal">
-                        <div class="stage-messages" id="stage-messages-goal"></div>
-                        <div style="color:var(--text-dim);font-size:12px">等待目标确认...</div>
-                        <div class="stage-input-row"><input type="text" class="stage-input" id="input-goal" placeholder="🎯 目标调整..." data-stage="goal"><button class="stage-send-btn">发送</button></div>
-                    </div>
-                </div>
-                <div class="task-row" data-stage="plan">
-                    <div class="task-header" onclick="window.toggleTaskRow?.(this)">
-                        <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                        <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
-                        <span class="task-step-name">3. 计划编排 (PLANNING)</span>
-                        <span class="stage-badge" id="badge-plan"></span>
-                        <span class="task-duration" id="dur-plan">0s</span>
-                    </div>
-                    <div class="task-body" id="stage-body-plan">
-                        <div class="sandbox-toolbar" style="display:none"><span><strong>人机协同沙盘</strong></span><span>[ 📂 拖拽重排 ]</span><span>[ ✎ 双击编辑 ]</span><span>[ 🔒 锁定并执行 ]</span></div>
-                        <div id="plan-substeps"></div>
-                        <div class="stage-messages" id="stage-messages-plan"></div>
-                        <div style="color:var(--text-dim);font-size:12px">等待计划生成...</div>
-                        <div class="stage-input-row"><input type="text" class="stage-input" id="input-plan" placeholder="🔧 计划调整..." data-stage="plan"><button class="stage-send-btn">发送</button></div>
-                    </div>
-                </div>
-                <div class="task-row active" data-stage="execute">
-                    <div class="task-header" onclick="window.toggleTaskRow?.(this)">
-                        <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                        <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
-                        <span class="task-step-name">4. 代码执行 (EXECUTION)</span>
-                        <span class="stage-badge" id="badge-execute"></span>
-                        <span class="task-duration" id="dur-execute">0s</span>
-                    </div>
-                    <div class="task-body" id="stage-body-execute">
-                        <div style="font-size:13px;color:var(--warning);margin-bottom:8px;font-weight:500;display:none" id="exec-warning">${svgIcon('warning')} <span id="exec-warning-text">正在处理...</span></div>
-                        <div class="terminal-block" id="exec-terminal" style="display:none"><div id="exec-terminal-lines"></div></div>
-                        <div id="exec-messages" style="color:var(--text-dim);font-size:12px">等待开始执行...</div>
-                        <div class="control-trigger-group" id="exec-controls" style="display:none">
-                            <button class="btn-trigger warn" id="btn-time-travel">${svgIcon('clock')} 时间旅行 (回滚至此)</button>
-                            <button class="btn-trigger" id="btn-pause">${svgIcon('pause')} 暂停管道监控</button>
-                        </div>
-                        <div class="inline-intervention-zone" id="exec-intervention" style="display:none">
-                            <div class="zone-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> 就地追加局部微调指令 (可选)：</div>
-                            <div class="inline-input-wrapper"><input type="text" id="inline-intervention-input" placeholder="只针对当前代码执行进行微调...">${svgIcon('send')}</div>
-                        </div>
-                        <div class="stage-messages" id="stage-messages-execute"></div>
-                        <div class="stage-input-row"><input type="text" class="stage-input" id="input-execute" placeholder="💬 执行干预..." data-stage="execute"><button class="stage-send-btn">发送</button></div>
-                    </div>
-                </div>
-                <div class="task-row" data-stage="verify">
-                    <div class="task-header" onclick="window.toggleTaskRow?.(this)">
-                        <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                        <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
-                        <span class="task-step-name">5. 自动化自验 (VERIFY)</span>
-                        <span class="stage-badge" id="badge-verify"></span>
-                        <span class="task-duration" id="dur-verify">0s</span>
-                    </div>
-                    <div class="task-body" id="stage-body-verify">
-                        <div class="stage-messages" id="stage-messages-verify"></div>
-                        <div style="color:var(--text-dim);font-size:12px">等待自验...</div>
-                        <div class="stage-input-row"><input type="text" class="stage-input" id="input-verify" placeholder="🔍 分析失败..." data-stage="verify"><button class="stage-send-btn">发送</button></div>
-                    </div>
-                </div>
-                <div class="task-row" data-stage="review">
-                    <div class="task-header" onclick="window.toggleTaskRow?.(this)">
-                        <svg class="chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                        <div class="status-icon-box pending"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/></svg></div>
-                        <span class="task-step-name">6. 最终签署 (CLOSE)</span>
-                        <span class="stage-badge" id="badge-review"></span>
-                        <span class="task-duration" id="dur-review">0s</span>
-                    </div>
-                    <div class="task-body" id="stage-body-review">
-                        <div class="stage-messages" id="stage-messages-review"></div>
-                        <div style="color:var(--text-dim);font-size:12px">等待验收...</div>
-                        <div class="stage-input-row"><input type="text" class="stage-input" id="input-review" placeholder="📝 评审意见..." data-stage="review"><button class="stage-send-btn">发送</button></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- hidden containers for streaming backward compat -->
+        <div class="tv4-scroll" id="tv4-scroll">
+            <div class="tv4-timeline" id="tv4-timeline"></div>
             <div id="chat-messages" style="display:none"></div>
-            <div id="working-indicator" class="hidden" style="position:fixed;bottom:60px;right:60px;z-index:50">
-                <span class="working-spinner"></span>
-                <span class="working-text">思考中</span>
+        </div>
+
+        <div class="tv4-input-area">
+            <div id="tv4-queue-bar" class="hidden">
+                <div class="queue-header" id="queue-header">
+                    <span id="queue-summary"></span>
+                    <button id="queue-toggle" class="queue-action-btn"></button>
+                    <button id="queue-clear-all" class="queue-action-btn queue-clear" title="全部取消">全部取消</button>
+                </div>
+                <div id="queue-list" class="hidden"></div>
             </div>
-        </main>
-
-    </div>
-</div>
-
-<!-- ========== Shared: Card View (V3 breadcrumb + 3-column) ========== -->
-<div id="card-view">
-    <div id="card-header">
-        <span id="card-header-title">选择任务开始对话</span>
-        <span id="card-status-badge" class="task-status-badge hidden"></span>
-        <span id="card-type-badge" class="hidden"></span>
-    </div>
-    <div id="card-breadcrumb">
-        <div class="cdot" id="cdot-s"></div>
-        <div class="cline" id="cl-1"></div>
-        <div class="cseg seg-waiting" id="cseg-1">🎯 目标</div>
-        <div class="csep sep-waiting" id="csep-1"></div>
-        <div class="cseg seg-waiting" id="cseg-2">⚡ 执行</div>
-        <div class="csep sep-waiting" id="csep-2"></div>
-        <div class="cseg seg-waiting" id="cseg-3">✅ 验收</div>
-        <div class="cline" id="cl-6"></div>
-        <div class="cdot" id="cdot-e"></div>
-    </div>
-    <div id="card-columns">
-        <div class="col-plan col-waiting" id="col-plan">
-            <div class="col-header">🎯 目标 & 方案</div>
-            <div class="col-body-1" id="col-body-1"><div class="col-empty">等待 AI 生成目标方案...</div></div>
-        </div>
-        <div class="col-exec col-waiting" id="col-exec">
-            <div class="col-header">⚡ 执行 & 自检</div>
-            <div class="col-body-2" id="col-body-2"><div class="col-empty">等待进入执行阶段...</div></div>
-        </div>
-        <div class="col-review col-waiting" id="col-review">
-            <div class="col-header">✅ 变更验收</div>
-            <div class="col-body-3" id="col-body-3"><div class="col-empty">等待验收阶段...</div></div>
-        </div>
-    </div>
-    <div id="chat-body" class="hidden">
-        <div id="chat-scroll">
-            <div id="chat-messages"></div>
-            <div id="working-indicator" class="hidden">
-                <span class="working-spinner"></span>
-                <span class="working-text">思考中</span>
+            <div class="tv4-input-wrapper">
+                <textarea id="tv4-input" placeholder="输入指令与 AI 协作..." rows="1"></textarea>
+                <div class="tv4-input-row">
+                    <span class="shortcut-hint">快捷指令: <code>/tasks</code> <code>/next</code></span>
+                    <button id="tv4-send-btn" class="tv4-btn primary">发送</button>
+                    <button id="tv4-stop-btn" class="tv4-btn danger hidden">停止</button>
+                </div>
             </div>
         </div>
     </div>
+
+    <div id="working-indicator" class="hidden" style="position:fixed;bottom:60px;right:60px;z-index:50">
+        <span class="working-spinner"></span>
+        <span class="working-text">思考中</span>
+    </div>
 </div>
+
+
 
 <!-- ========== Shared: Overlay Right Panel ========== -->
 <div id="right-panel" class="hidden">
@@ -416,7 +261,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 </div>
 
 <script src="${scriptUri('app.bundle')}"></script>
-<script src="${scriptUri('cardApp.bundle')}"></script>
 <script src="${scriptUri('device.bundle')}"></script>
 </body>
 </html>`;

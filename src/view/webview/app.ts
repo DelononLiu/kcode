@@ -1,6 +1,6 @@
 import { G, type FileChange } from './state';
 import { showAssistantView, initAgentSelector, initModelSelector, truncateModel } from './assistantView';
-import { showTaskView, toggleTaskRow, updateRailAndStages, handleNodePanelUpdate, initNodePanel } from './taskView';
+import { showTaskView, renderTimeline, updateTaskInfo as updateTaskViewInfo, updatePhaseBadge } from './taskView';
 import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpdate, sendMessageFromInput } from './chatInteraction';
 import { initTemplateChips, renderCategorySelection, focusChatInput } from './templateFlow';
 import { initPluginManager, renderPluginList } from './pluginRegistry';
@@ -111,15 +111,15 @@ function initTabs() {
     });
 }
 
-// ===== V3 Layout =====
+// ===== V4 Layout =====
 
-function initV3Layout() {
-    const initInput = document.getElementById('initial-task-input') as HTMLInputElement;
+function initV4Layout() {
+    const initInput = document.getElementById('tv4-init-input') as HTMLInputElement;
     if (initInput) {
         initInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && initInput.value.trim()) {
                 const taskText = initInput.value;
-                const nameEl = document.getElementById('task-board-task-name');
+                const nameEl = document.getElementById('tv4-task-name');
                 if (nameEl) nameEl.textContent = taskText;
                 G.vscode.postMessage({ type: 'newTaskWithText', text: taskText });
                 showTaskView(true);
@@ -127,58 +127,37 @@ function initV3Layout() {
         });
     }
 
-    const newTaskBtn = document.getElementById('header-new-task');
+    const newTaskBtn = document.getElementById('tv4-new-task');
     if (newTaskBtn) newTaskBtn.addEventListener('click', () => G.vscode.postMessage({ type: 'newTask' }));
 
-    const inlineInput = document.getElementById('inline-intervention-input') as HTMLInputElement;
-    if (inlineInput) {
-        inlineInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && inlineInput.value.trim()) {
-                const text = inlineInput.value;
-                inlineInput.value = '';
-                if (G.activeTaskId && !G.activeTaskType?.startsWith('assistant')) {
-                    G.vscode.postMessage({ type: 'sendMessage', text, taskId: G.activeTaskId });
+    // Unified input
+    const input = document.getElementById('tv4-input') as HTMLTextAreaElement;
+    const sendBtn = document.getElementById('tv4-send-btn');
+    const stopBtn = document.getElementById('tv4-stop-btn');
+
+    if (input && sendBtn) {
+        sendBtn.addEventListener('click', () => {
+            if (input.value.trim() && G.activeTaskId) {
+                G.vscode.postMessage({ type: 'sendMessage', text: input.value.trim(), taskId: G.activeTaskId });
+                input.value = '';
+            }
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (input.value.trim() && G.activeTaskId) {
+                    G.vscode.postMessage({ type: 'sendMessage', text: input.value.trim(), taskId: G.activeTaskId });
+                    input.value = '';
                 }
             }
         });
     }
 
-    const timeTravelBtn = document.getElementById('btn-time-travel');
-    if (timeTravelBtn) timeTravelBtn.addEventListener('click', () => {
-        if (G.activeTaskId) G.vscode.postMessage({ type: 'stopGeneration', taskId: G.activeTaskId });
-    });
-
-    const pauseBtn = document.getElementById('btn-pause');
-    if (pauseBtn) pauseBtn.addEventListener('click', () => {
-        if (G.activeTaskId) G.vscode.postMessage({ type: 'stopGeneration', taskId: G.activeTaskId });
-    });
-
-    const capsuleModel = document.getElementById('header-model-capsule');
-    if (capsuleModel) capsuleModel.addEventListener('click', () => {
-        const agentBtn = document.getElementById('agent-dropdown-btn');
-        if (agentBtn) agentBtn.click();
-    });
-
-    // Stage inline inputs
-    const stages = ['demand', 'goal', 'plan', 'execute', 'verify', 'review'];
-    for (const stage of stages) {
-        const input = document.getElementById('input-' + stage) as HTMLInputElement;
-        const btn = input?.parentElement?.querySelector('.stage-send-btn') as HTMLElement;
-        const sendStageMsg = () => {
-            if (input && input.value.trim() && G.activeTaskId) {
-                const text = '[阶段:' + stage + '] ' + input.value.trim();
-                G.vscode.postMessage({ type: 'stageInput', text, taskId: G.activeTaskId });
-                input.value = '';
-            }
-        };
-        if (input) {
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') sendStageMsg();
-            });
-        }
-        if (btn) {
-            btn.addEventListener('click', sendStageMsg);
-        }
+    if (stopBtn) {
+        stopBtn.addEventListener('click', () => {
+            if (G.activeTaskId) G.vscode.postMessage({ type: 'stopGeneration', taskId: G.activeTaskId });
+        });
     }
 }
 
@@ -196,19 +175,17 @@ function initMessageHandler() {
                 G.activeTaskType = message.taskType || '';
 
                 if (message.taskType === 'assistant') {
-                    const tb = document.getElementById('task-board-task-name');
-                    if (tb) tb.textContent = '🤖 小助手';
                     showAssistantView();
                     renderMessages(message.messages || []);
                     break;
                 }
                 if (message.taskId) {
-                    const tb = document.getElementById('task-board-task-name');
-                    if (tb) tb.textContent = message.title || '任务';
                     showTaskView(true);
-                    if (message.messages && message.messages.length > 0) {
-                        updateRailAndStages(message.taskPhase || message.phase || '', message.taskStatus || message.status || '');
-                    }
+                    const nameEl = document.getElementById('tv4-task-name');
+                    if (nameEl) nameEl.textContent = message.title || '任务';
+                    G.activeTaskPhase = message.taskPhase || message.phase || '';
+                    G.activeTaskStatus = message.taskStatus || message.status || '';
+                    updatePhaseBadge(message.taskPhase || message.phase || '');
                 }
 
                 renderAcpLog();
@@ -246,15 +223,12 @@ function initMessageHandler() {
                 showAgentThinking();
                 break;
             case 'updateTaskInfo':
-                if (message.taskType === 'assistant') {
-                    const tb2 = document.getElementById('task-board-task-name');
-                    if (tb2) tb2.textContent = '🤖 小助手';
-                    break;
-                }
-                const tb3 = document.getElementById('task-board-task-name');
-                if (tb3 && message.title) tb3.textContent = message.title;
-                updateTaskInfo(message);
-                updateRailAndStages(message.phase || '', message.status || '');
+                if (message.taskType === 'assistant') break;
+                G.activeTaskPhase = message.phase || '';
+                G.activeTaskStatus = message.status || '';
+                G.activeTaskTitle = message.title || '';
+                G.activeTaskGoal = message.goal || '';
+                updatePhaseBadge(message.phase || '');
                 break;
             case 'flashInput':
                 flashInput();
@@ -293,7 +267,6 @@ function initMessageHandler() {
                 G.slashCommands = message.commands || [];
                 break;
             case 'updateNodePanel':
-                handleNodePanelUpdate(message.nodes, message.taskType);
                 break;
             case 'acpLogEntry':
                 handleAcpLogEntry(message);
@@ -311,7 +284,7 @@ function initMessageHandler() {
                 break;
             case 'showNewTaskView':
                 showTaskView(false);
-                const newInput = document.getElementById('initial-task-input') as HTMLInputElement;
+                const newInput = document.getElementById('tv4-init-input') as HTMLInputElement;
                 if (newInput) { newInput.value = ''; newInput.focus(); }
                 break;
             case 'toggleViewMode':
@@ -409,11 +382,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     initChat();
     initMessageHandler();
-    initNodePanel();
     initNavButtons();
-    initTlFilterBar();
     initPluginManager();
-    initV3Layout();
+    initV4Layout();
 
     const dataEl = document.getElementById('__panelData');
     if (dataEl) {

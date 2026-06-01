@@ -106,8 +106,8 @@ export function initChat() {
     if (!input) {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                const initInput = document.getElementById('initial-task-input') as HTMLInputElement;
-                if (initInput && document.getElementById('init-screen')?.style.display !== 'none') {
+                const initInput = document.getElementById('tv4-init-input') as HTMLInputElement;
+                if (initInput && document.getElementById('tv4-init')?.style.display !== 'none') {
                 }
             }
         });
@@ -402,8 +402,13 @@ export function initChat() {
 }
 
 export function handleGenerationState(isGenerating: boolean) {
-    const sendBtn = document.getElementById('send-btn');
-    const stopBtn = document.getElementById('stop-btn');
+    void toggleBtn('send-btn', 'stop-btn', isGenerating);
+    void toggleBtn('tv4-send-btn', 'tv4-stop-btn', isGenerating);
+}
+
+function toggleBtn(sendId: string, stopId: string, isGenerating: boolean) {
+    const sendBtn = document.getElementById(sendId);
+    const stopBtn = document.getElementById(stopId);
     if (sendBtn && stopBtn) {
         if (isGenerating) { sendBtn.classList.add('hidden'); stopBtn.classList.remove('hidden'); }
         else { sendBtn.classList.remove('hidden'); stopBtn.classList.add('hidden'); }

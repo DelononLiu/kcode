@@ -8,6 +8,7 @@ import { renderTodoCard, _parseTodoStr, _isTodoArray } from './todoRenderer';
 import { renderToolBubbleContent } from './toolRenderer';
 import { appendToChatMessages, updateLastMsgConvertBtn, resetTabGroup, clearMergeState, activeToolCallElements } from './chatStream';
 import { getChatScroll, getChatMessages, getWorkingIndicator } from './domContainers';
+import { renderTimeline } from './taskView';
 
 // ===== Remaining functions (message rendering) =====
 
@@ -304,55 +305,12 @@ export function renderMessages(messages: any[]) {
 
     if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
 
-    // Distribute rendered messages into stage-specific containers
-    distributeMessagesToStages();
-}
-
-function distributeMessagesToStages() {
-    const mainContainer = getChatMessages();
-    if (!mainContainer) return;
-    const phaseContainers: Record<string, HTMLElement | null> = {
-        demand: document.getElementById('stage-messages-demand'),
-        goal: document.getElementById('stage-messages-goal'),
-        plan: document.getElementById('stage-messages-plan'),
-        execute: document.getElementById('stage-messages-execute'),
-        verify: document.getElementById('stage-messages-verify'),
-        review: document.getElementById('stage-messages-review'),
-    };
-    const hasStageContainers = Object.values(phaseContainers).some(c => c !== null);
-    if (!hasStageContainers) return;
-
-    // Move each message element to its phase container (without clearing, to preserve streaming state)
-    const msgElements = mainContainer.querySelectorAll(':scope > .chat-msg');
-    const workingIndicator = mainContainer.querySelector('#working-indicator');
-    const fallbackPhase = G.activeTaskPhase || 'demand';
-
-    for (const el of msgElements) {
-        const phase = (el as HTMLElement).dataset.phase;
-        let target: HTMLElement | null = null;
-        if (phase && phaseContainers[phase]) {
-            target = phaseContainers[phase];
-        } else if (phaseContainers[fallbackPhase]) {
-            // Phase-less messages go to the active/demand stage so they're always visible
-            target = phaseContainers[fallbackPhase];
-        }
-        if (target) {
-            target.appendChild(el);
-        }
-    }
-    // Move working indicator to active stage
-    if (workingIndicator) {
-        const activePhase = G.activeTaskPhase;
-        const activeTarget = activePhase ? phaseContainers[activePhase] : null;
-        if (activeTarget) {
-            activeTarget.appendChild(workingIndicator);
-        }
-    }
-    // Hide main container for task view (it's only for rendering pipeline)
-    if (!document.querySelector('#assistant-view') || document.getElementById('assistant-view')?.style.display === 'none') {
-        mainContainer.style.display = 'none';
+    if (document.getElementById('tv4-timeline')) {
+        renderTimeline();
     }
 }
+
+
 
 export function addMessageElement(msg: any, changedFiles?: string[]) {
     const container = getChatMessages()!;

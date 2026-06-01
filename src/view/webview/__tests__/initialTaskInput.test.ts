@@ -2,12 +2,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { G } from '../state';
 
-describe('initial-task-input', () => {
+describe('tv4-init-input', () => {
     beforeEach(() => {
         document.body.innerHTML = `
-            <input type="text" id="initial-task-input" placeholder="输入原始工程任务..." autofocus>
-            <div id="task-board-task-name"></div>
-            <div id="init-screen"></div>
+            <input type="text" id="tv4-init-input" placeholder="输入原始工程任务..." autofocus>
+            <div id="tv4-task-name"></div>
+            <div id="tv4-init"></div>
         `;
         (window as any).acquireVsCodeApi = () => ({
             postMessage: vi.fn(),
@@ -18,12 +18,11 @@ describe('initial-task-input', () => {
         G.vscode = { postMessage: vi.fn() } as any;
     });
 
-    it('当 assistant 已加载时回车应创建新任务而非 sendMessage', () => {
+    it('回车时应创建新任务 (newTaskWithText)', () => {
         G.activeTaskId = '__assistant__';
-        const input = document.getElementById('initial-task-input') as HTMLInputElement;
+        const input = document.getElementById('tv4-init-input') as HTMLInputElement;
         input.value = '测试任务';
 
-        // 模拟 initV3Layout 中的事件绑定
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && input.value.trim()) {
                 const taskText = input.value;

@@ -29,17 +29,17 @@ describe('getInlineStyles', () => {
         expect(rule).toContain('display:none');
     });
 
-    it('contains V3 layout classes', () => {
+    it('contains V4 layout classes', () => {
         const css = getInlineStyles();
-        expect(css).toContain('init-space');
-        expect(css).toContain('app-container');
-        expect(css).toContain('sidebar-rail');
-        expect(css).toContain('main-task-board');
-        expect(css).toContain('task-row');
+        expect(css).toContain('tv4-init');
+        expect(css).toContain('tv4-panel');
+        expect(css).toContain('tv4-timeline');
+        expect(css).toContain('tv4-header');
+        expect(css).toContain('tv4-milestone');
         expect(css).toContain('chat-messages');
     });
 
-    it('contains V3 design tokens', () => {
+    it('contains V4 design tokens', () => {
         const css = getInlineStyles();
         expect(css).toContain('--bg-deep');
         expect(css).toContain('--bg-panel');
@@ -48,13 +48,13 @@ describe('getInlineStyles', () => {
         expect(css).toContain('--text-main');
     });
 
-    it('contains stage and rail styles', () => {
+    it('contains V4 timeline and process styles', () => {
         const css = getInlineStyles();
-        expect(css).toContain('stage-node');
-        expect(css).toContain('rail-track');
-        expect(css).toContain('rail-track-active');
-        expect(css).toContain('task-header');
-        expect(css).toContain('task-body');
+        expect(css).toContain('tv4-tree');
+        expect(css).toContain('tv4-process');
+        expect(css).toContain('tv4-process-toggle');
+        expect(css).toContain('tv4-milestone');
+        expect(css).toContain('tv4-input-area');
     });
 
     it('contains Demo card styles', () => {

@@ -98,21 +98,6 @@ export function appendToChatMessages(el: Element) {
         container.appendChild(el);
     }
     updateLastMsgConvertBtn();
-
-    // Move streaming message to stage container for task view
-    if (!document.getElementById('stage-cards')) return;
-    const phase = (el as HTMLElement).dataset.phase || G.activeTaskPhase;
-    if (phase) {
-        const stageContainer = document.getElementById('stage-messages-' + phase);
-        if (stageContainer && stageContainer !== el.parentElement) {
-            const stageIndicator = stageContainer.querySelector('#working-indicator');
-            if (stageIndicator && stageIndicator.parentElement === stageContainer) {
-                stageContainer.insertBefore(el, stageIndicator);
-            } else {
-                stageContainer.appendChild(el);
-            }
-        }
-    }
 }
 
 // ===== Stream handlers =====
