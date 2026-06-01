@@ -8,7 +8,6 @@ const _output = (() => {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const v = require('vscode');
         const ch = v.window.createOutputChannel('KCode Debug');
-        ch.show(true);
         return ch;
     } catch { return null; }
 })();

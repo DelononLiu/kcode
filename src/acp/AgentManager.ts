@@ -10,7 +10,6 @@ function logAgent(msg: string): void {
             // eslint-disable-next-line @typescript-eslint/no-require-imports
             const v = require('vscode');
             _agentChannel = v.window.createOutputChannel('KCode Agent');
-            _agentChannel.show(true);
         }
         _agentChannel.appendLine(line);
     } catch { }
