@@ -61,6 +61,12 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tv4-status-badge.status-cancelled{background:rgba(224,96,96,.08);color:#e06060}
 .tv4-model-badge{font-size:10px;padding:1px 7px;border-radius:3px;background:rgba(255,255,255,.05);color:#888;white-space:nowrap;flex-shrink:0;cursor:pointer}
 .tv4-model-badge:hover{color:#bbb}
+.tv4-header-row2{display:flex;align-items:center;padding:0 16px;height:26px;border-bottom:1px solid var(--border);background:var(--bg-panel);flex-shrink:0;gap:8px;font-size:11px}
+.tv4-h2-stage{font-weight:600;color:var(--accent);white-space:nowrap}
+.tv4-h2-sep{width:1px;height:12px;background:var(--border);flex-shrink:0}
+.tv4-h2-group{color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv4-h2-group.is-pending{color:#555}
+.tv4-h2-msgcount{margin-left:auto;color:var(--text-dim);white-space:nowrap;flex-shrink:0}
 
 /* === V4 Timeline === */
 .tv4-scroll{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}

@@ -4,7 +4,7 @@ import { showTaskView, initPhaseView, updatePhaseBadge, resetPhaseState, foldPha
 import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpdate, sendMessageFromInput } from './chatInteraction';
 import { initTemplateChips, renderCategorySelection, focusChatInput } from './templateFlow';
 import { initPluginManager, renderPluginList } from './pluginRegistry';
-import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, addUserMessage, handleKnowledgeExtract, __resetStream, showAgentThinking, updateTaskInfo } from './messageRenderer';
+import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, addUserMessage, handleKnowledgeExtract, __resetStream, showAgentThinking, updateTaskInfo, updateHeaderRow2 } from './messageRenderer';
 import { handleDemoCardUpdate, showGoalConfirmationCard, handleShowPlanProposal, handleRemovePlanProposal, handleShowReviewRequest, showExecuteConfirmation, showSelfVerifyConfirmation, finalizeGoalMessage, reviewChangesMap } from './flowCards';
 
 declare function acquireVsCodeApi(): any;
@@ -272,6 +272,8 @@ function initMessageHandler() {
                 }
 
                 renderAcpLog();
+                updateHeaderRow2();
+
                 if (message.reviewChanges && message.reviewChanges.length > 0) {
                     reviewChangesMap.set(message.taskId, message.reviewChanges);
                     lastReviewChanges = message.reviewChanges;

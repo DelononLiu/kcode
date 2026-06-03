@@ -676,7 +676,54 @@ export function updateTaskInfo(info: any) {
     // Update stage badges
     updateStageBadges(info);
 
+    updateHeaderRow2(info);
+
     (window as any).updateOutputPanel?.(info, []);
+}
+
+function getStageLabel(phase: string): string {
+    const labels: Record<string, string> = {
+        demand: '需求提取', goal: '目标确定', plan: '计划确定',
+        execute: '执行修改', self_verify: '自验结果', review: '确认验收',
+    };
+    return labels[phase] || phase;
+}
+
+export function updateHeaderRow2(info?: any): void {
+    const phase = info?.phase || G.activeTaskPhase || '';
+    const idx = STAGE_ORDER.indexOf(phase);
+
+    const currentEl = document.getElementById('h2-current-phase');
+    const doneEl = document.getElementById('h2-done-pipeline');
+    const pendingEl = document.getElementById('h2-pending-pipeline');
+    const msgCountEl = document.getElementById('h2-msg-count');
+
+    if (currentEl) {
+        if (idx >= 0) {
+            currentEl.textContent = '⚡ ' + getStageLabel(phase);
+            currentEl.style.color = 'var(--accent)';
+        } else {
+            currentEl.textContent = '';
+        }
+    }
+
+    if (doneEl) {
+        const done = idx > 0 ? STAGE_ORDER.slice(0, idx) : [];
+        doneEl.textContent = done.length > 0 ? '已完成: ' + done.map(getStageLabel).join('→') : '';
+        doneEl.style.display = done.length > 0 ? '' : 'none';
+    }
+
+    if (pendingEl) {
+        const pending = idx >= 0 && idx < STAGE_ORDER.length - 1 ? STAGE_ORDER.slice(idx + 1) : [];
+        pendingEl.textContent = pending.length > 0 ? '待完成: ' + pending.map(getStageLabel).join('→') : '';
+        pendingEl.style.display = pending.length > 0 ? '' : 'none';
+    }
+
+    if (msgCountEl) {
+        const container = getChatMessages();
+        const count = container ? container.querySelectorAll('.chat-msg').length : 0;
+        msgCountEl.textContent = '💬 ' + count;
+    }
 }
 
 function renderDemandCard(info: any) {

@@ -179,6 +179,13 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                 <span>阶段 <span id="tv4-phase-count">0/6</span></span>
             </div>
         </header>
+        <div class="tv4-header-row2" id="tv4-header-row2">
+            <span class="tv4-h2-stage" id="h2-current-phase">⚡ 需求提取</span>
+            <span class="tv4-h2-sep"></span>
+            <span class="tv4-h2-group" id="h2-done-pipeline"></span>
+            <span class="tv4-h2-group is-pending" id="h2-pending-pipeline"></span>
+            <span class="tv4-h2-msgcount" id="h2-msg-count">💬 0</span>
+        </div>
 
         <div class="tv4-scroll" id="tv4-scroll">
             <div id="chat-messages"></div>
