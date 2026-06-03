@@ -35,8 +35,10 @@ export function foldPhase(phase: string): void {
     if (!group || group.classList.contains('folded')) return;
 
     const elements = Array.from(group.children) as HTMLElement[];
-    const chatMsgs = elements.filter(e => e.classList.contains('chat-msg'));
+    const chatMsgs = elements.filter(e => e.classList.contains('chat-msg') && !e.classList.contains('agent-header'));
     if (chatMsgs.length < 2) return;
+
+    const headerEl = elements.find(e => e.classList.contains('agent-header')) as HTMLElement | null;
 
     const tlEntries = group.querySelectorAll('.tl-entry');
     let thinkingCount = 0, toolCount = 0;
@@ -89,7 +91,8 @@ export function foldPhase(phase: string): void {
         body.appendChild(chatMsgs[i]);
     }
 
-    group.insertBefore(toggle, group.firstChild);
+    const insertRef = headerEl ? headerEl.nextSibling : group.firstChild;
+    group.insertBefore(toggle, insertRef);
     group.insertBefore(body, toggle.nextSibling);
     group.classList.add('folded');
     group.dataset.collapsed = 'true';
