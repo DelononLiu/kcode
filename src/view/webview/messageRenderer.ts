@@ -234,7 +234,29 @@ export function renderMessages(messages: any[]) {
     }
 
     let hasTlEntries = false;
+    let needAgentHeader = true;
+    const isTaskView = !!document.querySelector('#task-view');
     for (const group of messageGroups) {
+        const firstMsg = group.msgs[0];
+
+        if (firstMsg.role === 'user') {
+            addMessageElement(firstMsg, changedFilesMap.get(group.indices[0]));
+            needAgentHeader = true;
+            continue;
+        }
+
+        if (isTaskView && needAgentHeader) {
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'chat-msg agent-header';
+            if (G.activeTaskPhase) headerDiv.dataset.phase = G.activeTaskPhase;
+            const hSender = document.createElement('div');
+            hSender.className = 'msg-sender';
+            hSender.textContent = 'Agent';
+            headerDiv.appendChild(hSender);
+            appendToChatMessages(headerDiv);
+            needAgentHeader = false;
+        }
+
         if (group.type === 'tool-group' && group.msgs.length > 0) {
             let pendingThinking: any = null;
             let mergedTools: any[] = [];
@@ -300,6 +322,7 @@ export function renderMessages(messages: any[]) {
             addMessageElement(group.msgs[0], changedFilesMap.get(group.indices[0]));
         }
     }
+    G._agentHeaderShown = !needAgentHeader;
     if (hasTlEntries) showTlFilterBar();
 
     updateLastMsgConvertBtn();
@@ -568,11 +591,13 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
         msgDiv.dataset.phase = msg.phase;
     }
 
-    const sender = document.createElement('div');
-    sender.className = 'msg-sender';
-    const ts = msg.timestamp ? formatTimestamp(msg.timestamp) : '';
-    sender.innerHTML = (role === 'user' ? 'You' : 'Agent') + (ts ? ' <span class="msg-timestamp">' + ts + '</span>' : '');
-    msgDiv.appendChild(sender);
+    if (role === 'user') {
+        const sender = document.createElement('div');
+        sender.className = 'msg-sender';
+        const ts = msg.timestamp ? formatTimestamp(msg.timestamp) : '';
+        sender.innerHTML = 'You' + (ts ? ' <span class="msg-timestamp">' + ts + '</span>' : '');
+        msgDiv.appendChild(sender);
+    }
 
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';

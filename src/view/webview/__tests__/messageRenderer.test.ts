@@ -127,7 +127,7 @@ describe('addMessageElement', () => {
         addMessageElement({ role: 'agent', content: '**bold**', id: 'm2' });
         const msgDiv = document.querySelector('.chat-msg.agent')!;
         expect(msgDiv).toBeTruthy();
-        expect(msgDiv.querySelector('.msg-sender')?.textContent).toContain('Agent');
+        expect(msgDiv.querySelector('.msg-sender')).toBeNull();
     });
 
     it('renders stop_message type', () => {
