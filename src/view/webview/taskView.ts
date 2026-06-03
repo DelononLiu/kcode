@@ -1,10 +1,6 @@
 import { G } from './state';
 import { getChatMessages, getChatScroll } from './domContainers';
 
-function escapeHtml(text: string): string {
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
 export function showTaskView(asControlPanel: boolean = false): void {
     const assistantView = document.getElementById('assistant-view');
     const taskView = document.getElementById('task-view');
@@ -42,17 +38,39 @@ export function foldPhase(phase: string): void {
     const chatMsgs = elements.filter(e => e.classList.contains('chat-msg'));
     if (chatMsgs.length < 2) return;
 
+    const tlEntries = group.querySelectorAll('.tl-entry');
+    let thinkingCount = 0, toolCount = 0;
+    tlEntries.forEach(entry => {
+        const kind = (entry as HTMLElement).dataset.tlKind;
+        if (kind === 'thinking') thinkingCount++;
+        else if (kind) toolCount++;
+    });
+
+    let tsMin = Infinity, tsMax = -Infinity;
+    for (const msg of chatMsgs) {
+        const ts = (msg as HTMLElement).dataset.ts;
+        if (ts) {
+            const n = parseInt(ts, 10);
+            if (n > 0 && n < tsMin) tsMin = n;
+            if (n > tsMax) tsMax = n;
+        }
+    }
+    const elapsed = tsMax > tsMin ? Math.round((tsMax - tsMin) / 1000) : 0;
+
+    const parts: string[] = [];
+    if (thinkingCount > 0) parts.push(`经过 ${thinkingCount}轮思考`);
+    if (toolCount > 0) parts.push(`调用 ${toolCount}个工具`);
+    if (elapsed > 0) parts.push(`用时 ${elapsed}秒`);
+
     const toggle = document.createElement('div');
     toggle.className = 'tv4-pg-toggle';
 
     const count = chatMsgs.length;
-    const lastEl = chatMsgs[chatMsgs.length - 1];
-    const summaryText = lastEl?.querySelector('.msg-card-header-text, .msg-card-actions, .msg-bubble')?.textContent?.trim().substring(0, 20) || '';
 
     toggle.innerHTML = '<span class="tv4-pg-icon">▶</span> '
         + STAGE_LABELS[phase]
         + ' <span class="tv4-pg-count">' + count + '条</span>'
-        + (summaryText ? ' <span class="tv4-pg-summary">' + escapeHtml(summaryText) + '</span>' : '');
+        + (parts.length > 0 ? ' — <span class="tv4-pg-summary">' + parts.join('，') + '</span>' : '');
 
     toggle.addEventListener('click', () => {
         const grp = toggle.parentElement as HTMLElement;

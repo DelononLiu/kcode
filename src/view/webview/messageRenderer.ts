@@ -262,7 +262,9 @@ export function renderMessages(messages: any[]) {
             const groupPhase = firstMsg.phase || G.activeTaskPhase;
             let pendingThinking: any = null;
             let mergedTools: any[] = [];
+            let lastMsgTimestamp: number | undefined;
             for (const msg of group.msgs) {
+                lastMsgTimestamp = msg.timestamp;
                 let info: any;
                 try { info = JSON.parse(msg.content); } catch { continue; }
                 if (info.kind === 'todowrite' || _isToolTodo(msg)) {
@@ -279,6 +281,7 @@ export function renderMessages(messages: any[]) {
                         bubble.className = 'msg-bubble';
                         bubble.appendChild(mergedEntry);
                         msgDiv.appendChild(bubble);
+                        if (msg.timestamp) msgDiv.dataset.ts = String(msg.timestamp);
                         appendToChatMessages(msgDiv);
                         hasTlEntries = true;
                     }
@@ -297,6 +300,7 @@ export function renderMessages(messages: any[]) {
                     bubble.className = 'msg-bubble';
                     bubble.appendChild(entry);
                     msgDiv.appendChild(bubble);
+                    if (msg.timestamp) msgDiv.dataset.ts = String(msg.timestamp);
                     appendToChatMessages(msgDiv);
                     hasTlEntries = true;
                 }
@@ -310,6 +314,7 @@ export function renderMessages(messages: any[]) {
                 bubble.className = 'msg-bubble';
                 bubble.appendChild(mergedEntry);
                 msgDiv.appendChild(bubble);
+                if (lastMsgTimestamp) msgDiv.dataset.ts = String(lastMsgTimestamp);
                 appendToChatMessages(msgDiv);
                 hasTlEntries = true;
             } else if (pendingThinking && mergedTools.length === 0) {
@@ -321,6 +326,7 @@ export function renderMessages(messages: any[]) {
                 bubble.className = 'msg-bubble';
                 bubble.appendChild(entry);
                 msgDiv.appendChild(bubble);
+                if (lastMsgTimestamp) msgDiv.dataset.ts = String(lastMsgTimestamp);
                 appendToChatMessages(msgDiv);
                 hasTlEntries = true;
             }
@@ -378,6 +384,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
         }
 
         bubble.appendChild(card);
+        if (msg.timestamp) msgDiv.dataset.ts = String(msg.timestamp);
         appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
@@ -407,6 +414,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
         }
 
         bubble.appendChild(card);
+        if (msg.timestamp) msgDiv.dataset.ts = String(msg.timestamp);
         appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
@@ -534,6 +542,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
         }
 
         bubble.appendChild(card);
+        if (msg.timestamp) msgDiv.dataset.ts = String(msg.timestamp);
         appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
@@ -544,6 +553,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const card = renderTodoCard(msg);
         bubble.appendChild(card);
+        if (msg.timestamp) msgDiv.dataset.ts = String(msg.timestamp);
         appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
@@ -557,6 +567,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
         bubble.className = 'msg-bubble';
         bubble.textContent = content;
         msgDiv.appendChild(bubble);
+        if (msg.timestamp) msgDiv.dataset.ts = String(msg.timestamp);
         appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
@@ -566,6 +577,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
     if (pluginRenderer) {
         const el = pluginRenderer(msg);
         if (el) {
+            if (msg.timestamp) el.dataset.ts = String(msg.timestamp);
             appendToChatMessages(el);
             scrollContainer.scrollTop = scrollContainer.scrollHeight;
             return;
@@ -590,6 +602,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
 
         renderToolBubbleContent(bubble, toolInfo);
 
+        if (msg.timestamp) msgDiv.dataset.ts = String(msg.timestamp);
         appendToChatMessages(msgDiv);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
@@ -629,6 +642,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
     row.appendChild(createCopyButton(content));
     msgDiv.appendChild(row);
 
+    if (msg.timestamp) msgDiv.dataset.ts = String(msg.timestamp);
     appendToChatMessages(msgDiv);
     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 }
