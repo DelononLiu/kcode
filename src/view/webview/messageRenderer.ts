@@ -8,7 +8,7 @@ import { renderTodoCard, _parseTodoStr, _isTodoArray } from './todoRenderer';
 import { renderToolBubbleContent } from './toolRenderer';
 import { appendToChatMessages, updateLastMsgConvertBtn, resetTabGroup, clearMergeState, activeToolCallElements } from './chatStream';
 import { getChatScroll, getChatMessages, getWorkingIndicator } from './domContainers';
-import { groupPhases } from './taskView';
+import { groupPhases, foldPhase, STAGE_ORDER } from './taskView';
 
 // ===== Remaining functions (message rendering) =====
 
@@ -327,6 +327,11 @@ export function renderMessages(messages: any[]) {
     if (hasTlEntries) showTlFilterBar();
 
     updateLastMsgConvertBtn();
+
+    const currentIdx = STAGE_ORDER.indexOf(G.activeTaskPhase);
+    for (let i = 0; i < currentIdx; i++) {
+        foldPhase(STAGE_ORDER[i]);
+    }
 
     if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
 

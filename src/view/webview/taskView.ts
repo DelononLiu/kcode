@@ -22,7 +22,7 @@ export function showTaskView(asControlPanel: boolean = false): void {
     }
 }
 
-const STAGE_ORDER = ['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'];
+export const STAGE_ORDER = ['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'];
 
 const STAGE_LABELS: Record<string, string> = {
     demand: '需求提取', goal: '目标确定', plan: '计划确定',
