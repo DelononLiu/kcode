@@ -725,8 +725,90 @@ export function handleRemovePlanProposal() {
     });
 }
 
+export function showExecuteConfirmation(taskId: string) {
+    hideWorkingIndicator();
+    const container = getChatMessages()!;
+    const scrollContainer = getChatScroll()!;
+
+    const msgDiv = createCardMessageElement(taskId);
+    const bubble = msgDiv.querySelector('.msg-bubble')!;
+
+    const card = createCard({
+        headerHtml: '⚡ 执行完成',
+        bodyHtml: '<div style="padding:8px 0">AI 已完成执行，请确认后进入自验阶段。</div>',
+        defaultCollapsed: false,
+        borderColor: '#d4a84b',
+        headerBg: '#2d2d2d',
+        headerColor: '#e0e0e0',
+        rawData: { taskId }
+    });
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'msg-card-actions';
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'msg-card-btn primary';
+    confirmBtn.textContent = '确认完成，进入自验 ✓';
+    confirmBtn.addEventListener('click', () => {
+        actionsDiv.innerHTML = '';
+        const statusEl = document.createElement('div');
+        statusEl.className = 'msg-card-status';
+        statusEl.textContent = '✅ 已确认，进入自验...';
+        actionsDiv.appendChild(statusEl);
+        G.vscode.postMessage({ type: 'confirmExecuteDone', taskId });
+    });
+
+    actionsDiv.appendChild(confirmBtn);
+    card.appendChild(actionsDiv);
+    bubble.appendChild(card);
+    appendToChatMessages(msgDiv);
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+}
+
+export function showSelfVerifyConfirmation(taskId: string) {
+    hideWorkingIndicator();
+    const container = getChatMessages()!;
+    const scrollContainer = getChatScroll()!;
+
+    const msgDiv = createCardMessageElement(taskId);
+    const bubble = msgDiv.querySelector('.msg-bubble')!;
+
+    const card = createCard({
+        headerHtml: '🔍 自验完成',
+        bodyHtml: '<div style="padding:8px 0">AI 已完成自验，请确认后进入验收阶段。</div>',
+        defaultCollapsed: false,
+        borderColor: '#6b9e6b',
+        headerBg: '#2d2d2d',
+        headerColor: '#e0e0e0',
+        rawData: { taskId }
+    });
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'msg-card-actions';
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'msg-card-btn primary';
+    confirmBtn.textContent = '确认自验，进入验收 ✓';
+    confirmBtn.addEventListener('click', () => {
+        actionsDiv.innerHTML = '';
+        const statusEl = document.createElement('div');
+        statusEl.className = 'msg-card-status';
+        statusEl.textContent = '✅ 已确认，进入验收...';
+        actionsDiv.appendChild(statusEl);
+        G.vscode.postMessage({ type: 'confirmSelfVerifyDone', taskId });
+    });
+
+    actionsDiv.appendChild(confirmBtn);
+    card.appendChild(actionsDiv);
+    bubble.appendChild(card);
+    appendToChatMessages(msgDiv);
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+}
+
 // Window exports for cross-bundle compatibility and tests
 (window as any).handleDemoCardUpdate = handleDemoCardUpdate;
 (window as any).renderDemoCard = renderDemoCard;
 (window as any).showRejectInput = showRejectInput;
 (window as any).toggleReviewFileSelection = toggleReviewFileSelection;
+(window as any).showExecuteConfirmation = showExecuteConfirmation;
+(window as any).showSelfVerifyConfirmation = showSelfVerifyConfirmation;

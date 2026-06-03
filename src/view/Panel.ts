@@ -70,12 +70,9 @@ export class Panel {
                 this.flowHandler.sendTaskInfo(taskId);
             },
             onGoalFormatted: async (taskId, goalText, originalRequest) => {
-                this.taskFlow.confirmGoal(taskId);
                 this.flowHandler.sendTaskInfo(taskId);
                 this.flowHandler.sendNodePanelUpdate(taskId);
-                const promptText = this.taskFlow.buildPhaseTransitionPrompt(taskId, originalRequest);
-                const handler = this.sessionHandler.createAgentResponseHandler(taskId, false, originalRequest);
-                await this.sessionHandler.doPrompt(taskId, promptText, handler);
+                this.router.PostMessage({ type: 'showGoalConfirmation', taskId, goal: goalText, originalRequest });
             },
             onError: (taskId, error) => { this.flowHandler.showAgentError(taskId, error); },
             onSelfVerifyNeeded: (taskId) => { setTimeout(() => this.sessionHandler.startAutoGeneration(taskId), 100); },
@@ -225,6 +222,7 @@ export class Panel {
         this.router.on('confirmPlanWithEdit', async (msg) => this.flowHandler.handleConfirmPlanWithEdit(msg.taskId, msg.goal, msg.steps));
         this.router.on('rejectPlan', (msg) => this.flowHandler.handleRejectPlan(msg.taskId));
         this.router.on('confirmExecuteDone', async (msg) => this.flowHandler.handleConfirmExecuteDone(msg.taskId));
+        this.router.on('confirmSelfVerifyDone', async (msg) => this.flowHandler.handleConfirmSelfVerifyDone(msg.taskId));
         this.router.on('partialApproveReview', (msg) => this.flowHandler.handlePartialApproveReview(msg.taskId, msg.passed, msg.failed));
         this.router.on('toggleAcpLog', (msg) => { this.acpLogManager.enabled = msg.enabled; this.configService.set('log.acpLogEnabled', msg.enabled); this.configService.save(); });
         this.router.on('newTask', () => vscode.commands.executeCommand('kcode.newTask'));
@@ -480,6 +478,8 @@ export class Panel {
             await this.flowHandler.handleConfirmPlan(taskId);
         } else if (phase === 'execute') {
             await this.flowHandler.handleConfirmExecuteDone(taskId);
+        } else if (phase === 'self_verify') {
+            await this.flowHandler.handleConfirmSelfVerifyDone(taskId);
         } else {
             this.router.PostMessage({ type: 'addSystemMessage', content: `当前阶段 "${phase}" 不支持 /confirm 操作` });
         }

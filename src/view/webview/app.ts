@@ -5,7 +5,7 @@ import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpda
 import { initTemplateChips, renderCategorySelection, focusChatInput } from './templateFlow';
 import { initPluginManager, renderPluginList } from './pluginRegistry';
 import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, addUserMessage, handleKnowledgeExtract, __resetStream, showAgentThinking, updateTaskInfo } from './messageRenderer';
-import { handleDemoCardUpdate, showGoalConfirmationCard, handleShowPlanProposal, handleRemovePlanProposal, handleShowReviewRequest, reviewChangesMap } from './flowCards';
+import { handleDemoCardUpdate, showGoalConfirmationCard, handleShowPlanProposal, handleRemovePlanProposal, handleShowReviewRequest, showExecuteConfirmation, showSelfVerifyConfirmation, reviewChangesMap } from './flowCards';
 
 declare function acquireVsCodeApi(): any;
 const vscode = acquireVsCodeApi();
@@ -242,6 +242,12 @@ function initMessageHandler() {
                 break;
             case 'showGoalConfirmation':
                 showGoalConfirmationCard(message);
+                break;
+            case 'showExecuteConfirmation':
+                showExecuteConfirmation(message.taskId);
+                break;
+            case 'showSelfVerifyConfirmation':
+                showSelfVerifyConfirmation(message.taskId);
                 break;
             case 'showReviewRequest':
                 handleShowReviewRequest(message);

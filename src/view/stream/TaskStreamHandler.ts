@@ -180,15 +180,17 @@ export class TaskStreamHandler extends StreamHandlerBase {
                 }
             } else if (genResult.executeFinished && task?.type === 'task' && task?.phase === 'execute') {
                 if (cleanedText) this.ctx.storeMessage(this.tid, 'agent', cleanedText);
-                this.ctx.taskFlow.confirmExecuteDone(this.tid);
                 this.ctx.sendTaskInfo(this.tid);
                 this.ctx.sendNodePanelUpdate(this.tid);
                 this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskStatus: this.ctx.store.getTask(this.tid)?.status });
-                setTimeout(() => this.ctx.startAutoGeneration(this.tid), 100);
+                this.router.PostMessage({ type: 'showExecuteConfirmation', taskId: this.tid });
             } else if (genResult.selfVerifyFinished && task?.type === 'task' && task?.phase === 'self_verify') {
-                debug('confirmSelfVerifyDone triggered, phase → review');
-                this.ctx.taskFlow.confirmSelfVerifyDone(this.tid);
-                this.ctx.triggerReviewRequest(this.tid, cleanedText || '自验完成，请验收变更');
+                debug('selfVerifyFinished, waiting for user confirmation');
+                if (cleanedText) this.ctx.storeMessage(this.tid, 'agent', cleanedText);
+                this.ctx.sendTaskInfo(this.tid);
+                this.ctx.sendNodePanelUpdate(this.tid);
+                this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskStatus: this.ctx.store.getTask(this.tid)?.status });
+                this.router.PostMessage({ type: 'showSelfVerifyConfirmation', taskId: this.tid });
             } else {
                 const agentMsgId = this.ctx.storeMessage(this.tid, 'agent', cleanedText);
                 if (agentMsgId && !this.ctx.hasSetPlanMessage) {

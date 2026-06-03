@@ -81,6 +81,16 @@ export class TaskFlowHandler {
         setTimeout(() => ctx.startAutoGeneration(tid), 100);
     }
 
+    async handleConfirmSelfVerifyDone(tid: string) {
+        const { ctx } = this;
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认自验，进入验收', timestamp: Date.now() });
+        ctx.router.PostMessage({ type: 'addUserMessage', content: '✅ 确认自验，进入验收' });
+        const cleanedText = ctx.taskFlow.confirmSelfVerifyDone(tid);
+        ctx.sendTaskInfo(tid);
+        ctx.sendNodePanelUpdate(tid);
+        ctx.triggerReviewRequest(tid, cleanedText || '自验完成，请验收变更');
+    }
+
     async handleConfirmGoalFromHeader(tid: string) {
         const msgs = this.ctx.store.getMessages(tid);
         const originalRequest = msgs.find(m => m.role === 'user')?.content || '';
