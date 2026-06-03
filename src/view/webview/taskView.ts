@@ -75,6 +75,11 @@ export function foldPhase(phase: string): void {
     group.insertBefore(body, group.firstChild);
     group.classList.add('folded');
     group.dataset.collapsed = 'true';
+
+    const lastMsg = chatMsgs[chatMsgs.length - 1];
+    if (lastMsg.parentNode === group) {
+        group.parentNode?.insertBefore(lastMsg, group.nextSibling);
+    }
 }
 
 export function groupPhases(): void {
