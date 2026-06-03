@@ -160,6 +160,48 @@ function initV4Layout() {
         });
     }
 
+    // Image / attach
+    const tv4ImageBtn = document.querySelector('.tv4-image-btn');
+    tv4ImageBtn?.addEventListener('click', () => {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.multiple = true;
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files) {
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    const file = fileInput.files[i];
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        G.vscode.postMessage({ type: 'addImage', file: file.name, data: e.target?.result });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        });
+        fileInput.click();
+    });
+
+    const tv4AttachBtn = document.querySelector('.tv4-attach-btn');
+    tv4AttachBtn?.addEventListener('click', () => {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.multiple = true;
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files) {
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    const file = fileInput.files[i];
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        G.vscode.postMessage({ type: 'addAttachment', file: file.name, data: e.target?.result });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        });
+        fileInput.click();
+    });
+
     // Near-input tools
     const tv4AcpLogBtn = document.getElementById('tv4-acp-log-btn');
     tv4AcpLogBtn?.addEventListener('click', () => {
@@ -257,8 +299,10 @@ function initMessageHandler() {
                 handleAgentStatus(message.status, message.message, message.agentName || '', message.modelName || '');
                 break;
             case 'focusInput':
-                const inputEl = document.getElementById('chat-input') as HTMLTextAreaElement;
-                if (inputEl) inputEl.focus();
+                const focusInputEl = document.getElementById('chat-input') as HTMLTextAreaElement;
+                if (focusInputEl) focusInputEl.focus();
+                const focusTv4Input = document.getElementById('tv4-input') as HTMLTextAreaElement;
+                if (focusTv4Input) focusTv4Input.focus();
                 break;
             case 'addUserMessage':
                 addUserMessage(message.content);
@@ -360,12 +404,16 @@ function initMessageHandler() {
                 {
                     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
                     if (input) input.value = message.text || '';
+                    const tv4Input = document.getElementById('tv4-input') as HTMLTextAreaElement;
+                    if (tv4Input) tv4Input.value = message.text || '';
                 }
                 break;
             case 'setInputPlaceholder':
                 {
                     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
                     if (input) input.placeholder = message.text || '提出后续修改要求';
+                    const tv4Input = document.getElementById('tv4-input') as HTMLTextAreaElement;
+                    if (tv4Input) tv4Input.placeholder = message.text || '输入指令与 AI 协作...';
                 }
                 break;
             case 'setNarration':
@@ -378,6 +426,16 @@ function initMessageHandler() {
                     } else {
                         el.classList.add('hidden');
                         el.innerHTML = '';
+                    }
+                    const tv4El = document.getElementById('tv4-system-narration');
+                    if (tv4El) {
+                        if (message.text) {
+                            tv4El.classList.remove('hidden');
+                            tv4El.innerHTML = '<span class="narration-dot"></span> ' + escapeHtml(message.text);
+                        } else {
+                            tv4El.classList.add('hidden');
+                            tv4El.innerHTML = '';
+                        }
                     }
                 }
                 break;
@@ -420,10 +478,17 @@ function initMessageHandler() {
 
 function flashInput() {
     const wrapper = document.querySelector('.input-wrapper');
-    if (!wrapper) return;
-    wrapper.classList.remove('input-flash');
-    void (wrapper as HTMLElement).offsetWidth;
-    wrapper.classList.add('input-flash');
+    if (wrapper) {
+        wrapper.classList.remove('input-flash');
+        void (wrapper as HTMLElement).offsetWidth;
+        wrapper.classList.add('input-flash');
+    }
+    const tv4Wrapper = document.querySelector('.tv4-input-wrapper');
+    if (tv4Wrapper) {
+        tv4Wrapper.classList.remove('input-flash');
+        void (tv4Wrapper as HTMLElement).offsetWidth;
+        tv4Wrapper.classList.add('input-flash');
+    }
 }
 
 // ===== DOMContentLoaded =====

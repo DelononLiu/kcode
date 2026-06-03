@@ -112,21 +112,27 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
 /* === V4 Input Area === */
 .tv4-input-area{flex-shrink:0;border-top:1px solid var(--border);padding:10px 16px 8px;background:var(--bg-deep)}
-.tv4-input-area .tv4-input-wrapper{max-width:900px;margin:0 auto}
-.tv4-input-area textarea{width:100%;background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;color:var(--text-main);font-family:inherit;font-size:13.5px;resize:none;outline:none;min-height:36px;max-height:160px;line-height:1.35;padding:10px 12px;transition:border-color .2s}
-.tv4-input-area textarea:focus{border-color:#007fd4;box-shadow:0 0 8px rgba(0,127,212,.3)}
+.tv4-input-area .tv4-input-wrapper{max-width:900px;margin:0 auto;background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:10px 12px 6px;transition:border-color .2s,box-shadow .2s}
+.tv4-input-area .tv4-input-wrapper:focus-within{border-color:#007fd4;box-shadow:0 0 8px rgba(0,127,212,.3)}
+.tv4-input-area textarea{width:100%;background:transparent;border:none;color:var(--text-main);font-family:inherit;font-size:13.5px;resize:none;outline:none;min-height:36px;max-height:200px;line-height:1.35;padding:0;transition:border-color .2s}
+.tv4-input-area textarea:focus{border-color:transparent;box-shadow:none}
 .tv4-input-area textarea::placeholder{color:#555}
-.tv4-input-row{display:flex;align-items:center;justify-content:space-between;padding-top:4px;min-height:28px}
-.tv4-btn{border:none;border-radius:4px;padding:4px 14px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;transition:background .15s}
-.tv4-btn.primary{background:#4a8bb5;color:#fff}
-.tv4-btn.primary:hover{background:#5a9bc8}
-.tv4-btn.danger{background:#c94a4a;color:#fff}
-.tv4-btn.danger:hover{background:#e06060}
-.tv4-btn.hidden{display:none}
+#task-view .tv4-input-footer{display:flex;align-items:center;padding-top:4px;min-height:28px;justify-content:space-between}
+#task-view .tv4-input-footer-left{display:flex;align-items:center;gap:4px;flex:1}
+#task-view .tv4-input-footer-right{display:flex;align-items:center;gap:2px;flex-shrink:0}
+#task-view .tv4-input-tool-btn{background:none;border:none;color:#666;cursor:pointer;padding:4px;border-radius:3px;display:flex;align-items:center;justify-content:center;transition:color .2s,background .2s}
+#task-view .tv4-input-tool-btn.hidden{display:none}
+#task-view .tv4-input-tool-btn:hover{background:rgba(255,255,255,.05);color:#999}
+#task-view #tv4-send-btn{color:#4a8bb5}#task-view #tv4-send-btn:hover{color:#5a9bc8;background:rgba(74,139,181,.1)}
+#task-view #tv4-stop-btn{color:#c94a4a}#task-view #tv4-stop-btn:hover{color:#e06060;background:rgba(201,74,74,.1)}
+#task-view .tv4-image-btn:hover{color:#999;background:rgba(255,255,255,.05)}
+#task-view .tv4-attach-btn:hover{color:#999;background:rgba(255,255,255,.05)}
 .tv4-input-area .shortcut-hint{font-size:10px;color:#555;white-space:nowrap}
-#tv4-near-input-tools{display:flex;gap:8px;padding:0 0 6px;flex-shrink:0;flex-wrap:wrap;max-width:900px;margin:0 auto}
+#tv4-near-input-tools{display:flex;gap:8px;padding:0 0 8px;flex-shrink:0;flex-wrap:wrap;max-width:900px;margin:0 auto}
 .tv4-input-area .near-tool-btn{background:transparent;border:none;color:#888;cursor:pointer;font-size:11px;padding:2px 8px;border-radius:3px;white-space:nowrap;display:flex;align-items:center;gap:4px}
 .tv4-input-area .near-tool-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
+#tv4-system-narration{display:flex;align-items:center;gap:6px;padding:0 0 6px;font-size:12px;color:#888;flex-shrink:0;max-width:900px;margin:0 auto}
+#tv4-system-narration.hidden{display:none}
 
 /* V4: queue bar */
 #tv4-queue-bar{margin-bottom:6px;border:1px solid rgba(255,255,255,.06);border-radius:4px;overflow:hidden}

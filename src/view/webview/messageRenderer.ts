@@ -793,10 +793,17 @@ export function updateStageBadges(info: any) {
 
 export function flashInput() {
     const wrapper = document.querySelector('.input-wrapper');
-    if (!wrapper) return;
-    wrapper.classList.remove('input-flash');
-    void (wrapper as HTMLElement).offsetWidth;
-    wrapper.classList.add('input-flash');
+    if (wrapper) {
+        wrapper.classList.remove('input-flash');
+        void (wrapper as HTMLElement).offsetWidth;
+        wrapper.classList.add('input-flash');
+    }
+    const tv4Wrapper = document.querySelector('.tv4-input-wrapper');
+    if (tv4Wrapper) {
+        tv4Wrapper.classList.remove('input-flash');
+        void (tv4Wrapper as HTMLElement).offsetWidth;
+        tv4Wrapper.classList.add('input-flash');
+    }
 }
 
 // ===== Barrel re-exports =====

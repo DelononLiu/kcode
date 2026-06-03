@@ -195,6 +195,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                 </div>
                 <div id="queue-list" class="hidden"></div>
             </div>
+            <div id="tv4-system-narration" class="hidden"></div>
             <div id="tv4-near-input-tools">
                 <button id="tv4-btn-knowledge-extract" class="near-tool-btn hidden" title="从当前任务萃取知识">📚 知识萃取</button>
                 <button id="tv4-acp-log-btn" class="near-tool-btn" title="查看 ACP 协议日志">🔍 查看日志</button>
@@ -202,10 +203,24 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             </div>
             <div class="tv4-input-wrapper">
                 <textarea id="tv4-input" placeholder="输入指令与 AI 协作..." rows="1"></textarea>
-                <div class="tv4-input-row">
-                    <span class="shortcut-hint">快捷指令: <code>/tasks</code> <code>/next</code></span>
-                    <button id="tv4-send-btn" class="tv4-btn primary">发送</button>
-                    <button id="tv4-stop-btn" class="tv4-btn danger hidden">停止</button>
+                <div class="tv4-input-footer">
+                    <div class="tv4-input-footer-left">
+                        <span class="shortcut-hint">快捷指令: <code>/tasks</code> <code>/next</code> <code>/models</code></span>
+                    </div>
+                    <div class="tv4-input-footer-right">
+                        <button class="tv4-input-tool-btn tv4-image-btn" title="图片">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/><circle cx="5" cy="6" r="1.5" fill="currentColor"/><path d="M1.5 11l3.5-3 2.5 2 3-3 3.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                        </button>
+                        <button class="tv4-input-tool-btn tv4-attach-btn" title="附件">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v7a2 2 0 004 0V4.5a3.5 3.5 0 00-7 0V10a4.5 4.5 0 009 0V3h-1v7a3.5 3.5 0 01-7 0V4.5a2.5 2.5 0 015 0V10a1 1 0 01-2 0V3H8z" fill="currentColor"/></svg>
+                        </button>
+                        <button id="tv4-send-btn" class="tv4-input-tool-btn" title="发送">
+                            ${svgIcon('send')}
+                        </button>
+                        <button id="tv4-stop-btn" class="tv4-input-tool-btn hidden" title="停止生成">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor"/></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
