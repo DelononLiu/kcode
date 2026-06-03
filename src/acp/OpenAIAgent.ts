@@ -111,8 +111,9 @@ export class OpenAIAgent {
                             return;
                         }
                         const delta = json.choices?.[0]?.delta;
-                        if (delta?.reasoning_content) {
-                            handler.onReasoning?.(delta.reasoning_content);
+                        const reasonText = delta?.reasoning_content || delta?.reasoning || delta?.thinking || '';
+                        if (reasonText) {
+                            handler.onReasoning?.(reasonText);
                         }
                         const content = delta?.content || '';
                         if (content) {

@@ -85,7 +85,10 @@ export class Panel {
 
         const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
         this.agentService = new AgentService(workspacePath);
-        this.agentService.setLogCallback((dir, text) => { const t = this.currentTaskId || ''; if (t) this.acpLogManager.send(t, dir, text); });
+        this.agentService.setLogCallback((dir, text) => {
+            const t = this.currentTaskId || (this.assistantHandler ? '__assistant__' : '');
+            if (t) this.acpLogManager.send(t, dir, text);
+        });
 
         this.commandRegistry = new CommandRegistry();
         this.commandRegistry.load(workspacePath);
@@ -162,6 +165,8 @@ export class Panel {
             () => this.refreshSidebarCallback?.(),
             (taskId) => this.loadTask(taskId),
             vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,
+            (taskId, dir, text) => this.acpLogManager.send(taskId, dir, text),
+            (taskId) => this.acpLogManager.flush(taskId),
         );
 
         this.setupMessageHandler();

@@ -117,6 +117,8 @@ export class AssistantHandler {
         private refreshSidebar?: () => void,
         private loadTask?: (taskId: string) => void,
         private workspaceRoot?: string,
+        private sendAcpLog?: (taskId: string, direction: 'send' | 'recv', text: string) => void,
+        private flushAcpRecvBuffer?: (taskId: string) => void,
     ) {
         this._addAssistantMessage = this._addAssistantMessage.bind(this);
     }
@@ -326,10 +328,12 @@ export class AssistantHandler {
             const handler = this.createResponseHandler();
             this.setGenerationState(true);
             const prompt = ASSISTANT_SYSTEM_PROMPT + '\n\n' + text;
+            this.sendAcpLog?.(tid, 'send', prompt);
             await this.agentService.sendPrompt(tid, prompt, handler);
         } else {
             const handler = this.createResponseHandler();
             this.setGenerationState(true);
+            this.sendAcpLog?.(tid, 'send', text);
             await this.agentService.sendPrompt(tid, text, handler);
         }
     }
@@ -345,9 +349,12 @@ export class AssistantHandler {
     }
 
     createResponseHandler(): AcpMessageHandler {
+        const tid = '__assistant__';
         const handler = new AssistantStreamHandler(
-            '__assistant__', this.router, this.setGenerationState,
+            tid, this.router, this.setGenerationState,
             this.store, () => this.loadMessages(),
+            this.sendAcpLog ? (dir, text) => this.sendAcpLog!(tid, dir, text) : undefined,
+            this.flushAcpRecvBuffer ? () => this.flushAcpRecvBuffer!(tid) : undefined,
         );
         return handler.create();
     }

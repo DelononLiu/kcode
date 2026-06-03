@@ -9,8 +9,10 @@ export class AssistantStreamHandler extends StreamHandlerBase {
         setGenState: (generating: boolean) => void,
         private store: TaskStore,
         private loadMessagesFn: () => void,
+        sendAcpLog?: (dir: 'send' | 'recv', text: string) => void,
+        flushAcpRecvBuffer?: () => void,
     ) {
-        super(tid, router, setGenState);
+        super(tid, router, setGenState, sendAcpLog, flushAcpRecvBuffer);
     }
 
     protected sendDisplayUpdate(text: string): void {
