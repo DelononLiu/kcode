@@ -235,6 +235,7 @@ function initMessageHandler() {
             case 'loadMessages':
                 hideWorkingIndicator();
                 G.streamMessageEl = null;
+                G._agentHeaderShown = false;
 
                 if (message.taskType === 'assistant') {
                     G.activeTaskId = message.taskId;

@@ -179,9 +179,6 @@ export function appendToChatMessages(el: Element) {
 // ===== Stream handlers =====
 
 export function handleAgentStreamUpdate(text: string) {
-    resetTabGroup();
-    flushMerge();
-    _ensureAgentHeader();
     const container = getChatMessages()!;
     const scrollContainer = getChatScroll()!;
     scrollContainer.classList.remove('chat-empty');
@@ -189,8 +186,10 @@ export function handleAgentStreamUpdate(text: string) {
     if (placeholder) placeholder.remove();
 
     if (!G.streamMessageEl) {
-        G._userScrolledUp = false;
+        resetTabGroup();
+        _ensureAgentHeader();
 
+        G._userScrolledUp = false;
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg agent';
         if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
@@ -206,7 +205,7 @@ export function handleAgentStreamUpdate(text: string) {
     latestStreamText = text;
     if (!streamRenderPending) {
         streamRenderPending = true;
-        setTimeout(() => {
+        requestAnimationFrame(() => {
             streamRenderPending = false;
             if (G.streamMessageEl) {
                 G.streamMessageEl.innerHTML = renderMarkdown(latestStreamText);
@@ -216,7 +215,7 @@ export function handleAgentStreamUpdate(text: string) {
                     requestAnimationFrame(() => { G._programmaticScroll = false; });
                 }
             }
-        }, 50);
+        });
     }
 }
 

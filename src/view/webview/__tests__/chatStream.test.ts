@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { G } from '../state';
-import { showAgentThinking, updateWorkingIndicator, appendToChatMessages, updateLastMsgConvertBtn } from '../chatStream';
+import { showAgentThinking, updateWorkingIndicator, appendToChatMessages, updateLastMsgConvertBtn, handleAgentStreamUpdate } from '../chatStream';
 
 function setupDom() {
     document.body.innerHTML = `
@@ -124,5 +124,73 @@ describe('updateLastMsgConvertBtn', () => {
         updateLastMsgConvertBtn();
 
         expect(row.querySelector('.convert-task-btn')).toBeFalsy();
+    });
+});
+
+describe('handleAgentStreamUpdate', () => {
+    beforeEach(() => {
+        setupDom();
+        G.activeTaskType = 'assistant';
+    });
+
+    afterEach(() => {
+        G.streamMessageEl = null;
+        G._agentHeaderShown = false;
+    });
+
+    it('创建 stream 消息元素并渲染文本', async () => {
+        handleAgentStreamUpdate('Hello');
+        // 等待 rAF 执行
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        const bubble = G.streamMessageEl;
+        expect(bubble).toBeTruthy();
+        expect(bubble!.innerHTML).toContain('Hello');
+    });
+
+    it('后续调用复用已有 streamMessageEl', async () => {
+        handleAgentStreamUpdate('Hello');
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        const firstEl = G.streamMessageEl;
+
+        handleAgentStreamUpdate('Hello World');
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        const secondEl = G.streamMessageEl;
+
+        expect(secondEl).toBe(firstEl);
+        expect(secondEl!.innerHTML).toContain('Hello World');
+    });
+
+    it('只渲染最新的文本（rAF 合并）', async () => {
+        // 在同一个 rAF 帧内多次调用
+        handleAgentStreamUpdate('First');
+        handleAgentStreamUpdate('Second');
+        handleAgentStreamUpdate('Third');
+
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        expect(G.streamMessageEl!.innerHTML).toContain('Third');
+    });
+
+    it('移除 placeholder', async () => {
+        const container = document.getElementById('chat-messages')!;
+        const placeholder = container.querySelector('.chat-placeholder');
+        expect(placeholder).toBeTruthy();
+
+        handleAgentStreamUpdate('test');
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        expect(container.querySelector('.chat-placeholder')).toBeFalsy();
+    });
+
+    it('第一次调用时创建 agent header', async () => {
+        expect(G._agentHeaderShown).toBe(false);
+
+        handleAgentStreamUpdate('test');
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        const header = document.querySelector('.chat-msg.agent-header');
+        expect(header).toBeTruthy();
+        expect(G._agentHeaderShown).toBe(true);
     });
 });
