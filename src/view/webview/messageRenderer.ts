@@ -248,7 +248,8 @@ export function renderMessages(messages: any[]) {
         if (isTaskView && needAgentHeader) {
             const headerDiv = document.createElement('div');
             headerDiv.className = 'chat-msg agent-header';
-            if (G.activeTaskPhase) headerDiv.dataset.phase = G.activeTaskPhase;
+            const msgPhase = firstMsg.phase || G.activeTaskPhase;
+            if (msgPhase) headerDiv.dataset.phase = msgPhase;
             const hSender = document.createElement('div');
             hSender.className = 'msg-sender';
             hSender.textContent = 'Agent';
