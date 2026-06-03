@@ -195,6 +195,11 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                 </div>
                 <div id="queue-list" class="hidden"></div>
             </div>
+            <div id="tv4-near-input-tools">
+                <button id="tv4-btn-knowledge-extract" class="near-tool-btn hidden" title="从当前任务萃取知识">📚 知识萃取</button>
+                <button id="tv4-acp-log-btn" class="near-tool-btn" title="查看 ACP 协议日志">🔍 查看日志</button>
+                <button id="tv4-btn-terminal" class="near-tool-btn" title="打开终端">💻 打开终端</button>
+            </div>
             <div class="tv4-input-wrapper">
                 <textarea id="tv4-input" placeholder="输入指令与 AI 协作..." rows="1"></textarea>
                 <div class="tv4-input-row">

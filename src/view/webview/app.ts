@@ -159,6 +159,32 @@ function initV4Layout() {
             if (G.activeTaskId) G.vscode.postMessage({ type: 'stopGeneration', taskId: G.activeTaskId });
         });
     }
+
+    // Near-input tools
+    const tv4AcpLogBtn = document.getElementById('tv4-acp-log-btn');
+    tv4AcpLogBtn?.addEventListener('click', () => {
+        const rp = document.getElementById('right-panel');
+        if (!rp) return;
+        const acpTab = document.querySelector('.tab[data-tab="acplog"]');
+        if (!rp.classList.contains('hidden') && acpTab?.classList.contains('active')) {
+            rp.classList.add('hidden');
+            tv4AcpLogBtn.classList.remove('active');
+        } else {
+            rp.classList.remove('hidden');
+            activateTab('acplog');
+            tv4AcpLogBtn.classList.add('active');
+        }
+    });
+
+    const tv4BtnTerminal = document.getElementById('tv4-btn-terminal');
+    tv4BtnTerminal?.addEventListener('click', () => {
+        G.vscode.postMessage({ type: 'openTerminal' });
+    });
+
+    const tv4BtnKnowledgeExtract = document.getElementById('tv4-btn-knowledge-extract');
+    tv4BtnKnowledgeExtract?.addEventListener('click', () => {
+        G.vscode.postMessage({ type: 'extractKnowledge', taskId: G.activeTaskId });
+    });
 }
 
 // ===== Message Router =====

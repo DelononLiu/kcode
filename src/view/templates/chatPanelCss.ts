@@ -124,6 +124,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tv4-btn.danger:hover{background:#e06060}
 .tv4-btn.hidden{display:none}
 .tv4-input-area .shortcut-hint{font-size:10px;color:#555;white-space:nowrap}
+#tv4-near-input-tools{display:flex;gap:8px;padding:0 0 6px;flex-shrink:0;flex-wrap:wrap;max-width:900px;margin:0 auto}
+.tv4-input-area .near-tool-btn{background:transparent;border:none;color:#888;cursor:pointer;font-size:11px;padding:2px 8px;border-radius:3px;white-space:nowrap;display:flex;align-items:center;gap:4px}
+.tv4-input-area .near-tool-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
 
 /* V4: queue bar */
 #tv4-queue-bar{margin-bottom:6px;border:1px solid rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
