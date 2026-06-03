@@ -11,7 +11,6 @@ const plugin: KCodePlugin = {
     activate(api: PluginAPI) {
         api.onMessage('convertToTask', (msg: any) => {
             const store = api.getStore();
-            const router = api.getRouter();
             const chatTask = store.getTask(msg.taskId);
             if (!chatTask) return;
             const messages = store.getMessages(msg.taskId);
@@ -27,7 +26,6 @@ const plugin: KCodePlugin = {
             for (const msg2 of messages) {
                 store.addMessage({ id: store.nextMessageId(newId), taskId: newId, role: msg2.role, content: msg2.content, type: msg2.type, timestamp: msg2.timestamp });
             }
-            router.PostMessage({ type: 'selectTask', taskId: newId });
             vscode.commands.executeCommand('kcode.selectTask', newId);
         });
     },

@@ -123,6 +123,10 @@ export async function activate(context: vscode.ExtensionContext) {
         openTaskInPanel(context, task.id);
     });
 
+    const selectTaskCmd = vscode.commands.registerCommand('kcode.selectTask', (taskId: string) => {
+        openTaskInPanel(context, taskId);
+    });
+
     const importGitHubCmd = vscode.commands.registerCommand('kcode.importGitHubIssue', async () => {
         if (!store) return;
         await importGitHubIssue(store, (taskId, goal) => openTaskInPanel(context, taskId, goal), refreshSidebar);
@@ -190,7 +194,7 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(openCmd, newTaskCmd, importGitHubCmd, newTaskFromTemplateCmd, settingsCmd, myTasksCmd, knowledgeCmd, refreshKnowledgeCmd);
+    context.subscriptions.push(openCmd, newTaskCmd, selectTaskCmd, importGitHubCmd, newTaskFromTemplateCmd, settingsCmd, myTasksCmd, knowledgeCmd, refreshKnowledgeCmd);
 }
 
 export function deactivate() {
