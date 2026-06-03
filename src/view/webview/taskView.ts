@@ -1,6 +1,10 @@
 import { G } from './state';
 import { getChatMessages, getChatScroll } from './domContainers';
 
+function escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 export function showTaskView(asControlPanel: boolean = false): void {
     const assistantView = document.getElementById('assistant-view');
     const taskView = document.getElementById('task-view');
@@ -59,25 +63,28 @@ export function groupPhases(): void {
         const msgs = phaseMap.get(phase);
         if (!msgs || msgs.length === 0) continue;
 
+        const isCurrent = phase === G.activeTaskPhase && G.activeTaskStatus !== 'completed' && G.activeTaskStatus !== 'cancelled';
+        const isPast = STAGE_ORDER.indexOf(phase) < STAGE_ORDER.indexOf(G.activeTaskPhase) || G.activeTaskStatus === 'completed';
+
+        const userExpanded = expandedPhaseGroups.has(phase);
+        const collapsed = (isPast && !userExpanded) ? true : false;
+
         const group = document.createElement('div');
         group.className = 'tv4-phase-group';
         group.dataset.phase = phase;
-
-        const isCurrent = phase === G.activeTaskPhase && G.activeTaskStatus !== 'completed' && G.activeTaskStatus !== 'cancelled';
-        const isPast = STAGE_ORDER.indexOf(phase) < STAGE_ORDER.indexOf(G.activeTaskPhase) || G.activeTaskStatus === 'completed';
+        group.dataset.collapsed = collapsed ? 'true' : 'false';
 
         const toggle = document.createElement('div');
         toggle.className = 'tv4-pg-toggle';
 
-        if (isCurrent && !isPast) {
-            group.dataset.collapsed = 'false';
-            toggle.innerHTML = '<span class="tv4-pg-icon">▼</span> 阶段 · ' + STAGE_LABELS[phase] + ' — 进行中';
-        } else {
-            const userExpanded = expandedPhaseGroups.has(phase);
-            group.dataset.collapsed = userExpanded ? 'false' : 'true';
-            const icon = userExpanded ? '▼' : '▶';
-            toggle.innerHTML = '<span class="tv4-pg-icon">' + icon + '</span> 已折叠阶段 · ' + STAGE_LABELS[phase] + ' (' + msgs.length + '条)';
-        }
+        const processCount = msgs.length;
+        const summaryMsg = msgs[msgs.length - 1];
+        const summaryText = summaryMsg?.querySelector('.msg-card-header-text, .msg-card-actions, .msg-bubble')?.textContent?.trim().substring(0, 20) || '';
+        toggle.innerHTML = '<span class="tv4-pg-icon">' + (collapsed ? '▶' : '▼') + '</span> '
+            + STAGE_LABELS[phase]
+            + (isCurrent ? ' — 进行中' : '')
+            + ' <span class="tv4-pg-count">' + processCount + '条</span>'
+            + (summaryText ? ' <span class="tv4-pg-summary">' + escapeHtml(summaryText) + '</span>' : '');
 
         toggle.addEventListener('click', () => {
             const grp = toggle.parentElement as HTMLElement;
@@ -91,11 +98,18 @@ export function groupPhases(): void {
 
         const body = document.createElement('div');
         body.className = 'tv4-pg-body';
-        for (const msg of msgs) body.appendChild(msg);
+
+        // All messages except the last one → collapsible body
+        for (let i = 0; i < msgs.length - 1; i++) {
+            body.appendChild(msgs[i]);
+        }
 
         group.appendChild(toggle);
         group.appendChild(body);
         container.appendChild(group);
+
+        // Last message (summary card) → always visible after the collapsible body
+        container.appendChild(summaryMsg);
     }
 
     if (indicator) container.appendChild(indicator);
