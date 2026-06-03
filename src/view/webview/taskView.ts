@@ -90,7 +90,7 @@ export function foldPhase(phase: string): void {
     }
 
     group.insertBefore(toggle, group.firstChild);
-    group.insertBefore(body, group.firstChild);
+    group.insertBefore(body, toggle.nextSibling);
     group.classList.add('folded');
     group.dataset.collapsed = 'true';
 
