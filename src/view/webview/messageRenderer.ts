@@ -259,6 +259,7 @@ export function renderMessages(messages: any[]) {
         }
 
         if (group.type === 'tool-group' && group.msgs.length > 0) {
+            const groupPhase = firstMsg.phase || G.activeTaskPhase;
             let pendingThinking: any = null;
             let mergedTools: any[] = [];
             for (const msg of group.msgs) {
@@ -273,6 +274,7 @@ export function renderMessages(messages: any[]) {
                         const mergedEntry = createMergedTimelineEntry({ title: forceTitle('thinking', pendingThinking.title || '思考'), content: pendingThinking.output || pendingThinking.content || '' }, mergedTools);
                         const msgDiv = document.createElement('div');
                         msgDiv.className = 'chat-msg tool';
+                        if (groupPhase) msgDiv.dataset.phase = groupPhase;
                         const bubble = document.createElement('div');
                         bubble.className = 'msg-bubble';
                         bubble.appendChild(mergedEntry);
@@ -290,6 +292,7 @@ export function renderMessages(messages: any[]) {
                     const entry = createTimelineEntry({ toolCallId: info.toolCallId || '', kind: info.kind || '', title: info.title || '', status: info.status || 'completed', content: info.output || info.content || '', taskId: msg.taskId });
                     const msgDiv = document.createElement('div');
                     msgDiv.className = 'chat-msg tool';
+                    if (groupPhase) msgDiv.dataset.phase = groupPhase;
                     const bubble = document.createElement('div');
                     bubble.className = 'msg-bubble';
                     bubble.appendChild(entry);
@@ -302,6 +305,7 @@ export function renderMessages(messages: any[]) {
                 const mergedEntry = createMergedTimelineEntry({ title: forceTitle('thinking', pendingThinking.title || '思考'), content: pendingThinking.output || pendingThinking.content || '' }, mergedTools);
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'chat-msg tool';
+                if (groupPhase) msgDiv.dataset.phase = groupPhase;
                 const bubble = document.createElement('div');
                 bubble.className = 'msg-bubble';
                 bubble.appendChild(mergedEntry);
@@ -312,6 +316,7 @@ export function renderMessages(messages: any[]) {
                 const entry = createTimelineEntry({ toolCallId: '', kind: 'thinking', title: forceTitle('thinking', pendingThinking.title || '思考'), status: 'completed', content: pendingThinking.output || pendingThinking.content || '' });
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'chat-msg tool';
+                if (groupPhase) msgDiv.dataset.phase = groupPhase;
                 const bubble = document.createElement('div');
                 bubble.className = 'msg-bubble';
                 bubble.appendChild(entry);
