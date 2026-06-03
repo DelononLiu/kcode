@@ -306,10 +306,16 @@ export function handleToolCallUpdate(msg: any) {
             const bodyPre = existingEntry.querySelector('.tl-entry-body pre');
             if (bodyPre) bodyPre.textContent = msg.content || msg.output || '';
             const content = msg.content || msg.output || '';
-            const tlBody = existingEntry.querySelector('.tl-entry-body');
-            const preview = existingEntry.querySelector('.tl-thinking-preview') as HTMLElement | null;
+            let preview = existingEntry.querySelector('.tl-thinking-preview') as HTMLElement | null;
             if (content) {
-                if (preview) {
+                if (!preview) {
+                    preview = document.createElement('div');
+                    preview.className = 'tl-thinking-preview';
+                    preview.textContent = content.split('\n')[0].trim();
+                    const header = existingEntry.querySelector('.tl-entry-header');
+                    if (header) header.insertAdjacentElement('afterend', preview);
+                    else existingEntry.querySelector('.tl-entry-main')?.insertBefore(preview, existingEntry.querySelector('.tl-entry-body'));
+                } else {
                     preview.classList.remove('hidden');
                     preview.textContent = content.split('\n')[0].trim();
                 }
