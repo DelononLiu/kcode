@@ -725,6 +725,100 @@ export function handleRemovePlanProposal() {
     });
 }
 
+export function finalizeGoalMessage(taskId: string, goal: string, originalRequest: string) {
+    hideWorkingIndicator();
+    if (!G.streamMessageEl) {
+        showGoalConfirmationCard({ taskId, goal, originalRequest });
+        return;
+    }
+    const streamBubble = G.streamMessageEl;
+    streamBubble.classList.remove('streaming');
+    const msgEl = streamBubble.closest('.chat-msg') as HTMLElement;
+    if (!msgEl) {
+        showGoalConfirmationCard({ taskId, goal, originalRequest });
+        G.streamMessageEl = null;
+        return;
+    }
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'msg-card-actions';
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'msg-card-btn primary';
+    confirmBtn.textContent = '确认目标 ✓';
+    confirmBtn.addEventListener('click', () => {
+        actionsDiv.innerHTML = '';
+        const statusEl = document.createElement('div');
+        statusEl.className = 'msg-card-status';
+        statusEl.textContent = '✅ 已确认';
+        actionsDiv.appendChild(statusEl);
+        G.vscode.postMessage({ type: 'confirmGoal', taskId, originalRequest });
+    });
+
+    const reviseBtn = document.createElement('button');
+    reviseBtn.className = 'msg-card-btn secondary';
+    reviseBtn.textContent = '修改需求 ↩';
+    reviseBtn.addEventListener('click', () => {
+        actionsDiv.innerHTML = '';
+        const body = streamBubble.querySelector('.msg-bubble-text, .msg-content');
+        if (body) {
+            const textarea = document.createElement('textarea');
+            textarea.className = 'goal-edit-textarea';
+            textarea.value = goal;
+            textarea.rows = 6;
+            body.innerHTML = '';
+            body.appendChild(textarea);
+            textarea.focus();
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'msg-card-btn primary';
+            saveBtn.textContent = '保存修改 ✓';
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'msg-card-btn secondary';
+            cancelBtn.textContent = '取消';
+            const editRow = document.createElement('div');
+            editRow.style.cssText = 'display:flex;gap:8px;margin-top:8px';
+            editRow.appendChild(saveBtn);
+            editRow.appendChild(cancelBtn);
+            body.appendChild(editRow);
+            saveBtn.addEventListener('click', () => {
+                const newGoal = textarea.value.trim();
+                if (newGoal) {
+                    G.vscode.postMessage({ type: 'confirmGoalWithEdit', taskId, goal: newGoal, originalRequest });
+                    actionsDiv.innerHTML = '';
+                    const se = document.createElement('div');
+                    se.className = 'msg-card-status';
+                    se.textContent = '✅ 已确认';
+                    actionsDiv.appendChild(se);
+                }
+            });
+            cancelBtn.addEventListener('click', () => {
+                body.innerHTML = renderMarkdown(goal);
+            });
+        }
+    });
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'msg-card-btn cancel';
+    cancelBtn.textContent = '取消 ✕';
+    cancelBtn.addEventListener('click', () => {
+        actionsDiv.innerHTML = '';
+        const statusEl = document.createElement('div');
+        statusEl.className = 'msg-card-status';
+        statusEl.textContent = '✕ 已取消任务';
+        actionsDiv.appendChild(statusEl);
+        G.vscode.postMessage({ type: 'cancelTask', taskId });
+    });
+
+    actionsDiv.appendChild(confirmBtn);
+    actionsDiv.appendChild(reviseBtn);
+    actionsDiv.appendChild(cancelBtn);
+    msgEl.appendChild(actionsDiv);
+
+    const scrollContainer = getChatScroll();
+    if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    G.streamMessageEl = null;
+}
+
 export function showExecuteConfirmation(taskId: string) {
     hideWorkingIndicator();
     const container = getChatMessages()!;

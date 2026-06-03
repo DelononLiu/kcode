@@ -31,7 +31,7 @@ export class TaskStreamHandler extends StreamHandlerBase {
     }
 
     protected shouldSuppressToolCallDisplay(): boolean {
-        return this.isGoalFormatting;
+        return false;
     }
 
     protected _emitToolCall(toolCallId: string, title: string, kind: string, status: string, content?: string): void {
@@ -56,7 +56,6 @@ export class TaskStreamHandler extends StreamHandlerBase {
     }
 
     protected sendDisplayUpdate(text: string): void {
-        if (this.isGoalFormatting) return;
         this.router.PostMessage({ type: 'agentStreamUpdate', text });
     }
 

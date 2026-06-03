@@ -45,7 +45,6 @@ export function addUserMessage(content: string) {
 
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg user';
-    if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
 
     const sender = document.createElement('div');
     sender.className = 'msg-sender';
@@ -564,8 +563,10 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
     const msgDiv = document.createElement('div');
     msgDiv.className = `chat-msg ${role}`;
     msgDiv.dataset.msgId = msg.id;
-    if (msg.phase) msgDiv.dataset.phase = msg.phase;
-    else if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
+    if (role !== 'user') {
+        if (msg.phase) msgDiv.dataset.phase = msg.phase;
+        else if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
+    }
 
     const sender = document.createElement('div');
     sender.className = 'msg-sender';

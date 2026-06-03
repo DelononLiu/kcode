@@ -72,7 +72,7 @@ export class Panel {
             onGoalFormatted: async (taskId, goalText, originalRequest) => {
                 this.flowHandler.sendTaskInfo(taskId);
                 this.flowHandler.sendNodePanelUpdate(taskId);
-                this.router.PostMessage({ type: 'showGoalConfirmation', taskId, goal: goalText, originalRequest });
+                this.router.PostMessage({ type: 'finalizeGoalMessage', taskId, goal: goalText, originalRequest });
             },
             onError: (taskId, error) => { this.flowHandler.showAgentError(taskId, error); },
             onSelfVerifyNeeded: (taskId) => { setTimeout(() => this.sessionHandler.startAutoGeneration(taskId), 100); },
