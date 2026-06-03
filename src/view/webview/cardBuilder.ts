@@ -145,11 +145,6 @@ export function createCardMessageElement(taskId?: string, phase?: string): HTMLE
     const activePhase = phase || G.activeTaskPhase;
     if (activePhase) msgDiv.dataset.phase = activePhase;
 
-    const sender = document.createElement('div');
-    sender.className = 'msg-sender';
-    sender.textContent = 'Agent';
-    msgDiv.appendChild(sender);
-
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble card-bubble';
     if (taskId) bubble.dataset.taskId = taskId;

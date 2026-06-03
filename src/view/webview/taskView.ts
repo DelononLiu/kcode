@@ -32,6 +32,8 @@ const STAGE_LABELS: Record<string, string> = {
 let expandedPhaseGroups = new Set<string>();
 
 export function groupPhases(): void {
+    return;
+    /*
     const container = getChatMessages();
     if (!container || !document.querySelector('#task-view') || document.getElementById('task-view')?.style.display === 'none') return;
 
@@ -116,6 +118,7 @@ export function groupPhases(): void {
 
     const scrollEl = getChatScroll();
     if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+    */
 }
 
 export function initPhaseView(): void {

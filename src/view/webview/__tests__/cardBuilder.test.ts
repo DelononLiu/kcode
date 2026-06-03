@@ -8,7 +8,7 @@ describe('createCardMessageElement', () => {
     it('creates agent message wrapper', () => {
         const el = createCardMessageElement('task_1');
         expect(el.className).toBe('chat-msg agent');
-        expect(el.querySelector('.msg-sender')?.textContent).toBe('Agent');
+        expect(el.querySelector('.msg-sender')).toBeNull();
         const bubble = el.querySelector('.msg-bubble.card-bubble') as HTMLElement;
         expect(bubble).toBeTruthy();
         expect(bubble.dataset.taskId).toBe('task_1');

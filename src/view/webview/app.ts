@@ -395,7 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavButtons();
     initPluginManager();
     initV4Layout();
-    initPhaseView();
+    // initPhaseView();
 
     const dataEl = document.getElementById('__panelData');
     if (dataEl) {

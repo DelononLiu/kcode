@@ -81,21 +81,30 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #task-view .chat-msg .msg-sender .msg-timestamp{font-weight:400;color:#555;font-size:10px}
 #task-view .chat-msg .msg-row{display:none}
 
+/* Task view: user right-align, agent left-align */
+#task-view .chat-msg.user{text-align:right}
+#task-view .chat-msg.user .msg-sender{justify-content:flex-end}
+#task-view .chat-msg.agent{text-align:left}
+
 /* Task view: user message bubble */
 #task-view .chat-msg.user .msg-bubble{display:inline-block;text-align:left;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px 14px;background:rgba(255,255,255,.02);max-width:80%;line-height:1.5;font-size:13.5px;color:var(--text-main)}
 #task-view .chat-msg.agent .msg-bubble{font-size:13.5px;line-height:1.6;color:var(--text-main);padding:2px 0}
 
-/* === Task View: Tool Card Collapse === */
-#task-view .chat-msg.tool{position:relative;cursor:pointer;margin:2px 0;padding:3px 0;border-left:2px solid transparent;transition:border-color .15s}
-#task-view .chat-msg.tool:hover{border-left-color:rgba(255,255,255,.08)}
-#task-view .chat-msg.tool .msg-card-body,
-#task-view .chat-msg.tool .tl-entry-body{display:none!important}
-#task-view .chat-msg.tool.expanded .msg-card-body,
-#task-view .chat-msg.tool.expanded .tl-entry-body{display:block!important}
-#task-view .chat-msg.tool .msg-card-header{border-bottom:none;min-height:26px}
-#task-view .chat-msg.tool.expanded .msg-card-header{border-bottom:1px solid rgba(255,255,255,.05)}
-#task-view .chat-msg.tool .tl-entry-header{min-height:20px}
-#task-view .chat-msg.tool .tl-entry-bar{min-height:24px}
+/* Task view: agent header (turn start marker) */
+#task-view .chat-msg.agent-header{padding:4px 0 2px}
+#task-view .chat-msg.agent-header .msg-sender{color:var(--text-dim);font-size:11px;font-weight:500}
+
+/* === Task View: Tool Card Collapse (disabled for linear chat mode) === */
+/* #task-view .chat-msg.tool{position:relative;cursor:pointer;margin:2px 0;padding:3px 0;border-left:2px solid transparent;transition:border-color .15s} */
+/* #task-view .chat-msg.tool:hover{border-left-color:rgba(255,255,255,.08)} */
+/* #task-view .chat-msg.tool .msg-card-body, */
+/* #task-view .chat-msg.tool .tl-entry-body{display:none!important} */
+/* #task-view .chat-msg.tool.expanded .msg-card-body, */
+/* #task-view .chat-msg.tool.expanded .tl-entry-body{display:block!important} */
+/* #task-view .chat-msg.tool .msg-card-header{border-bottom:none;min-height:26px} */
+/* #task-view .chat-msg.tool.expanded .msg-card-header{border-bottom:1px solid rgba(255,255,255,.05)} */
+/* #task-view .chat-msg.tool .tl-entry-header{min-height:20px} */
+/* #task-view .chat-msg.tool .tl-entry-bar{min-height:24px} */
 
 /* === V4 Input Area === */
 .tv4-input-area{flex-shrink:0;border-top:1px solid var(--border);padding:10px 16px 8px;background:var(--bg-deep)}

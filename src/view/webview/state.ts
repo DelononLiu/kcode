@@ -32,6 +32,7 @@ export const G = {
     acpLogMaxTask: 2000,
 
     streamMessageEl: null as HTMLElement | null,
+    _agentHeaderShown: false,
     latestStreamText: '',
     streamRenderPending: false,
     _userScrolledUp: false,

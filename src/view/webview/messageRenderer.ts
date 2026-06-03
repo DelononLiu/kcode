@@ -43,6 +43,8 @@ export function addUserMessage(content: string) {
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
 
+    G._agentHeaderShown = false;
+
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg user';
 

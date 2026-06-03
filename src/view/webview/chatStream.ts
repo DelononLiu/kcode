@@ -22,10 +22,31 @@ export function clearMergeState() { _mergeState = null; }
 let latestStreamText = '';
 let streamRenderPending = false;
 
+function _ensureAgentHeader() {
+    if (G._agentHeaderShown) return;
+    const container = getChatMessages()!;
+    const scrollContainer = getChatScroll()!;
+    scrollContainer.classList.remove('chat-empty');
+    const placeholder = container.querySelector('.chat-placeholder');
+    if (placeholder) placeholder.remove();
+    hideWorkingIndicator();
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chat-msg agent-header';
+    if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
+    const sender = document.createElement('div');
+    sender.className = 'msg-sender';
+    sender.textContent = 'Agent';
+    msgDiv.appendChild(sender);
+    appendToChatMessages(msgDiv);
+    G._agentHeaderShown = true;
+}
+
 // ===== Working indicator =====
 
 export function __resetStream() {
     G.streamMessageEl = null;
+    G._agentHeaderShown = false;
 }
 
 export function showAgentThinking() {
@@ -107,6 +128,7 @@ export function appendToChatMessages(el: Element) {
 export function handleAgentStreamUpdate(text: string) {
     resetTabGroup();
     flushMerge();
+    _ensureAgentHeader();
     const container = getChatMessages()!;
     const scrollContainer = getChatScroll()!;
     scrollContainer.classList.remove('chat-empty');
@@ -115,16 +137,10 @@ export function handleAgentStreamUpdate(text: string) {
 
     if (!G.streamMessageEl) {
         G._userScrolledUp = false;
-        hideWorkingIndicator();
 
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg agent';
         if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
-
-        const sender = document.createElement('div');
-        sender.className = 'msg-sender';
-        sender.textContent = 'Agent';
-        msgDiv.appendChild(sender);
 
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble';
@@ -204,6 +220,7 @@ export function flushMerge() {
 }
 
 export function handleToolCallUpdate(msg: any) {
+    _ensureAgentHeader();
     const container = getChatMessages()!;
     const scrollContainer = getChatScroll()!;
     scrollContainer.classList.remove('chat-empty');
