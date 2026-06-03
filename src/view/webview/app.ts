@@ -170,15 +170,21 @@ function initMessageHandler() {
             case 'loadMessages':
                 hideWorkingIndicator();
                 G.streamMessageEl = null;
-                G.activeTaskId = message.taskId;
-                G.activeTaskStatus = message.taskStatus || '';
-                G.activeTaskType = message.taskType || '';
 
                 if (message.taskType === 'assistant') {
+                    G.activeTaskId = message.taskId;
+                    G.activeTaskStatus = message.taskStatus || '';
+                    G.activeTaskType = message.taskType || '';
                     showAssistantView();
                     renderMessages(message.messages || []);
                     break;
                 }
+
+                const isNewTask = !G.activeTaskId || G.activeTaskId !== message.taskId;
+                G.activeTaskId = message.taskId;
+                G.activeTaskStatus = message.taskStatus || '';
+                G.activeTaskType = message.taskType || '';
+
                 if (message.taskId) {
                     showTaskView(true);
                     resetPhaseState();
@@ -187,6 +193,10 @@ function initMessageHandler() {
                     G.activeTaskPhase = message.taskPhase || message.phase || '';
                     G.activeTaskStatus = message.taskStatus || message.status || '';
                     updatePhaseBadge(message.taskPhase || message.phase || '');
+                }
+
+                if (isNewTask) {
+                    renderMessages(message.messages || []);
                 }
 
                 renderAcpLog();
@@ -201,7 +211,6 @@ function initMessageHandler() {
                 if (message.reviewChanges || message.acceptanceCriteria) {
                     G.acceptanceCheckedState.delete(message.taskId);
                 }
-                renderMessages(message.messages);
                 break;
             case 'showDiff':
                 if ((window as any).showDiff) {

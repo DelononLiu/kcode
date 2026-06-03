@@ -69,7 +69,6 @@ export function createTimelineEntry(msg: any): HTMLElement {
         pre.className = 'tl-body-thinking';
         pre.textContent = output;
         body.appendChild(pre);
-        body.classList.add('open');
     } else if (output) {
         if (tlKind === 'file') {
             const isDiff = kind === 'write' || kind === 'edit';

@@ -33,6 +33,7 @@ export const G = {
 
     streamMessageEl: null as HTMLElement | null,
     _agentHeaderShown: false,
+    _liveMessages: [] as any[],
     latestStreamText: '',
     streamRenderPending: false,
     _userScrolledUp: false,
@@ -44,7 +45,7 @@ export const G = {
 
     activeToolCallElements: new Map<string, HTMLElement>(),
     _tabGroup: null as { elems: Map<string, any>; element: HTMLElement } | null,
-    _mergeState: null as { thinkingId: string; thinkingTitle: string; thinkingBody: string; tools: any[] } | null,
+    _mergeState: null as { thinkingId: string; thinkingTitle: string; thinkingBody: string; tools: any[]; phase: string } | null,
     mergeDone: false,
 
     reviewChangesMap: new Map<string, FileChange[]>(),

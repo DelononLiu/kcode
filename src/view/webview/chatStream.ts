@@ -15,7 +15,7 @@ let _tabGroup: { elems: Map<string, any>; element: HTMLElement } | null = null;
 
 export function resetTabGroup() { _tabGroup = null; }
 
-let _mergeState: { thinkingId: string; thinkingTitle: string; thinkingBody: string; tools: any[] } | null = null;
+let _mergeState: { thinkingId: string; thinkingTitle: string; thinkingBody: string; tools: any[]; phase: string } | null = null;
 
 export function clearMergeState() { _mergeState = null; }
 
@@ -42,9 +42,34 @@ function _ensureAgentHeader() {
     G._agentHeaderShown = true;
 }
 
+function _cacheToolMessage(msg: any) {
+    const id = 'tool_' + (msg.toolCallId || '');
+    if (!G._liveMessages.some(m => m.id === id)) {
+        G._liveMessages.push({
+            id,
+            role: 'tool',
+            type: 'tool_call',
+            content: JSON.stringify({ kind: msg.kind, title: msg.title, output: msg.content || msg.output, toolCallId: msg.toolCallId }),
+            taskId: msg.taskId || G.activeTaskId || '',
+            timestamp: Date.now(),
+            phase: G.activeTaskPhase,
+        });
+    }
+}
+
 // ===== Working indicator =====
 
 export function __resetStream() {
+    if (G.streamMessageEl && latestStreamText) {
+        G._liveMessages.push({
+            id: 'agent_' + Date.now(),
+            role: 'agent',
+            content: latestStreamText,
+            taskId: G.activeTaskId || '',
+            timestamp: Date.now(),
+            phase: G.activeTaskPhase,
+        });
+    }
     G.streamMessageEl = null;
     G._agentHeaderShown = false;
 }
@@ -221,6 +246,7 @@ export function flushMerge() {
 
 export function handleToolCallUpdate(msg: any) {
     _ensureAgentHeader();
+    _cacheToolMessage(msg);
     const container = getChatMessages()!;
     const scrollContainer = getChatScroll()!;
     scrollContainer.classList.remove('chat-empty');
@@ -313,13 +339,14 @@ export function handleToolCallUpdate(msg: any) {
                 : forceTitle('thinking', msg.title || '思考'),
             thinkingBody: msg.content || msg.output || '',
             tools: [],
+            phase: G.activeTaskPhase,
         };
         updateWorkingIndicator(msg);
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
         return;
     }
 
-    if (_mergeState) {
+    if (_mergeState && (!_mergeState.phase || _mergeState.phase === G.activeTaskPhase)) {
         const toolInfo = { kind, title: msg.title || '', content: msg.content || msg.output || '', status: msg.status || '' };
         const existingIdx = _mergeState.tools.findIndex((t: any) => t.toolId === toolId);
         if (existingIdx >= 0) {
