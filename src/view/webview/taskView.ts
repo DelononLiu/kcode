@@ -94,6 +94,11 @@ export function foldPhase(phase: string): void {
     const insertRef = headerEl ? headerEl.nextSibling : group.firstChild;
     group.insertBefore(toggle, insertRef);
     group.insertBefore(body, toggle.nextSibling);
+
+    if (headerEl) {
+        group.parentNode?.insertBefore(headerEl, group);
+    }
+
     group.classList.add('folded');
     group.dataset.collapsed = 'true';
 
