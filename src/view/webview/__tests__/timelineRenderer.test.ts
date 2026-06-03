@@ -126,16 +126,18 @@ describe('createTimelineEntry', () => {
         expect(entry.querySelector('.tl-entry-body')?.className).not.toContain('open');
     });
 
-    it('thinking entry shows preview for multi-line content', () => {
+    it('thinking entry is open by default with preview', () => {
         const entry = createTimelineEntry({ kind: 'thinking', title: '思考中', content: '第一行\n第二行', status: 'completed' });
         const preview = entry.querySelector('.tl-thinking-preview')!;
         expect(preview).toBeTruthy();
         expect(preview.textContent).toBe('第一行');
+        expect(entry.querySelector('.tl-entry-body')?.className).toContain('open');
     });
 
-    it('single-line thinking is collapsed by default', () => {
+    it('single-line thinking is open by default', () => {
         const entry = createTimelineEntry({ kind: 'thinking', title: '快速思考', content: '简短结论', status: 'completed' });
-        expect(entry.querySelector('.tl-entry-body')?.className).not.toContain('open');
+        expect(entry.querySelector('.tl-entry-body')?.className).toContain('open');
+        expect(entry.querySelector('.tl-thinking-preview')?.textContent).toBe('简短结论');
     });
 });
 

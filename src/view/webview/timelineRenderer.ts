@@ -64,7 +64,13 @@ export function createTimelineEntry(msg: any): HTMLElement {
     const body = document.createElement('div');
     body.className = 'tl-entry-body';
 
-    if (output) {
+    if (tlKind === 'thinking') {
+        const pre = document.createElement('pre');
+        pre.className = 'tl-body-thinking';
+        pre.textContent = output;
+        body.appendChild(pre);
+        body.classList.add('open');
+    } else if (output) {
         if (tlKind === 'file') {
             const isDiff = kind === 'write' || kind === 'edit';
             const pre = document.createElement('pre');
@@ -78,11 +84,6 @@ export function createTimelineEntry(msg: any): HTMLElement {
             pre.textContent = output;
             wrap.appendChild(pre);
             body.appendChild(wrap);
-        } else if (tlKind === 'thinking') {
-            const pre = document.createElement('pre');
-            pre.className = 'tl-body-thinking';
-            pre.textContent = output;
-            body.appendChild(pre);
         } else {
             const pre = document.createElement('pre');
             pre.textContent = output;
@@ -101,7 +102,7 @@ export function createTimelineEntry(msg: any): HTMLElement {
     if (tlKind === 'thinking' && output) {
         const lines = output.split('\n');
         const firstLine = lines[0].trim();
-        if (firstLine && lines.length > 1) {
+        if (firstLine) {
             preview = document.createElement('div');
             preview.className = 'tl-thinking-preview';
             preview.textContent = firstLine;
