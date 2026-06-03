@@ -176,8 +176,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             <span class="tv4-status-badge" id="tv4-status">待确认</span>
             <span class="tv4-model-badge" id="tv4-model"></span>
             <div style="margin-left:auto;display:flex;align-items:center;gap:12px;font-size:11px;color:var(--text-dim)">
-                <span id="tv4-new-task" style="cursor:pointer;text-decoration:underline">${svgIcon('plus')} 新建任务</span>
-                <span>|</span>
                 <span>阶段 <span id="tv4-phase-count">0/6</span></span>
             </div>
         </header>

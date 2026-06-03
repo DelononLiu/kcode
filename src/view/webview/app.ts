@@ -127,9 +127,6 @@ function initV4Layout() {
         });
     }
 
-    const newTaskBtn = document.getElementById('tv4-new-task');
-    if (newTaskBtn) newTaskBtn.addEventListener('click', () => G.vscode.postMessage({ type: 'newTask' }));
-
     // Unified input
     const input = document.getElementById('tv4-input') as HTMLTextAreaElement;
     const sendBtn = document.getElementById('tv4-send-btn');
