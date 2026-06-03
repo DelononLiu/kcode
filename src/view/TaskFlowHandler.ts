@@ -43,7 +43,7 @@ export class TaskFlowHandler {
         if (!task || task.planSteps.length === 0) return false;
         const stepsContent = task.planSteps.map(s => `- [${s.status === 'completed' ? 'x' : ' '}] ${s.content}`).join('\n');
         const goalContent = task.goal ? `🎯 目标\n${task.goal}\n\n` : '';
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', type: 'plan_proposal', content: `📋 计划方案\n\n${stepsContent}`, timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', type: 'plan_proposal', content: `📋 计划方案\n\n${stepsContent}`, phase: 'plan', timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'showPlanProposal', taskId: tid, planSteps: task.planSteps, goal: task.goal });
         return true;
     }
@@ -134,7 +134,7 @@ export class TaskFlowHandler {
         const task = ctx.store.getTask(tid);
         if (task?.status === 'completed' || task?.status === 'cancelled') return;
         const reviewMsgId = ctx.store.nextMessageId(tid);
-        ctx.store.addMessage({ id: reviewMsgId, taskId: tid, role: 'agent', type: 'review_request', content, timestamp: Date.now() });
+        ctx.store.addMessage({ id: reviewMsgId, taskId: tid, role: 'agent', type: 'review_request', content, phase: 'review', timestamp: Date.now() });
         ctx.store.updateTaskNodeMessageId(tid, 'review', reviewMsgId);
         ctx.store.updateTaskStatus(tid, 'in_review');
 

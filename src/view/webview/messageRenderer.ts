@@ -547,7 +547,6 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
         msgDiv.className = 'chat-msg tool';
         msgDiv.dataset.msgId = msg.id;
         if (msg.phase) msgDiv.dataset.phase = msg.phase;
-        else if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
 
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble tool-bubble';
@@ -563,9 +562,8 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
     const msgDiv = document.createElement('div');
     msgDiv.className = `chat-msg ${role}`;
     msgDiv.dataset.msgId = msg.id;
-    if (role !== 'user') {
-        if (msg.phase) msgDiv.dataset.phase = msg.phase;
-        else if (G.activeTaskPhase) msgDiv.dataset.phase = G.activeTaskPhase;
+    if (role !== 'user' && msg.phase) {
+        msgDiv.dataset.phase = msg.phase;
     }
 
     const sender = document.createElement('div');

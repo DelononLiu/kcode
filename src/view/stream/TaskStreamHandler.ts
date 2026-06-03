@@ -102,12 +102,14 @@ export class TaskStreamHandler extends StreamHandlerBase {
         if (!this.isGoalFormatting) {
             let firstToolMsgId: string | null = null;
             const toolItems: { toolCallId: string; title: string; kind: string; status: string; output?: string }[] = [];
+            const currentTask = this.ctx.store.getTask(this.tid);
             for (const [toolCallId, tc] of this.activeToolCalls) {
                 const msgId = this.ctx.store.nextMessageId(this.tid);
                 if (!firstToolMsgId) firstToolMsgId = msgId;
                 this.ctx.store.addMessage({
                     id: msgId, taskId: this.tid, role: 'tool', type: 'tool_call',
                     content: JSON.stringify({ toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output || '' }),
+                    phase: currentTask?.phase,
                     timestamp: Date.now(),
                 });
                 toolItems.push({ toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output });

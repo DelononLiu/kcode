@@ -559,6 +559,7 @@ export class TaskFlow {
             role: 'agent',
             type: 'goal_confirmation',
             content: `📋 任务目标确认\n\n${goalText}`,
+            phase: 'goal',
             timestamp: Date.now()
         });
         this.store.updateTaskNodeMessageId(taskId, 'goal', goalMsgId);
