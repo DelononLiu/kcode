@@ -125,8 +125,7 @@ export function initPhaseView(): void {
     scrollEl.addEventListener('click', (e) => {
         const toolMsg = (e.target as HTMLElement).closest('.chat-msg.tool') as HTMLElement;
         if (!toolMsg) return;
-        if ((e.target as HTMLElement).closest('a, button, input, textarea, .msg-card-header, .tl-entry-header')) return;
-        const wasExpanded = toolMsg.classList.contains('expanded');
+        if ((e.target as HTMLElement).closest('a, button, input, textarea')) return;
         toolMsg.classList.toggle('expanded');
     });
 }

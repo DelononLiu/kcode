@@ -319,7 +319,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
     const content = msg.content;
 
     if (msg.type === 'goal_confirmation') {
-        const msgDiv = createCardMessageElement(msg.taskId);
+        const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const bodyText = content.replace(/^📋 任务目标确认\n\n/, '');
         const isConfirmed = msg.type === 'goal_confirmed';
@@ -348,7 +348,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
     }
 
     if (msg.type === 'plan_proposal' || msg.type === 'plan_confirmed') {
-        const msgDiv = createCardMessageElement(msg.taskId);
+        const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const bodyText = content.replace(/^📋 计划方案\n\n/, '');
         const isConfirmed = msg.type === 'plan_confirmed';
@@ -378,7 +378,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
 
     if (msg.type === 'review_request' || msg.type === 'review_approved' || msg.type === 'review_rejected') {
         const taskId = msg.taskId;
-        const msgDiv = createCardMessageElement(taskId);
+        const msgDiv = createCardMessageElement(taskId, msg.phase);
         const bubble = msgDiv.querySelector('.msg-bubble')!;
 
         const card = createCard({
@@ -504,7 +504,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
     }
 
     if (msg.type === 'todo') {
-        const msgDiv = createCardMessageElement(msg.taskId);
+        const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const card = renderTodoCard(msg);
         bubble.appendChild(card);

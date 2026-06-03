@@ -1,3 +1,4 @@
+import { G } from './state';
 import { renderMarkdown, escapeHtml } from './markdownRenderer';
 
 export interface CardAction {
@@ -137,9 +138,12 @@ export function createCard(config: {
     return card;
 }
 
-export function createCardMessageElement(taskId?: string): HTMLElement {
+export function createCardMessageElement(taskId?: string, phase?: string): HTMLElement {
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg agent';
+
+    const activePhase = phase || G.activeTaskPhase;
+    if (activePhase) msgDiv.dataset.phase = activePhase;
 
     const sender = document.createElement('div');
     sender.className = 'msg-sender';
