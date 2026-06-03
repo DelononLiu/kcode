@@ -68,13 +68,17 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #task-view #chat-messages{max-width:900px;margin:0 auto;padding:24px 24px 32px;min-height:100%}
 
 /* === Phase Group Container === */
-.tv4-phase-group{border:1px solid var(--border);border-radius:6px;margin:8px 0;overflow:hidden}
-.tv4-pg-toggle{display:flex;align-items:center;gap:6px;padding:6px 10px;font-size:11px;color:#888;cursor:pointer;user-select:none;background:rgba(255,255,255,.015);transition:color .15s,background .15s}
-.tv4-pg-toggle:hover{color:#aaa;background:rgba(255,255,255,.03)}
+/* Phase group: invisible by default */
+.tv4-phase-group{}
+.tv4-phase-group .tv4-pg-toggle{display:none}
+/* Folded: visible with collapse */
+.tv4-phase-group.folded{border:1px solid var(--border);border-radius:6px;margin:8px 0;overflow:hidden}
+.tv4-phase-group.folded .tv4-pg-toggle{display:flex;align-items:center;gap:6px;padding:6px 10px;font-size:11px;color:#888;cursor:pointer;user-select:none;background:rgba(255,255,255,.015);transition:color .15s,background .15s}
+.tv4-phase-group.folded .tv4-pg-toggle:hover{color:#aaa;background:rgba(255,255,255,.03)}
 .tv4-pg-icon{display:inline-block;width:12px;font-size:10px;text-align:center;flex-shrink:0;transition:transform .2s}
-.tv4-pg-body{display:none;border-top:1px solid var(--border);background:rgba(0,0,0,.08)}
-.tv4-phase-group[data-collapsed="false"] .tv4-pg-body{display:block}
-.tv4-pg-body .chat-msg{padding:6px 12px}
+.tv4-phase-group.folded .tv4-pg-body{display:none;border-top:1px solid var(--border);background:rgba(0,0,0,.08)}
+.tv4-phase-group.folded[data-collapsed="false"] .tv4-pg-body{display:block}
+.tv4-phase-group.folded .tv4-pg-body .chat-msg{padding:6px 12px}
 
 /* Task view: show message sender */
 #task-view .chat-msg .msg-sender{display:flex;font-size:11px;font-weight:500;color:var(--text-dim);margin-bottom:2px;gap:4px}

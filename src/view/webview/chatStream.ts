@@ -136,13 +136,41 @@ export function updateLastMsgConvertBtn() {
     row.appendChild(btn);
 }
 
+function _getOrCreatePhaseGroup(phase: string): HTMLElement {
+    const container = getChatMessages()!;
+    let group = container.querySelector(`.tv4-phase-group[data-phase="${phase}"]`) as HTMLElement | null;
+    if (!group) {
+        group = document.createElement('div');
+        group.className = 'tv4-phase-group';
+        group.dataset.phase = phase;
+        const indicator = getWorkingIndicator();
+        if (indicator && indicator.parentElement === container) {
+            container.insertBefore(group, indicator);
+        } else {
+            container.appendChild(group);
+        }
+    }
+    return group;
+}
+
 export function appendToChatMessages(el: Element) {
     const container = getChatMessages()!;
-    const indicator = getWorkingIndicator();
-    if (indicator && indicator.parentElement === container) {
-        container.insertBefore(el, indicator);
+    const phase = (el as HTMLElement).dataset.phase;
+    if (phase) {
+        const group = _getOrCreatePhaseGroup(phase);
+        const indicator = getWorkingIndicator();
+        if (indicator && indicator.parentElement === group) {
+            group.insertBefore(el, indicator);
+        } else {
+            group.appendChild(el);
+        }
     } else {
-        container.appendChild(el);
+        const indicator = getWorkingIndicator();
+        if (indicator && indicator.parentElement === container) {
+            container.insertBefore(el, indicator);
+        } else {
+            container.appendChild(el);
+        }
     }
     updateLastMsgConvertBtn();
     groupPhases();

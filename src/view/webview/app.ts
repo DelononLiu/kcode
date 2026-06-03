@@ -1,6 +1,6 @@
 import { G, type FileChange } from './state';
 import { showAssistantView, initAgentSelector, initModelSelector, truncateModel } from './assistantView';
-import { showTaskView, initPhaseView, updatePhaseBadge, resetPhaseState } from './taskView';
+import { showTaskView, initPhaseView, updatePhaseBadge, resetPhaseState, foldPhase } from './taskView';
 import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpdate, sendMessageFromInput } from './chatInteraction';
 import { initTemplateChips, renderCategorySelection, focusChatInput } from './templateFlow';
 import { initPluginManager, renderPluginList } from './pluginRegistry';
@@ -190,9 +190,15 @@ function initMessageHandler() {
                     resetPhaseState();
                     const nameEl = document.getElementById('tv4-task-name');
                     if (nameEl) nameEl.textContent = message.title || '任务';
+
+                    const prevPhase = G.activeTaskPhase;
                     G.activeTaskPhase = message.taskPhase || message.phase || '';
                     G.activeTaskStatus = message.taskStatus || message.status || '';
                     updatePhaseBadge(message.taskPhase || message.phase || '');
+
+                    if (!isNewTask && prevPhase && prevPhase !== G.activeTaskPhase) {
+                        foldPhase(prevPhase);
+                    }
                 }
 
                 if (isNewTask) {

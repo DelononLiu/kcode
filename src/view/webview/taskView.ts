@@ -31,6 +31,52 @@ const STAGE_LABELS: Record<string, string> = {
 
 let expandedPhaseGroups = new Set<string>();
 
+export function foldPhase(phase: string): void {
+    const container = getChatMessages();
+    if (!container) return;
+
+    const group = container.querySelector(`.tv4-phase-group[data-phase="${phase}"]`) as HTMLElement | null;
+    if (!group || group.classList.contains('folded')) return;
+
+    const elements = Array.from(group.children) as HTMLElement[];
+    const chatMsgs = elements.filter(e => e.classList.contains('chat-msg'));
+    if (chatMsgs.length < 2) return;
+
+    const toggle = document.createElement('div');
+    toggle.className = 'tv4-pg-toggle';
+
+    const count = chatMsgs.length;
+    const lastEl = chatMsgs[chatMsgs.length - 1];
+    const summaryText = lastEl?.querySelector('.msg-card-header-text, .msg-card-actions, .msg-bubble')?.textContent?.trim().substring(0, 20) || '';
+
+    toggle.innerHTML = '<span class="tv4-pg-icon">▶</span> '
+        + STAGE_LABELS[phase]
+        + ' <span class="tv4-pg-count">' + count + '条</span>'
+        + (summaryText ? ' <span class="tv4-pg-summary">' + escapeHtml(summaryText) + '</span>' : '');
+
+    toggle.addEventListener('click', () => {
+        const grp = toggle.parentElement as HTMLElement;
+        const isCollapsed = grp.dataset.collapsed !== 'false';
+        grp.dataset.collapsed = isCollapsed ? 'false' : 'true';
+        const iconEl = toggle.querySelector('.tv4-pg-icon') as HTMLElement;
+        if (iconEl) iconEl.textContent = isCollapsed ? '▼' : '▶';
+        if (isCollapsed) expandedPhaseGroups.add(phase);
+        else expandedPhaseGroups.delete(phase);
+    });
+
+    const body = document.createElement('div');
+    body.className = 'tv4-pg-body';
+
+    for (let i = 0; i < chatMsgs.length - 1; i++) {
+        body.appendChild(chatMsgs[i]);
+    }
+
+    group.insertBefore(toggle, group.firstChild);
+    group.insertBefore(body, group.firstChild);
+    group.classList.add('folded');
+    group.dataset.collapsed = 'true';
+}
+
 export function groupPhases(): void {
     return;
     /*
