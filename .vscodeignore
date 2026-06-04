@@ -5,6 +5,9 @@
 .claude/**
 .code-review-graph/**
 .pytest_cache/**
+.codegraph/**
+.gitnexus/**
+.git/**
 **/*.map
 **/.gitignore
 AGENTS.md
@@ -17,10 +20,13 @@ TASKS.md
 docs/**
 node_modules/**
 !node_modules/@agentclientprotocol/**
-!node_modules/@anthropic-ai/**
+!node_modules/@anthropic-ai/claude-agent-sdk/**
 !node_modules/zod/**
 !node_modules/jsonc-parser/**
+!node_modules/highlight.js/**
+!node_modules/marked/**
 src/**
+scripts/**
 scripts/**
 tsconfig.json
 tsconfig.build.json
