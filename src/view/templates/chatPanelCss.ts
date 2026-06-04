@@ -45,8 +45,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tv4-accent{color:var(--accent)}
 .tv4-init-box{width:100%;max-width:680px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:14px 20px;box-shadow:0 20px 40px rgba(0,0,0,.5);display:flex;align-items:center;transition:border-color .2s}
 .tv4-init-box:focus-within{border-color:#3e3e4a;box-shadow:0 20px 40px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.05)}
-.tv4-init-box input{background:transparent;border:none;color:#fff;flex:1;outline:none;font-size:16px}
-.tv4-init-box input::placeholder{color:#494952}
+.tv4-init-box textarea{background:transparent;border:none;color:#fff;flex:1;outline:none;font-size:16px;resize:none;min-height:24px;max-height:240px;line-height:1.5;overflow-y:auto;font-family:inherit;padding:0}
+.tv4-init-box textarea::placeholder{color:#494952}
 .tv4-enter-badge{background:var(--bg-item);border:1px solid var(--border);color:var(--text-dim);padding:2px 6px;border-radius:4px;font-size:11px;font-family:monospace}
 
 /* === V4 Panel Layout === */

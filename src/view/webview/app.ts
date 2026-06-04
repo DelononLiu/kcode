@@ -114,10 +114,19 @@ function initTabs() {
 // ===== V4 Layout =====
 
 function initV4Layout() {
-    const initInput = document.getElementById('tv4-init-input') as HTMLInputElement;
+    const initInput = document.getElementById('tv4-init-input') as HTMLTextAreaElement;
     if (initInput) {
+        const AUTO_GROW_MAX = 240;
+        function autoGrow(el: HTMLTextAreaElement) {
+            el.style.height = 'auto';
+            const scrollH = el.scrollHeight;
+            el.style.height = Math.min(scrollH, AUTO_GROW_MAX) + 'px';
+            el.style.overflowY = scrollH > AUTO_GROW_MAX ? 'auto' : 'hidden';
+        }
+        initInput.addEventListener('input', () => autoGrow(initInput));
         initInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && initInput.value.trim()) {
+            if (e.key === 'Enter' && !e.shiftKey && initInput.value.trim()) {
+                e.preventDefault();
                 const taskText = initInput.value;
                 const nameEl = document.getElementById('tv4-task-name');
                 if (nameEl) nameEl.textContent = taskText;
@@ -379,7 +388,7 @@ function initMessageHandler() {
                 break;
             case 'showNewTaskView':
                 showTaskView(false);
-                const newInput = document.getElementById('tv4-init-input') as HTMLInputElement;
+                const newInput = document.getElementById('tv4-init-input') as HTMLTextAreaElement;
                 if (newInput) { newInput.value = ''; newInput.focus(); }
                 break;
             case 'toggleViewMode':

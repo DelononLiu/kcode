@@ -165,7 +165,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             <span class="tv4-accent">KCode</span> Task
         </div>
         <div class="tv4-init-box">
-            <input type="text" id="tv4-init-input" placeholder="输入原始工程任务..." autofocus>
+            <textarea id="tv4-init-input" placeholder="输入原始工程任务..." rows="1" autofocus></textarea>
             <span class="tv4-enter-badge">↵ Enter</span>
         </div>
     </div>
