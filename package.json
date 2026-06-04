@@ -56,71 +56,8 @@
         "command": "kcode.openSettings",
         "title": "Kcode: Open Settings"
       }
-    ],
-    "configuration": {
-      "title": "Kcode",
-      "properties": {
-        "kcode.agentName": {
-          "type": "string",
-          "default": "",
-          "description": "Agent name or executable path. Leave empty if no agent is configured."
-        },
-        "kcode.agentArgs": {
-          "type": "array",
-          "default": [],
-          "description": "Additional arguments passed to the agent"
-        },
-        "kcode.openaiApiKey": {
-          "type": "string",
-          "default": "",
-          "description": "OpenAI API key for the built-in OpenAI agent. Falls back to OPENAI_API_KEY environment variable."
-        },
-        "kcode.openaiModel": {
-          "type": "string",
-          "default": "deepseek-v4-flash",
-          "description": "OpenAI model name for the built-in OpenAI agent. Falls back to OPENAI_MODEL environment variable."
-        },
-        "kcode.agentPath": {
-          "type": "string",
-          "default": "",
-          "description": "Path to the agent executable. Used when kcode.agentName is \"opencode\" or \"kilo\". Falls back to built-in defaults."
-        },
-        "kcode.openaiBaseUrl": {
-          "type": "string",
-          "default": "https://api.deepseek.com",
-          "description": "OpenAI API base URL for the built-in OpenAI agent. Falls back to OPENAI_BASE_URL environment variable."
-        },
-        "kcode.acpLogEnabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable ACP protocol log collection (default: off). Toggle via the ACP Log button in the chat toolbar."
-        },
-        "kcode.acpLogMaxGlobal": {
-          "type": "number",
-          "default": 5000,
-          "description": "Maximum ACP log entries to keep across all tasks."
-        },
-        "kcode.acpLogMaxTask": {
-          "type": "number",
-          "default": 2000,
-          "description": "Maximum ACP log entries per single task."
-        },
-        "kcode.githubToken": {
-          "type": "string",
-          "default": "",
-          "description": "GitHub Personal Access Token, used to increase API rate limit when importing issues."
-        },
-        "kcode.viewMode": {
-          "type": "string",
-          "default": "chat",
-          "enum": [
-            "chat",
-            "card"
-          ],
-          "description": "Default view mode for KCode panel. 'chat' for conversation mode, 'card' for card-based workflow mode."
-        }
-      }
-    }
+    ]
+
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

@@ -13,9 +13,12 @@
         agent: {
             label: 'Agent',
             fields: [
-                { key: 'agentName', label: 'Agent 名称', desc: 'Agent 名称或可执行路径。留空表示无 agent', type: 'text', default: '' },
-                { key: 'agentArgs', label: 'Agent 参数', desc: '传递给 agent 的额外参数（逗号分隔）', type: 'text', default: '', transform: { to: (v: any) => Array.isArray(v) ? v.join(', ') : v, from: (v: string) => v.split(',').map((s: string) => s.trim()).filter(Boolean) } },
-                { key: 'agentPath', label: 'Agent 路径', desc: 'Agent 可执行路径（用于 opencode/kilo）', type: 'text', default: '' },
+                { key: 'agentName', label: 'Agent 类型', desc: '选择要使用的 Agent', type: 'select', default: '', options: [
+                    { value: 'kilo', label: 'Kilo' },
+                    { value: 'opencode', label: 'OpenCode' },
+                    { value: 'claude', label: 'Claude (claude-agent-acp)' },
+                    { value: 'openai', label: 'OpenAI' },
+                ] },
             ],
         },
         provider: {
@@ -50,12 +53,14 @@
         },
     };
 
+    interface FieldOption { value: string; label: string; }
     interface FieldDef {
         key: string;
         label: string;
         desc: string;
-        type: 'text' | 'password' | 'number' | 'checkbox';
+        type: 'text' | 'password' | 'number' | 'checkbox' | 'select';
         default: any;
+        options?: FieldOption[];
         transform?: { to: (v: any) => any; from: (v: any) => any };
     }
 
@@ -186,6 +191,19 @@
                         <label>${f.label}</label>
                     </div>
                     <span class="field-desc">${f.desc}</span>
+                </div>
+            `;
+        }
+
+        if (f.type === 'select') {
+            const optionsHtml = (f.options || []).map(o =>
+                `<option value="${o.value}" ${val === o.value ? 'selected' : ''}>${o.label}</option>`
+            ).join('');
+            return `
+                <div class="field-group">
+                    <label class="field-label">${f.label}</label>
+                    <span class="field-desc">${f.desc}</span>
+                    <select class="field-select" data-key="${f.key}">${optionsHtml}</select>
                 </div>
             `;
         }

@@ -358,6 +358,21 @@ export class Panel {
         this.loadAssistant(true);
     }
 
+    async reconnectAgent() {
+        await this.agentService.disconnect();
+        this.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: '正在重连 Agent...', agentName: '' });
+        await this.sessionHandler.ensureConnection();
+        if (this.agentService.isConnected) {
+            this.router.PostMessage({ type: 'agentStatus', status: 'connected', message: 'Agent 已连接', agentName: this.agentService.agentName, modelName: this.agentService.modelName });
+        } else {
+            this.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: this.agentService.lastError || 'Agent 未连接', agentName: '' });
+        }
+        if (this.assistantHandler) {
+            this.assistantHandler.showLanding();
+            this.assistantHandler.loadMessages();
+        }
+    }
+
     autoSendGoal(taskId: string, text: string) { this.sessionHandler.handleSendMessage(text, taskId); }
 
     private async _runEnvSetup() {

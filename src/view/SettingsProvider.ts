@@ -7,9 +7,11 @@ export class SettingsProvider {
 
     private configService: ConfigService;
     private onDisposeCallback?: () => void;
+    private onConfigSaved?: () => void;
 
-    constructor(context: vscode.ExtensionContext, configService: ConfigService) {
+    constructor(context: vscode.ExtensionContext, configService: ConfigService, onConfigSaved?: () => void) {
         this.configService = configService;
+        this.onConfigSaved = onConfigSaved;
 
         this.panel = vscode.window.createWebviewPanel(
             SettingsProvider.viewType,
@@ -62,6 +64,7 @@ export class SettingsProvider {
                         await this.configService.save();
                         this._sendConfig();
                         this.panel.webview.postMessage({ type: 'configSaved' });
+                        this.onConfigSaved?.();
                     } catch (e) {
                         this.panel.webview.postMessage({
                             type: 'configUpdateFailed',

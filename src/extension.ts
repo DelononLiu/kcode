@@ -161,7 +161,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
     const settingsCmd = vscode.commands.registerCommand('kcode.openSettings', async () => {
         if (!settingsProvider) {
-            settingsProvider = new SettingsProvider(context, configService!);
+            settingsProvider = new SettingsProvider(context, configService!, () => {
+                if (panel) {
+                    panel.reconnectAgent();
+                }
+            });
             settingsProvider.onDidDispose(() => { settingsProvider = undefined; });
         }
         settingsProvider.reveal();
