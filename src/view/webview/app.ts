@@ -267,7 +267,7 @@ function initMessageHandler() {
                     }
                 }
 
-                if (isNewTask) {
+                if (isNewTask || message.taskStatus === 'in_review') {
                     renderMessages(message.messages || []);
                 }
 
