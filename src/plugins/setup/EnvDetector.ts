@@ -81,10 +81,11 @@ export class EnvDetector {
             stream('\n\n🤖 模型: 使用 OpenCode 默认配置');
         } else if (agentName === 'claude') {
             const key = process.env.ANTHROPIC_API_KEY;
-            const model = process.env.CLAUDE_MODEL || 'claude-sonnet-4-20250514';
+            const model = process.env.CLAUDE_MODEL || 'deepseek-v4-flash';
+            const baseUrl = process.env.ANTHROPIC_BASE_URL || 'https://api.deepseek.com/anthropic';
             stream(key
-                ? `\n\n🤖 模型: ${model} | API Key: ✅`
-                : `\n\n🤖 模型: ${model}\n⚠️ ANTHROPIC_API_KEY 未设置，请在环境变量或设置中配置`);
+                ? `\n\n🤖 模型: ${model}\n🌐 API Base: ${baseUrl}`
+                : `\n\n🤖 模型: ${model}\n🌐 API Base: ${baseUrl}\n⚠️ ANTHROPIC_API_KEY 未设置，请在环境变量或设置中配置`);
         }
     }
 }

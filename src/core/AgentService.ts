@@ -1,9 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { execSync } from 'child_process';
 import { AcpClient } from '../acp/AcpClient';
 import { ConfigService } from './ConfigService';
 import { AgentConfigManager } from './AgentConfigManager';
+import { getNodeBinDir } from '../env/NodeManager';
 import type { AcpMessageHandler, FileChange } from '../types';
 import type { IAgentService } from './interfaces';
 
@@ -159,6 +161,16 @@ export class AgentService implements IAgentService {
     }
 
     private _resolveClaudeAcpBinary(): string | null {
+        // 优先找全局安装的版本（通过 managed npm install -g）
+        try {
+            const binDir = getNodeBinDir();
+            if (binDir) {
+                const globalPkgPath = path.resolve(binDir, '..', 'lib', 'node_modules', '@agentclientprotocol', 'claude-agent-acp', 'dist', 'index.js');
+                if (fs.existsSync(globalPkgPath)) return globalPkgPath;
+            }
+        } catch { /* fall through */ }
+
+        // 回退到 require.resolve（开发模式，node_modules 中还残留的情况）
         try {
             return require.resolve('@agentclientprotocol/claude-agent-acp/dist/index.js');
         } catch {
@@ -166,20 +178,61 @@ export class AgentService implements IAgentService {
         }
     }
 
+    private _ensureClaudeAcpPackage(): boolean {
+        const binDir = getNodeBinDir();
+        if (!binDir) return false;
+
+        const npmExe = path.join(binDir, process.platform === 'win32' ? 'npm.cmd' : 'npm');
+        if (!fs.existsSync(npmExe)) return false;
+
+        try {
+            execSync(`"${npmExe}" install -g @agentclientprotocol/claude-agent-acp`, {
+                cwd: binDir,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                timeout: 120000,
+                env: { ...process.env, PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}` },
+            });
+            return true;
+        } catch (err: any) {
+            const stderr = err.stderr?.toString()?.trim() || err.message || '';
+            console.error('安装 @agentclientprotocol/claude-agent-acp 失败:', stderr);
+            return false;
+        }
+    }
+
     private async connectClaude(claudePath: string): Promise<boolean> {
+        let bundledBin = this._resolveClaudeAcpBinary();
+        if (!bundledBin) {
+            console.log('[AgentService] @agentclientprotocol/claude-agent-acp 未安装，正在自动安装…');
+            const installed = this._ensureClaudeAcpPackage();
+            if (installed) {
+                bundledBin = this._resolveClaudeAcpBinary();
+            }
+        }
+
         const acpClient = new AcpClient(this.workspaceRoot);
         if (this.logCallback) {
             acpClient.setLogCallback(this.logCallback);
         }
 
-        const bundledBin = this._resolveClaudeAcpBinary();
         const cmd = bundledBin ? 'node' : claudePath;
         // claude-agent-acp 是纯 ACP 二元协议，不需 CLI 参数（通过 resolveSettings 自动读取系统配置）
         const cmdArgs = bundledBin
             ? [bundledBin]
             : ['--settings', AgentConfigManager.getClaudeSettingsPath(), 'acp', '--port', '0', '--cwd', this.workspaceRoot];
 
-        const connectPromise = acpClient.connect(cmd, cmdArgs);
+        // 从配置读取 Anthropic 兼容 API 参数，注入环境变量
+        const anthropicBaseUrl = this._cfg().get<string>('provider.anthropic.baseUrl', '');
+        const anthropicApiKey = this._cfg().get<string>('provider.anthropic.apiKey', '');
+        const envOverride: Record<string, string> = {};
+        if (anthropicBaseUrl && !process.env.ANTHROPIC_BASE_URL) {
+            envOverride.ANTHROPIC_BASE_URL = anthropicBaseUrl;
+        }
+        if (anthropicApiKey && !process.env.ANTHROPIC_API_KEY) {
+            envOverride.ANTHROPIC_API_KEY = anthropicApiKey;
+        }
+
+        const connectPromise = acpClient.connect(cmd, cmdArgs, envOverride);
         const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10000));
         const connected = await Promise.race([connectPromise, timeoutPromise]);
 

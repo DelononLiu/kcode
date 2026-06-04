@@ -26,6 +26,9 @@
                 { key: 'provider.openai.apiKey', label: 'API Key', desc: 'OpenAI API 密钥', type: 'password', default: '' },
                 { key: 'provider.openai.model', label: '模型', desc: '模型名称，如 deepseek-v4-flash、gpt-4o', type: 'text', default: '' },
                 { key: 'provider.openai.baseUrl', label: 'Base URL', desc: 'API 地址，默认 https://api.deepseek.com', type: 'text', default: '' },
+                { key: 'provider.anthropic.apiKey', label: 'Anthropic API Key', desc: 'Anthropic 兼容 API 密钥（也支持 ANTHROPIC_API_KEY 环境变量）', type: 'password', default: '' },
+                { key: 'provider.anthropic.model', label: 'Anthropic 模型', desc: '模型名称，如 deepseek-v4-flash、claude-sonnet-4-20250514', type: 'text', default: '' },
+                { key: 'provider.anthropic.baseUrl', label: 'Anthropic Base URL', desc: 'API 地址，默认 https://api.deepseek.com/anthropic', type: 'text', default: '' },
             ],
         },
         log: {

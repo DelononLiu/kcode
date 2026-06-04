@@ -460,7 +460,7 @@ export class Panel {
             return false;
         }
 
-        // claude-agent-acp 以依赖项自带在扩展中，无需安装
+        // @agentclientprotocol/claude-agent-acp 是 ACP 桥接层，需要一起安装
         const npmExe = path.join(binDir, process.platform === 'win32' ? 'npm.cmd' : 'npm');
 
         stream('📦 正在通过管理版 npm 安装 @anthropic-ai/claude-code…\n');
@@ -470,12 +470,29 @@ export class Panel {
                 cwd: binDir,
                 stdio: ['ignore', 'pipe', 'pipe'],
                 timeout: 120000,
+                env: { ...process.env, PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}` },
             });
             stream('✅ Claude Code 安装完成');
+        } catch (err: any) {
+            const stderr = err.stderr?.toString()?.trim() || err.message || '';
+            stream(`\n❌ npm install @anthropic-ai/claude-code 失败:\n${stderr}`);
+            return false;
+        }
+
+        stream('\n📦 正在安装 ACP 桥接层 @agentclientprotocol/claude-agent-acp…\n');
+        try {
+            const { execSync } = await import('child_process');
+            execSync(`"${npmExe}" install -g @agentclientprotocol/claude-agent-acp`, {
+                cwd: binDir,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                timeout: 120000,
+                env: { ...process.env, PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}` },
+            });
+            stream('✅ ACP 桥接层安装完成');
             return true;
         } catch (err: any) {
-            stream(`\n❌ npm install 失败: ${err?.message || err}`);
-            stream('\n👉 请确认网络正常后重试');
+            const stderr = err.stderr?.toString()?.trim() || err.message || '';
+            stream(`\n❌ npm install @agentclientprotocol/claude-agent-acp 失败:\n${stderr}`);
             return false;
         }
     }
@@ -496,11 +513,13 @@ export class Panel {
             stream('\n\n🤖 模型: 使用 OpenCode 默认配置');
         } else if (agentName === 'claude') {
             const key = process.env.ANTHROPIC_API_KEY || this.configService.get<string>('provider.anthropic.apiKey', '');
-            const model = process.env.CLAUDE_MODEL || 'claude-sonnet-4-20250514';
+            const model = process.env.CLAUDE_MODEL || 'deepseek-v4-flash';
+            const baseUrl = this.configService.get<string>('provider.anthropic.baseUrl', 'https://api.deepseek.com/anthropic');
             if (key) {
                 stream(`\n\n🤖 模型: ${model} | API Key: ✅`);
+                stream(`\n🌐 API Base: ${baseUrl}`);
             } else {
-                stream(`\n\n🤖 模型: ${model}\n⚠️ ANTHROPIC_API_KEY 未设置，请在环境变量或设置中配置`);
+                stream(`\n\n🤖 模型: ${model}\n🌐 API Base: ${baseUrl}\n⚠️ ANTHROPIC_API_KEY 未设置，请在环境变量或设置中配置`);
             }
         }
     }

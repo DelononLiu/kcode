@@ -70,7 +70,6 @@
     "build:install": "npm run package && code --install-extension kcode-0.2.0.vsix"
   },
   "dependencies": {
-    "@agentclientprotocol/claude-agent-acp": "^0.41.0",
     "@agentclientprotocol/sdk": "^0.24.0",
     "better-sqlite3": "^12.10.0",
     "highlight.js": "^11.11.1",

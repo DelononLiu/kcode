@@ -56,6 +56,11 @@ export function getDefaultConfig(): KCodeConfig {
         model: 'deepseek-v4-flash',
         baseUrl: 'https://api.deepseek.com',
       },
+      anthropic: {
+        apiKey: '',
+        model: '',
+        baseUrl: 'https://api.deepseek.com/anthropic',
+      },
     },
     log: {
       acpLogEnabled: false,
@@ -82,6 +87,7 @@ export const CONFIG_FILE_PATHS = {
 export const KNOWN_KEYS = [
   'agentName', 'agentArgs', 'agentPath',
   'provider.openai.apiKey', 'provider.openai.model', 'provider.openai.baseUrl',
+  'provider.anthropic.apiKey', 'provider.anthropic.model', 'provider.anthropic.baseUrl',
   'log.acpLogEnabled', 'log.acpLogMaxGlobal', 'log.acpLogMaxTask',
   'github.token',
   'ui.language', 'ui.layout',
@@ -98,6 +104,9 @@ export const PROJECT_SCOPED_KEYS: ReadonlySet<KnownKey> = new Set([
   'provider.openai.apiKey',
   'provider.openai.model',
   'provider.openai.baseUrl',
+  'provider.anthropic.apiKey',
+  'provider.anthropic.model',
+  'provider.anthropic.baseUrl',
 ]);
 
 export function getNested(obj: Record<string, any>, parts: string[]): any {
