@@ -336,7 +336,14 @@ export class Panel {
             this.refreshSidebarCallback?.();
             if (isFirstLaunch) this.assistantHandler.startGuide();
         } else {
-            await this.assistantHandler.startEnvDetection(isFirstLaunch, () => this._runEnvSetup());
+            const agentName = this.configService.get<string>('agentName', '');
+            if (agentName) {
+                this.assistantHandler.showLanding();
+                this.assistantHandler.loadMessages();
+                this.router.PostMessage({ type: 'agentStatus', status: 'disconnected', message: 'Agent 未连接', agentName: '' });
+            } else {
+                await this.assistantHandler.startEnvDetection(isFirstLaunch, () => this._runEnvSetup());
+            }
         }
     }
 
@@ -367,13 +374,13 @@ export class Panel {
             return;
         }
 
-        if (!env.kiloInstalled && !env.opencodeInstalled) {
-            stream('\n\n⚠️ 未检测到 Kilo CLI 或 OpenCode CLI，请先安装其中一个：\n- Kilo: https://kilo.ai\n- OpenCode: https://opencode.ai');
+        if (!env.kiloInstalled && !env.opencodeInstalled && !env.claudeInstalled) {
+            stream('\n\n⚠️ 未检测到 Kilo CLI、OpenCode CLI 或 Claude CLI，请先安装其中一个：\n- Kilo: https://kilo.ai\n- OpenCode: https://opencode.ai\n- Claude: https://claude.ai');
             this.assistantHandler.transitionAfterSetup(false);
             return;
         }
 
-        const agentToUse = env.kiloInstalled ? 'kilo' : 'opencode';
+        const agentToUse = env.kiloInstalled ? 'kilo' : env.claudeInstalled ? 'claude' : 'opencode';
         const configWasMissing = !env.configReady;
 
         try {
@@ -399,9 +406,10 @@ export class Panel {
             }
 
             if (this.agentService.isConnected) {
+                const labelMap: Record<string, string> = { kilo: 'Kilo', opencode: 'OpenCode', claude: 'Claude' };
                 this.router.PostMessage({
                     type: 'agentStatus', status: 'connected',
-                    message: agentToUse === 'opencode' ? 'OpenCode' : 'Kilo',
+                    message: labelMap[agentToUse] || agentToUse,
                     agentName: this.agentService.agentName,
                     modelName: this.agentService.modelName,
                 });

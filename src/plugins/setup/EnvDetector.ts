@@ -16,12 +16,12 @@ export class EnvDetector {
             return;
         }
 
-        if (!env.kiloInstalled && !env.opencodeInstalled) {
-            stream('\n\n⚠️ 未检测到 Kilo CLI 或 OpenCode CLI，请先安装其中一个：\n- Kilo: https://kilo.ai\n- OpenCode: https://opencode.ai');
+        if (!env.kiloInstalled && !env.opencodeInstalled && !env.claudeInstalled) {
+            stream('\n\n⚠️ 未检测到 Kilo CLI、OpenCode CLI 或 Claude CLI，请先安装其中一个：\n- Kilo: https://kilo.ai\n- OpenCode: https://opencode.ai\n- Claude: https://claude.ai');
             return;
         }
 
-        const agentToUse = env.kiloInstalled ? 'kilo' : 'opencode';
+        const agentToUse = env.kiloInstalled ? 'kilo' : env.claudeInstalled ? 'claude' : 'opencode';
 
         if (!env.configReady) {
             stream('\n\n正在配置 Agent…');
@@ -44,9 +44,10 @@ export class EnvDetector {
         }
 
         if (agentService.isConnected) {
+            const labelMap: Record<string, string> = { kilo: 'Kilo', opencode: 'OpenCode', claude: 'Claude' };
             router.PostMessage({
                 type: 'agentStatus', status: 'connected',
-                message: agentToUse === 'opencode' ? 'OpenCode' : 'Kilo',
+                message: labelMap[agentToUse] || agentToUse,
                 agentName: agentService.agentName,
                 modelName: agentService.modelName,
             });
@@ -69,6 +70,8 @@ export class EnvDetector {
             stream('\n\n🤖 模型: 使用 Kilo 配置 (~/.config/kilo/kilo.jsonc)');
         } else if (agentName === 'opencode') {
             stream('\n\n🤖 模型: 使用 OpenCode 默认配置');
+        } else if (agentName === 'claude') {
+            stream('\n\n🤖 模型: 使用 Claude 默认配置');
         }
     }
 }

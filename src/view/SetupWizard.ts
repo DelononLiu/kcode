@@ -11,6 +11,8 @@ export interface SetupResult {
     kiloVersion: string;
     opencodeInstalled: boolean;
     opencodeVersion: string;
+    claudeInstalled: boolean;
+    claudeVersion: string;
     configReady: boolean;
 }
 
@@ -36,19 +38,21 @@ async function getVersion(cmd: string, flag = '--version'): Promise<string> {
 export async function detectEnv(narrate: NarrationCallback): Promise<SetupResult> {
     narrate('正在检测内置运行环境…');
 
-    const results: SetupResult = { nodeInstalled: false, nodeVersion: '', npmInstalled: false, npmVersion: '', kiloInstalled: false, kiloVersion: '', opencodeInstalled: false, opencodeVersion: '', configReady: false };
+    const results: SetupResult = { nodeInstalled: false, nodeVersion: '', npmInstalled: false, npmVersion: '', kiloInstalled: false, kiloVersion: '', opencodeInstalled: false, opencodeVersion: '', claudeInstalled: false, claudeVersion: '', configReady: false };
 
-    const [hasNode, hasNpm, hasKilo, hasOpencode] = await Promise.all([
+    const [hasNode, hasNpm, hasKilo, hasOpencode, hasClaude] = await Promise.all([
         which('node'),
         which('npm'),
         which('kilo'),
         which('opencode'),
+        which('claude-agent-acp'),
     ]);
 
     results.nodeInstalled = hasNode;
     results.npmInstalled = hasNpm;
     results.kiloInstalled = hasKilo;
     results.opencodeInstalled = hasOpencode;
+    results.claudeInstalled = hasClaude;
 
     if (hasNode) {
         results.nodeVersion = await getVersion('node');
@@ -61,6 +65,9 @@ export async function detectEnv(narrate: NarrationCallback): Promise<SetupResult
     }
     if (hasOpencode) {
         results.opencodeVersion = await getVersion('opencode');
+    }
+    if (hasClaude) {
+        results.claudeVersion = await getVersion('claude-agent-acp');
     }
 
     // Check if kcode config has agentName set

@@ -27,9 +27,11 @@ export class TaskSessionHandler {
                     ? `Kilo`
                     : displayName === 'opencode'
                         ? `OpenCode`
-                        : displayName === 'openai'
-                            ? `OpenAI (${modelName})`
-                            : 'Agent 已连接';
+                        : displayName === 'claude'
+                            ? `Claude`
+                            : displayName === 'openai'
+                                ? `OpenAI (${modelName})`
+                                : 'Agent 已连接';
                 ctx.router.PostMessage({ type: 'agentStatus', status: 'connected', message: msg, agentName: displayName, modelName });
                 this.sendAgentList();
             } else {
@@ -204,6 +206,7 @@ export class TaskSessionHandler {
             agents: [
                 { label: 'Kilo', type: 'kilo', model: modelName || '' },
                 { label: 'OpenCode', type: 'opencode', model: modelName || '' },
+                { label: 'Claude', type: 'claude', model: modelName || '' },
             ],
         });
         this.ctx.router.PostMessage({

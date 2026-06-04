@@ -45,6 +45,7 @@ export class AgentService implements IAgentService {
         switch (label) {
             case 'kilo': return await this.connectKilo(execPath);
             case 'opencode': return await this.connectOpenCode(execPath);
+            case 'claude': return await this.connectClaude(execPath === 'claude' ? 'claude-agent-acp' : execPath);
             case 'openai': return this.connectOpenAI();
             default: return false;
         }
@@ -68,6 +69,10 @@ export class AgentService implements IAgentService {
 
             if (agentName === 'opencode') {
                 return await this.connectOpenCode(execPath);
+            }
+
+            if (agentName === 'claude') {
+                return await this.connectClaude(execPath === 'claude' ? 'claude-agent-acp' : execPath);
             }
 
             if (agentName === 'openai') {
@@ -152,6 +157,37 @@ export class AgentService implements IAgentService {
         }
 
         this._lastError = acpClient.lastError || `无法启动 kilo: ${kiloPath}`;
+        return false;
+    }
+
+    private async connectClaude(execPath: string): Promise<boolean> {
+        // claude-agent-acp 以 stdio ACP 服务器模式运行，不传额外参数
+        const acpClient = new AcpClient(this.workspaceRoot);
+        if (this.logCallback) {
+            acpClient.setLogCallback(this.logCallback);
+        }
+
+        const connectPromise = acpClient.connect(execPath, []);
+        const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10000));
+        const connected = await Promise.race([connectPromise, timeoutPromise]);
+
+        if (connected) {
+            this.acpClient = acpClient;
+            this._isConnected = true;
+            this._agentName = 'claude';
+            this._modelName = 'claude';
+            this.agentType = 'acp';
+            this._lastError = '';
+            acpClient.onExit((code) => {
+                this._isConnected = false;
+                this._agentName = '';
+                this._lastError = `Agent 进程已退出 (退出码: ${code})`;
+                console.log(`Claude process exited with code ${code}`);
+            });
+            return true;
+        }
+
+        this._lastError = acpClient.lastError || `无法启动 claude-agent-acp: ${execPath}`;
         return false;
     }
 

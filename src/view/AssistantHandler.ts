@@ -2,7 +2,7 @@ import type { TaskStore } from '../store/TaskStore';
 import type { AgentService } from '../core/AgentService';
 import type { MessageRouter } from './MessageRouter';
 import type { TaskSessionHandler } from './TaskSessionHandler';
-import type { Task } from '../types';
+import type { Task, AssistantMessage } from '../types';
 import type { AcpMessageHandler } from '../types';
 import type { SetupResult } from './SetupWizard';
 import { AssistantStreamHandler } from './stream/AssistantStreamHandler';
@@ -101,6 +101,7 @@ const SAMPLE_TASK: Task = {
 
 export class AssistantHandler {
     private _guideStep = -1;
+    private _guideMessages: AssistantMessage[] = [];
     private _envPhase: '' | 'detecting' = '';
     private _onEnvSetupComplete: (() => Promise<void>) | null = null;
     private _isFirstLaunch = false;
@@ -178,7 +179,6 @@ export class AssistantHandler {
 
     async startEnvDetection(isFirstLaunch: boolean, onSetup: () => Promise<void>) {
         this.showLanding();
-        this.store.setAssistantMessages([]);
         this._isFirstLaunch = isFirstLaunch;
         this._envPhase = 'detecting';
         this._onEnvSetupComplete = onSetup;
@@ -227,17 +227,21 @@ export class AssistantHandler {
 
     startGuide() {
         this.showLanding();
-        this.store.setAssistantMessages([]);
+        this._guideMessages = [];
         this._guideStep = 0;
         this._sendGuideStep();
+    }
+
+    private _renderGuideMessages() {
+        this.router.PostMessage({ type: 'loadMessages', messages: this._guideMessages, taskId: '__assistant__', taskType: 'assistant' });
     }
 
     private _sendGuideStep() {
         const step = GUIDE_STEPS[this._guideStep];
         if (!step) return;
         const msgId = this.store.nextAssistantMessageId();
-        this.store.addAssistantMessage({ id: msgId, role: 'agent', content: step.agent, timestamp: Date.now() });
-        this.loadMessages();
+        this._guideMessages.push({ id: msgId, role: 'agent', content: step.agent, timestamp: Date.now() });
+        this._renderGuideMessages();
         this.router.PostMessage({ type: 'setInputPlaceholder', text: `按回车发送: "${step.preset}"` });
         this.router.PostMessage({ type: 'setInputPreset', text: step.preset });
     }
@@ -247,13 +251,14 @@ export class AssistantHandler {
         if (!step) return;
 
         const msgId = this.store.nextAssistantMessageId();
-        this.store.addAssistantMessage({ id: msgId, role: 'user', content: text, timestamp: Date.now() });
+        this._guideMessages.push({ id: msgId, role: 'user', content: text, timestamp: Date.now() });
         this.router.PostMessage({ type: 'addUserMessage', content: text });
 
         this._guideStep++;
 
         if (this._guideStep >= GUIDE_STEPS.length) {
             this._guideStep = -1;
+            this._guideMessages = [];
             this.router.PostMessage({ type: 'setInputPlaceholder', text: '' });
             this.router.PostMessage({ type: 'setInputPreset', text: '' });
             await this._createSampleTask();
