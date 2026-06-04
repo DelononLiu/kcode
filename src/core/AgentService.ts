@@ -158,16 +158,28 @@ export class AgentService implements IAgentService {
         return false;
     }
 
+    private _resolveClaudeAcpBinary(): string | null {
+        try {
+            return require.resolve('@agentclientprotocol/claude-agent-acp/dist/index.js');
+        } catch {
+            return null;
+        }
+    }
+
     private async connectClaude(claudePath: string): Promise<boolean> {
         const acpClient = new AcpClient(this.workspaceRoot);
         if (this.logCallback) {
             acpClient.setLogCallback(this.logCallback);
         }
 
-        const connectPromise = acpClient.connect(claudePath, [
-            '--settings', AgentConfigManager.getClaudeSettingsPath(),
-            'acp', '--port', '0', '--cwd', this.workspaceRoot,
-        ]);
+        const bundledBin = this._resolveClaudeAcpBinary();
+        const cmd = bundledBin ? 'node' : claudePath;
+        // claude-agent-acp 是纯 ACP 二元协议，不需 CLI 参数（通过 resolveSettings 自动读取系统配置）
+        const cmdArgs = bundledBin
+            ? [bundledBin]
+            : ['--settings', AgentConfigManager.getClaudeSettingsPath(), 'acp', '--port', '0', '--cwd', this.workspaceRoot];
+
+        const connectPromise = acpClient.connect(cmd, cmdArgs);
         const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10000));
         const connected = await Promise.race([connectPromise, timeoutPromise]);
 

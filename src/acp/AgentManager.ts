@@ -1,5 +1,6 @@
 import { spawn, execSync, ChildProcess } from 'child_process';
 import { Writable, Readable } from 'stream';
+import * as fs from 'fs';
 import * as path from 'path';
 import { log } from '../log';
 import { getNodeBinDir } from '../env/NodeManager';
@@ -27,7 +28,14 @@ export class AgentManager {
         try {
             resolvedPath = execSync(`which "${command}"`, { encoding: 'utf-8' }).trim();
         } catch {
-            resolvedPath = command + ' (NOT FOUND on PATH)';
+            // 尝试从管理版 Node bin 目录解析
+            const managedBinDir = getNodeBinDir();
+            const managedPath = managedBinDir ? path.join(managedBinDir, command) : '';
+            if (managedPath && fs.existsSync(managedPath)) {
+                resolvedPath = managedPath;
+            } else {
+                resolvedPath = command + ' (NOT FOUND on PATH)';
+            }
         }
         log('agent', `Spawning: ${resolvedPath} ${args.join(' ')}`);
 
@@ -38,7 +46,7 @@ export class AgentManager {
             spawnedEnv.PATH = `${managedBinDir}${path.delimiter}${spawnedEnv.PATH || ''}`;
         }
 
-        const agentProcess = spawn(command, args, {
+        const agentProcess = spawn(resolvedPath.includes('NOT FOUND') ? command : resolvedPath, args, {
             stdio: ['pipe', 'pipe', 'inherit'],
             env: { ...spawnedEnv, ...envOverride }
         });

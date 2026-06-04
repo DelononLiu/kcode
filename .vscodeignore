@@ -17,6 +17,7 @@ TASKS.md
 docs/**
 node_modules/**
 !node_modules/@agentclientprotocol/**
+!node_modules/@anthropic-ai/**
 !node_modules/zod/**
 !node_modules/jsonc-parser/**
 src/**

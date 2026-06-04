@@ -48,25 +48,33 @@ export async function detectEnv(narrate: NarrationCallback): Promise<SetupResult
         which('claude'),
     ]);
 
-    // 也检测管理版 Node.js（~/.kcode/node/ 下已下载的）
-    let { getNodeExePath } = { getNodeExePath: () => '' };
+    // 也检测管理版 Node 目录（~/.kcode/node/ 下已下载的）
+    let { getNodeBinDir } = { getNodeBinDir: () => '' };
     try {
-        ({ getNodeExePath } = await import('../env/NodeManager'));
+        ({ getNodeBinDir } = await import('../env/NodeManager'));
     } catch {}
-    const managedNodeExe = getNodeExePath();
+    const managedBinDir = getNodeBinDir();
     const fs = await import('fs');
-    const hasManagedNode = managedNodeExe ? fs.existsSync(managedNodeExe) : false;
 
-    // 管理版 npm 路径（与 managed node 同目录）
-    const managedNpmExe = managedNodeExe ? managedNodeExe.replace(/node(\.exe)?$/, 'npm$1') : '';
+    // 管理版内各可执行文件
+    const managedNodeExe = managedBinDir ? path.join(managedBinDir, process.platform === 'win32' ? 'node.exe' : 'node') : '';
+    const hasManagedNode = managedNodeExe ? fs.existsSync(managedNodeExe) : false;
+    const managedNpmExe = managedBinDir ? path.join(managedBinDir, process.platform === 'win32' ? 'npm.cmd' : 'npm') : '';
     const hasManagedNpm = managedNpmExe ? fs.existsSync(managedNpmExe) : false;
+    const managedClaudeExe = managedBinDir ? path.join(managedBinDir, 'claude') : '';
+    const hasManagedClaude = managedClaudeExe ? fs.existsSync(managedClaudeExe) : false;
+    const managedKiloExe = managedBinDir ? path.join(managedBinDir, 'kilo') : '';
+    const hasManagedKilo = managedKiloExe ? fs.existsSync(managedKiloExe) : false;
+    const managedOpencodeExe = managedBinDir ? path.join(managedBinDir, 'opencode') : '';
+    const hasManagedOpencode = managedOpencodeExe ? fs.existsSync(managedOpencodeExe) : false;
 
     results.nodeInstalled = hasSystemNode || hasManagedNode;
     results.npmInstalled = hasNpm || hasManagedNpm;
-    results.kiloInstalled = hasKilo;
-    results.opencodeInstalled = hasOpencode;
-    results.claudeInstalled = hasClaude;
+    results.kiloInstalled = hasKilo || hasManagedKilo;
+    results.opencodeInstalled = hasOpencode || hasManagedOpencode;
+    results.claudeInstalled = hasClaude || hasManagedClaude;
 
+    // 优先读管理版版本（优先级更高），再读系统版
     if (hasManagedNode) {
         results.nodeVersion = await new Promise<string>(resolve => {
             cp.exec(`"${managedNodeExe}" --version`, { maxBuffer: 4096 }, (err, stdout) => {
@@ -85,13 +93,19 @@ export async function detectEnv(narrate: NarrationCallback): Promise<SetupResult
     } else if (hasNpm) {
         results.npmVersion = await getVersion('npm');
     }
-    if (hasKilo) {
+    if (hasManagedKilo) {
+        results.kiloVersion = await getVersion(managedKiloExe);
+    } else if (hasKilo) {
         results.kiloVersion = await getVersion('kilo');
     }
-    if (hasOpencode) {
+    if (hasManagedOpencode) {
+        results.opencodeVersion = await getVersion(managedOpencodeExe);
+    } else if (hasOpencode) {
         results.opencodeVersion = await getVersion('opencode');
     }
-    if (hasClaude) {
+    if (hasManagedClaude) {
+        results.claudeVersion = await getVersion(managedClaudeExe);
+    } else if (hasClaude) {
         results.claudeVersion = await getVersion('claude');
     }
 

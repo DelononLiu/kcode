@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { TaskStore } from '../store/TaskStore';
 import { TaskFlow } from '../taskflow/TaskFlow';
 import { AgentService } from '../core/AgentService';
@@ -397,8 +399,14 @@ export class Panel {
         }
 
         if (!env.kiloInstalled && !env.opencodeInstalled && !env.claudeInstalled) {
-            stream('\n\n⚠️ 未检测到 Agent CLI，将自动安装 Claude Code：\n```bash\nnpm install -g @anthropic-ai/claude-code\n```\n或手动安装其一：\n- Claude: `npm install -g @anthropic-ai/claude-code`\n- Kilo: `npm install -g @kilocode/cli`\n- OpenCode: `npm install -g opencode-ai@latest`');
-            return;
+            stream('\n\n⚠️ 未检测到 Agent CLI，正在安装 Claude Code…\n');
+            const installed = await this._installClaudeCode(stream);
+            if (!installed) return;
+            // 安装完后重新检测环境
+            const env2 = await detectEnv(() => {});
+            env.kiloInstalled = env2.kiloInstalled;
+            env.opencodeInstalled = env2.opencodeInstalled;
+            env.claudeInstalled = env2.claudeInstalled;
         }
 
         const agentToUse = env.claudeInstalled ? 'claude' : env.kiloInstalled ? 'kilo' : env.opencodeInstalled ? 'opencode' : 'claude';
@@ -442,6 +450,34 @@ export class Panel {
 
         // 先持久化流式内容再 transition，避免 transitionAfterSetup 清空消息时丢失
         this.assistantHandler.transitionAfterSetup(configWasMissing, streamBuffer);
+    }
+
+    private async _installClaudeCode(stream: (text: string) => void): Promise<boolean> {
+        const { getNodeBinDir } = await import('../env/NodeManager');
+        const binDir = getNodeBinDir();
+        if (!binDir) {
+            stream('\n❌ 管理版 Node 不可用，无法安装 Claude Code');
+            return false;
+        }
+
+        // claude-agent-acp 以依赖项自带在扩展中，无需安装
+        const npmExe = path.join(binDir, process.platform === 'win32' ? 'npm.cmd' : 'npm');
+
+        stream('📦 正在通过管理版 npm 安装 @anthropic-ai/claude-code…\n');
+        try {
+            const { execSync } = await import('child_process');
+            execSync(`"${npmExe}" install -g @anthropic-ai/claude-code`, {
+                cwd: binDir,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                timeout: 120000,
+            });
+            stream('✅ Claude Code 安装完成');
+            return true;
+        } catch (err: any) {
+            stream(`\n❌ npm install 失败: ${err?.message || err}`);
+            stream('\n👉 请确认网络正常后重试');
+            return false;
+        }
     }
 
     private _streamModelConfig(stream: (text: string) => void) {
