@@ -323,6 +323,8 @@ function initMessageHandler() {
                 G.activeTaskStatus = message.status || '';
                 G.activeTaskTitle = message.title || '';
                 G.activeTaskGoal = message.goal || '';
+                G.activeTaskCategory = message.category || '';
+                G.activeTaskSubType = message.subType || '';
                 updatePhaseBadge(message.phase || '');
                 break;
             case 'flashInput':
@@ -338,7 +340,7 @@ function initMessageHandler() {
                 showGoalConfirmationCard(message);
                 break;
             case 'finalizeGoalMessage':
-                finalizeGoalMessage(message.taskId, message.goal, message.originalRequest);
+                finalizeGoalMessage(message.taskId, message.goal, message.originalRequest, message.category, message.subType, message.categoryLabel, message.subTypeLabel);
                 break;
             case 'showExecuteConfirmation':
                 showExecuteConfirmation(message.taskId);
@@ -401,6 +403,7 @@ function initMessageHandler() {
             case 'startTemplateFlow':
                 renderCategorySelection();
                 break;
+
             case 'updateOutputPanel':
                 break;
             case 'agentList':

@@ -1,6 +1,15 @@
 export const PROTOCOL_CORE = `[TASK_UPDATE] 协议参考
 
 格式示例：
+
+propose_goal（推荐附带类别）：
+[TASK_UPDATE]
+ACTION: propose_goal
+CATEGORY: requirement_dev
+SUBTYPE: feature_dev
+[/TASK_UPDATE]
+
+propose_plan：
 [TASK_UPDATE]
 ACTION: propose_plan
 STEPS:
@@ -8,8 +17,16 @@ STEPS:
   - 步骤2描述
 [/TASK_UPDATE]
 
+任务分类体系（CATEGORY / SUBTYPE）：
+  requirement_dev（需求开发） → feature_dev(新增功能) | api_dev(接口) | page_component(页面/组件) | biz_iteration(业务迭代) | doc_dev(文档)
+  problem_analysis（问题分析） → debug(代码调试) | build_issue(编译构建) | test_failure(测试失败) | perf_stability(性能/稳定性)
+  code_review（代码审查） → walkthrough(走查) | change_review(变更审查)
+  log_analysis（日志分析） → oncall(紧急OnCall) | routine(日常值班)
+  defect_analysis（缺陷分析） → root_cause(缺陷根因)
+如果你有把握，在 propose_goal 时附带最匹配的类别。拿不准就不要输出，系统不强求。
+
 可用动作（按阶段）：
-  demand / goal → propose_goal：提出目标确认
+  demand / goal → propose_goal：提出目标确认（可附带 CATEGORY/SUBTYPE 字段自动归类）
   plan          → propose_plan：提出执行计划
    execute       → finish_execute：标记执行完成（由系统处理）
    execute       → plan_step_update：更新计划步骤状态（INDEX:步骤序号, STATUS: active/completed）

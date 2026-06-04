@@ -1277,3 +1277,38 @@ _目标：解决 #chat-scroll 共享 DOM 导致的耦合问题，将 assistant-v
 **状态**: ✅ 已完成
 
 ---
+
+## Phase 34: 任务 AI 自动分类
+
+_目标：支持 AI 在 propose_goal 时自动输出 CATEGORY/SUBTYPE 对任务分类，前端展示类别标签，并提供 `/classify` 兜底命令供用户手动分类。_
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| P34-01 | AI 分类协议 — base/protocol 提示词 + TaskFlow 解析落库 | ✅ 已完成 |
+| P34-02 | 前端展示 — state/app/flowCards/chatPanelCss 类别标签渲染 | ✅ 已完成 |
+| P34-03 | /classify 命令 — Panel.ts 本地关键词+动词打分分类引擎 | ✅ 已完成 |
+
+### P34-01: AI 分类协议
+
+**涉及文件**:
+- `src/taskflow/prompts/base.ts:10-13` — CATEGORY/SUBTYPE 加入字段列表，propose_goal 可选输出
+- `src/taskflow/prompts/protocol.ts:8-29` — 5 大类 14 子类分类体系参考表 + propose_goal 附带类别示例
+- `src/taskflow/TaskFlow.ts:459,524-528` — PROTOCOL_KEYS 增加 CATEGORY/SUBTYPE；parseTaskUpdate 自动解析落库
+- `src/taskflow/__tests__/TaskFlow.test.ts:101-102` — MockStore 补齐 updateTaskCategory/updateTaskSubType 方法
+
+### P34-02: 前端展示
+
+**涉及文件**:
+- `src/view/webview/state.ts:17-18` — activeTaskCategory / activeTaskSubType 状态
+- `src/view/webview/app.ts:326-327,343` — updateTaskInfo 解析 + finalizeGoalMessage 传递类别
+- `src/view/webview/flowCards.ts:523-526,740-761` — 目标确认卡片渲染 🏷️ 类别标签
+- `src/view/templates/chatPanelCss.ts:223` — `.goal-category-badge` 样式
+
+### P34-03: /classify 兜底命令
+
+**涉及文件**:
+- `src/view/Panel.ts:121-131,680-731` — 注册 /classify <描述> 命令；本地分类引擎（关键词 + 动词加权打分，阈值 15 以上出结果）
+
+**状态**: ✅ 已完成
+
+---

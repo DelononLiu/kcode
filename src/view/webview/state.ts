@@ -14,6 +14,8 @@ export const G = {
     activeTaskPhase: '',
     activeTaskGoal: '',
     activeTaskTitle: '',
+    activeTaskCategory: '',
+    activeTaskSubType: '',
 
     categoryDefs: [] as any[],
     selectedCategory: null as string | null,

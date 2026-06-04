@@ -98,6 +98,8 @@ class MockTaskStore implements ITaskStore {
 
     getTaskKnowledgeEntries(_taskId: string): any[] { return []; }
     getAllKnowledgeEntries(): any[] { return []; }
+    updateTaskCategory(_taskId: string, _category: any): void {}
+    updateTaskSubType(_taskId: string, _subType: any): void {}
     addTimelineEntry(_taskId: string, _entry: any): void {}
     getTaskTimeline(_taskId: string): any[] { return []; }
 

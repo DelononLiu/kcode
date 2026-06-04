@@ -220,6 +220,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-card-body.collapsed{max-height:0;padding:0 12px;opacity:0;overflow:hidden}
 .msg-card-toggle{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:#666;transition:transform .2s}
 .msg-card-toggle.collapsed{transform:rotate(-90deg)}
+.goal-category-badge{font-size:11px;color:var(--text-dim);padding:6px 12px 0;line-height:1.4}
 .msg-card-actions{display:flex;gap:8px;padding:8px 12px 10px;border-top:1px solid rgba(255,255,255,.05)}
 .msg-card-btn{flex:1;max-width:150px;padding:5px 10px;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500}
 .msg-card-btn.primary{background:#4a8bb5;color:#fff}.msg-card-btn.primary:hover{background:#5a9bc8}

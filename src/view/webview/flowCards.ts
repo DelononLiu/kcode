@@ -520,6 +520,18 @@ export function showGoalConfirmationCard(info: any) {
         rawData: info
     });
 
+    if (info.categoryLabel && info.subTypeLabel) {
+        const badgeLine = document.createElement('div');
+        badgeLine.className = 'goal-category-badge';
+        badgeLine.textContent = `🏷️ ${info.categoryLabel} · ${info.subTypeLabel}`;
+        const body = card.querySelector('.msg-card-body');
+        if (body) {
+            body.parentNode?.insertBefore(badgeLine, body);
+        } else {
+            card.insertBefore(badgeLine, card.firstChild);
+        }
+    }
+
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'msg-card-actions';
     addConfirmationActions(actionsDiv);
@@ -725,19 +737,30 @@ export function handleRemovePlanProposal() {
     });
 }
 
-export function finalizeGoalMessage(taskId: string, goal: string, originalRequest: string) {
+export function finalizeGoalMessage(taskId: string, goal: string, originalRequest: string, category?: string, subType?: string, categoryLabel?: string, subTypeLabel?: string) {
     hideWorkingIndicator();
     if (!G.streamMessageEl) {
-        showGoalConfirmationCard({ taskId, goal, originalRequest });
+        showGoalConfirmationCard({ taskId, goal, originalRequest, category, subType, categoryLabel, subTypeLabel });
         return;
     }
     const streamBubble = G.streamMessageEl;
     streamBubble.classList.remove('streaming');
     const msgEl = streamBubble.closest('.chat-msg') as HTMLElement;
     if (!msgEl) {
-        showGoalConfirmationCard({ taskId, goal, originalRequest });
+        showGoalConfirmationCard({ taskId, goal, originalRequest, category, subType, categoryLabel, subTypeLabel });
         G.streamMessageEl = null;
         return;
+    }
+
+    // If category was passed, add a badge
+    if (categoryLabel && subTypeLabel) {
+        const existingBadge = msgEl.querySelector('.goal-category-badge');
+        if (!existingBadge) {
+            const badge = document.createElement('div');
+            badge.className = 'goal-category-badge';
+            badge.textContent = `🏷️ ${categoryLabel} · ${subTypeLabel}`;
+            msgEl.insertBefore(badge, msgEl.firstChild);
+        }
     }
 
     const actionsDiv = document.createElement('div');

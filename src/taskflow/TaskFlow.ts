@@ -49,6 +49,8 @@ export interface ITaskStore {
     updateTaskTitle(taskId: string, title: string): void;
     updateTaskType(taskId: string, type: 'task'): void;
     updateTaskHooks(taskId: string, phase: string, commands: string[]): void;
+    updateTaskCategory(taskId: string, category: Task['category']): void;
+    updateTaskSubType(taskId: string, subType: Task['subType']): void;
     getTaskKnowledgeEntries(taskId: string): KnowledgeEntry[];
     getAllKnowledgeEntries(): KnowledgeEntry[];
     addTimelineEntry(taskId: string, entry: TimelineEntry): void;
@@ -454,7 +456,7 @@ export class TaskFlow {
         }
     }
 
-    private static readonly PROTOCOL_KEYS = new Set(['ACTION', 'CONFIRMED', 'PENDING', 'STEPS', 'INDEX', 'STATUS', 'DECISION', 'METRICS', 'ITERATION']);
+    private static readonly PROTOCOL_KEYS = new Set(['ACTION', 'CATEGORY', 'SUBTYPE', 'CONFIRMED', 'PENDING', 'STEPS', 'INDEX', 'STATUS', 'DECISION', 'METRICS', 'ITERATION']);
 
     private parseSimplePayload(body: string): any {
         const payload: any = {};
@@ -519,6 +521,12 @@ export class TaskFlow {
         switch (payload.ACTION) {
             case 'propose_goal':
                 {
+                    if (payload.CATEGORY && this.store.updateTaskCategory) {
+                        this.store.updateTaskCategory(taskId, payload.CATEGORY);
+                    }
+                    if (payload.SUBTYPE && this.store.updateTaskSubType) {
+                        this.store.updateTaskSubType(taskId, payload.SUBTYPE);
+                    }
                     this.goalProposed.set(taskId, true);
                     this.delegate.onPhaseChanged(taskId);
                 }

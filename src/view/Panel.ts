@@ -5,7 +5,7 @@ import { TaskStore } from '../store/TaskStore';
 import { TaskFlow } from '../taskflow/TaskFlow';
 import { AgentService } from '../core/AgentService';
 import { ConfigService } from '../core/ConfigService';
-import { getCategories } from '../taskflow/templates';
+import { getCategories, getCategory, getTemplate } from '../taskflow/templates';
 import { parseWorkspaceHooks } from '../taskflow/workspaceHooks';
 import { getWebviewContent as getTemplateHtml } from './templates/chatPanelHtml';
 import { MessageRouter } from './MessageRouter';
@@ -74,7 +74,10 @@ export class Panel {
             onGoalFormatted: async (taskId, goalText, originalRequest) => {
                 this.flowHandler.sendTaskInfo(taskId);
                 this.flowHandler.sendNodePanelUpdate(taskId);
-                this.router.PostMessage({ type: 'finalizeGoalMessage', taskId, goal: goalText, originalRequest });
+                const task = this.store.getTask(taskId);
+                const catLabel = task?.category ? getCategory(task.category)?.label : undefined;
+                const subLabel = task?.category && task?.subType ? getTemplate(task.category, task.subType)?.label : undefined;
+                this.router.PostMessage({ type: 'finalizeGoalMessage', taskId, goal: goalText, originalRequest, category: task?.category, subType: task?.subType, categoryLabel: catLabel, subTypeLabel: subLabel });
             },
             onError: (taskId, error) => { this.flowHandler.showAgentError(taskId, error); },
             onSelfVerifyNeeded: (taskId) => { setTimeout(() => this.sessionHandler.startAutoGeneration(taskId), 100); },
@@ -115,6 +118,24 @@ export class Panel {
             const task = this.store.getTask(tid);
             mgr.openReplay(tid, task?.title || '任务');
         });
+        this.commandRegistry.registerSlashCommand('/feature', '新增功能开发', async (args, tid) => {
+            await this._createTaskWithCategory(args, tid, 'requirement_dev', 'feature_dev');
+        }, '/feature <功能描述>');
+        this.commandRegistry.registerSlashCommand('/ui', '页面/组件开发', async (args, tid) => {
+            await this._createTaskWithCategory(args, tid, 'requirement_dev', 'ui_component');
+        }, '/ui <页面描述>');
+        this.commandRegistry.registerSlashCommand('/api', '接口开发', async (args, tid) => {
+            await this._createTaskWithCategory(args, tid, 'requirement_dev', 'api_dev');
+        }, '/api <接口描述>');
+        this.commandRegistry.registerSlashCommand('/debug', '代码 Debug 调试', async (args, tid) => {
+            await this._createTaskWithCategory(args, tid, 'problem_analysis', 'debug');
+        }, '/debug <问题描述>');
+        this.commandRegistry.registerSlashCommand('/review', '代码评审', async (args, tid) => {
+            await this._createTaskWithCategory(args, tid, 'code_review');
+        }, '/review <代码/PR 链接>');
+        this.commandRegistry.registerSlashCommand('/logic', '逻辑缺陷分析', async (args, tid) => {
+            await this._createTaskWithCategory(args, tid, 'defect_analysis', 'logic_defect');
+        }, '/logic <缺陷描述>');
 
         this.sendSlashCommandList();
 
@@ -376,6 +397,22 @@ export class Panel {
     }
 
     autoSendGoal(taskId: string, text: string) { this.sessionHandler.handleSendMessage(text, taskId); }
+
+    private async _createTaskWithCategory(args: string, taskId: string | null | undefined, category: string, subType?: string) {
+        if (!args) {
+            this.router.PostMessage({ type: 'addSystemMessage', content: `用法: /<命令> <描述>\n示例: /debug 页面按钮点击无响应` });
+            return;
+        }
+        if (!taskId) {
+            await vscode.commands.executeCommand('kcode.newTask');
+            taskId = this.currentTaskId;
+        }
+        if (taskId && args) {
+            this.store.updateTaskTitle(taskId, args);
+            this.flowHandler.sendTaskInfo(taskId);
+            await this.sessionHandler.handleSendMessage(args, taskId, category, subType);
+        }
+    }
 
     private async _runEnvSetup() {
         let streamBuffer = '';
