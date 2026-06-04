@@ -14,6 +14,7 @@ import {
   CONFIG_FILENAME,
   splitConfigByScope,
 } from '../types/config';
+import { AgentConfigManager } from './AgentConfigManager';
 
 const MIGRATED_MARKER_KEY = 'kcode.configMigrated';
 
@@ -96,6 +97,15 @@ export class ConfigService {
     this._draft = { ...this._config };
     this._isDirty = false;
     this._notify();
+
+    // 加载完成后初始化 Agent 子配置文件（首次创建 / 确保 model 一致）
+    const model = this._config.provider?.openai?.model;
+    if (model) {
+      AgentConfigManager.syncAll(model).catch(e =>
+        console.warn('[ConfigService] Failed to initialize agent configs:', e)
+      );
+    }
+
     return this._config;
   }
 
@@ -134,10 +144,18 @@ export class ConfigService {
       await this._writeFile(existingProjectPath, projectPart);
     }
 
+    const oldModel = this._config.provider?.openai?.model;
+    const newModel = merged.provider?.openai?.model;
+
     this._config = merged;
     this._draft = { ...merged };
     this._isDirty = false;
     this._notify();
+
+    // 检测 model 变更，同步到各 Agent 子配置文件
+    if (newModel && newModel !== oldModel) {
+      await AgentConfigManager.syncAll(newModel);
+    }
   }
 
   async saveTo(filePath: string): Promise<void> {

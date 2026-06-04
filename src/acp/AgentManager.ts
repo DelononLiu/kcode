@@ -14,8 +14,9 @@ export class AgentManager {
     /**
      * Start an ACP agent subprocess.
      * Supports both direct JS/TS files (via node/tsx) and npm packages.
+     * @param envOverride - 可选的环境变量覆盖，与 process.env 合并后传给子进程
      */
-    async startAgent(command: string, args: string[] = []): Promise<AgentProcess> {
+    async startAgent(command: string, args: string[] = [], envOverride?: Record<string, string>): Promise<AgentProcess> {
         if (this.process) {
             this.stopAgent();
         }
@@ -30,7 +31,7 @@ export class AgentManager {
 
         const agentProcess = spawn(command, args, {
             stdio: ['pipe', 'pipe', 'inherit'],
-            env: { ...process.env }
+            env: { ...process.env, ...envOverride }
         });
 
         this.process = agentProcess;

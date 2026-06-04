@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { AcpClient } from '../acp/AcpClient';
 import { ConfigService } from './ConfigService';
+import { AgentConfigManager } from './AgentConfigManager';
 import type { AcpMessageHandler, FileChange } from '../types';
 import type { IAgentService } from './interfaces';
 
@@ -96,7 +97,9 @@ export class AgentService implements IAgentService {
 
         const connectPromise = acpClient.connect(agentPath, [
             'acp', '--port', '0', '--cwd', this.workspaceRoot
-        ]);
+        ], {
+            OPENCODE_CONFIG: AgentConfigManager.getOpenCodeConfigPath(),
+        });
         const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10000));
         const connected = await Promise.race([connectPromise, timeoutPromise]);
 
@@ -104,7 +107,7 @@ export class AgentService implements IAgentService {
             this.acpClient = acpClient;
             this._isConnected = true;
             this._agentName = 'opencode';
-            this._modelName = 'opencode';
+            this._modelName = this._readOpenCodeModel();
             this.agentType = 'acp';
             this._lastError = '';
             acpClient.onExit((code) => {
@@ -129,7 +132,9 @@ export class AgentService implements IAgentService {
 
         const connectPromise = acpClient.connect(kiloPath, [
             'acp', '--port', '0', '--cwd', this.workspaceRoot
-        ]);
+        ], {
+            KILO_CONFIG: AgentConfigManager.getKiloConfigPath(),
+        });
         const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10000));
         const connected = await Promise.race([connectPromise, timeoutPromise]);
 
@@ -160,6 +165,7 @@ export class AgentService implements IAgentService {
         }
 
         const connectPromise = acpClient.connect(claudePath, [
+            '--settings', AgentConfigManager.getClaudeSettingsPath(),
             'acp', '--port', '0', '--cwd', this.workspaceRoot,
         ]);
         const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10000));
@@ -199,6 +205,11 @@ export class AgentService implements IAgentService {
     }
 
     private _readKiloConfig(): any {
+        // 优先读取 KCode 同步的配置文件
+        try {
+            return JSON.parse(fs.readFileSync(AgentConfigManager.getKiloConfigPath(), 'utf-8'));
+        } catch { /* fall through */ }
+
         const configPath = this._kiloConfigPath();
         try {
             return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
@@ -209,6 +220,16 @@ export class AgentService implements IAgentService {
         const config = this._readKiloConfig();
         if (!config) return 'kilo';
         return config.model || config.agent?.code?.model || 'kilo';
+    }
+
+    private _readOpenCodeModel(): string {
+        try {
+            const configPath = AgentConfigManager.getOpenCodeConfigPath();
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+            return config.model || 'opencode';
+        } catch {
+            return 'opencode';
+        }
     }
 
     getAvailableModels(): string[] {

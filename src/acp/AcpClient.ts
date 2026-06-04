@@ -40,10 +40,11 @@ export class AcpClient {
 
     /**
      * Start the agent and initialize ACP connection (stdio subprocess).
+     * @param envOverride - 可选的环境变量，合并后传给子进程
      */
-    async connect(agentName: string, args: string[] = []): Promise<boolean> {
+    async connect(agentName: string, args: string[] = [], envOverride?: Record<string, string>): Promise<boolean> {
         try {
-            const { process, input, output } = await this.agentManager.startAgent(agentName, args);
+            const { process, input, output } = await this.agentManager.startAgent(agentName, args, envOverride);
             this.agentProcess = process;
 
             const sdk = await this.loadSDK();
