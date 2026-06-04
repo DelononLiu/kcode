@@ -2,19 +2,17 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { AcpClient } from '../acp/AcpClient';
-import { OpenAIAgent } from '../acp/OpenAIAgent';
 import { ConfigService } from './ConfigService';
 import type { AcpMessageHandler, FileChange } from '../types';
 import type { IAgentService } from './interfaces';
 
 export class AgentService implements IAgentService {
     private acpClient: AcpClient | null = null;
-    private openaiAgent: OpenAIAgent | null = null;
     private _isConnected: boolean = false;
     private _lastError: string = '';
     private _agentName: string = '';
     private _modelName: string = '';
-    private agentType: 'acp' | 'openai' | null = null;
+    private agentType: 'acp' | null = null;
     private workspaceRoot: string;
     private logCallback: ((direction: 'send' | 'recv', text: string) => void) | null = null;
     private connectPromise: Promise<boolean> | null = null;
@@ -46,7 +44,6 @@ export class AgentService implements IAgentService {
             case 'kilo': return await this.connectKilo(execPath);
             case 'opencode': return await this.connectOpenCode(execPath);
             case 'claude': return await this.connectClaude(execPath === 'claude' ? 'claude-agent-acp' : execPath);
-            case 'openai': return this.connectOpenAI();
             default: return false;
         }
     }
@@ -73,10 +70,6 @@ export class AgentService implements IAgentService {
 
             if (agentName === 'claude') {
                 return await this.connectClaude(execPath === 'claude' ? 'claude-agent-acp' : execPath);
-            }
-
-            if (agentName === 'openai') {
-                return this.connectOpenAI();
             }
 
             if (agentName && agentName !== 'npx') {
@@ -191,21 +184,6 @@ export class AgentService implements IAgentService {
         return false;
     }
 
-    private connectOpenAI(overrideApiKey?: string, overrideModel?: string, overrideBaseUrl?: string): boolean {
-        const cfg = this._cfg();
-        const model = overrideModel || cfg.get<string>('provider.openai.model');
-        this.openaiAgent = new OpenAIAgent({
-            apiKey: overrideApiKey || cfg.get<string>('provider.openai.apiKey'),
-            model,
-            baseURL: overrideBaseUrl || cfg.get<string>('provider.openai.baseUrl'),
-        });
-        this._isConnected = true;
-        this._agentName = 'openai';
-        this._modelName = model || 'unknown';
-        this.agentType = 'openai';
-        return true;
-    }
-
     private _kiloConfigPath(): string {
         const xdgConfig = process.env.XDG_CONFIG_HOME;
         if (xdgConfig) return path.join(xdgConfig, 'kilo', 'kilo.jsonc');
@@ -273,7 +251,6 @@ export class AgentService implements IAgentService {
             await this.acpClient.dispose();
             this.acpClient = null;
         }
-        this.openaiAgent = null;
         this._isConnected = false;
         this._agentName = '';
         this._modelName = '';
@@ -283,9 +260,6 @@ export class AgentService implements IAgentService {
     async createSession(taskId: string, cwd: string, existingSessionId?: string): Promise<string | null> {
         if (this.acpClient) {
             return await this.acpClient.createSession(taskId, cwd, existingSessionId);
-        }
-        if (this.openaiAgent) {
-            return this.openaiAgent.createSession(taskId);
         }
         throw new Error('未连接到 Agent');
     }
@@ -301,39 +275,28 @@ export class AgentService implements IAgentService {
     }
 
     async sendPrompt(taskId: string, text: string, handler: AcpMessageHandler): Promise<void> {
+        if (!this.acpClient || !this.isConnected) {
+            const errMsg = this.acpClient ? this.acpClient.lastError : '';
+            handler.onError(errMsg || 'ACP 会话未就绪');
+            return;
+        }
         let sessionId = this.getSessionId(taskId);
         if (!sessionId) {
-            if (this.isConnected && this.acpClient) {
-                const cwd = this.workspaceRoot;
-                const newSession = await this.acpClient.createSession(taskId, cwd);
-                sessionId = newSession ?? undefined;
-            }
-            if (!sessionId) {
-                if (this.openaiAgent && this.agentType === 'openai') {
-                    sessionId = `openai-session-${taskId}`;
-                } else {
-                    const errMsg = this.acpClient ? this.acpClient.lastError : '';
-                    handler.onError(errMsg || 'ACP 会话未就绪');
-                    return;
-                }
-            }
+            const cwd = this.workspaceRoot;
+            const newSession = await this.acpClient.createSession(taskId, cwd);
+            sessionId = newSession ?? undefined;
         }
-
-        if (this.acpClient && this.agentType === 'acp') {
-            await this.acpClient.prompt(taskId, text, handler);
-        } else if (this.openaiAgent && this.agentType === 'openai') {
-            this.openaiAgent.setHandler(sessionId, handler);
-            await this.openaiAgent.prompt(sessionId, text);
-        } else {
-            handler.onError('Agent 未就绪');
+        if (!sessionId) {
+            const errMsg = this.acpClient.lastError || '';
+            handler.onError(errMsg || 'ACP 会话未就绪');
+            return;
         }
+        await this.acpClient.prompt(taskId, text, handler);
     }
 
     async cancel(taskId: string): Promise<void> {
         if (this.acpClient) {
             await this.acpClient.cancel(taskId);
-        } else if (this.openaiAgent) {
-            this.openaiAgent.cancel(`openai-session-${taskId}`);
         }
     }
 
@@ -346,9 +309,6 @@ export class AgentService implements IAgentService {
     getReviewChanges(taskId: string): FileChange[] {
         if (this.acpClient) {
             return this.acpClient.getReviewChanges(taskId);
-        }
-        if (this.openaiAgent) {
-            return this.openaiAgent.getReviewChanges?.(taskId) || [];
         }
         return [];
     }

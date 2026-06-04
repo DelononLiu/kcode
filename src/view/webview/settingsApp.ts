@@ -17,17 +17,12 @@
                     { value: 'kilo', label: 'Kilo' },
                     { value: 'opencode', label: 'OpenCode' },
                     { value: 'claude', label: 'Claude (claude-agent-acp)' },
-                    { value: 'openai', label: 'OpenAI' },
                 ] },
             ],
         },
         provider: {
             label: 'Provider',
-            fields: [
-                { key: 'provider.openai.apiKey', label: 'OpenAI API Key', desc: 'OpenAI API key；可回退到 OPENAI_API_KEY 环境变量', type: 'password', default: '' },
-                { key: 'provider.openai.model', label: '模型', desc: 'OpenAI 模型名；可回退到 OPENAI_MODEL 环境变量', type: 'text', default: 'deepseek-v4-flash' },
-                { key: 'provider.openai.baseUrl', label: 'API Base URL', desc: 'OpenAI API base URL；可回退到 OPENAI_BASE_URL 环境变量', type: 'text', default: 'https://api.deepseek.com' },
-            ],
+            fields: [],
         },
         log: {
             label: 'ACP Log',
