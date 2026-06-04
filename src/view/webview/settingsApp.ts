@@ -16,7 +16,7 @@
                 { key: 'agentName', label: 'Agent 类型', desc: '选择要使用的 Agent', type: 'select', default: '', options: [
                     { value: 'kilo', label: 'Kilo' },
                     { value: 'opencode', label: 'OpenCode' },
-                    { value: 'claude', label: 'Claude (claude-agent-acp)' },
+                    { value: 'claude', label: 'Claude Code' },
                 ] },
             ],
         },
