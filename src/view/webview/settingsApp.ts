@@ -22,7 +22,11 @@
         },
         provider: {
             label: 'Provider',
-            fields: [],
+            fields: [
+                { key: 'provider.openai.apiKey', label: 'API Key', desc: 'OpenAI API 密钥', type: 'password', default: '' },
+                { key: 'provider.openai.model', label: '模型', desc: '模型名称，如 deepseek-v4-flash、gpt-4o', type: 'text', default: '' },
+                { key: 'provider.openai.baseUrl', label: 'Base URL', desc: 'API 地址，默认 https://api.deepseek.com', type: 'text', default: '' },
+            ],
         },
         log: {
             label: 'ACP Log',
