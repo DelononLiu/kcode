@@ -1,16 +1,25 @@
-# ACP 协议接入 — OpenCode 集成验证
+# ACP 协议接入
 
 ## 背景
 
-ACP (Agent Client Protocol) 是标准化代码编辑器与 AI 编码 Agent 之间通信的协议。KCode 作为 VS Code 扩展（Client 端），需要通过 ACP 与 Agent（如 OpenCode）通信。
+ACP (Agent Client Protocol) 是标准化代码编辑器与 AI 编码 Agent 之间通信的协议。KCode 作为 VS Code 扩展（Client 端），需要通过 ACP 与 Agent（OpenCode / Claude Code）通信。
+
+## 支持的 Agent
+
+| Agent | 启动命令 | 配置路径 |
+|-------|----------|----------|
+| OpenCode | `opencode acp --port 0 --cwd <工作目录>` | `~/.config/opencode/config.json` |
+| Claude Code | `claude-agent-acp acp --port 0 --cwd <工作目录>` | `~/.claude/settings.json` |
+
+Claude Code 也提供 ACP 入口 `claude-agent-acp`（随 `@anthropic-ai/claude-code` 安装），入门命令同样为：
+
+```bash
+claude-agent-acp acp --port 0 --cwd <工作目录>
+```
 
 ## 传输方式
 
-OpenCode 通过 stdio 运行 ACP 服务器（非 HTTP）：
-
-```bash
-opencode acp --port 0 --cwd <工作目录>
-```
+Agent 通过 stdio 运行 ACP 服务器（非 HTTP）：
 
 - JSON-RPC 2.0 协议，消息通过 stdin/stdout 传递
 - 消息为换行符分隔的 JSON (NDJSON)
@@ -250,5 +259,90 @@ try {
   const { sessionId } = await connection.newSession({ cwd, mcpServers: [] });
   taskStore.updateTaskSessionId(taskId, sessionId);
 }
+```
+
+## 验证连接
+
+以下独立脚本可验证 ACP 连接是否正常。保存为文件后运行：
+
+```bash
+npx tsx test_acp.ts /path/to/claude-agent-acp
+```
+
+脚本执行流程：`initialize` → `newSession` → `prompt`，实时打印 Agent 流式回复。连接失败或 API 错误时会提示检查 `~/.claude/settings.json`。
+
+### test_acp.ts
+
+```typescript
+import { spawn } from 'child_process';
+import { Writable, Readable } from 'stream';
+import * as acp from '@agentclientprotocol/sdk';
+
+class StubClient {
+    async requestPermission() { return { outcome: { outcome: 'selected' as const, optionId: 'allow' } }; }
+    async sessionUpdate(params: any) {
+        const update = params.update;
+        if (update?.sessionUpdate === 'agent_message_chunk') {
+            process.stdout.write(update.content?.text || '');
+        }
+    }
+    async writeTextFile() { return {}; }
+    async readTextFile() { return { content: '' }; }
+}
+
+async function main() {
+    const claudePath = process.argv[2] || 'claude';
+    const cwd = process.cwd();
+    console.log(`Spawning: ${claudePath} acp --port 0 --cwd ${cwd}`);
+
+    const proc = spawn(claudePath, ['acp', '--port', '0', '--cwd', cwd], {
+        stdio: ['pipe', 'pipe', 'inherit'],
+    });
+
+    const input = Writable.toWeb(proc.stdin) as WritableStream<Uint8Array>;
+    const output = Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>;
+    const stream = acp.ndJsonStream(input, output);
+
+    const connection = new acp.ClientSideConnection(() => new StubClient(), stream);
+
+    try {
+        const init = await connection.initialize({
+            protocolVersion: acp.PROTOCOL_VERSION,
+            clientCapabilities: { fs: { readTextFile: true, writeTextFile: true } },
+            clientInfo: { name: 'kcode-test', version: '1.0' },
+        });
+        console.log(`OK protocol v${init.protocolVersion}`);
+
+        const s = await connection.newSession({ cwd, mcpServers: [] });
+        console.log(`OK session ${s.sessionId}`);
+
+        console.log('Sending prompt: "Say hello in one sentence"');
+        const result = await connection.prompt({
+            sessionId: s.sessionId,
+            prompt: [{ type: 'text', text: 'Say hello in one sentence' }] as any,
+        });
+        console.log(`OK prompt stopReason: ${result.stopReason}`);
+        console.log('TEST PASSED');
+    } catch (err: any) {
+        const errMsg = err?.message || String(err);
+        console.log(`\nFAILED: ${errMsg}`);
+        console.log(`\n请检查配置文件: ~/.claude/settings.json`);
+    }
+    proc.kill('SIGTERM');
+}
+
+main().catch(console.error);
+```
+
+输出示例：
+
+```
+Spawning: /path/to/claude-agent-acp acp --port 0 --cwd /home/user/kcode
+OK protocol v1
+OK session 34ba6354-8711-4628-86c8-0b679e6316ca
+Sending prompt: "Say hello in one sentence"
+Hello! I'm your coding assistant, ready to help.
+OK prompt stopReason: end_turn
+TEST PASSED
 ```
 

@@ -17,7 +17,7 @@ export class EnvDetector {
         }
 
         if (!env.kiloInstalled && !env.opencodeInstalled && !env.claudeInstalled) {
-            stream('\n\n⚠️ 未检测到 Kilo CLI、OpenCode CLI 或 Claude CLI，请先安装其中一个：\n- Kilo: https://kilo.ai\n- OpenCode: https://opencode.ai\n- Claude: https://claude.ai');
+            stream('\n\n⚠️ 未检测到 Kilo CLI、OpenCode CLI 或 Claude CLI，请先安装其中一个：\n- Kilo: https://kilo.ai\n- OpenCode: https://opencode.ai\n- Claude: npm install -g @anthropic-ai/claude-code');
             return;
         }
 
@@ -71,7 +71,11 @@ export class EnvDetector {
         } else if (agentName === 'opencode') {
             stream('\n\n🤖 模型: 使用 OpenCode 默认配置');
         } else if (agentName === 'claude') {
-            stream('\n\n🤖 模型: 使用 Claude 默认配置');
+            const key = process.env.ANTHROPIC_API_KEY;
+            const model = process.env.CLAUDE_MODEL || 'claude-sonnet-4-20250514';
+            stream(key
+                ? `\n\n🤖 模型: ${model} | API Key: ✅`
+                : `\n\n🤖 模型: ${model}\n⚠️ ANTHROPIC_API_KEY 未设置，请在环境变量或设置中配置`);
         }
     }
 }

@@ -153,14 +153,15 @@ export class AgentService implements IAgentService {
         return false;
     }
 
-    private async connectClaude(execPath: string): Promise<boolean> {
-        // claude-agent-acp 以 stdio ACP 服务器模式运行，不传额外参数
+    private async connectClaude(claudePath: string): Promise<boolean> {
         const acpClient = new AcpClient(this.workspaceRoot);
         if (this.logCallback) {
             acpClient.setLogCallback(this.logCallback);
         }
 
-        const connectPromise = acpClient.connect(execPath, []);
+        const connectPromise = acpClient.connect(claudePath, [
+            'acp', '--port', '0', '--cwd', this.workspaceRoot,
+        ]);
         const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10000));
         const connected = await Promise.race([connectPromise, timeoutPromise]);
 
@@ -168,7 +169,7 @@ export class AgentService implements IAgentService {
             this.acpClient = acpClient;
             this._isConnected = true;
             this._agentName = 'claude';
-            this._modelName = 'claude';
+            this._modelName = process.env.CLAUDE_MODEL || '';
             this.agentType = 'acp';
             this._lastError = '';
             acpClient.onExit((code) => {
@@ -180,7 +181,7 @@ export class AgentService implements IAgentService {
             return true;
         }
 
-        this._lastError = acpClient.lastError || `无法启动 claude-agent-acp: ${execPath}`;
+        this._lastError = acpClient.lastError || `无法启动 claude: ${claudePath}`;
         return false;
     }
 
