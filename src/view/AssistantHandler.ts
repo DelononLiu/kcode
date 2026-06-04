@@ -195,28 +195,61 @@ export class AssistantHandler {
     }
 
     private _formatEnvMessage(env: SetupResult): string {
+        // 判断 Node.js 版本是否满足最低要求
+        const nodeMajor = env.nodeVersion ? parseInt(env.nodeVersion.replace(/^v/i, '').trim().split('.')[0], 10) : 0;
+        const nodeValid = env.nodeInstalled && nodeMajor >= 22;
+        const nodeStatus = !env.nodeInstalled ? '❌ 未安装' : nodeValid ? '✅ 就绪' : '⬆️ 版本过低';
+
         const lines = [
             '## 📋 环境检测结果',
             '',
             '| 项目 | 状态 | 版本 |',
             '|------|------|------|',
-            `| Node.js | ${env.nodeInstalled ? '✅ 就绪' : '❌ 未安装'} | ${env.nodeVersion || '-'} |`,
+            `| Node.js | ${nodeStatus} | ${env.nodeVersion || '-'} |`,
             `| npm | ${env.npmInstalled ? '✅ 就绪' : '❌ 未安装'} | ${env.npmVersion || '-'} |`,
+            `| Claude CLI | ${env.claudeInstalled ? '✅ 就绪' : '❌ 未安装'} | ${env.claudeVersion || '-'} |`,
             `| Kilo CLI | ${env.kiloInstalled ? '✅ 就绪' : '❌ 未安装'} | ${env.kiloVersion || '-'} |`,
             `| OpenCode CLI | ${env.opencodeInstalled ? '✅ 就绪' : '❌ 未安装'} | ${env.opencodeVersion || '-'} |`,
             `| Agent 配置 | ${env.configReady ? '✅ 已配置' : '❌ 未配置'} | - |`,
             '',
-            '按回车开始自动安装缺失组件并配置 Agent。',
         ];
+
+        // 根据 Node.js 情况添加提示
+        if (!env.nodeInstalled) {
+            lines.push('🔍 未检测到 Node.js，将自动下载 Node.js 24 并配置环境变量。');
+        } else if (!nodeValid) {
+            lines.push(`🔍 系统 Node.js v${env.nodeVersion} 版本过低 (需 >= v22)，将自动下载 Node.js 24 并配置环境变量。`);
+        } else {
+            lines.push('✅ Node.js 版本满足要求，将直接使用系统 Node.js。');
+        }
+
+        // Agent 情况提示
+        const hasAnyAgent = env.kiloInstalled || env.opencodeInstalled || env.claudeInstalled;
+        if (!hasAnyAgent) {
+            lines.push('🔍 未检测到 Agent CLI，将自动安装 Claude Code。');
+            lines.push('', '```bash', 'npm install -g @anthropic-ai/claude-code', '```');
+        } else if (env.claudeInstalled) {
+            lines.push('✅ 已检测到 Claude CLI，将优先配置 Claude Code。');
+        }
+
+        lines.push('', '按回车开始自动安装缺失组件并配置 Agent。');
         return lines.join('\n');
     }
 
-    transitionAfterSetup(configWasMissing?: boolean) {
+    transitionAfterSetup(configWasMissing?: boolean, setupContent?: string) {
         const shouldGuide = this._isFirstLaunch || configWasMissing;
         this._envPhase = '';
         if (shouldGuide) {
+            // 将 setup 流式内容作为首条消息保留，避免"一闪而过"
             this.store.setAssistantMessages([]);
-            this.startGuide();
+            this._guideMessages = [];
+            if (setupContent) {
+                const timestamp = Date.now();
+                const msgId = this.store.nextAssistantMessageId();
+                this._guideMessages.push({ id: msgId, role: 'agent', content: setupContent, timestamp });
+            }
+            this._guideStep = 0;
+            this._sendGuideStep();
         } else {
             this._addAssistantMessage('✅ **环境已就绪**\n\n现在可以开始使用 KCode 了！输入问题或需求即可。');
             this.router.PostMessage({ type: 'setInputPlaceholder', text: '向小助手描述你的问题...' });

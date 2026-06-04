@@ -40,24 +40,49 @@ export async function detectEnv(narrate: NarrationCallback): Promise<SetupResult
 
     const results: SetupResult = { nodeInstalled: false, nodeVersion: '', npmInstalled: false, npmVersion: '', kiloInstalled: false, kiloVersion: '', opencodeInstalled: false, opencodeVersion: '', claudeInstalled: false, claudeVersion: '', configReady: false };
 
-    const [hasNode, hasNpm, hasKilo, hasOpencode, hasClaude] = await Promise.all([
+    const [hasSystemNode, hasNpm, hasKilo, hasOpencode, hasClaude] = await Promise.all([
         which('node'),
         which('npm'),
         which('kilo'),
         which('opencode'),
-        which('claude-agent-acp'),
+        which('claude'),
     ]);
 
-    results.nodeInstalled = hasNode;
-    results.npmInstalled = hasNpm;
+    // 也检测管理版 Node.js（~/.kcode/node/ 下已下载的）
+    let { getNodeExePath } = { getNodeExePath: () => '' };
+    try {
+        ({ getNodeExePath } = await import('../env/NodeManager'));
+    } catch {}
+    const managedNodeExe = getNodeExePath();
+    const fs = await import('fs');
+    const hasManagedNode = managedNodeExe ? fs.existsSync(managedNodeExe) : false;
+
+    // 管理版 npm 路径（与 managed node 同目录）
+    const managedNpmExe = managedNodeExe ? managedNodeExe.replace(/node(\.exe)?$/, 'npm$1') : '';
+    const hasManagedNpm = managedNpmExe ? fs.existsSync(managedNpmExe) : false;
+
+    results.nodeInstalled = hasSystemNode || hasManagedNode;
+    results.npmInstalled = hasNpm || hasManagedNpm;
     results.kiloInstalled = hasKilo;
     results.opencodeInstalled = hasOpencode;
     results.claudeInstalled = hasClaude;
 
-    if (hasNode) {
+    if (hasManagedNode) {
+        results.nodeVersion = await new Promise<string>(resolve => {
+            cp.exec(`"${managedNodeExe}" --version`, { maxBuffer: 4096 }, (err, stdout) => {
+                resolve(err ? '' : stdout.trim().split('\n')[0]);
+            });
+        });
+    } else if (hasSystemNode) {
         results.nodeVersion = await getVersion('node');
     }
-    if (hasNpm) {
+    if (hasManagedNpm) {
+        results.npmVersion = await new Promise<string>(resolve => {
+            cp.exec(`"${managedNpmExe}" --version`, { maxBuffer: 4096 }, (err, stdout) => {
+                resolve(err ? '' : stdout.trim().split('\n')[0]);
+            });
+        });
+    } else if (hasNpm) {
         results.npmVersion = await getVersion('npm');
     }
     if (hasKilo) {
@@ -67,13 +92,12 @@ export async function detectEnv(narrate: NarrationCallback): Promise<SetupResult
         results.opencodeVersion = await getVersion('opencode');
     }
     if (hasClaude) {
-        results.claudeVersion = await getVersion('claude-agent-acp');
+        results.claudeVersion = await getVersion('claude');
     }
 
     // Check if kcode config has agentName set
     const configPath = path.join(os.homedir(), '.kcode', 'kcode.jsonc');
     try {
-        const fs = await import('fs');
         if (fs.existsSync(configPath)) {
             const raw = fs.readFileSync(configPath, 'utf-8');
             const cfg = JSON.parse(raw);

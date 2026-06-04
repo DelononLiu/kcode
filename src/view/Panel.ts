@@ -376,26 +376,32 @@ export class Panel {
     autoSendGoal(taskId: string, text: string) { this.sessionHandler.handleSendMessage(text, taskId); }
 
     private async _runEnvSetup() {
-        const stream = (text: string) => this.router.PostMessage({ type: 'agentStreamUpdate', text });
+        let streamBuffer = '';
+        const stream = (text: string) => {
+            streamBuffer += text;
+            this.router.PostMessage({ type: 'agentStreamUpdate', text });
+        };
 
         stream('正在检查运行环境…\n');
 
         const { detectEnv } = await import('./SetupWizard');
         const env = await detectEnv(() => {});
 
-        if (!env.nodeInstalled) {
-            stream('\n\n⚠️ Node.js 未安装，请先安装 Node.js https://nodejs.org');
-            this.assistantHandler.transitionAfterSetup(false);
+        // 自动检测 Node.js，缺失或版本过低则自动下载 Node 24
+        const { ensureNode, needsManagedNode } = await import('../env/NodeManager');
+        const nodePath = await ensureNode(stream);
+
+        if (!nodePath && await needsManagedNode()) {
+            stream('\n\n❌ Node.js 不可用，请手动安装 Node.js https://nodejs.org');
             return;
         }
 
         if (!env.kiloInstalled && !env.opencodeInstalled && !env.claudeInstalled) {
-            stream('\n\n⚠️ 未检测到 Kilo CLI、OpenCode CLI 或 Claude CLI，请先安装其中一个：\n- Kilo: https://kilo.ai\n- OpenCode: https://opencode.ai\n- Claude: npm install -g @anthropic-ai/claude-code');
-            this.assistantHandler.transitionAfterSetup(false);
+            stream('\n\n⚠️ 未检测到 Agent CLI，将自动安装 Claude Code：\n```bash\nnpm install -g @anthropic-ai/claude-code\n```\n或手动安装其一：\n- Claude: `npm install -g @anthropic-ai/claude-code`\n- Kilo: `npm install -g @kilocode/cli`\n- OpenCode: `npm install -g opencode-ai@latest`');
             return;
         }
 
-        const agentToUse = env.kiloInstalled ? 'kilo' : env.claudeInstalled ? 'claude' : 'opencode';
+        const agentToUse = env.claudeInstalled ? 'claude' : env.kiloInstalled ? 'kilo' : env.opencodeInstalled ? 'opencode' : 'claude';
         const configWasMissing = !env.configReady;
 
         try {
@@ -434,7 +440,8 @@ export class Panel {
             stream(`\n\n⚠️ 环境配置异常: ${err?.message || err}`);
         }
 
-        this.assistantHandler.transitionAfterSetup(configWasMissing);
+        // 先持久化流式内容再 transition，避免 transitionAfterSetup 清空消息时丢失
+        this.assistantHandler.transitionAfterSetup(configWasMissing, streamBuffer);
     }
 
     private _streamModelConfig(stream: (text: string) => void) {

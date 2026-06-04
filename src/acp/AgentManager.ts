@@ -1,6 +1,8 @@
 import { spawn, execSync, ChildProcess } from 'child_process';
 import { Writable, Readable } from 'stream';
+import * as path from 'path';
 import { log } from '../log';
+import { getNodeBinDir } from '../env/NodeManager';
 
 export interface AgentProcess {
     process: ChildProcess;
@@ -29,9 +31,16 @@ export class AgentManager {
         }
         log('agent', `Spawning: ${resolvedPath} ${args.join(' ')}`);
 
+        // 注入管理版 Node.js PATH，确保 Agent 子进程优先使用正确版本的 Node
+        const spawnedEnv = { ...process.env };
+        const managedBinDir = getNodeBinDir();
+        if (managedBinDir) {
+            spawnedEnv.PATH = `${managedBinDir}${path.delimiter}${spawnedEnv.PATH || ''}`;
+        }
+
         const agentProcess = spawn(command, args, {
             stdio: ['pipe', 'pipe', 'inherit'],
-            env: { ...process.env, ...envOverride }
+            env: { ...spawnedEnv, ...envOverride }
         });
 
         this.process = agentProcess;

@@ -7,40 +7,50 @@ export class EnvDetector {
     async runSetup(agentService: any, router: any, assistantHandler: any): Promise<void> {
         const stream = this.stream;
 
-        stream('正在检查运行环境…\n');
+        let streamBuffer = '';
+        const bufferedStream = (text: string) => {
+            streamBuffer += text;
+            stream(text);
+        };
+
+        bufferedStream('正在检查运行环境…\n');
 
         const env = await detectEnv(() => {});
 
-        if (!env.nodeInstalled) {
-            stream('\n\n⚠️ Node.js 未安装，请先安装 Node.js https://nodejs.org');
+        // 自动检测 Node.js，缺失或版本过低则自动下载 Node 24
+        const { ensureNode, needsManagedNode } = await import('../../env/NodeManager');
+        const nodePath = await ensureNode(bufferedStream);
+
+        if (!nodePath && await needsManagedNode()) {
+            bufferedStream('\n\n❌ Node.js 不可用，请手动安装 Node.js https://nodejs.org');
             return;
         }
 
         if (!env.kiloInstalled && !env.opencodeInstalled && !env.claudeInstalled) {
-            stream('\n\n⚠️ 未检测到 Kilo CLI、OpenCode CLI 或 Claude CLI，请先安装其中一个：\n- Kilo: https://kilo.ai\n- OpenCode: https://opencode.ai\n- Claude: npm install -g @anthropic-ai/claude-code');
+            bufferedStream('\n\n⚠️ 未检测到 Agent CLI，将自动安装 Claude Code：\n```bash\nnpm install -g @anthropic-ai/claude-code\n```\n或手动安装其一：\n- Claude: `npm install -g @anthropic-ai/claude-code`\n- Kilo: `npm install -g @kilocode/cli`\n- OpenCode: `npm install -g opencode-ai@latest`');
             return;
         }
 
-        const agentToUse = env.kiloInstalled ? 'kilo' : env.claudeInstalled ? 'claude' : 'opencode';
+        const agentToUse = env.claudeInstalled ? 'claude' : env.kiloInstalled ? 'kilo' : env.opencodeInstalled ? 'opencode' : 'claude';
 
         if (!env.configReady) {
-            stream('\n\n正在配置 Agent…');
+            bufferedStream('\n\n正在配置 Agent…');
             this.configService.set('agentName', agentToUse);
             await this.configService.save();
-            stream(`\n\n✅ 已自动配置 agentName = "${agentToUse}"`);
+            bufferedStream(`\n\n✅ 已自动配置 agentName = "${agentToUse}"`);
         }
 
-        this.streamModelConfig(agentToUse);
+        this.streamModelConfig(agentToUse, bufferedStream);
 
-        stream('\n\n正在连接 Agent…');
+        bufferedStream('\n\n正在连接 Agent…');
         if (agentService.isConnected) {
             await agentService.disconnect();
         }
         const connected = await agentService.connectByLabel(agentToUse);
         if (connected) {
-            stream('\n\n✅ **环境已就绪**');
+            bufferedStream('\n\n✅ **环境已就绪**');
         } else {
-            stream('\n\n⚠️ 环境配置完成，但连接仍有问题，请在设置中检查。');
+            bufferedStream('\n\n⚠️ 环境配置完成，但连接仍有问题，请在设置中检查。');
         }
 
         if (agentService.isConnected) {
@@ -53,11 +63,10 @@ export class EnvDetector {
             });
         }
 
-        assistantHandler?.transitionAfterSetup?.();
+        assistantHandler?.transitionAfterSetup?.(undefined, streamBuffer);
     }
 
-    private streamModelConfig(agentName: string): void {
-        const stream = this.stream;
+    private streamModelConfig(agentName: string, stream: (text: string) => void): void {
         if (agentName === 'openai') {
             const apiKey = this.configService.get<string>('provider.openai.apiKey');
             const model = this.configService.get<string>('provider.openai.model');
