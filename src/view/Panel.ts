@@ -399,8 +399,8 @@ export class Panel {
         }
 
         if (!env.kiloInstalled && !env.opencodeInstalled && !env.claudeInstalled) {
-            stream('\n\n⚠️ 未检测到 Agent CLI，正在安装 Claude Code…\n');
-            const installed = await this._installClaudeCode(stream);
+            stream('\n\n⚠️ 未检测到 Agent CLI，正在安装 Claude Code（ACP 桥接层）…\n');
+            const installed = await this._installClaudeAcpBridge(stream);
             if (!installed) return;
             // 安装完后重新检测环境
             const env2 = await detectEnv(() => {});
@@ -452,34 +452,18 @@ export class Panel {
         this.assistantHandler.transitionAfterSetup(configWasMissing, streamBuffer);
     }
 
-    private async _installClaudeCode(stream: (text: string) => void): Promise<boolean> {
+    private async _installClaudeAcpBridge(stream: (text: string) => void): Promise<boolean> {
         const { getNodeBinDir } = await import('../env/NodeManager');
         const binDir = getNodeBinDir();
         if (!binDir) {
-            stream('\n❌ 管理版 Node 不可用，无法安装 Claude Code');
+            stream('\n❌ 管理版 Node 不可用，无法安装 ACP 桥接层');
             return false;
         }
 
-        // @agentclientprotocol/claude-agent-acp 是 ACP 桥接层，需要一起安装
+        // @agentclientprotocol/claude-agent-acp 自带 Claude Code（依赖 @anthropic-ai/claude-agent-sdk）
         const npmExe = path.join(binDir, process.platform === 'win32' ? 'npm.cmd' : 'npm');
 
-        stream('📦 正在通过管理版 npm 安装 @anthropic-ai/claude-code…\n');
-        try {
-            const { execSync } = await import('child_process');
-            execSync(`"${npmExe}" install -g @anthropic-ai/claude-code`, {
-                cwd: binDir,
-                stdio: ['ignore', 'pipe', 'pipe'],
-                timeout: 120000,
-                env: { ...process.env, PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}` },
-            });
-            stream('✅ Claude Code 安装完成');
-        } catch (err: any) {
-            const stderr = err.stderr?.toString()?.trim() || err.message || '';
-            stream(`\n❌ npm install @anthropic-ai/claude-code 失败:\n${stderr}`);
-            return false;
-        }
-
-        stream('\n📦 正在安装 ACP 桥接层 @agentclientprotocol/claude-agent-acp…\n');
+        stream('📦 正在通过管理版 npm 安装 @agentclientprotocol/claude-agent-acp…\n');
         try {
             const { execSync } = await import('child_process');
             execSync(`"${npmExe}" install -g @agentclientprotocol/claude-agent-acp`, {
@@ -488,7 +472,7 @@ export class Panel {
                 timeout: 120000,
                 env: { ...process.env, PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}` },
             });
-            stream('✅ ACP 桥接层安装完成');
+            stream('✅ @agentclientprotocol/claude-agent-acp 安装完成（含 Claude Code）');
             return true;
         } catch (err: any) {
             const stderr = err.stderr?.toString()?.trim() || err.message || '';
