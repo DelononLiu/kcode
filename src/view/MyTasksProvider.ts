@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { TaskStore } from '../store/TaskStore';
-
-const _output = vscode.window.createOutputChannel('KCode MyTasks');
+import { log } from '../log';
 
 export class MyTasksProvider {
     static readonly viewType = 'kcode.myTasksPanel';
@@ -50,10 +49,10 @@ export class MyTasksProvider {
 
     private _setupMessageHandler(): void {
         this.panel.webview.onDidReceiveMessage(async (msg: any) => {
-            _output.appendLine('[MyTasksProvider] onDidReceiveMessage: type=' + msg.type);
+            log('mytasks', '[MyTasksProvider] onDidReceiveMessage: type=' + msg.type);
             switch (msg.type) {
                 case 'debugLog': {
-                    _output.appendLine('[WebView] ' + msg.text);
+                    log('mytasks', '[WebView] ' + msg.text);
                     return;
                 }
                 case 'ready': {
@@ -207,7 +206,7 @@ export class MyTasksProvider {
                 currentWorkspace,
             });
         } catch (err) {
-            _output.appendLine('[MyTasksProvider] sendTaskData error: ' + err);
+            log('mytasks', '[MyTasksProvider] sendTaskData error: ' + err);
         }
     }
 
@@ -215,7 +214,7 @@ export class MyTasksProvider {
         const containers = this._store.getContainers();
         const projects = containers.filter(c => c.type === 'project');
         const currentWorkspace = vscode.workspace.workspaceFolders?.[0]?.name || '';
-        _output.appendLine(`[MyTasksProvider] _sendProjectData: ${projects.length} projects, ${containers.length} containers`);
+        log('mytasks', `[MyTasksProvider] _sendProjectData: ${projects.length} projects, ${containers.length} containers`);
         try {
             this.panel.webview.postMessage({
                 type: 'updateProjects',
@@ -224,7 +223,7 @@ export class MyTasksProvider {
                 currentWorkspace,
             });
         } catch (err) {
-            _output.appendLine('[MyTasksProvider] postMessage error: ' + err);
+            log('mytasks', '[MyTasksProvider] postMessage error: ' + err);
         }
     }
 

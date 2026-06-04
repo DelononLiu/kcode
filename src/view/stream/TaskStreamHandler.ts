@@ -2,20 +2,7 @@ import { StreamHandlerBase } from './StreamHandlerBase';
 import type { KCodePanelContext } from '../PanelContext';
 import type { PlanStep } from '../../types';
 import { taskLogStore } from '../../store/TaskLogStore';
-
-const _output = (() => {
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const v = require('vscode');
-        const ch = v.window.createOutputChannel('KCode Debug');
-        return ch;
-    } catch { return null; }
-})();
-function debug(msg: string) {
-    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
-    console.log(line);
-    if (_output) _output.appendLine(line);
-}
+import { log } from '../../log';
 
 export class TaskStreamHandler extends StreamHandlerBase {
     constructor(
@@ -186,7 +173,7 @@ export class TaskStreamHandler extends StreamHandlerBase {
                 this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskStatus: this.ctx.store.getTask(this.tid)?.status });
                 this.router.PostMessage({ type: 'showExecuteConfirmation', taskId: this.tid });
             } else if (genResult.selfVerifyFinished && task?.type === 'task' && task?.phase === 'self_verify') {
-                debug('selfVerifyFinished, waiting for user confirmation');
+                log('stream', 'selfVerifyFinished, waiting for user confirmation');
                 if (cleanedText) this.ctx.storeMessage(this.tid, 'agent', cleanedText);
                 this.ctx.sendTaskInfo(this.tid);
                 this.ctx.sendNodePanelUpdate(this.tid);

@@ -4,8 +4,7 @@ import * as tls from 'tls';
 import { TaskStore } from '../store/TaskStore';
 import { ConfigService } from '../core/ConfigService';
 import { Task, TaskSource } from '../types';
-
-const output = vscode.window.createOutputChannel('KCode Import');
+import { log } from '../log';
 
 interface GitHubIssueData {
     title: string;
@@ -35,10 +34,10 @@ function getProxy(): { host: string; port: number } | null {
     const env = process.env;
     const proxyUrl = env.ALL_PROXY || env.all_proxy || env.HTTPS_PROXY || env.https_proxy || env.HTTP_PROXY || env.http_proxy;
     if (!proxyUrl) {
-        output.appendLine('No proxy configured in env vars');
+        log('import', 'No proxy configured in env vars');
         return null;
     }
-    output.appendLine(`Found proxy: ${proxyUrl}`);
+    log('import', `Found proxy: ${proxyUrl}`);
     try {
         const u = new URL(proxyUrl);
         const port = parseInt(u.port, 10) || (u.protocol === 'socks5:' ? 1080 : 3128);
@@ -162,7 +161,7 @@ function rawHttpsGet(host: string, path: string, headers: Record<string, string>
                         }
                     }
 
-                    output.appendLine(`GET https://${host}${path} -> ${statusCode} bodyLen=${body.length} bodyPreview=${JSON.stringify(body.slice(0, 200))}`);
+                    log('import', `GET https://${host}${path} -> ${statusCode} bodyLen=${body.length} bodyPreview=${JSON.stringify(body.slice(0, 200))}`);
                     if (statusCode === 404) {
                         reject(new Error('Issue 不存在 (404)'));
                     } else if (statusCode === 403) {
@@ -199,7 +198,7 @@ async function fetchGitHubIssue(
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
-    output.appendLine(`Fetching: api.github.com${path} token=${token ? 'yes' : 'no'}`);
+    log('import', `Fetching: api.github.com${path} token=${token ? 'yes' : 'no'}`);
 
     const body = await rawHttpsGet('api.github.com', path, headers);
     const data = JSON.parse(body);
@@ -215,26 +214,26 @@ export async function importGitHubIssue(
     openTask: (taskId: string, autoSendGoal?: string) => void,
     refreshSidebar: () => void
 ): Promise<void> {
-    output.appendLine('--- importGitHubIssue started ---');
+    log('import', '--- importGitHubIssue started ---');
     const input = await vscode.window.showInputBox({
         prompt: 'GitHub Issue URL 或 owner/repo#123',
         placeHolder: 'https://github.com/owner/repo/issues/123 或 owner/repo#123',
         ignoreFocusOut: true,
     });
     if (!input) {
-        output.appendLine('User cancelled');
+        log('import', 'User cancelled');
         return;
     }
-    output.appendLine(`Input: ${input}`);
+    log('import', `Input: ${input}`);
 
     const parsed = parseGitHubUrl(input);
     if (!parsed) {
         const msg = '格式错误，请使用 GitHub Issue URL 或 owner/repo#123 格式';
-        output.appendLine(msg);
+        log('import', msg);
         vscode.window.showErrorMessage(msg);
         return;
     }
-    output.appendLine(`Parsed: ${parsed.owner}/${parsed.repo}#${parsed.issueNumber}`);
+    log('import', `Parsed: ${parsed.owner}/${parsed.repo}#${parsed.issueNumber}`);
 
     const token = (ConfigService.getInstance().get<string>('github.token', '') || '').trim() || undefined;
 
@@ -246,14 +245,14 @@ export async function importGitHubIssue(
         );
     } catch (err: any) {
         const msg = err?.message ?? String(err) ?? '未知错误';
-        output.appendLine(`Error: ${msg}`);
+        log('import', `Error: ${msg}`);
         vscode.window.showErrorMessage(`导入失败: ${msg}`);
         return;
     }
 
-    output.appendLine(`Fetched: ${issue.title}`);
-    output.appendLine(`Body length: ${issue.body.length}`);
-    output.appendLine(`Body preview: ${JSON.stringify(issue.body.slice(0, 300))}`);
+    log('import', `Fetched: ${issue.title}`);
+    log('import', `Body length: ${issue.body.length}`);
+    log('import', `Body preview: ${JSON.stringify(issue.body.slice(0, 300))}`);
 
     const bodyPreview = issue.body.length > 500 ? issue.body.slice(0, 500) + '\n...' : issue.body;
     const confirmAction = await vscode.window.showInformationMessage(
@@ -272,7 +271,7 @@ export async function importGitHubIssue(
         '取消'
     );
     if (confirmAction !== '确认导入') {
-        output.appendLine('User cancelled import confirmation');
+        log('import', 'User cancelled import confirmation');
         return;
     }
 
@@ -300,7 +299,7 @@ export async function importGitHubIssue(
         source,
     };
     store.addTask(task);
-    output.appendLine(`Task created: ${task.id}`);
+    log('import', `Task created: ${task.id}`);
     refreshSidebar();
     const initialMsg = `GH#${parsed.issueNumber}: ${issue.title}\n\n${issue.body}`;
     openTask(task.id, initialMsg);

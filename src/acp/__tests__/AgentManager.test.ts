@@ -3,6 +3,10 @@ import { spawn } from 'child_process';
 import { Writable, Readable, PassThrough } from 'stream';
 import { AgentManager } from '../AgentManager';
 
+vi.mock('vscode', () => ({
+    window: { createOutputChannel: vi.fn(() => ({ appendLine: vi.fn() })) },
+}));
+
 vi.mock('child_process', () => ({
     spawn: vi.fn(),
 }));
