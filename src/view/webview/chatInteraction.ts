@@ -3,6 +3,15 @@ import { showAgentThinking, hideWorkingIndicator, escapeHtml, renderMarkdown, ap
 import { activateTab } from './messageRenderer';
 import { getChatScroll } from './domContainers';
 
+const AUTO_GROW_CHAT_MAX = 300;
+
+function autoGrowChat(el: HTMLTextAreaElement) {
+    el.style.height = 'auto';
+    const scrollH = el.scrollHeight;
+    el.style.height = Math.min(scrollH, AUTO_GROW_CHAT_MAX) + 'px';
+    el.style.overflowY = scrollH > AUTO_GROW_CHAT_MAX ? 'auto' : 'hidden';
+}
+
 export function initNavButtons() {
     const scrollContainer = getChatScroll();
     const navBtns = document.getElementById('chat-nav-btns');
@@ -84,6 +93,7 @@ export function sendMessageFromInput() {
     const text = input.value.trim();
     if (!text) return;
     input.value = '';
+    autoGrowChat(input);
     input.focus();
     if (text.startsWith('/')) {
         G.vscode.postMessage({ type: 'slashCommand', text, taskId: G.activeTaskId });
@@ -180,6 +190,7 @@ export function initChat() {
 
     input.addEventListener('input', () => {
         const val = input.value;
+        autoGrowChat(input);
         if (val.startsWith('/') && !val.includes(' ')) {
             const query = val.slice(1).toLowerCase();
             const matched = !query ? G.slashCommands : G.slashCommands.filter(c => c.name.toLowerCase().replace(/^\//, '').startsWith(query) || c.name.toLowerCase().startsWith('/' + query));

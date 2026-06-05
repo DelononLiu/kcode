@@ -45,7 +45,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tv4-accent{color:var(--accent)}
 .tv4-init-box{width:100%;max-width:680px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:14px 20px;box-shadow:0 20px 40px rgba(0,0,0,.5);display:flex;align-items:center;transition:border-color .2s}
 .tv4-init-box:focus-within{border-color:#3e3e4a;box-shadow:0 20px 40px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.05)}
-.tv4-init-box textarea{background:transparent;border:none;color:#fff;flex:1;outline:none;font-size:16px;resize:none;min-height:24px;max-height:240px;line-height:1.5;overflow-y:auto;font-family:inherit;padding:0}
+.tv4-init-box textarea{background:transparent;border:none;color:#fff;flex:1;outline:none;font-size:16px;resize:none;min-height:24px;max-height:300px;line-height:1.5;overflow-y:auto;font-family:inherit;padding:0}
 .tv4-init-box textarea::placeholder{color:#494952}
 .tv4-enter-badge{background:var(--bg-item);border:1px solid var(--border);color:var(--text-dim);padding:2px 6px;border-radius:4px;font-size:11px;font-family:monospace}
 
@@ -121,7 +121,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tv4-input-area{flex-shrink:0;border-top:1px solid var(--border);padding:10px 16px 8px;background:var(--bg-deep)}
 .tv4-input-area .tv4-input-wrapper{max-width:900px;margin:0 auto;background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:10px 12px 6px;transition:border-color .2s,box-shadow .2s}
 .tv4-input-area .tv4-input-wrapper:focus-within{border-color:#007fd4;box-shadow:0 0 8px rgba(0,127,212,.3)}
-.tv4-input-area textarea{width:100%;background:transparent;border:none;color:var(--text-main);font-family:inherit;font-size:13.5px;resize:none;outline:none;min-height:36px;max-height:200px;line-height:1.35;padding:0;transition:border-color .2s}
+.tv4-input-area textarea{width:100%;background:transparent;border:none;color:var(--text-main);font-family:inherit;font-size:13.5px;resize:none;outline:none;min-height:36px;max-height:300px;line-height:1.35;padding:0;transition:border-color .2s}
 .tv4-input-area textarea:focus{border-color:transparent;box-shadow:none}
 .tv4-input-area textarea::placeholder{color:#555}
 #task-view .tv4-input-footer{display:flex;align-items:center;padding-top:4px;min-height:28px;justify-content:space-between}
@@ -522,7 +522,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #assistant-view #system-narration.hidden{display:none}
 #assistant-view .input-wrapper{background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:10px 12px 6px;transition:border-color .2s,box-shadow .2s}
 #assistant-view .input-wrapper:focus-within{border-color:#007fd4;box-shadow:0 0 8px rgba(0,127,212,.3)}
-#assistant-view #chat-input{width:100%;background:transparent;color:#d2d2d4;border:none;font-family:inherit;font-size:13.5px;resize:none;outline:none;min-height:36px;max-height:200px;line-height:1.35}
+#assistant-view #chat-input{width:100%;background:transparent;color:#d2d2d4;border:none;font-family:inherit;font-size:13.5px;resize:none;outline:none;min-height:36px;max-height:300px;line-height:1.35}
 #assistant-view #chat-input::placeholder{color:#555}
 #assistant-view .input-footer{display:flex;align-items:center;padding-top:4px;min-height:28px;justify-content:space-between}
 #assistant-view .input-footer-left{display:flex;align-items:center;gap:4px;flex:1}

@@ -116,7 +116,7 @@ function initTabs() {
 function initV4Layout() {
     const initInput = document.getElementById('tv4-init-input') as HTMLTextAreaElement;
     if (initInput) {
-        const AUTO_GROW_MAX = 240;
+        const AUTO_GROW_MAX = 300;
         function autoGrow(el: HTMLTextAreaElement) {
             el.style.height = 'auto';
             const scrollH = el.scrollHeight;
@@ -142,10 +142,20 @@ function initV4Layout() {
     const stopBtn = document.getElementById('tv4-stop-btn');
 
     if (input && sendBtn) {
+        const AUTO_GROW_MAX = 300;
+        function autoGrowTv4(el: HTMLTextAreaElement) {
+            el.style.height = 'auto';
+            const scrollH = el.scrollHeight;
+            el.style.height = Math.min(scrollH, AUTO_GROW_MAX) + 'px';
+            el.style.overflowY = scrollH > AUTO_GROW_MAX ? 'auto' : 'hidden';
+        }
+        input.addEventListener('input', () => autoGrowTv4(input));
+
         sendBtn.addEventListener('click', () => {
             if (input.value.trim() && G.activeTaskId) {
                 G.vscode.postMessage({ type: 'sendMessage', text: input.value.trim(), taskId: G.activeTaskId });
                 input.value = '';
+                autoGrowTv4(input);
             }
         });
 
@@ -155,6 +165,7 @@ function initV4Layout() {
                 if (input.value.trim() && G.activeTaskId) {
                     G.vscode.postMessage({ type: 'sendMessage', text: input.value.trim(), taskId: G.activeTaskId });
                     input.value = '';
+                    autoGrowTv4(input);
                 }
             }
         });
