@@ -27,7 +27,7 @@ export function getInlineStyles(): string {
 }
 
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:var(--text-main);background:var(--bg-deep)}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:var(--text-main);background:var(--vscode-editor-background,var(--bg-deep))}
 .hidden{display:none}
 
 /* ========== #chat-scroll (scoped per view, duplicate in HTML) ========== */
@@ -39,7 +39,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #task-view{display:none}
 
 /* === V4 Init Screen === */
-.tv4-init{position:fixed;top:0;left:0;width:100vw;height:100vh;background:var(--bg-deep);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:100}
+.tv4-init{position:fixed;top:0;left:0;width:100vw;height:100vh;background:var(--vscode-editor-background,var(--bg-deep));display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:100}
 .tv4-init-logo{font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:10px;letter-spacing:1px}
 .tv4-init-logo svg{width:28px;height:28px}
 .tv4-accent{color:var(--accent)}
@@ -50,7 +50,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tv4-enter-badge{background:var(--bg-item);border:1px solid var(--border);color:var(--text-dim);padding:2px 6px;border-radius:4px;font-size:11px;font-family:monospace}
 
 /* === V4 Panel Layout === */
-.tv4-panel{display:flex;flex-direction:column;height:100vh;width:100vw;background:var(--bg-deep)}
+.tv4-panel{display:flex;flex-direction:column;height:100vh;width:100vw;background:var(--vscode-editor-background,var(--bg-deep))}
 .tv4-header{display:flex;align-items:center;padding:0 16px;height:40px;border-bottom:1px solid var(--border);background:var(--bg-panel);flex-shrink:0;gap:10px}
 .tv4-header-name{font-size:14px;font-weight:600;color:var(--text-main);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px}
 .tv4-status-badge{font-size:10px;padding:1px 7px;border-radius:3px;font-weight:500;white-space:nowrap;flex-shrink:0}
@@ -118,8 +118,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 /* #task-view .chat-msg.tool .tl-entry-bar{min-height:24px} */
 
 /* === V4 Input Area === */
-.tv4-input-area{flex-shrink:0;border-top:1px solid var(--border);padding:10px 16px 8px;background:var(--bg-deep)}
-.tv4-input-area .tv4-input-wrapper{max-width:900px;margin:0 auto;background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:10px 12px 6px;transition:border-color .2s,box-shadow .2s}
+.tv4-input-area{flex-shrink:0;border-top:1px solid var(--border);padding:10px 16px 8px;background:var(--vscode-editor-background,var(--bg-deep))}
+.tv4-input-area .tv4-input-wrapper{max-width:900px;margin:0 auto;background:var(--vscode-editor-background,var(--bg-deep));border:1px solid var(--border);border-radius:6px;padding:10px 12px 6px;transition:border-color .2s,box-shadow .2s}
 .tv4-input-area .tv4-input-wrapper:focus-within{border-color:#007fd4;box-shadow:0 0 8px rgba(0,127,212,.3)}
 .tv4-input-area textarea{width:100%;background:transparent;border:none;color:var(--text-main);font-family:inherit;font-size:13.5px;resize:none;outline:none;min-height:36px;max-height:300px;line-height:1.35;padding:0;transition:border-color .2s}
 .tv4-input-area textarea:focus{border-color:transparent;box-shadow:none}
@@ -470,8 +470,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 /* ====== V1 Assistant Layout (scoped under #assistant-view) ====== */
 #assistant-view{height:100vh;width:100vw;overflow:hidden;position:relative}
 #assistant-view #container{display:flex;height:100vh;width:100vw;overflow:hidden;position:relative}
-#assistant-view #chat-area{position:relative;flex:1;display:flex;flex-direction:column;min-width:300px;background:var(--bg-deep)}
-#assistant-view #chat-header{flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);width:100%;max-width:900px;margin:0 auto}
+#assistant-view #chat-area{position:relative;flex:1;display:flex;flex-direction:column;min-width:300px;background:var(--vscode-editor-background,var(--bg-deep))}
+#assistant-view #chat-header{flex-shrink:0;border-bottom:1px solid var(--border);width:100%}
 #assistant-view #chat-header.assistant-header{height:46px;overflow:hidden}
 #assistant-view #chat-header-row1{display:flex;align-items:center;gap:8px;padding:16px 24px 4px}
 #assistant-view .task-info-title{font-size:14px;font-weight:600;color:#e0e0e0;white-space:nowrap}
@@ -507,9 +507,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #assistant-view #tl-dots{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;width:100%;z-index:1;padding:16px 0 4px}
 
 /* When chat-scroll is inside #chat-body (assistant view) */
-#assistant-view #chat-scroll{flex:1;overflow-y:auto;min-height:0;background:var(--bg-deep);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
+#assistant-view #chat-scroll{flex:1;overflow-y:auto;min-height:0;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
 #assistant-view #chat-scroll.chat-empty{display:none}
-#assistant-view #chat-messages{padding:0 24px 0 38px;min-height:100%;max-width:900px;margin:0 auto}
+#assistant-view #chat-messages{padding:0 24px;min-height:100%;max-width:900px;margin:0 auto}
 
 
 
@@ -517,10 +517,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #assistant-view #near-input-tools{display:flex;gap:8px;padding:0 0 8px;flex-shrink:0;flex-wrap:wrap;max-width:900px;margin:0 auto}
 #assistant-view .near-tool-btn{background:transparent;border:none;color:#888;cursor:pointer;font-size:11px;padding:2px 8px;border-radius:3px;white-space:nowrap;display:flex;align-items:center;gap:4px}
 #assistant-view .near-tool-btn:hover{color:#ddd;background:rgba(255,255,255,.04)}
-#assistant-view #chat-input-area{border-top:1px solid rgba(255,255,255,.06);padding:12px 24px 10px;background:var(--bg-deep);flex-shrink:0;max-width:900px;margin:0 auto;width:100%}
-#assistant-view #system-narration{max-width:900px;margin:0 auto;width:100%;padding:6px 24px 0;font-size:12px;color:#888;display:flex;align-items:center;gap:6px;flex-shrink:0}
+#assistant-view #chat-input-area{border-top:1px solid var(--border);padding:12px 24px 10px;background:var(--vscode-editor-background,var(--bg-deep));flex-shrink:0;max-width:900px;margin:0 auto;width:100%}
+#assistant-view #system-narration{max-width:900px;margin:0 auto;padding:6px 0 0;font-size:12px;color:#888;display:flex;align-items:center;gap:6px;flex-shrink:0}
 #assistant-view #system-narration.hidden{display:none}
-#assistant-view .input-wrapper{background:#25252a;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:10px 12px 6px;transition:border-color .2s,box-shadow .2s}
+#assistant-view .input-wrapper{background:var(--vscode-editor-background,var(--bg-deep));border:1px solid var(--border);border-radius:6px;padding:10px 12px 6px;transition:border-color .2s,box-shadow .2s}
 #assistant-view .input-wrapper:focus-within{border-color:#007fd4;box-shadow:0 0 8px rgba(0,127,212,.3)}
 #assistant-view #chat-input{width:100%;background:transparent;color:#d2d2d4;border:none;font-family:inherit;font-size:13.5px;resize:none;outline:none;min-height:36px;max-height:300px;line-height:1.35}
 #assistant-view #chat-input::placeholder{color:#555}
@@ -722,12 +722,13 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #kcode-single-marquee.terminal{color:#5a9d6b;font-family:monospace}
 
 /* ─── CSS 降噪 — typography overhaul ─── */
-#task-view .msg-bubble,.chat-msg .msg-bubble{font-size:13px !important;line-height:1.65 !important;color:#9CA3AF !important}
-#task-view .chat-msg.agent .msg-bubble{font-size:13px !important;line-height:1.65 !important;color:#9CA3AF !important}
-#task-view .msg-bubble h2,.chat-msg .msg-bubble h2{font-size:15px !important;font-weight:600 !important;color:#E5E7EB !important;margin-top:24px !important;margin-bottom:12px !important}
-#task-view .msg-bubble code:not(pre code),.chat-msg .msg-bubble code:not(pre code){font-family:"JetBrains Mono","Fira Code","SF Mono",monospace !important;font-size:12px !important;background-color:rgba(255,255,255,.06) !important;color:#F3F4F6 !important;padding:2px 6px !important;border-radius:4px !important}
+/* 全部使用 VS Code 主题变量，不硬编码色值，确保跨设备一致 */
+#task-view .msg-bubble,.chat-msg .msg-bubble{font-size:13px !important;line-height:1.65 !important;color:var(--vscode-editorCodeLens-foreground)}
+#task-view .chat-msg.agent .msg-bubble{font-size:13px !important;line-height:1.65 !important;color:var(--vscode-editorCodeLens-foreground)}
+#task-view .msg-bubble h2,.chat-msg .msg-bubble h2{font-size:15px !important;font-weight:600 !important;color:var(--vscode-editor-foreground) !important;margin-top:24px !important;margin-bottom:12px !important}
+#task-view .msg-bubble code:not(pre code),.chat-msg .msg-bubble code:not(pre code){font-family:"JetBrains Mono","Fira Code","SF Mono",monospace !important;font-size:12px !important;background-color:var(--vscode-textBlockQuote-background) !important;color:var(--vscode-textPreformat-foreground) !important;padding:2px 6px !important;border-radius:4px !important}
 #task-view .msg-bubble li,.chat-msg .msg-bubble li{margin-bottom:10px !important}
-#task-view .msg-bubble li ul,#task-view .msg-bubble li ol,.chat-msg .msg-bubble li ul,.chat-msg .msg-bubble li ol{margin-top:8px !important;padding-left:20px !important;font-size:12px !important;color:#9CA3AF !important}
+#task-view .msg-bubble li ul,#task-view .msg-bubble li ol,.chat-msg .msg-bubble li ul,.chat-msg .msg-bubble li ol{margin-top:8px !important;padding-left:20px !important;font-size:12px !important;color:var(--vscode-editorCodeLens-foreground)}
 
 	`;
 }
