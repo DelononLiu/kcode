@@ -168,6 +168,11 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             <textarea id="tv4-init-input" placeholder="输入原始工程任务..." rows="1" autofocus></textarea>
             <span class="tv4-enter-badge">↵ Enter</span>
         </div>
+        <div class="tv4-example-chips">
+            <span class="tv4-example-chip" data-text="Python实现一个数字金字塔，层数作为入参，默认5层">🐍 Python实现一个数字金字塔，层数作为入参，默认5层</span>
+            <span class="tv4-example-chip" data-text="分析构建失败问题">🔧 分析构建失败问题</span>
+            <span class="tv4-example-chip" data-text="分析日志文件，找出程序异常原因">📋 分析日志文件，找出程序异常原因</span>
+        </div>
     </div>
 
     <div class="tv4-panel" id="tv4-panel">

@@ -136,6 +136,23 @@ function initV4Layout() {
         });
     }
 
+    // Example chips
+    const chipsContainer = document.querySelector('.tv4-example-chips');
+    if (chipsContainer) {
+        chipsContainer.addEventListener('click', (e) => {
+            const chip = (e.target as HTMLElement).closest('.tv4-example-chip') as HTMLElement;
+            if (chip) {
+                const text = chip.dataset.text;
+                if (text) {
+                    const nameEl = document.getElementById('tv4-task-name');
+                    if (nameEl) nameEl.textContent = text;
+                    G.vscode.postMessage({ type: 'newTaskWithText', text });
+                    showTaskView(true);
+                }
+            }
+        });
+    }
+
     // Unified input
     const input = document.getElementById('tv4-input') as HTMLTextAreaElement;
     const sendBtn = document.getElementById('tv4-send-btn');

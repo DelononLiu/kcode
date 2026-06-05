@@ -47,6 +47,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tv4-init-box:focus-within{border-color:#3e3e4a;box-shadow:0 20px 40px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.05)}
 .tv4-init-box textarea{background:transparent;border:none;color:#fff;flex:1;outline:none;font-size:16px;resize:none;min-height:24px;max-height:300px;line-height:1.5;overflow-y:auto;font-family:inherit;padding:0}
 .tv4-init-box textarea::placeholder{color:#494952}
+.tv4-example-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px;justify-content:center;max-width:520px;margin-left:auto;margin-right:auto}
+.tv4-example-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;font-size:12px;line-height:1.6;color:var(--text-dim);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:4px;cursor:pointer;user-select:none;transition:all .15s;font-family:inherit;text-align:center;max-width:400px}
+.tv4-example-chip:hover{color:var(--text-main);background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2)}
 .tv4-enter-badge{background:var(--bg-item);border:1px solid var(--border);color:var(--text-dim);padding:2px 6px;border-radius:4px;font-size:11px;font-family:monospace}
 
 /* === V4 Panel Layout === */
