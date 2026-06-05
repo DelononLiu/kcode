@@ -6,11 +6,6 @@ export function getCategoryDef(catKey: string): any {
     return G.categoryDefs.find((c: any) => c.key === catKey);
 }
 
-export function getTemplateDef(catKey: string, subKey: string): any {
-    const cat = getCategoryDef(catKey);
-    return cat?.subTypes?.[subKey];
-}
-
 export function renderCategorySelection() {
     const container = getChatMessages();
     if (!container) return;
@@ -45,59 +40,30 @@ export function renderCategorySelection() {
     if (G.selectedCategory) selCat.value = G.selectedCategory;
     wrapper.appendChild(selCat);
 
-    const selSub = document.createElement('select');
-    selSub.className = 'template-flow-select';
-    const subOpt0 = document.createElement('option');
-    subOpt0.value = '';
-    subOpt0.textContent = G.selectedCategory ? '— 选择任务子类 —' : '— 请先选择大类 —';
-    subOpt0.disabled = true;
-    selSub.appendChild(subOpt0);
-    if (G.selectedCategory) {
-        selSub.disabled = false;
-        for (const [key, st] of Object.entries(getCategoryDef(G.selectedCategory)?.subTypes || {})) {
-            const t = st as any;
-            const opt = document.createElement('option');
-            opt.value = key;
-            opt.textContent = `${t.icon} ${t.label}`;
-            selSub.appendChild(opt);
-        }
-        if (G.selectedSubType) selSub.value = G.selectedSubType;
-    } else {
-        selSub.disabled = true;
-    }
-    wrapper.appendChild(selSub);
-
     const selectorChanged = () => {
         G.selectedCategory = selCat.value || null;
-        G.selectedSubType = selSub.value || null;
         renderCategorySelection();
     };
-    selCat.addEventListener('change', () => {
-        G.selectedSubType = null;
-        selSub.value = '';
-        selectorChanged();
-    });
-    selSub.addEventListener('change', selectorChanged);
+    selCat.addEventListener('change', selectorChanged);
 
     container.appendChild(wrapper);
 
-    if (!G.selectedCategory || !G.selectedSubType) return;
+    if (!G.selectedCategory) return;
 
     const cat = getCategoryDef(G.selectedCategory);
-    const template = cat?.subTypes?.[G.selectedSubType];
-    if (!template) return;
+    if (!cat) return;
 
     const form = document.createElement('div');
     form.className = 'template-form';
 
     const templateDesc = document.createElement('div');
     templateDesc.className = 'template-flow-desc';
-    templateDesc.textContent = template.inputPlaceholder || '';
+    templateDesc.textContent = cat.inputPlaceholder || '';
     form.appendChild(templateDesc);
 
     const formFields: Record<string, string> = {};
 
-    for (const field of (template.inputFields || [])) {
+    for (const field of (cat.inputFields || [])) {
         const fieldGroup = document.createElement('div');
         fieldGroup.className = 'form-field-group';
 
@@ -154,16 +120,16 @@ export function renderCategorySelection() {
     startBtn.className = 'start-task-btn';
     startBtn.textContent = '开始任务';
     startBtn.addEventListener('click', () => {
-        startTaskFromForm(template, formFields, notesInput.value);
+        startTaskFromForm(cat, formFields, notesInput.value);
     });
 
     btnRow.appendChild(startBtn);
     container.appendChild(btnRow);
 }
 
-export function startTaskFromForm(template: any, formFields: Record<string, string>, notes: string) {
+export function startTaskFromForm(cat: any, formFields: Record<string, string>, notes: string) {
     const parts: string[] = [];
-    for (const field of (template.inputFields || [])) {
+    for (const field of (cat.inputFields || [])) {
         const val = formFields[field.key] || '';
         if (val.trim()) {
             parts.push(`${field.label}：${val.trim()}`);
@@ -179,11 +145,9 @@ export function startTaskFromForm(template: any, formFields: Record<string, stri
         text,
         taskId: G.activeTaskId,
         category: G.selectedCategory,
-        subType: G.selectedSubType
     });
 
     G.selectedCategory = null;
-    G.selectedSubType = null;
 
     const input = document.getElementById('chat-input') as HTMLTextAreaElement;
     if (input) input.placeholder = '提出后续修改要求';

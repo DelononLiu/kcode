@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { KCodePanelContext } from './PanelContext';
 import type { Task, FileChange, ProgressNode, PlanStep } from '../types';
-import { getTemplate, getCategory } from '../taskflow/templates';
+import { getCategory } from '../taskflow/templates';
 import { taskLogStore } from '../store/TaskLogStore';
 
 export class TaskFlowHandler {
@@ -148,10 +148,7 @@ export class TaskFlowHandler {
         ctx.store.storeReviewChanges(tid, changes);
 
         let acceptanceCriteria: string[] | undefined;
-        if (task?.category && task?.subType) {
-            const template = getTemplate(task.category, task.subType);
-            acceptanceCriteria = template?.acceptanceCriteria;
-        } else if (task?.category) {
+        if (task?.category) {
             const cat = getCategory(task.category);
             acceptanceCriteria = cat?.acceptanceCriteria;
         }
@@ -322,9 +319,7 @@ export class TaskFlowHandler {
         const task = ctx.store.getTask(taskId);
         const reviewChanges = ctx.store.getReviewChanges(taskId);
         let acceptanceCriteria: string[] | undefined;
-        if (task?.category && task?.subType && task?.status === 'in_review') {
-            acceptanceCriteria = getTemplate(task.category, task.subType)?.acceptanceCriteria;
-        } else if (task?.category && task?.status === 'in_review') {
+        if (task?.category && task?.status === 'in_review') {
             acceptanceCriteria = getCategory(task.category)?.acceptanceCriteria;
         }
         ctx.router.PostMessage({ type: 'loadMessages', messages, taskId, title: task?.title, taskType: task?.type, taskStatus: task?.status, taskPhase: task?.phase, category: task?.category, reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined, acceptanceCriteria });

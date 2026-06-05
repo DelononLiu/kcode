@@ -31,18 +31,14 @@ export function loadPhaseSection(fileName: string, phase: string): string {
 export function loadExternalPrompt(
     taskType: 'task',
     category: string | undefined,
-    subType: string | undefined,
+    _subType: string | undefined,
     phase: string
 ): string {
     if (taskType !== 'task') return '';
 
     let content = '';
 
-    if (subType) {
-        content = loadPhaseSection(`${subType}.md`, phase);
-    }
-
-    if (!content && category) {
+    if (category) {
         content = loadPhaseSection(`${category}.md`, phase);
     }
 

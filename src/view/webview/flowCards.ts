@@ -520,10 +520,10 @@ export function showGoalConfirmationCard(info: any) {
         rawData: info
     });
 
-    if (info.categoryLabel && info.subTypeLabel) {
+    if (info.categoryLabel) {
         const badgeLine = document.createElement('div');
         badgeLine.className = 'goal-category-badge';
-        badgeLine.textContent = `🏷️ ${info.categoryLabel} · ${info.subTypeLabel}`;
+        badgeLine.textContent = `🏷️ ${info.categoryLabel}`;
         const body = card.querySelector('.msg-card-body');
         if (body) {
             body.parentNode?.insertBefore(badgeLine, body);
@@ -737,28 +737,28 @@ export function handleRemovePlanProposal() {
     });
 }
 
-export function finalizeGoalMessage(taskId: string, goal: string, originalRequest: string, category?: string, subType?: string, categoryLabel?: string, subTypeLabel?: string) {
+export function finalizeGoalMessage(taskId: string, goal: string, originalRequest: string, categoryLabel?: string) {
     hideWorkingIndicator();
     if (!G.streamMessageEl) {
-        showGoalConfirmationCard({ taskId, goal, originalRequest, category, subType, categoryLabel, subTypeLabel });
+        showGoalConfirmationCard({ taskId, goal, originalRequest, categoryLabel });
         return;
     }
     const streamBubble = G.streamMessageEl;
     streamBubble.classList.remove('streaming');
     const msgEl = streamBubble.closest('.chat-msg') as HTMLElement;
     if (!msgEl) {
-        showGoalConfirmationCard({ taskId, goal, originalRequest, category, subType, categoryLabel, subTypeLabel });
+        showGoalConfirmationCard({ taskId, goal, originalRequest, categoryLabel });
         G.streamMessageEl = null;
         return;
     }
 
-    // If category was passed, add a badge
-    if (categoryLabel && subTypeLabel) {
+    // If category label was passed, add a badge
+    if (categoryLabel) {
         const existingBadge = msgEl.querySelector('.goal-category-badge');
         if (!existingBadge) {
             const badge = document.createElement('div');
             badge.className = 'goal-category-badge';
-            badge.textContent = `🏷️ ${categoryLabel} · ${subTypeLabel}`;
+            badge.textContent = `🏷️ ${categoryLabel}`;
             msgEl.insertBefore(badge, msgEl.firstChild);
         }
     }

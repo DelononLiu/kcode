@@ -22,6 +22,5 @@ describe('G', () => {
     it('初始 categoryDefs 为空数组', () => {
         expect(G.categoryDefs).toEqual([]);
         expect(G.selectedCategory).toBeNull();
-        expect(G.selectedSubType).toBeNull();
     });
 });

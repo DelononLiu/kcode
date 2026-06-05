@@ -1,6 +1,6 @@
 import type { KCodePlugin, PluginAPI } from '../../core/plugin/PluginInterface';
 import type { FileChange } from '../../types';
-import { getTemplate, getCategory } from '../../taskflow/templates';
+import { getCategory } from '../../taskflow/templates';
 
 const plugin: KCodePlugin = {
     id: 'kcode.review',
@@ -22,10 +22,7 @@ const plugin: KCodePlugin = {
                 store.updateTaskStatus(taskId, 'in_review');
 
                 let acceptanceCriteria: string[] | undefined;
-                if (task?.category && task?.subType) {
-                    const template = getTemplate(task.category, task.subType);
-                    acceptanceCriteria = template?.acceptanceCriteria;
-                } else if (task?.category) {
+                if (task?.category) {
                     const cat = getCategory(task.category);
                     acceptanceCriteria = cat?.acceptanceCriteria;
                 }

@@ -40,7 +40,8 @@ export interface FlowIterationTemplate {
     defaultCorrectnessTests?: string[];
 }
 
-export interface TaskTemplate {
+export interface CategoryDef {
+    key: TaskCategory;
     label: string;
     icon: string;
     inputPlaceholder: string;
@@ -50,16 +51,6 @@ export interface TaskTemplate {
     acceptanceCriteria: string[];
     flowOverride?: Array<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review'>;
     flowIteration?: FlowIterationTemplate;
-}
-
-export interface CategoryDef {
-    key: TaskCategory;
-    label: string;
-    icon: string;
-    analysisFramework: string;
-    executionHints: string[];
-    acceptanceCriteria: string[];
-    subTypes: Record<string, TaskTemplate>;
 }
 
 export interface TodoItem {

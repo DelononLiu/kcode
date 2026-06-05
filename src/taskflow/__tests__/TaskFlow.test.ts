@@ -99,7 +99,6 @@ class MockTaskStore implements ITaskStore {
     getTaskKnowledgeEntries(_taskId: string): any[] { return []; }
     getAllKnowledgeEntries(): any[] { return []; }
     updateTaskCategory(_taskId: string, _category: any): void {}
-    updateTaskSubType(_taskId: string, _subType: any): void {}
     addTimelineEntry(_taskId: string, _entry: any): void {}
     getTaskTimeline(_taskId: string): any[] { return []; }
 
@@ -517,35 +516,17 @@ describe('external prompts', () => {
         setExternalDir(origHome ? path.join(origHome, '.kcode', 'taskflow') : path.join(os.homedir(), '.kcode', 'taskflow'));
     });
 
-    it('buildPhasePrompt 包含 subType 级外部 prompt', () => {
-        fs.writeFileSync(path.join(tmpDir, 'feature_dev.md'), '<execute>运行 npm test</execute>', 'utf-8');
-        const { flow, pid } = makeFlow({ phase: 'execute', category: 'requirement_dev', subType: 'feature_dev' });
+    it('buildPhasePrompt 包含 category 级外部 prompt', () => {
+        fs.writeFileSync(path.join(tmpDir, 'requirement_dev.md'), '<execute>运行 npm test</execute>', 'utf-8');
+        const { flow, pid } = makeFlow({ phase: 'execute', category: 'requirement_dev' });
         const result = flow.buildPrompt(pid, 'hello');
         expect(result).toContain('运行 npm test');
     });
 
-    it('级联: subType 优先于 category', () => {
-        fs.writeFileSync(path.join(tmpDir, 'feature_dev.md'), '<execute>subType规则</execute>', 'utf-8');
-        fs.writeFileSync(path.join(tmpDir, 'requirement_dev.md'), '<execute>category规则</execute>', 'utf-8');
-        const { flow, pid } = makeFlow({ phase: 'execute', category: 'requirement_dev', subType: 'feature_dev' });
-        const result = flow.buildPrompt(pid, 'hello');
-        expect(result).toContain('subType规则');
-        expect(result).not.toContain('category规则');
-    });
-
-    it('级联: subType 无内容时 fallback 到 category', () => {
-        fs.writeFileSync(path.join(tmpDir, 'feature_dev.md'), '<plan>计划内容</plan>', 'utf-8');
-        fs.writeFileSync(path.join(tmpDir, 'requirement_dev.md'), '<execute>category规则</execute>', 'utf-8');
-        const { flow, pid } = makeFlow({ phase: 'execute', category: 'requirement_dev', subType: 'feature_dev' });
-        const result = flow.buildPrompt(pid, 'hello');
-        expect(result).toContain('category规则');
-    });
-
-    it('级联: subType/category 都无内容时 fallback 到 task.md', () => {
-        fs.writeFileSync(path.join(tmpDir, 'feature_dev.md'), '<plan>计划内容</plan>', 'utf-8');
+    it('category 无内容时 fallback 到 task.md', () => {
         fs.writeFileSync(path.join(tmpDir, 'requirement_dev.md'), '<plan>计划内容</plan>', 'utf-8');
         fs.writeFileSync(path.join(tmpDir, 'task.md'), '<execute>task基底规则</execute>', 'utf-8');
-        const { flow, pid } = makeFlow({ phase: 'execute', category: 'requirement_dev', subType: 'feature_dev' });
+        const { flow, pid } = makeFlow({ phase: 'execute', category: 'requirement_dev' });
         const result = flow.buildPrompt(pid, 'hello');
         expect(result).toContain('task基底规则');
     });
@@ -558,7 +539,7 @@ describe('external prompts', () => {
     });
 
     it('文件不存在时静默 fallback，不报错', () => {
-        const { flow, pid } = makeFlow({ phase: 'execute', category: 'requirement_dev', subType: 'non_existent_subtype' });
+        const { flow, pid } = makeFlow({ phase: 'execute', category: 'requirement_dev' });
         expect(() => flow.buildPrompt(pid, 'hello')).not.toThrow();
     });
 });

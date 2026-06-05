@@ -5,7 +5,7 @@ import { TaskStore } from '../store/TaskStore';
 import { TaskFlow } from '../taskflow/TaskFlow';
 import { AgentService } from '../core/AgentService';
 import { ConfigService } from '../core/ConfigService';
-import { getCategories, getCategory, getTemplate } from '../taskflow/templates';
+import { getCategories, getCategory } from '../taskflow/templates';
 import { parseWorkspaceHooks } from '../taskflow/workspaceHooks';
 import { getWebviewContent as getTemplateHtml } from './templates/chatPanelHtml';
 import { MessageRouter } from './MessageRouter';
@@ -76,8 +76,7 @@ export class Panel {
                 this.flowHandler.sendNodePanelUpdate(taskId);
                 const task = this.store.getTask(taskId);
                 const catLabel = task?.category ? getCategory(task.category)?.label : undefined;
-                const subLabel = task?.category && task?.subType ? getTemplate(task.category, task.subType)?.label : undefined;
-                this.router.PostMessage({ type: 'finalizeGoalMessage', taskId, goal: goalText, originalRequest, category: task?.category, subType: task?.subType, categoryLabel: catLabel, subTypeLabel: subLabel });
+                this.router.PostMessage({ type: 'finalizeGoalMessage', taskId, goal: goalText, originalRequest, category: task?.category, categoryLabel: catLabel });
             },
             onError: (taskId, error) => { this.flowHandler.showAgentError(taskId, error); },
             onSelfVerifyNeeded: (taskId) => { setTimeout(() => this.sessionHandler.startAutoGeneration(taskId), 100); },
@@ -230,7 +229,7 @@ export class Panel {
     }
 
     private setupMessageHandler() {
-        this.router.on('sendMessage', async (msg) => this.sessionHandler.handleSendMessage(msg.text, msg.taskId, msg.category, msg.subType));
+        this.router.on('sendMessage', async (msg) => this.sessionHandler.handleSendMessage(msg.text, msg.taskId, msg.category));
         this.router.on('confirmGoal', async (msg) => this.flowHandler.handleConfirmGoal(msg.taskId, msg.originalRequest));
         this.router.on('reviseGoal', (msg) => this.flowHandler.handleReviseGoal(msg.taskId));
         this.router.on('cancelTask', (msg) => this.flowHandler.handleCancelTask(msg.taskId));
@@ -410,7 +409,7 @@ export class Panel {
         if (taskId && args) {
             this.store.updateTaskTitle(taskId, args);
             this.flowHandler.sendTaskInfo(taskId);
-            await this.sessionHandler.handleSendMessage(args, taskId, category, subType);
+            await this.sessionHandler.handleSendMessage(args, taskId, category);
         }
     }
 
@@ -633,7 +632,7 @@ export class Panel {
         if (this.pendingMessages.length === 0) return;
         const next = this.pendingMessages.shift()!;
         this.sendPendingQueueUpdate();
-        this.sessionHandler.handleSendMessage(next.text, next.taskId, next.category, next.subType);
+        this.sessionHandler.handleSendMessage(next.text, next.taskId, next.category);
     }
 
     private sendPendingQueueUpdate() {

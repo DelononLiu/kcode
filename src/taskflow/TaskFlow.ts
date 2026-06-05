@@ -8,8 +8,9 @@ import { EXECUTE_PROMPT } from './prompts/execute';
 import { REVIEW_PROMPT } from './prompts/review';
 import { SELF_VERIFY_PROMPT } from './prompts/self_verify';
 
-import { getTemplate, getCategory } from './templates';
+import { getCategory } from './templates';
 import { loadExternalPrompt } from './externalPrompts';
+import { getTypePrompt } from './prompts/types';
 
 const CHAT_PROMPT = `你是一个专业的技术顾问，职责是为用户答疑解惑、提供方案、出谋划策。
 你深入理解当前工作区的代码结构和上下文。
@@ -50,7 +51,6 @@ export interface ITaskStore {
     updateTaskType(taskId: string, type: 'task'): void;
     updateTaskHooks(taskId: string, phase: string, commands: string[]): void;
     updateTaskCategory(taskId: string, category: Task['category']): void;
-    updateTaskSubType(taskId: string, subType: Task['subType']): void;
     getTaskKnowledgeEntries(taskId: string): KnowledgeEntry[];
     getAllKnowledgeEntries(): KnowledgeEntry[];
     addTimelineEntry(taskId: string, entry: TimelineEntry): void;
@@ -456,7 +456,7 @@ export class TaskFlow {
         }
     }
 
-    private static readonly PROTOCOL_KEYS = new Set(['ACTION', 'CATEGORY', 'SUBTYPE', 'CONFIRMED', 'PENDING', 'STEPS', 'INDEX', 'STATUS', 'DECISION', 'METRICS', 'ITERATION']);
+    private static readonly PROTOCOL_KEYS = new Set(['ACTION', 'CATEGORY', 'CONFIRMED', 'PENDING', 'STEPS', 'INDEX', 'STATUS', 'DECISION', 'METRICS', 'ITERATION']);
 
     private parseSimplePayload(body: string): any {
         const payload: any = {};
@@ -523,9 +523,6 @@ export class TaskFlow {
                 {
                     if (payload.CATEGORY && this.store.updateTaskCategory) {
                         this.store.updateTaskCategory(taskId, payload.CATEGORY);
-                    }
-                    if (payload.SUBTYPE && this.store.updateTaskSubType) {
-                        this.store.updateTaskSubType(taskId, payload.SUBTYPE);
                     }
                     this.goalProposed.set(taskId, true);
                     this.delegate.onPhaseChanged(taskId);
@@ -731,7 +728,7 @@ export class TaskFlow {
         const allEntries = this.store.getAllKnowledgeEntries();
         const related: KnowledgeEntry[] = [];
 
-        const taskKeywords = [task.goal, task.title, task.category, task.subType]
+        const taskKeywords = [task.goal, task.title, task.category]
             .filter(Boolean)
             .join(' ')
             .toLowerCase()
@@ -780,18 +777,17 @@ export class TaskFlow {
             }
         })();
 
-        const extraParts: string[] = [];
-        if (task.category && task.subType) {
-            const template = getTemplate(task.category, task.subType);
-            if (template) {
-                if (task.phase === 'plan' && template.analysisFramework) {
-                    extraParts.push(`【分析框架】\n${template.analysisFramework}`);
-                }
-                if (task.phase === 'execute' && template.executionHints.length > 0) {
-                    extraParts.push(`【执行约束】\n${template.executionHints.map((h, i) => `${i + 1}. ${h}`).join('\n')}`);
-                }
+        // 合并类别专属提示词
+        if (task.category) {
+            const typePrompts = getTypePrompt(task.category);
+            const phasePrompt = typePrompts?.[task.phase as keyof typeof typePrompts];
+            if (phasePrompt) {
+                basePrompt = basePrompt + '\n\n---\n' + phasePrompt;
             }
-        } else if (task.category) {
+        }
+
+        const extraParts: string[] = [];
+        if (task.category) {
             const cat = getCategory(task.category);
             if (cat) {
                 if (task.phase === 'plan' && cat.analysisFramework) {

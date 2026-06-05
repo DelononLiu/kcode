@@ -15,11 +15,9 @@ export const G = {
     activeTaskGoal: '',
     activeTaskTitle: '',
     activeTaskCategory: '',
-    activeTaskSubType: '',
 
     categoryDefs: [] as any[],
     selectedCategory: null as string | null,
-    selectedSubType: null as string | null,
     lastAcceptanceCriteria: null as string[] | null,
     acceptanceCheckedState: new Map<string, boolean[]>(),
     taskHooks: {} as Record<string, string[]>,

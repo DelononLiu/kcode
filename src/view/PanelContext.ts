@@ -15,7 +15,6 @@ export interface PendingMessage {
     text: string;
     taskId: string;
     category?: string;
-    subType?: string;
 }
 
 /**

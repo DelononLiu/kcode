@@ -324,7 +324,6 @@ function initMessageHandler() {
                 G.activeTaskTitle = message.title || '';
                 G.activeTaskGoal = message.goal || '';
                 G.activeTaskCategory = message.category || '';
-                G.activeTaskSubType = message.subType || '';
                 updatePhaseBadge(message.phase || '');
                 break;
             case 'flashInput':
@@ -340,7 +339,7 @@ function initMessageHandler() {
                 showGoalConfirmationCard(message);
                 break;
             case 'finalizeGoalMessage':
-                finalizeGoalMessage(message.taskId, message.goal, message.originalRequest, message.category, message.subType, message.categoryLabel, message.subTypeLabel);
+                finalizeGoalMessage(message.taskId, message.goal, message.originalRequest, message.categoryLabel);
                 break;
             case 'showExecuteConfirmation':
                 showExecuteConfirmation(message.taskId);

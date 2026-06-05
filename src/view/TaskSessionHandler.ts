@@ -3,7 +3,7 @@ import type { KCodePanelContext } from './PanelContext';
 import type { AcpMessageHandler } from '../types';
 import { ConfigService } from '../core/ConfigService';
 import { classifyIntent } from '../acp/intentUtils';
-import { getTemplate, getCategory } from '../taskflow/templates';
+import { getCategory } from '../taskflow/templates';
 import { TaskStreamHandler } from './stream/TaskStreamHandler';
 
 export class TaskSessionHandler {
@@ -91,13 +91,13 @@ export class TaskSessionHandler {
         await ctx.agentService.sendPrompt(tid, promptText, handler);
     }
 
-    async handleSendMessage(text: string, taskId?: string, category?: string, subType?: string) {
+    async handleSendMessage(text: string, taskId?: string, category?: string) {
         const { ctx } = this;
         const tid = taskId || ctx.currentTaskId;
         if (!tid) return;
 
         if (ctx.isGenerating) {
-            ctx.pendingMessages.push({ text, taskId: tid, category, subType });
+            ctx.pendingMessages.push({ text, taskId: tid, category });
             ctx.sendPendingQueueUpdate();
             return;
         }
@@ -107,18 +107,17 @@ export class TaskSessionHandler {
 
         if (category) {
             ctx.store.updateTaskCategory(tid, category as any);
-            if (subType) ctx.store.updateTaskSubType(tid, subType);
-            const tmpl = subType ? getTemplate(category as any, subType) : null;
-            if (tmpl?.flowIteration) {
+            const cat = getCategory(category as any);
+            if (cat?.flowIteration) {
                 const task = ctx.store.getTask(tid);
                 if (task && !task.flowIteration) {
                     ctx.store.updateTaskFlowIteration(tid, {
                         enabled: true,
-                        loopPhases: tmpl.flowIteration.loopPhases,
+                        loopPhases: cat.flowIteration.loopPhases,
                         config: {
-                            correctnessTests: tmpl.flowIteration.defaultCorrectnessTests || [],
-                            targets: Object.fromEntries(tmpl.flowIteration.defaultTargets.map(t => [t.key, 0])),
-                            iterationLimit: tmpl.flowIteration.defaultIterationLimit,
+                            correctnessTests: cat.flowIteration.defaultCorrectnessTests || [],
+                            targets: Object.fromEntries(cat.flowIteration.defaultTargets.map(t => [t.key, 0])),
+                            iterationLimit: cat.flowIteration.defaultIterationLimit,
                         },
                         state: {
                             currentIteration: 0,

@@ -74,7 +74,7 @@ export class WikiExporter {
         // Header
         lines.push(`# ${task.title}`);
         lines.push(`> 状态: ${statusLabels[task.status] || task.status} | 创建: ${fmtTime(task.createdAt)} | 阶段: ${phaseLabels[task.phase] || task.phase}`);
-        if (task.category) lines.push(`> 分类: ${task.category}${task.subType ? ` / ${task.subType}` : ''}`);
+        if (task.category) lines.push(`> 分类: ${task.category}`);
         lines.push('');
 
         // Goal
