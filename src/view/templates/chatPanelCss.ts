@@ -691,5 +691,43 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 @keyframes demo-pulse{0%{box-shadow:0 0 0 0 rgba(26,95,158,.2)}70%{box-shadow:0 0 0 6px rgba(26,95,158,0)}100%{box-shadow:0 0 0 0 rgba(26,95,158,0)}}
 
 
-`;
+
+/* ─── Stream Parser — asset board & marquee ─── */
+#kcode-summary-area{flex-shrink:0;padding:2px 16px 0;max-width:900px;margin:0 auto;width:100%;min-height:0}
+#kcode-asset-board{display:flex;flex-direction:column;gap:4px;min-height:0}
+
+.kc-badges-container{display:flex;flex-wrap:wrap;gap:6px;min-height:0;padding:2px 0}
+
+/* ─── File Badge ─── */
+.kc-file-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px 2px 6px;border-radius:4px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);color:#ccc;animation:kc-pop-in .28s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis}
+.kc-file-badge .kc-file-icon{flex-shrink:0;font-size:11px}
+.kc-file-badge .kc-file-path{overflow:hidden;text-overflow:ellipsis}
+.kc-file-badge.status-reading{border-color:rgba(74,139,181,.25);color:#7bb8d6}
+.kc-file-badge.status-edited{border-color:rgba(90,157,107,.25);color:#7bc89a}
+.kc-file-badge.status-deleted{border-color:rgba(224,96,96,.2);color:#e06060;text-decoration:line-through}
+
+/* ─── Test Badge ─── */
+.kc-test-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 9px;border-radius:4px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);color:#888;animation:kc-pop-in .28s cubic-bezier(.34,1.56,.64,1);white-space:nowrap}
+.kc-test-badge.status-running{color:#9e8ad4;border-color:rgba(158,138,212,.2)}
+.kc-test-badge.status-pass{color:#5a9d6b;border-color:rgba(90,157,107,.25)}
+.kc-test-badge.status-fail{color:#e06060;border-color:rgba(224,96,96,.25)}
+.kc-test-badge .kc-test-spinner{display:inline-block;width:10px;height:10px;border:1.5px solid rgba(158,138,212,.3);border-top-color:#9e8ad4;border-radius:50%;animation:kc-spin .8s linear infinite}
+
+@keyframes kc-pop-in{0%{opacity:0;transform:scale(.85) translateY(-4px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes kc-spin{to{transform:rotate(360deg)}}
+
+#kcode-single-marquee{flex-shrink:0;padding:0 16px 2px;max-width:900px;margin:0 auto;width:100%;height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:20px;color:#888;opacity:0;transition:opacity .25s}
+#kcode-single-marquee.active{opacity:.7}
+#kcode-single-marquee.thinking{color:#9e8ad4;font-style:italic}
+#kcode-single-marquee.terminal{color:#5a9d6b;font-family:monospace}
+
+/* ─── CSS 降噪 — typography overhaul ─── */
+#task-view .msg-bubble,.chat-msg .msg-bubble{font-size:13px !important;line-height:1.65 !important;color:#9CA3AF !important}
+#task-view .chat-msg.agent .msg-bubble{font-size:13px !important;line-height:1.65 !important;color:#9CA3AF !important}
+#task-view .msg-bubble h2,.chat-msg .msg-bubble h2{font-size:15px !important;font-weight:600 !important;color:#E5E7EB !important;margin-top:24px !important;margin-bottom:12px !important}
+#task-view .msg-bubble code:not(pre code),.chat-msg .msg-bubble code:not(pre code){font-family:"JetBrains Mono","Fira Code","SF Mono",monospace !important;font-size:12px !important;background-color:rgba(255,255,255,.06) !important;color:#F3F4F6 !important;padding:2px 6px !important;border-radius:4px !important}
+#task-view .msg-bubble li,.chat-msg .msg-bubble li{margin-bottom:10px !important}
+#task-view .msg-bubble li ul,#task-view .msg-bubble li ol,.chat-msg .msg-bubble li ul,.chat-msg .msg-bubble li ol{margin-top:8px !important;padding-left:20px !important;font-size:12px !important;color:#9CA3AF !important}
+
+	`;
 }

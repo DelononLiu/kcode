@@ -6,6 +6,10 @@ import { _isTodoArray, _parseTodoStr, buildTodoBodyHtml } from './todoRenderer';
 import { renderToolBubbleContent } from './toolRenderer';
 import { getChatScroll, getChatMessages, getWorkingIndicator } from './domContainers';
 import { groupPhases } from './taskView';
+import {
+  parseLine, resetFileMap, resetTestStatus,
+  fileMap, testStatus,
+} from './streamParser';
 
 // ===== Module-level state =====
 
@@ -59,6 +63,142 @@ function _cacheToolMessage(msg: any) {
 
 // ===== Working indicator =====
 
+// ──────────── Stream Parser Integration ────────────
+
+/** 上次处理的文本长度，用于增量解析 */
+let _lastProcessedLen = 0;
+
+export function resetStreamParser(): void {
+  _lastProcessedLen = 0;
+  resetFileMap();
+  resetTestStatus();
+  updateSummaryAreas();
+  const marquee = document.getElementById('kcode-single-marquee');
+  if (marquee) { marquee.className = 'kc-marquee'; marquee.textContent = ''; }
+}
+
+function updateMarquee(cls: string, text: string): void {
+  const el = document.getElementById('kcode-single-marquee');
+  if (!el) return;
+  // 最多 120 字，长文本截断
+  const displayText = text.length > 120 ? text.slice(0, 117) + '...' : text;
+  el.textContent = displayText;
+  el.className = 'kc-marquee active ' + cls;
+}
+
+function clearMarquee(): void {
+  const el = document.getElementById('kcode-single-marquee');
+  if (el) { el.className = 'kc-marquee'; el.textContent = ''; }
+}
+
+/** 文件图标映射 */
+const FILE_ICONS: Record<string, string> = { reading: '📖', edited: '✏️', deleted: '🗑️' };
+
+function updateFileBadges(): void {
+  const container = document.getElementById('kcode-file-badges');
+  if (!container) return;
+  // 缓存已有 badge 元素
+  const existing = new Map<string, HTMLElement>();
+  container.querySelectorAll('.kc-file-badge').forEach(el => {
+    const path = (el as HTMLElement).dataset.path;
+    if (path) existing.set(path, el as HTMLElement);
+  });
+
+  const entries = Array.from(fileMap.values());
+  // 删除已不在 fileMap 中的 badge
+  for (const [path, el] of existing) {
+    if (!fileMap.has(path)) el.remove();
+  }
+
+  for (const asset of entries) {
+    let badge = existing.get(asset.path);
+    const icon = FILE_ICONS[asset.status] || '📄';
+    if (badge) {
+      // 已有：原地刷新状态
+      badge.className = `kc-file-badge status-${asset.status}`;
+      const iconEl = badge.querySelector('.kc-file-icon');
+      if (iconEl) iconEl.textContent = icon;
+    } else {
+      // 新建：啪地弹出
+      badge = document.createElement('div');
+      badge.className = `kc-file-badge status-${asset.status}`;
+      badge.dataset.path = asset.path;
+      badge.innerHTML = `<span class="kc-file-icon">${icon}</span><span class="kc-file-path">${escapeHtml(asset.path)}</span>`;
+      container.appendChild(badge);
+    }
+  }
+}
+
+/** 测试状态指示灯 */
+const TEST_LABELS: Record<string, string> = { vitest: '🧪 单元测试', tsc: '🧱 类型检查', eslint: '📐 代码规范' };
+const DEFAULT_TEST_LABEL = '🧪 测试';
+
+function updateTestBadges(): void {
+  const container = document.getElementById('kcode-test-badges');
+  if (!container) return;
+  // testBadge 使用固定 key 'primary'
+  let badge = container.querySelector('.kc-test-badge') as HTMLElement;
+  const hasResult = testStatus.file || testStatus.total !== undefined;
+
+  if (!hasResult) {
+    if (badge) badge.remove();
+    return;
+  }
+
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.className = 'kc-test-badge';
+    container.appendChild(badge);
+  }
+
+  if (testStatus.pass && !testStatus.file && testStatus.total !== undefined) {
+    // 汇总态：全部通过
+    badge.className = 'kc-test-badge status-pass';
+    badge.innerHTML = `✅ ${testStatus.total} passed`;
+  } else if (!testStatus.pass && testStatus.failed !== undefined) {
+    badge.className = 'kc-test-badge status-fail';
+    badge.innerHTML = `❌ ${testStatus.failed} failed / ${testStatus.total}`;
+  } else if (testStatus.file && testStatus.pass) {
+    badge.className = 'kc-test-badge status-pass';
+    badge.innerHTML = `✅ ${escapeHtml(testStatus.file)}`;
+  } else if (testStatus.file && !testStatus.pass) {
+    badge.className = 'kc-test-badge status-fail';
+    badge.innerHTML = `❌ ${escapeHtml(testStatus.file)}`;
+  }
+}
+
+function updateSummaryAreas(): void {
+  updateFileBadges();
+  updateTestBadges();
+}
+
+function parseNewContent(text: string): void {
+  if (text.length <= _lastProcessedLen) return;
+  const newPortion = text.slice(_lastProcessedLen);
+  _lastProcessedLen = text.length;
+  const lines = newPortion.split('\n');
+  for (const rawLine of lines) {
+    const result = parseLine(rawLine);
+    switch (result.type) {
+      case 'thinking':
+        updateMarquee('thinking', result.text);
+        break;
+      case 'terminal':
+        updateMarquee('terminal', result.text);
+        break;
+      case 'file_op':
+        updateSummaryAreas();
+        break;
+      case 'test_output':
+        updateSummaryAreas();
+        break;
+      // 'normal' 不做处理，交给正常渲染
+    }
+  }
+}
+
+// ──────────── End Stream Parser Integration ────────────
+
 export function __resetStream() {
     if (G.streamMessageEl && latestStreamText) {
         G._liveMessages.push({
@@ -72,6 +212,7 @@ export function __resetStream() {
     }
     G.streamMessageEl = null;
     G._agentHeaderShown = false;
+    resetStreamParser();
 }
 
 export function showAgentThinking() {
@@ -185,6 +326,9 @@ export function handleAgentStreamUpdate(text: string) {
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) placeholder.remove();
 
+    // 前置解析：提取文件/测试资产，中间态进 marquee
+    parseNewContent(text);
+
     if (!G.streamMessageEl) {
         resetTabGroup();
         _ensureAgentHeader();
@@ -271,6 +415,13 @@ export function flushMerge() {
     _mergeState = null;
 }
 
+/** 是否为终端探测命令（应走 marquee 而非独立 DOM） */
+const PROBE_CMDS = ['ls', 'find', 'which', 'cat', 'head', 'tail', 'pwd', 'grep'];
+function isProbeCommand(title: string): boolean {
+  const t = (title || '').trim().toLowerCase();
+  return PROBE_CMDS.some(cmd => t === cmd || t.startsWith(cmd + ' '));
+}
+
 export function handleToolCallUpdate(msg: any) {
     _ensureAgentHeader();
     _cacheToolMessage(msg);
@@ -283,6 +434,20 @@ export function handleToolCallUpdate(msg: any) {
     const toolId = msg.toolCallId;
     const kind = msg.kind || '';
     const rawContent = msg.content || msg.output || '';
+
+    // 终端探测命令 → marquee 实时闪烁（同时保留完整 DOM 记录，可随时回溯）
+    if ((kind === 'command' || kind === 'bash' || kind === 'terminal') && msg.title) {
+      if (isProbeCommand(msg.title)) {
+        updateMarquee('terminal', `$ ${msg.title}`);
+      }
+      // 无论是否探测命令，都解析输出中的文件/测试资产
+      if (rawContent) {
+        for (const line of rawContent.split('\n')) {
+          const r = parseLine(line);
+          if (r.type === 'file_op' || r.type === 'test_output') updateSummaryAreas();
+        }
+      }
+    }
 
     if (kind === 'todowrite' || _isTodoArray(rawContent)) {
         flushMerge();

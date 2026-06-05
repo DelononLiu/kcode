@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数字金字塔</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 2.5rem 3rem;
+      max-width: 800px;
+      width: 100%;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+    }
+
+    h1 {
+      text-align: center;
+      color: #e0e7ff;
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: 2px;
+      margin-bottom: 2rem;
+    }
+
+    h1 span {
+      background: linear-gradient(90deg, #60a5fa, #a78bfa, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .controls {
+      display: flex;
+      gap: 1.5rem;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+      padding: 1.25rem 1.5rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .control-group label {
+      color: #94a3b8;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      padding: 0.45rem 2rem 0.45rem 0.9rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+
+    select:hover {
+      border-color: rgba(255, 255, 255, 0.3);
+      background-color: rgba(255, 255, 255, 0.12);
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+    }
+
+    select option {
+      background: #1e1b4b;
+      color: #e2e8f0;
+    }
+
+    .range-value {
+      min-width: 1.8rem;
+      text-align: center;
+      color: #60a5fa;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .pyramid-wrapper {
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 12px;
+      padding: 2rem 1.5rem;
+      min-height: 260px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow-x: auto;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .pyramid-output {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Courier New', monospace;
+      font-size: 1rem;
+      line-height: 1.8;
+      color: #c7d2fe;
+      white-space: pre;
+      text-align: center;
+      user-select: all;
+    }
+
+    .mode-tag {
+      text-align: center;
+      margin-top: 1rem;
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.3);
+      letter-spacing: 1px;
+    }
+
+    .mode-tag span {
+      padding: 0.15rem 0.7rem;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .error-msg {
+      color: #f87171;
+      font-size: 0.85rem;
+      text-align: center;
+      display: none;
+    }
+
+    .error-msg.visible {
+      display: block;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 1.5rem 1rem;
+      }
+      .controls {
+        gap: 1rem;
+        padding: 1rem;
+      }
+      .pyramid-output {
+        font-size: 0.8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>▣ <span>数字金字塔</span></h1>
+
+    <div class="controls">
+      <div class="control-group">
+        <label for="mode">样式</label>
+        <select id="mode">
+          <option value="symmetrical">对称金字塔</option>
+          <option value="repeated" selected>重复数字塔</option>
+          <option value="continuous">连续数字塔</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="layers">层数</label>
+        <input type="range" id="layerSlider" min="1" max="15" value="6">
+        <span class="range-value" id="layerDisplay">6</span>
+      </div>
+    </div>
+
+    <div class="pyramid-wrapper">
+      <div class="pyramid-output" id="pyramidOutput"></div>
+    </div>
+    <div class="mode-tag"><span id="modeDescription">每行重复当前行号</span></div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <script>
+    (function () {
+      const pyramidEl = document.getElementById('pyramidOutput');
+      const modeSelect = document.getElementById('mode');
+      const layerSlider = document.getElementById('layerSlider');
+      const layerDisplay = document.getElementById('layerDisplay');
+      const modeDesc = document.getElementById('modeDescription');
+      const errorEl = document.getElementById('errorMsg');
+
+      const MODE_DESCS = {
+        symmetrical: '数字从 1 递增到 n 再递减回 1',
+        repeated:    '每行重复当前行号数字',
+        continuous:  '数字从 1 开始连续填充',
+      };
+
+      // ---------- 金字塔生成器 ----------
+
+      function generateSymmetrical(rows) {
+        const lines = [];
+        for (let r = 1; r <= rows; r++) {
+          const nums = [];
+          for (let i = 1; i <= r; i++) nums.push(i);
+          for (let i = r - 1; i >= 1; i--) nums.push(i);
+          lines.push(nums.join(' '));
+        }
+        return padLines(lines);
+      }
+
+      function generateRepeated(rows) {
+        const lines = [];
+        for (let r = 1; r <= rows; r++) {
+          const count = 2 * r - 1;
+          const nums = Array(count).fill(r);
+          lines.push(nums.join(' '));
+        }
+        return padLines(lines);
+      }
+
+      function generateContinuous(rows) {
+        const lines = [];
+        let counter = 1;
+        for (let r = 1; r <= rows; r++) {
+          const nums = [];
+          for (let c = 1; c <= 2 * r - 1; c++) {
+            nums.push(counter++);
+          }
+          lines.push(nums.join(' '));
+        }
+        return padLines(lines);
+      }
+
+      /**
+       * 根据最长行做居中填充（左端填充空格，视觉居中）
+       */
+      function padLines(lines) {
+        if (lines.length === 0) return '';
+        const maxLen = Math.max(...lines.map(l => l.length));
+        return lines.map(line => {
+          const pad = Math.floor((maxLen - line.length) / 2);
+          return ' '.repeat(pad) + line;
+        }).join('\n');
+      }
+
+      // ---------- 渲染 ----------
+
+      function render() {
+        const mode = modeSelect.value;
+        const layers = parseInt(layerSlider.value, 10);
+
+        // 显示层数值
+        layerDisplay.textContent = layers;
+
+        // 更新描述
+        modeDesc.textContent = MODE_DESCS[mode] || '';
+
+        // 清除错误
+        errorEl.classList.remove('visible');
+        errorEl.textContent = '';
+
+        try {
+          let result;
+          switch (mode) {
+            case 'symmetrical':
+              result = generateSymmetrical(layers);
+              break;
+            case 'repeated':
+              result = generateRepeated(layers);
+              break;
+            case 'continuous':
+              result = generateContinuous(layers);
+              break;
+            default:
+              result = '';
+          }
+          pyramidEl.textContent = result || '（无输出）';
+        } catch (e) {
+          errorEl.textContent = '生成出错：' + e.message;
+          errorEl.classList.add('visible');
+        }
+      }
+
+      // ---------- 事件绑定 ----------
+
+      modeSelect.addEventListener('change', render);
+      layerSlider.addEventListener('input', render);
+
+      // 键盘支持：←/→ 按步进调整
+      layerSlider.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          // 原生 range 已经处理了，我们只需要同步
+          requestAnimationFrame(render);
+        }
+      });
+
+      // 初始渲染
+      render();
+    })();
+  </script>
+</body>
+</html>

@@ -207,6 +207,13 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
                 <button id="tv4-acp-log-btn" class="near-tool-btn" title="查看 ACP 协议日志">🔍 查看日志</button>
                 <button id="tv4-btn-terminal" class="near-tool-btn" title="打开终端">💻 打开终端</button>
             </div>
+            <div id="kcode-summary-area">
+                <div id="kcode-asset-board">
+                    <div id="kcode-file-badges" class="kc-badges-container"></div>
+                    <div id="kcode-test-badges" class="kc-badges-container"></div>
+                </div>
+            </div>
+            <div id="kcode-single-marquee" class="kc-marquee"></div>
             <div class="tv4-input-wrapper">
                 <textarea id="tv4-input" placeholder="输入指令与 AI 协作..." rows="1"></textarea>
                 <div class="tv4-input-footer">
