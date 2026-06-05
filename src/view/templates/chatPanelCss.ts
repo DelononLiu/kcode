@@ -54,6 +54,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tv4-header{display:flex;align-items:center;padding:0 16px;height:40px;border-bottom:1px solid var(--border);background:var(--bg-panel);flex-shrink:0;gap:10px}
 .tv4-header-name{font-size:14px;font-weight:600;color:var(--text-main);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px}
 .tv4-status-badge{font-size:10px;padding:1px 7px;border-radius:3px;font-weight:500;white-space:nowrap;flex-shrink:0}
+.tv4-category-badge{font-size:10px;padding:1px 7px;border-radius:3px;background:rgba(120,100,200,.12);color:#9e8ad4;white-space:nowrap;flex-shrink:0;display:none}
 .tv4-status-badge.status-pending{background:rgba(255,255,255,.06);color:#888}
 .tv4-status-badge.status-active{background:rgba(74,139,181,.12);color:#5a9bc8}
 .tv4-status-badge.status-in_review{background:rgba(78,201,176,.1);color:#4ec9b0}

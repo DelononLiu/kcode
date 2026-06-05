@@ -265,6 +265,16 @@ function initMessageHandler() {
                     resetPhaseState();
                     const nameEl = document.getElementById('tv4-task-name');
                     if (nameEl) nameEl.textContent = message.title || '任务';
+                    const catBadge = document.getElementById('tv4-category-badge');
+                    if (catBadge) {
+                        if (message.category) {
+                            const catDef = G.categoryDefs.find((c: any) => c.key === message.category);
+                            catBadge.textContent = catDef ? `${catDef.icon} ${catDef.label}` : `🧩 ${message.category}`;
+                            catBadge.style.display = '';
+                        } else {
+                            catBadge.style.display = 'none';
+                        }
+                    }
 
                     const prevPhase = G.activeTaskPhase;
                     G.activeTaskPhase = message.taskPhase || message.phase || '';
@@ -325,6 +335,21 @@ function initMessageHandler() {
                 G.activeTaskGoal = message.goal || '';
                 G.activeTaskCategory = message.category || '';
                 updatePhaseBadge(message.phase || '');
+
+                // 同步 header 任务标题
+                const nameEl = document.getElementById('tv4-task-name');
+                if (nameEl) nameEl.textContent = message.title || '任务';
+                // 更新 header 类别标签
+                const badgeEl = document.getElementById('tv4-category-badge');
+                if (badgeEl) {
+                    if (message.category) {
+                        const catDef = G.categoryDefs.find((c: any) => c.key === message.category);
+                        badgeEl.textContent = catDef ? `${catDef.icon} ${catDef.label}` : `🧩 ${message.category}`;
+                        badgeEl.style.display = '';
+                    } else {
+                        badgeEl.style.display = 'none';
+                    }
+                }
                 break;
             case 'flashInput':
                 flashInput();

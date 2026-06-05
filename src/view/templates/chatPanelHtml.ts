@@ -173,6 +173,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
     <div class="tv4-panel" id="tv4-panel">
         <header class="tv4-header">
             <span class="tv4-header-name" id="tv4-task-name">-</span>
+            <span class="tv4-category-badge" id="tv4-category-badge"></span>
             <span class="tv4-status-badge" id="tv4-status">待确认</span>
             <span class="tv4-model-badge" id="tv4-model"></span>
             <div style="margin-left:auto;display:flex;align-items:center;gap:12px;font-size:11px;color:var(--text-dim)">
