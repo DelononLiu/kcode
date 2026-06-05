@@ -155,30 +155,31 @@ export class TaskStreamHandler extends StreamHandlerBase {
             } else if (task?.type === 'task' && task?.phase === 'review' && task?.status !== 'completed' && task?.status !== 'cancelled') {
                 this.ctx.triggerReviewRequest(this.tid, cleanedText);
             } else if (genResult.planProposed && task?.type === 'task' && task?.phase === 'plan') {
-                const cardShown = this.ctx.showPlanConfirmation(this.tid);
+                // 先存 AI 正文，再存计划卡片，确保时间戳顺序正确
                 if (cleanedText) {
                     const agentMsgId = this.ctx.storeMessage(this.tid, 'agent', cleanedText);
                     if (agentMsgId && !this.ctx.hasSetPlanMessage) {
                         this.ctx.store.updateTaskNodeMessageId(this.tid, 'plan', agentMsgId);
                     }
                 }
+                const cardShown = this.ctx.showPlanConfirmation(this.tid);
                 this.ctx.sendNodePanelUpdate(this.tid);
                 if (!cardShown) {
                     this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskStatus: this.ctx.store.getTask(this.tid)?.status });
                 }
             } else if (genResult.executeFinished && task?.type === 'task' && task?.phase === 'execute') {
                 if (cleanedText) this.ctx.storeMessage(this.tid, 'agent', cleanedText);
+                this.ctx.storeMessage(this.tid, 'agent', 'AI 已完成执行，请确认后进入自验阶段。', 'execute_confirmation');
                 this.ctx.sendTaskInfo(this.tid);
                 this.ctx.sendNodePanelUpdate(this.tid);
                 this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskStatus: this.ctx.store.getTask(this.tid)?.status });
-                this.router.PostMessage({ type: 'showExecuteConfirmation', taskId: this.tid });
             } else if (genResult.selfVerifyFinished && task?.type === 'task' && task?.phase === 'self_verify') {
                 log('stream', 'selfVerifyFinished, waiting for user confirmation');
                 if (cleanedText) this.ctx.storeMessage(this.tid, 'agent', cleanedText);
+                this.ctx.storeMessage(this.tid, 'agent', 'AI 已完成自验，请确认后进入验收阶段。', 'self_verify_confirmation');
                 this.ctx.sendTaskInfo(this.tid);
                 this.ctx.sendNodePanelUpdate(this.tid);
                 this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskStatus: this.ctx.store.getTask(this.tid)?.status });
-                this.router.PostMessage({ type: 'showSelfVerifyConfirmation', taskId: this.tid });
             } else {
                 const agentMsgId = this.ctx.storeMessage(this.tid, 'agent', cleanedText);
                 if (agentMsgId && !this.ctx.hasSetPlanMessage) {

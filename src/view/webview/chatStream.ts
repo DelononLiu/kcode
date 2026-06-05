@@ -294,6 +294,16 @@ function _getOrCreatePhaseGroup(phase: string): HTMLElement {
     return group;
 }
 
+/** 在 stream 消息之前插入（用于合并条目保持正确时序） */
+function _insertBeforeStreamMsg(el: Element): boolean {
+    const ref = G.streamMessageEl ? G.streamMessageEl.closest('.chat-msg') : null;
+    if (ref && ref.parentElement) {
+        ref.parentElement.insertBefore(el, ref);
+        return true;
+    }
+    return false;
+}
+
 export function appendToChatMessages(el: Element) {
     const container = getChatMessages()!;
     const phase = (el as HTMLElement).dataset.phase;
@@ -410,7 +420,10 @@ export function flushMerge() {
         bubble.className = 'msg-bubble';
         bubble.appendChild(mergedEntry);
         msgDiv.appendChild(bubble);
-        appendToChatMessages(msgDiv);
+        // 合并条目插到 stream 消息之前，避免跑到 AI 回复后面
+        if (!_insertBeforeStreamMsg(msgDiv)) {
+            appendToChatMessages(msgDiv);
+        }
     }
     _mergeState = null;
 }
@@ -567,7 +580,7 @@ export function handleToolCallUpdate(msg: any) {
                 bubble.className = 'msg-bubble';
                 bubble.appendChild(mergedEntry);
                 msgDiv.appendChild(bubble);
-                appendToChatMessages(msgDiv);
+                if (!_insertBeforeStreamMsg(msgDiv)) appendToChatMessages(msgDiv);
             }
         } else {
             _mergeState.tools.push({ toolId, ...toolInfo });

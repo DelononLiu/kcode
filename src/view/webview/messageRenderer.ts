@@ -170,6 +170,16 @@ export function renderMessages(messages: any[]) {
     const scrollContainer = getChatScroll();
     if (!container || !scrollContainer) return;
 
+    // 按时间戳排序，确保时序正确（同毫秒用 ID 字符串做二次排序）
+    messages = [...messages].sort((a, b) => {
+        const tDiff = (a.timestamp || 0) - (b.timestamp || 0);
+        if (tDiff !== 0) return tDiff;
+        // ID 中 _msg_N 的数字部分做精确排序
+        const aN = parseInt((a.id || '').split('_msg_')[1] || '0', 10);
+        const bN = parseInt((b.id || '').split('_msg_')[1] || '0', 10);
+        return aN - bN;
+    });
+
     const existingIndicator = getWorkingIndicator();
     const placeholder = container.querySelector('.chat-placeholder');
     if (placeholder) (placeholder as HTMLElement).style.display = '';
@@ -364,7 +374,8 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
         const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const bodyText = content.replace(/^📋 任务目标确认\n\n/, '');
-        const isConfirmed = msg.type === 'goal_confirmed';
+        // 仍然在 goal 阶段 → 需要交互按钮
+        const needsAction = G.activeTaskPhase === 'goal' && !msg.type.includes('confirmed');
 
         const card = createCard({
             headerHtml: '🎯 任务目标',
@@ -376,10 +387,33 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
             headerColor: '#e0e0e0',
         });
 
-        if (isConfirmed) {
+        if (needsAction) {
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'msg-card-actions';
+            const confirmBtn = document.createElement('button');
+            confirmBtn.className = 'msg-card-btn primary';
+            confirmBtn.textContent = '确认目标 ✓';
+            confirmBtn.addEventListener('click', () => {
+                actionsDiv.innerHTML = '';
+                const statusEl = document.createElement('div');
+                statusEl.className = 'msg-card-status';
+                statusEl.textContent = '✅ 已确认';
+                actionsDiv.appendChild(statusEl);
+                G.vscode.postMessage({ type: 'confirmGoal', taskId: msg.taskId, originalRequest: '' });
+            });
+            const reviseBtn = document.createElement('button');
+            reviseBtn.className = 'msg-card-btn secondary';
+            reviseBtn.textContent = '修改需求 ↩';
+            reviseBtn.addEventListener('click', () => {
+                G.vscode.postMessage({ type: 'reviseGoal', taskId: msg.taskId });
+            });
+            actionsDiv.appendChild(confirmBtn);
+            actionsDiv.appendChild(reviseBtn);
+            card.appendChild(actionsDiv);
+        } else {
             const statusEl = document.createElement('div');
             statusEl.className = 'msg-card-status';
-            statusEl.textContent = '✅ 已确认';
+            statusEl.textContent = msg.type === 'goal_confirmed' ? '✅ 已确认' : '⏳ 已完成';
             card.appendChild(statusEl);
         }
 
@@ -394,7 +428,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
         const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const bodyText = content.replace(/^📋 计划方案\n\n/, '');
-        const isConfirmed = msg.type === 'plan_confirmed';
+        const needsAction = G.activeTaskPhase === 'plan' && msg.type === 'plan_proposal';
 
         const card = createCard({
             headerHtml: '📋 计划方案',
@@ -406,13 +440,103 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
             headerColor: '#e0e0e0',
         });
 
-        if (isConfirmed) {
+        if (needsAction) {
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'msg-card-actions';
+            const confirmBtn = document.createElement('button');
+            confirmBtn.className = 'msg-card-btn primary';
+            confirmBtn.textContent = '确认计划 ✓';
+            confirmBtn.addEventListener('click', () => {
+                actionsDiv.innerHTML = '';
+                const statusEl = document.createElement('div');
+                statusEl.className = 'msg-card-status';
+                statusEl.textContent = '✅ 已确认，开始执行...';
+                actionsDiv.appendChild(statusEl);
+                G.vscode.postMessage({ type: 'confirmPlan', taskId: msg.taskId });
+            });
+            actionsDiv.appendChild(confirmBtn);
+            card.appendChild(actionsDiv);
+        } else {
             const statusEl = document.createElement('div');
             statusEl.className = 'msg-card-status';
-            statusEl.textContent = '✅ 已确认';
+            statusEl.textContent = msg.type === 'plan_confirmed' ? '✅ 已确认' : '⏳ 已完成';
             card.appendChild(statusEl);
         }
 
+        bubble.appendChild(card);
+        if (msg.timestamp) msgDiv.dataset.ts = String(msg.timestamp);
+        appendToChatMessages(msgDiv);
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        return;
+    }
+
+    if (msg.type === 'execute_confirmation') {
+        const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
+        const bubble = msgDiv.querySelector('.msg-bubble')!;
+        const needsAction = G.activeTaskPhase === 'execute' || G.activeTaskPhase === 'self_verify';
+        const card = createCard({
+            headerHtml: '⚡ 执行完成',
+            bodyMarkdown: content,
+            rawData: msg,
+            defaultCollapsed: false,
+            borderColor: '#d4a84b',
+            headerBg: '#2d2d2d',
+            headerColor: '#e0e0e0',
+        });
+        if (needsAction) {
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'msg-card-actions';
+            const confirmBtn = document.createElement('button');
+            confirmBtn.className = 'msg-card-btn primary';
+            confirmBtn.textContent = '确认完成，进入自验 ✓';
+            confirmBtn.addEventListener('click', () => {
+                actionsDiv.innerHTML = '';
+                const statusEl = document.createElement('div');
+                statusEl.className = 'msg-card-status';
+                statusEl.textContent = '✅ 已确认，进入自验...';
+                actionsDiv.appendChild(statusEl);
+                G.vscode.postMessage({ type: 'confirmExecuteDone', taskId: msg.taskId });
+            });
+            actionsDiv.appendChild(confirmBtn);
+            card.appendChild(actionsDiv);
+        }
+        bubble.appendChild(card);
+        if (msg.timestamp) msgDiv.dataset.ts = String(msg.timestamp);
+        appendToChatMessages(msgDiv);
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        return;
+    }
+
+    if (msg.type === 'self_verify_confirmation') {
+        const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
+        const bubble = msgDiv.querySelector('.msg-bubble')!;
+        const needsAction = G.activeTaskPhase === 'self_verify' || G.activeTaskPhase === 'review';
+        const card = createCard({
+            headerHtml: '🔍 自验完成',
+            bodyMarkdown: content,
+            rawData: msg,
+            defaultCollapsed: false,
+            borderColor: '#6b9e6b',
+            headerBg: '#2d2d2d',
+            headerColor: '#e0e0e0',
+        });
+        if (needsAction) {
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'msg-card-actions';
+            const confirmBtn = document.createElement('button');
+            confirmBtn.className = 'msg-card-btn primary';
+            confirmBtn.textContent = '确认自验，进入验收 ✓';
+            confirmBtn.addEventListener('click', () => {
+                actionsDiv.innerHTML = '';
+                const statusEl = document.createElement('div');
+                statusEl.className = 'msg-card-status';
+                statusEl.textContent = '✅ 已确认，进入验收...';
+                actionsDiv.appendChild(statusEl);
+                G.vscode.postMessage({ type: 'confirmSelfVerifyDone', taskId: msg.taskId });
+            });
+            actionsDiv.appendChild(confirmBtn);
+            card.appendChild(actionsDiv);
+        }
         bubble.appendChild(card);
         if (msg.timestamp) msgDiv.dataset.ts = String(msg.timestamp);
         appendToChatMessages(msgDiv);

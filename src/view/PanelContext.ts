@@ -42,7 +42,7 @@ export interface KCodePanelContext {
     sendPendingQueueUpdate(): void;
     sendAcpLog(taskId: string, direction: 'send' | 'recv', text: string): void;
     flushAcpRecvBuffer(taskId?: string): void;
-    storeMessage(taskId: string, role: 'user' | 'agent', content: string): string;
+    storeMessage(taskId: string, role: 'user' | 'agent', content: string, type?: string): string;
     sendTaskInfo(taskId: string): void;
     sendNodePanelUpdate(taskId: string): void;
     sendHooksAsMessage(tid: string, phase: string): Promise<void>;

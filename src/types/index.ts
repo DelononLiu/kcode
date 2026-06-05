@@ -120,7 +120,7 @@ export interface ChatMessage {
     id: string;
     taskId: string;
     role: 'user' | 'agent' | 'tool';
-    type?: 'text' | 'goal_confirmation' | 'goal_confirmed' | 'goal_updated' | 'plan_proposal' | 'plan_confirmed' | 'review_request' | 'review_approved' | 'review_rejected' | 'tool_call' | 'stop_message' | 'todo' | 'card_comment';
+    type?: 'text' | 'goal_confirmation' | 'goal_confirmed' | 'goal_updated' | 'plan_proposal' | 'plan_confirmed' | 'execute_confirmation' | 'self_verify_confirmation' | 'review_request' | 'review_approved' | 'review_rejected' | 'tool_call' | 'stop_message' | 'todo' | 'card_comment';
     content: string;
     phase?: string;
     timestamp: number;
