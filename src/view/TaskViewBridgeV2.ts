@@ -170,15 +170,15 @@ export class TaskViewBridgeV2 {
                     } else if (this._ctx.taskFlow.getGenResult(this.tid).selfVerifyFinished && task?.type === 'task' && task?.phase === 'self_verify') {
                         this._ctx.storeMessage(this.tid, 'agent', 'AI 已完成自验，请确认后进入验收阶段。', 'self_verify_confirmation');
                     }
-
-                    const toolCalls = Array.from(this.activeToolCalls.entries()).map(([id, tc]) => ({
-                        toolCallId: id, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output,
-                    }));
-
-                    this._bridge.sendStateDelta(this.tid);
-                    this._bridge.sendStreamDone(this.tid, cleanedText, toolCalls);
-                    this._bridge.sendMessagesSync(this.tid);
                 }
+
+                const toolCalls = Array.from(this.activeToolCalls.entries()).map(([id, tc]) => ({
+                    toolCallId: id, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output,
+                }));
+
+                this._bridge.sendStateDelta(this.tid);
+                this._bridge.sendStreamDone(this.tid, cleanedText, toolCalls);
+                this._bridge.sendMessagesSync(this.tid);
 
                 this.activeToolCalls.clear();
                 this._ctx.taskFlow.resetGeneration(this.tid);

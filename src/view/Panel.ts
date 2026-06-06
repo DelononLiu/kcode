@@ -177,9 +177,20 @@ export class Panel {
                 await this.taskViewBridge!.sendAgentPrompt(tid, promptText, isGoalFormatting, originalText);
             };
             ctx.loadTask = (tid) => this.taskViewBridge!.loadTask(tid);
-            // Suppress old-style messages that conflict with V2 state-delta
             ctx.sendTaskInfo = () => {};
             ctx.sendNodePanelUpdate = () => {};
+
+            // Suppress old-style addUserMessage — V2 messages-sync handles it
+            const origPost = this.router.PostMessage.bind(this.router);
+            this.router.PostMessage = (msg: any) => {
+                if (msg.type === 'addUserMessage' && typeof msg.content === 'string' && msg.content !== '✅ 已取消任务') {
+                    return; // suppress, handled by messages-sync
+                }
+                if (msg.type === 'updateTaskInfo' || msg.type === 'updateNodePanel') {
+                    return; // suppress, handled by state-delta
+                }
+                origPost(msg);
+            };
         }
 
         this.sessionHandler = new TaskSessionHandler(ctx);
