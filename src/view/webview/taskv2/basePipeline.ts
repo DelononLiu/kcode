@@ -37,6 +37,7 @@ function showMessagePlaceholder() {
 let _streamBubble: HTMLElement | null = null;
 let _streamMarkdown: HTMLElement | null = null;
 let _agentHeaderShown = false;
+let _streamFinalized = false;
 
 function _ensureAgentHeader() {
     if (_agentHeaderShown) return;
@@ -84,6 +85,7 @@ function startStream() {
 }
 
 function appendStreamChunk(text: string) {
+    if (_streamFinalized) return;
     if (!_streamBubble || !_streamMarkdown) {
         startStream();
     }
@@ -97,6 +99,38 @@ function finalizeStream() {
     _streamBubble = null;
     _streamMarkdown = null;
     _agentHeaderShown = false;
+    _streamFinalized = true;
+}
+
+function removeStreamActions() {
+    const existing = document.querySelector('.stream-actions');
+    if (existing) existing.remove();
+}
+
+function appendStreamActions(actions: { text: string; className: string; onClick: () => void }[]) {
+    const stream = document.getElementById('__v2_stream');
+    if (!stream) return;
+    const bubble = stream.closest('.msg-bubble') as HTMLElement;
+    if (!bubble) return;
+
+    removeStreamActions();
+
+    if (actions.length === 0) return;
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'stream-actions';
+    for (const a of actions) {
+        const btn = document.createElement('button');
+        btn.className = `msg-card-btn ${a.className}`;
+        btn.textContent = a.text;
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            a.onClick();
+        });
+        actionsDiv.appendChild(btn);
+    }
+    bubble.appendChild(actionsDiv);
+    scrollToBottom();
 }
 
 // ──── Tool card engine ────
@@ -298,6 +332,8 @@ export const basePipeline = {
     startStream,
     appendStreamChunk,
     finalizeStream,
+    appendStreamActions,
+    removeStreamActions,
 
     // Tool cards
     addToolCard,

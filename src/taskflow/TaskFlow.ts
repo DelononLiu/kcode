@@ -568,28 +568,11 @@ export class TaskFlow {
         }
         this.store.updateTaskPhase(taskId, 'goal');
         this.store.updateTaskStatus(taskId, 'pending');
-        const goalMsgId = this.store.nextMessageId(taskId);
-        this.store.addMessage({
-            id: goalMsgId,
-            taskId,
-            role: 'agent',
-            type: 'goal_confirmation',
-            content: `📋 任务目标确认\n\n${goalText}`,
-            phase: 'goal',
-            timestamp: Date.now()
-        });
-        this.store.updateTaskNodeMessageId(taskId, 'goal', goalMsgId);
         this.delegate.onPhaseChanged(taskId);
         this.delegate.onGoalFormatted(taskId, goalText, originalRequest);
     }
 
     confirmGoal(taskId: string): void {
-        const msgs = this.store.getMessages(taskId);
-        const lastGoal = msgs.filter(m => m.type === 'goal_confirmation').pop();
-        if (lastGoal) {
-            this.store.updateMessageType(taskId, lastGoal.id, 'goal_confirmed');
-        }
-
         this.store.updateTaskPhase(taskId, 'plan');
         this.store.updateTaskStatus(taskId, 'active');
         this.store.addTimelineEntry(taskId, { timestamp: Date.now(), type: 'phase_change', summary: '目标确认 → 计划', detail: '用户确认目标，进入计划阶段' });

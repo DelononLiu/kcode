@@ -2,8 +2,6 @@ import type { AppState, StreamResult, UserAction, ChatMessage } from './types';
 import type { ViewStrategy } from './viewStrategy';
 import { stateManager } from './state';
 import { basePipeline } from './basePipeline';
-import { renderCardForMessage } from './cardRenderer';
-import type { FileChange } from '../../../types';
 
 function getVscode(): any {
     return (window as any).vscode || (window as any).__vscode || (window as any).acquireVsCodeApi?.();
@@ -95,9 +93,7 @@ function onStreamDone(state: AppState, result: StreamResult) {
 
 function renderTaskMessages(messages: ChatMessage[]) {
     const st = stateManager.state;
-    const reviewChanges = st.reviewState.changes;
 
-    // Clear container before rendering
     const container = document.querySelector('#task-view #chat-messages');
     if (container) container.innerHTML = '';
 
@@ -113,16 +109,7 @@ function renderTaskMessages(messages: ChatMessage[]) {
         }
 
         if (msg.role === 'agent') {
-            const phase = msg.phase || st.activeTaskPhase;
-
-            if (msg.type && ['goal_confirmation', 'goal_confirmed', 'plan_proposal', 'plan_confirmed',
-                'execute_confirmation', 'self_verify_confirmation',
-                'review_request', 'review_approved', 'review_rejected'].includes(msg.type)) {
-                const needsReviewChanges = ['review_request', 'review_approved', 'review_rejected'].includes(msg.type || '');
-                renderCardForMessage(msg, phase, needsReviewChanges ? reviewChanges : undefined);
-            } else {
-                basePipeline.renderAgentMessage(msg);
-            }
+            basePipeline.renderAgentMessage(msg);
             continue;
         }
     }

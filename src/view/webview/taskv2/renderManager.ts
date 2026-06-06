@@ -6,6 +6,18 @@ import { taskStrategy, renderTaskMessages, foldPhases } from './taskStrategy';
 import { showTaskView } from '../taskView';
 
 let _strategy: ViewStrategy = taskStrategy;
+let _vscode: any;
+
+function getVscode(): any {
+    if (!_vscode) {
+        _vscode = (window as any).vscode || (window as any).__vscode || (window as any).acquireVsCodeApi?.();
+    }
+    return _vscode;
+}
+
+function postAction(action: UserAction): void {
+    getVscode().postMessage(action);
+}
 
 export function setStrategy(s: ViewStrategy) {
     _strategy = s;
@@ -13,6 +25,39 @@ export function setStrategy(s: ViewStrategy) {
 
 export function getStrategy(): ViewStrategy {
     return _strategy;
+}
+
+function appendPhaseButtons() {
+    const st = stateManager.state;
+    const phase = st.activeTaskPhase;
+    const actions: { text: string; className: string; onClick: () => void }[] = [];
+
+    if (phase === 'goal' && st.activeTaskStatus !== 'completed' && st.activeTaskStatus !== 'cancelled') {
+        actions.push(
+            { text: '确认目标 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmGoal', taskId: st.activeTaskId! }) },
+            { text: '修改需求 ↩', className: 'secondary', onClick: () => postAction({ type: 'reviseGoal', taskId: st.activeTaskId! }) },
+            { text: '取消 ✕', className: 'cancel', onClick: () => postAction({ type: 'cancelTask', taskId: st.activeTaskId! }) },
+        );
+    } else if (phase === 'plan') {
+        actions.push(
+            { text: '确认计划 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmPlan', taskId: st.activeTaskId! }) },
+        );
+    } else if (phase === 'execute') {
+        actions.push(
+            { text: '确认完成，进入自验 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmExecuteDone', taskId: st.activeTaskId! }) },
+        );
+    } else if (phase === 'self_verify') {
+        actions.push(
+            { text: '确认自验，进入验收 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmSelfVerifyDone', taskId: st.activeTaskId! }) },
+        );
+    } else if (phase === 'review' && st.activeTaskStatus === 'in_review') {
+        actions.push(
+            { text: '验收通过 ✓', className: 'primary', onClick: () => postAction({ type: 'approveReview', taskId: st.activeTaskId! }) },
+            { text: '驳回 ↩', className: 'secondary', onClick: () => postAction({ type: 'rejectReview', taskId: st.activeTaskId! }) },
+        );
+    }
+
+    basePipeline.appendStreamActions(actions);
 }
 
 // ──── Message handler for V2 protocol ────
@@ -45,9 +90,14 @@ export function handleV2Message(message: Record<string, unknown>) {
 }
 
 function handleStateDelta(delta: StateDelta) {
+    const prevPhase = stateManager.state.activeTaskPhase;
     stateManager.update(delta);
-
     const st = stateManager.state;
+
+    if (st.activeTaskPhase !== prevPhase) {
+        basePipeline.removeStreamActions();
+    }
+
     showTaskView(true);
     _strategy.renderHeader(st);
 
@@ -68,12 +118,12 @@ function handleStreamDone(result: StreamResult) {
     stateManager.setStreamActive(false);
     basePipeline.finalizeStream();
 
-    // Update tool calls in state
     for (const tc of result.toolCalls) {
         stateManager.addToolCall(tc);
     }
 
     _strategy.onStreamDone(stateManager.state, result);
+    appendPhaseButtons();
 }
 
 function handleMessagesSync(msg: { messages: import('../../../types').ChatMessage[] }) {
@@ -84,6 +134,7 @@ function handleMessagesSync(msg: { messages: import('../../../types').ChatMessag
     _strategy.renderHeader(st);
 
     renderTaskMessages(msg.messages);
+    appendPhaseButtons();
 
     if (_strategy.shouldFoldPhases()) {
         setTimeout(() => foldPhases(st), 0);

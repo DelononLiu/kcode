@@ -52,7 +52,7 @@ export class TaskViewBridgeV2 {
         this.ctx.router.PostMessage({ type: 'stream-chunk', text });
     }
 
-    sendStreamDone(taskId: string, cleanedText: string, toolCalls: Array<{ toolCallId: string; title: string; kind: string; status: string; output?: string }>) {
+    sendStreamDone(taskId: string, cleanedText: string, toolCalls: Array<{ toolCallId: string; title: string; kind: string; status: string; output?: string }>, phaseFlags?: { planProposed?: boolean; executeFinished?: boolean; selfVerifyFinished?: boolean }) {
         const genResult = this.ctx.taskFlow.getGenResult(taskId);
         this.ctx.router.PostMessage({
             type: 'stream-done',
@@ -61,6 +61,7 @@ export class TaskViewBridgeV2 {
             executeFinished: genResult.executeFinished,
             selfVerifyFinished: genResult.selfVerifyFinished,
             toolCalls,
+            ...phaseFlags,
         });
     }
 
@@ -162,23 +163,22 @@ export class TaskViewBridgeV2 {
 
                     if (task?.type === 'task' && task?.phase === 'review' && task?.status !== 'completed' && task?.status !== 'cancelled') {
                         this._ctx.triggerReviewRequest(this.tid, cleanedText);
-                    } else if (this._ctx.taskFlow.getGenResult(this.tid).planProposed && task?.type === 'task' && task?.phase === 'plan') {
-                        if (cleanedText) this._ctx.storeMessage(this.tid, 'agent', cleanedText);
+                    } else if (task?.type === 'task' && task?.phase === 'plan') {
                         this._ctx.showPlanConfirmation(this.tid);
-                    } else if (this._ctx.taskFlow.getGenResult(this.tid).executeFinished && task?.type === 'task' && task?.phase === 'execute') {
-                        this._ctx.storeMessage(this.tid, 'agent', 'AI 已完成执行，请确认后进入自验阶段。', 'execute_confirmation');
-                    } else if (this._ctx.taskFlow.getGenResult(this.tid).selfVerifyFinished && task?.type === 'task' && task?.phase === 'self_verify') {
-                        this._ctx.storeMessage(this.tid, 'agent', 'AI 已完成自验，请确认后进入验收阶段。', 'self_verify_confirmation');
                     }
                 }
 
+                const genResult = this._ctx.taskFlow.getGenResult(this.tid);
                 const toolCalls = Array.from(this.activeToolCalls.entries()).map(([id, tc]) => ({
                     toolCallId: id, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output,
                 }));
 
                 this._bridge.sendStateDelta(this.tid);
-                this._bridge.sendStreamDone(this.tid, cleanedText, toolCalls);
-                this._bridge.sendMessagesSync(this.tid);
+                this._bridge.sendStreamDone(this.tid, cleanedText, toolCalls, {
+                    planProposed: genResult.planProposed,
+                    executeFinished: genResult.executeFinished,
+                    selfVerifyFinished: genResult.selfVerifyFinished,
+                });
 
                 this.activeToolCalls.clear();
                 this._ctx.taskFlow.resetGeneration(this.tid);

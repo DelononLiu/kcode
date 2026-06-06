@@ -41,10 +41,6 @@ export class TaskFlowHandler {
         const { ctx } = this;
         const task = ctx.store.getTask(tid);
         if (!task || task.planSteps.length === 0) return false;
-        const stepsContent = task.planSteps.map(s => `- [${s.status === 'completed' ? 'x' : ' '}] ${s.content}`).join('\n');
-        const goalContent = task.goal ? `🎯 目标\n${task.goal}\n\n` : '';
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', type: 'plan_proposal', content: `📋 计划方案\n\n${stepsContent}`, phase: 'plan', timestamp: Date.now() });
-        ctx.router.PostMessage({ type: 'showPlanProposal', taskId: tid, planSteps: task.planSteps, goal: task.goal });
         return true;
     }
 
@@ -127,15 +123,14 @@ export class TaskFlowHandler {
         }
         ctx.taskFlow.resetGeneration(tid);
         ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: ctx.store.getTask(tid)?.phase, taskStatus: ctx.store.getTask(tid)?.status });
+        ctx.router.PostMessage({ type: 'messages-sync', messages: ctx.store.getMessages(tid) });
     }
 
     triggerReviewRequest(tid: string, content: string) {
         const { ctx } = this;
         const task = ctx.store.getTask(tid);
         if (task?.status === 'completed' || task?.status === 'cancelled') return;
-        const reviewMsgId = ctx.store.nextMessageId(tid);
-        ctx.store.addMessage({ id: reviewMsgId, taskId: tid, role: 'agent', type: 'review_request', content, phase: 'review', timestamp: Date.now() });
-        ctx.store.updateTaskNodeMessageId(tid, 'review', reviewMsgId);
+        ctx.store.updateTaskNodeMessageId(tid, 'review', '');
         ctx.store.updateTaskStatus(tid, 'in_review');
 
         let changes: FileChange[] = ctx.agentService.getReviewChanges(tid);
@@ -153,7 +148,33 @@ export class TaskFlowHandler {
             acceptanceCriteria = cat?.acceptanceCriteria;
         }
 
+        const phaseLabels: Record<string, string> = { demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收' };
+        ctx.router.PostMessage({
+            type: 'state-delta',
+            viewMode: 'task',
+            activeTaskId: tid,
+            activeTaskPhase: task?.phase,
+            activeTaskStatus: 'in_review',
+            taskInfo: {
+                title: task?.title,
+                goal: task?.goal,
+                category: task?.category || '',
+                phase: task?.phase,
+                phaseLabel: phaseLabels[task?.phase || ''] || task?.phase || '',
+                status: 'in_review',
+                taskType: task?.type,
+                createdAt: task?.createdAt,
+                executeFinished: ctx.taskFlow.isExecuteFinished(tid),
+            },
+            confirmedItems: task?.confirmedItems || [],
+            planSteps: task?.planSteps || [],
+            planVersion: task?.planVersion || 1,
+            hooks: task?.hooks || {},
+            workspaceHooks: ctx.taskFlow['workspaceHooks'] || {},
+        });
+
         ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: task?.phase, taskStatus: 'in_review', reviewChanges: changes.length > 0 ? changes : undefined, acceptanceCriteria });
+        ctx.router.PostMessage({ type: 'messages-sync', messages: ctx.store.getMessages(tid) });
         ctx.sendNodePanelUpdate(tid);
         ctx.refreshSidebarCallback?.();
     }
@@ -188,6 +209,7 @@ export class TaskFlowHandler {
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', content: report, timestamp: Date.now() });
         ctx.store.clearReviewChanges(tid);
         ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: 'review', taskStatus: 'completed', reviewChanges: [] });
+        ctx.router.PostMessage({ type: 'messages-sync', messages: ctx.store.getMessages(tid) });
         this.sendTaskInfo(tid);
     }
 
@@ -202,6 +224,7 @@ export class TaskFlowHandler {
         if (failed.length === 0) {
             ctx.taskFlow.finishReview(tid);
             ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: 'review', taskStatus: 'completed' });
+            ctx.router.PostMessage({ type: 'messages-sync', messages: ctx.store.getMessages(tid) });
             this.sendTaskInfo(tid);
         } else {
             ctx.store.updateTaskPhase(tid, 'execute');
@@ -228,6 +251,7 @@ export class TaskFlowHandler {
         ctx.store.addMessage({ id, taskId: tid, role: 'agent', content: `错误: ${errorMsg}`, timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n---\n⚠️ **${errorMsg}**\n\n\`👉 在 KCode 侧边栏底部齿轮图标 → 设置 → Agent 配置 中填写 agentName\`\n---` });
         ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: ctx.store.getTask(tid)?.phase, taskStatus: ctx.store.getTask(tid)?.status });
+        ctx.router.PostMessage({ type: 'messages-sync', messages: ctx.store.getMessages(tid) });
     }
 
     sendTaskInfo(taskId: string) {
@@ -323,6 +347,7 @@ export class TaskFlowHandler {
             acceptanceCriteria = getCategory(task.category)?.acceptanceCriteria;
         }
         ctx.router.PostMessage({ type: 'loadMessages', messages, taskId, title: task?.title, taskType: task?.type, taskStatus: task?.status, taskPhase: task?.phase, category: task?.category, reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined, acceptanceCriteria });
+        ctx.router.PostMessage({ type: 'messages-sync', messages });
     }
 
     deriveNodes(taskId: string): ProgressNode[] {
@@ -445,6 +470,7 @@ export class TaskFlowHandler {
         this._syncTodosToPlanSteps(taskId);
         const t = ctx.store.getTask(taskId);
         ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(taskId), taskId, taskPhase: t?.phase, taskStatus: t?.status });
+        ctx.router.PostMessage({ type: 'messages-sync', messages: ctx.store.getMessages(taskId) });
         this.sendOutputPanelUpdate(taskId);
     }
 

@@ -142,14 +142,12 @@ describe('TaskFlowHandler', () => {
             expect(mocks.handler.showPlanConfirmation('task-1')).toBe(false);
         });
 
-        it('有 plan steps 发送消息并返回 true', () => {
+        it('有 plan steps 返回 true', () => {
             mocks.store.getTask.mockReturnValue(makeMockTask({
                 planSteps: [{ content: 'step1', status: 'pending' }],
             }));
             const result = mocks.handler.showPlanConfirmation('task-1');
             expect(result).toBe(true);
-            expect(mocks.store.addMessage).toHaveBeenCalled();
-            expect(mocks.postSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'showPlanProposal' }));
         });
     });
 
