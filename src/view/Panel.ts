@@ -153,7 +153,7 @@ export class Panel {
             sendPendingQueueUpdate: () => this.sendPendingQueueUpdate(),
             sendAcpLog: (t, d, tx) => this.acpLogManager.send(t, d, tx),
             flushAcpRecvBuffer: (tid) => this.acpLogManager.flush(tid),
-            storeMessage: (t, r, c) => this.storeMessage(t, r, c),
+            storeMessage: (t, r, c, ty) => this.storeMessage(t, r, c, ty),
             sendTaskInfo: (t) => this.flowHandler.sendTaskInfo(t),
             sendNodePanelUpdate: (t) => this.flowHandler.sendNodePanelUpdate(t),
             sendHooksAsMessage: (t, p) => this.sendHooksAsMessage(t, p),
