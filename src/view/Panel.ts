@@ -171,37 +171,31 @@ export class Panel {
         };
         this.ctx = ctx;
 
-        if (this.configService.get<boolean>('taskViewV2', false)) {
-            this.taskViewBridge = new TaskViewBridgeV2(ctx);
-            ctx.sendAgentPrompt = async (tid, promptText, isGoalFormatting, originalText) => {
-                await this.taskViewBridge!.sendAgentPrompt(tid, promptText, isGoalFormatting, originalText);
-            };
-            ctx.loadTask = (tid) => this.taskViewBridge!.loadTask(tid);
-            ctx.sendTaskInfo = () => {};
-            ctx.sendNodePanelUpdate = () => {};
+        this.taskViewBridge = new TaskViewBridgeV2(ctx);
+        ctx.sendAgentPrompt = async (tid, promptText, isGoalFormatting, originalText) => {
+            await this.taskViewBridge!.sendAgentPrompt(tid, promptText, isGoalFormatting, originalText);
+        };
+        ctx.loadTask = (tid) => this.taskViewBridge!.loadTask(tid);
+        ctx.sendTaskInfo = () => {};
+        ctx.sendNodePanelUpdate = () => {};
 
-            // Suppress old-style addUserMessage — V2 messages-sync handles it
-            const origPost = this.router.PostMessage.bind(this.router);
-            this.router.PostMessage = (msg: any) => {
-                if (msg.type === 'addUserMessage' && typeof msg.content === 'string' && msg.content !== '✅ 已取消任务') {
-                    return; // suppress, handled by messages-sync
-                }
-                if (msg.type === 'updateTaskInfo' || msg.type === 'updateNodePanel') {
-                    return; // suppress, handled by state-delta
-                }
-                origPost(msg);
-            };
-        }
+        const origPost = this.router.PostMessage.bind(this.router);
+        this.router.PostMessage = (msg: any) => {
+            if (msg.type === 'addUserMessage' && typeof msg.content === 'string' && msg.content !== '✅ 已取消任务') {
+                return;
+            }
+            if (msg.type === 'updateTaskInfo' || msg.type === 'updateNodePanel') {
+                return;
+            }
+            origPost(msg);
+        };
 
         this.sessionHandler = new TaskSessionHandler(ctx);
         this.flowHandler = new TaskFlowHandler(ctx);
 
-        // Must override after sessionHandler is created
-        if (this.taskViewBridge) {
-            this.sessionHandler.createAgentResponseHandler = (tid: string, isGoalFormatting: boolean, originalText: string) => {
-                return this.taskViewBridge!.createStreamHandler(tid, isGoalFormatting, originalText);
-            };
-        }
+        this.sessionHandler.createAgentResponseHandler = (tid: string, isGoalFormatting: boolean, originalText: string) => {
+            return this.taskViewBridge!.createStreamHandler(tid, isGoalFormatting, originalText);
+        };
 
         this.pluginManager = new PluginManager(
             store, this.router, this.agentService,
@@ -358,25 +352,9 @@ export class Panel {
     }
 
     loadTask(taskId: string) {
-        if (this.taskViewBridge) {
-            this.taskViewBridge.loadTask(taskId);
-            this.sessionHandler.ensureSession(taskId).catch(err => {
-                this.flowHandler.showAgentError(taskId, err?.message || 'ACP 会话未就绪');
-            });
-            return;
-        }
-
         this.currentTaskId = taskId;
         this.pendingMessages = [];
-        this.taskFlow.loadTask(taskId);
-        const task = this.store.getTask(taskId);
-        this.hasSetPlanMessage = !!task?.nodeMessageIds?.plan;
-        this.hasSetExecuteMessage = !!task?.nodeMessageIds?.execute;
-        this.sendCategoryDefs();
-        this.sendSlashCommandList();
-        this.flowHandler.sendTaskMessages(taskId);
-        this.flowHandler.sendTaskInfo(taskId);
-        this.flowHandler.sendNodePanelUpdate(taskId);
+        this.taskViewBridge!.loadTask(taskId);
         this.sessionHandler.ensureSession(taskId).catch(err => {
             this.flowHandler.showAgentError(taskId, err?.message || 'ACP 会话未就绪');
         });
