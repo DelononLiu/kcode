@@ -471,9 +471,12 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
     }
 
     if (msg.type === 'execute_confirmation') {
+        console.log('[KCD] execute_confirmation type=execute_confirmation id=' + msg.id + ' phase=' + G.activeTaskPhase + ' needsAction=' + (G.activeTaskPhase === 'execute'));
         const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
-        const bubble = msgDiv.querySelector('.msg-bubble')!;
-        const needsAction = G.activeTaskPhase === 'execute' || G.activeTaskPhase === 'self_verify';
+        if (!msgDiv) { console.warn('[KCD] msgDiv null'); return; }
+        const bubble = msgDiv.querySelector('.msg-bubble');
+        if (!bubble) { console.warn('[KCD] bubble null'); return; }
+        const needsAction = G.activeTaskPhase === 'execute';
         const card = createCard({
             headerHtml: '⚡ 执行完成',
             bodyMarkdown: content,
@@ -499,6 +502,11 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
             });
             actionsDiv.appendChild(confirmBtn);
             card.appendChild(actionsDiv);
+        } else {
+            const statusEl = document.createElement('div');
+            statusEl.className = 'msg-card-status';
+            statusEl.textContent = '✅ 已完成';
+            card.appendChild(statusEl);
         }
         bubble.appendChild(card);
         if (msg.timestamp) msgDiv.dataset.ts = String(msg.timestamp);
@@ -510,7 +518,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
     if (msg.type === 'self_verify_confirmation') {
         const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
         const bubble = msgDiv.querySelector('.msg-bubble')!;
-        const needsAction = G.activeTaskPhase === 'self_verify' || G.activeTaskPhase === 'review';
+        const needsAction = G.activeTaskPhase === 'self_verify';
         const card = createCard({
             headerHtml: '🔍 自验完成',
             bodyMarkdown: content,
@@ -536,6 +544,11 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
             });
             actionsDiv.appendChild(confirmBtn);
             card.appendChild(actionsDiv);
+        } else {
+            const statusEl = document.createElement('div');
+            statusEl.className = 'msg-card-status';
+            statusEl.textContent = '✅ 已完成';
+            card.appendChild(statusEl);
         }
         bubble.appendChild(card);
         if (msg.timestamp) msgDiv.dataset.ts = String(msg.timestamp);

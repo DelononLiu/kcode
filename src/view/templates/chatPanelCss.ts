@@ -89,6 +89,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tv4-phase-group.folded .tv4-pg-body{display:none;border-top:1px solid var(--border);background:rgba(0,0,0,.08)}
 .tv4-phase-group.folded[data-collapsed="false"] .tv4-pg-body{display:block}
 .tv4-phase-group.folded .tv4-pg-body .chat-msg{padding:6px 12px}
+.tv4-pg-divider{height:1px;background:var(--border);margin:4px 12px}
 
 /* Task view: show message sender */
 #task-view .chat-msg .msg-sender{display:flex;font-size:11px;font-weight:500;color:var(--text-dim);margin-bottom:2px;gap:4px}

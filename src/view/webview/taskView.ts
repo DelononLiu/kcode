@@ -27,6 +27,20 @@ const STAGE_LABELS: Record<string, string> = {
 
 let expandedPhaseGroups = new Set<string>();
 
+/** 判断工具条目是否为「重要」：文件操作、安装/编译命令 */
+const IMPORTANT_CMD_RE = /npm\s+(install|run|test|build)|npx|yarn\s|pnpm\s|git\s|docker|make\b|tsc\b|vitest\b|webpack|vite\b/i;
+function _isImportantTool(el: HTMLElement): boolean {
+    const tlEntry = el.querySelector('.tl-entry') as HTMLElement | null;
+    if (!tlEntry) return false;
+    const kind = tlEntry.dataset.tlKind;
+    if (kind === 'file') return true;
+    if (kind === 'command') {
+        const titleEl = tlEntry.querySelector('.tl-entry-title');
+        if (titleEl && IMPORTANT_CMD_RE.test(titleEl.textContent || '')) return true;
+    }
+    return false;
+}
+
 export function foldPhase(phase: string): void {
     const container = getChatMessages();
     if (!container) return;
@@ -40,13 +54,35 @@ export function foldPhase(phase: string): void {
 
     const headerEl = elements.find(e => e.classList.contains('agent-header')) as HTMLElement | null;
 
+    // 分类：重要 vs 闪现
+    const important: HTMLElement[] = [];
+    const flash: HTMLElement[] = [];
+    const others: HTMLElement[] = [];
+
     const tlEntries = group.querySelectorAll('.tl-entry');
     let thinkingCount = 0, toolCount = 0;
-    tlEntries.forEach(entry => {
+    tlEntries.forEach((entry: Element) => {
         const kind = (entry as HTMLElement).dataset.tlKind;
         if (kind === 'thinking') thinkingCount++;
         else if (kind) toolCount++;
     });
+
+    for (const msg of chatMsgs.slice(0, -1)) {
+        if (msg.classList.contains('tool')) {
+            if (_isImportantTool(msg)) {
+                important.push(msg);
+            } else {
+                flash.push(msg);
+            }
+        } else {
+            others.push(msg);
+        }
+    }
+
+    // 闪现区只保留最后 3 条
+    const FLASH_MAX = 3;
+    const flashTrimmed = flash.slice(-FLASH_MAX);
+    const hiddenFlashCount = flash.length - flashTrimmed.length;
 
     let tsMin = Infinity, tsMax = -Infinity;
     for (const msg of chatMsgs) {
@@ -64,15 +100,20 @@ export function foldPhase(phase: string): void {
     if (toolCount > 0) parts.push(`调用 ${toolCount}个工具`);
     if (elapsed > 0) parts.push(`用时 ${elapsed}秒`);
 
+    // toggle 摘要
+    let summaryParts = '';
+    if (important.length > 0) summaryParts += `📄 ${important.length}项变更 `;
+    if (flashTrimmed.length > 0) summaryParts += `⚡ ${flashTrimmed.length}条 `;
+    if (hiddenFlashCount > 0) summaryParts += `+${hiddenFlashCount}条隐藏 `;
+
     const toggle = document.createElement('div');
     toggle.className = 'tv4-pg-toggle';
-
     const count = chatMsgs.length;
-
     toggle.innerHTML = '<span class="tv4-pg-icon">▶</span> '
         + STAGE_LABELS[phase]
         + ' <span class="tv4-pg-count">' + count + '条</span>'
-        + (parts.length > 0 ? ' — <span class="tv4-pg-summary">' + parts.join('，') + '</span>' : '');
+        + (summaryParts ? ' — <span class="tv4-pg-summary">' + summaryParts + '</span>' : '')
+        + (parts.length > 0 ? ' <span class="tv4-pg-summary">' + parts.join('，') + '</span>' : '');
 
     toggle.addEventListener('click', () => {
         const grp = toggle.parentElement as HTMLElement;
@@ -87,9 +128,21 @@ export function foldPhase(phase: string): void {
     const body = document.createElement('div');
     body.className = 'tv4-pg-body';
 
-    for (let i = 0; i < chatMsgs.length - 1; i++) {
-        body.appendChild(chatMsgs[i]);
+    // 重要区直接追加
+    for (const msg of important) body.appendChild(msg);
+
+    // 重要和闪现之间放一根分隔线
+    if (important.length > 0 && flashTrimmed.length > 0) {
+        const divider = document.createElement('div');
+        divider.className = 'tv4-pg-divider';
+        body.appendChild(divider);
     }
+
+    // 闪现区（保留最后 3 条）
+    for (const msg of flashTrimmed) body.appendChild(msg);
+
+    // 其他（agent 正文等）
+    for (const msg of others) body.appendChild(msg);
 
     const insertRef = headerEl ? headerEl.nextSibling : group.firstChild;
     group.insertBefore(toggle, insertRef);

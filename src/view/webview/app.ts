@@ -314,7 +314,10 @@ function initMessageHandler() {
                     }
                 }
 
-                if (isNewTask || message.taskStatus === 'in_review') {
+                if (isNewTask || message.render || message.taskStatus === 'in_review') {
+                    console.log('[KCD] loadMessages trigger: isNewTask=' + isNewTask + ' render=' + !!message.render + ' status=' + message.taskStatus + ' count=' + (message.messages?.length || 0));
+                    const last5 = (message.messages || []).slice(-5).map((m: any) => m.type || '(no type)');
+                    console.log('[KCD] last5 types:', JSON.stringify(last5));
                     renderMessages(message.messages || []);
                 }
 
