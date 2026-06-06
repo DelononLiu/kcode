@@ -1,10 +1,10 @@
 import { G, type FileChange } from './state';
 import { showAssistantView, initAgentSelector, initModelSelector, truncateModel } from './assistantView';
-import { showTaskView, initPhaseView, updatePhaseBadge, resetPhaseState, foldPhase } from './taskView';
+import { showTaskView } from './taskView';
 import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpdate, sendMessageFromInput } from './chatInteraction';
 import { initTemplateChips, renderCategorySelection, focusChatInput } from './templateFlow';
 import { initPluginManager, renderPluginList } from './pluginRegistry';
-import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, addUserMessage, handleKnowledgeExtract, __resetStream, showAgentThinking, updateTaskInfo, updateHeaderRow2 } from './messageRenderer';
+import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, addUserMessage, handleKnowledgeExtract, __resetStream, showAgentThinking } from './messageRenderer';
 import { handleDemoCardUpdate } from './demoCards';
 import { initTaskV2 } from './taskv2/renderManager';
 
