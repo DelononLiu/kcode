@@ -60,8 +60,8 @@ function handleStateDelta(delta: StateDelta) {
 
 function handleStreamChunk(msg: { text: string }) {
     stateManager.setStreamActive(true);
-    stateManager.appendStreamChunk(msg.text);
-    basePipeline.appendStreamChunk(stateManager.state.streamState.buffer);
+    stateManager.update({ streamState: { ...stateManager.state.streamState, buffer: msg.text, active: true } });
+    basePipeline.appendStreamChunk(msg.text);
 }
 
 function handleStreamDone(result: StreamResult) {
