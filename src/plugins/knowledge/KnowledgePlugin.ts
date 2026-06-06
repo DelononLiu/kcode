@@ -54,7 +54,7 @@ const plugin: KCodePlugin = {
                         store.addMessage({ id, taskId: tid, role: 'agent', content: collectedText, timestamp: Date.now() });
                     }
                     router.PostMessage({ type: 'generationState', isGenerating: false });
-                    router.PostMessage({ type: 'loadMessages', messages: store.getMessages(tid), taskId: tid, taskStatus: store.getTask(tid)?.status });
+                    router.PostMessage({ type: 'loadMessages', messages: store.getMessages(tid), taskId: tid, taskPhase: store.getTask(tid)?.phase, taskStatus: store.getTask(tid)?.status });
                 },
             });
         });

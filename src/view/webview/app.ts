@@ -305,9 +305,9 @@ function initMessageHandler() {
                     }
 
                     const prevPhase = G.activeTaskPhase;
-                    G.activeTaskPhase = message.taskPhase || message.phase || '';
-                    G.activeTaskStatus = message.taskStatus || message.status || '';
-                    updatePhaseBadge(message.taskPhase || message.phase || '');
+                    G.activeTaskPhase = message.taskPhase || message.phase || G.activeTaskPhase;
+                    G.activeTaskStatus = message.taskStatus || message.status || G.activeTaskStatus;
+                    if (message.taskPhase || message.phase) updatePhaseBadge(message.taskPhase || message.phase);
 
                     if (!isNewTask && prevPhase && prevPhase !== G.activeTaskPhase) {
                         foldPhase(prevPhase);

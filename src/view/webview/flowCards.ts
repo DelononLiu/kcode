@@ -519,6 +519,7 @@ export function showGoalConfirmationCard(info: any) {
         actions: undefined,
         rawData: info
     });
+    card.classList.add('goal-card');
 
     if (info.categoryLabel) {
         const badgeLine = document.createElement('div');
@@ -549,8 +550,12 @@ export function showHeaderRow(row: string, show: boolean) {
 }
 
 export function removeGoalConfirmationCard() {
-    document.querySelectorAll('.msg-card').forEach(el => el.remove());
+    document.querySelectorAll('.msg-card.goal-card').forEach(el => {
+        const msgDiv = el.closest('.chat-msg');
+        if (msgDiv) msgDiv.remove();
+    });
 }
+
 
 export function handleShowPlanProposal(message: any) {
     const planSteps = message.planSteps || [];

@@ -29,7 +29,7 @@ const plugin: KCodePlugin = {
 
                 router.PostMessage({
                     type: 'loadMessages', messages: store.getMessages(taskId), taskId,
-                    taskStatus: 'in_review', reviewChanges: changes.length > 0 ? changes : undefined,
+                    taskPhase: 'review', taskStatus: 'in_review', reviewChanges: changes.length > 0 ? changes : undefined,
                     acceptanceCriteria,
                 });
             }

@@ -35,7 +35,7 @@ const plugin: KCodePlugin = {
                 store.addMessage({ id: msgId, taskId, role: 'agent', type: 'todo', content: JSON.stringify(items), timestamp: Date.now() });
             }
             syncTodosToPlanSteps(store, taskId);
-            api.getRouter().PostMessage({ type: 'loadMessages', messages: store.getMessages(taskId), taskId, taskStatus: store.getTask(taskId)?.status });
+            api.getRouter().PostMessage({ type: 'loadMessages', messages: store.getMessages(taskId), taskId, taskPhase: store.getTask(taskId)?.phase, taskStatus: store.getTask(taskId)?.status });
         });
 
         api.onMessage('updateTodoItem', (msg: any) => {
@@ -72,7 +72,7 @@ const plugin: KCodePlugin = {
                     }
                 }
                 syncTodosToPlanSteps(store, taskId);
-                api.getRouter().PostMessage({ type: 'loadMessages', messages: store.getMessages(taskId), taskId, taskStatus: store.getTask(taskId)?.status });
+                api.getRouter().PostMessage({ type: 'loadMessages', messages: store.getMessages(taskId), taskId, taskPhase: store.getTask(taskId)?.phase, taskStatus: store.getTask(taskId)?.status });
             } catch {}
         });
     },

@@ -126,7 +126,7 @@ export class TaskFlowHandler {
             ctx.store.addMessage({ id, taskId: tid, role: 'agent', content: partialText, timestamp: Date.now() });
         }
         ctx.taskFlow.resetGeneration(tid);
-        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskStatus: ctx.store.getTask(tid)?.status });
+        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: ctx.store.getTask(tid)?.phase, taskStatus: ctx.store.getTask(tid)?.status });
     }
 
     triggerReviewRequest(tid: string, content: string) {
@@ -187,7 +187,7 @@ export class TaskFlowHandler {
         if (changes.length > 0) report += `📄 **变更文件**：${changes.length} 个\n${changes.map(c => `  - \`${c.filePath}\``).join('\n')}`;
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', content: report, timestamp: Date.now() });
         ctx.store.clearReviewChanges(tid);
-        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskStatus: 'completed', reviewChanges: [] });
+        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: 'review', taskStatus: 'completed', reviewChanges: [] });
         this.sendTaskInfo(tid);
     }
 
@@ -201,7 +201,7 @@ export class TaskFlowHandler {
 
         if (failed.length === 0) {
             ctx.taskFlow.finishReview(tid);
-            ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskStatus: 'completed' });
+            ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: 'review', taskStatus: 'completed' });
             this.sendTaskInfo(tid);
         } else {
             ctx.store.updateTaskPhase(tid, 'execute');
@@ -227,7 +227,7 @@ export class TaskFlowHandler {
         const id = ctx.store.nextMessageId(tid);
         ctx.store.addMessage({ id, taskId: tid, role: 'agent', content: `错误: ${errorMsg}`, timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n---\n⚠️ **${errorMsg}**\n\n\`👉 在 KCode 侧边栏底部齿轮图标 → 设置 → Agent 配置 中填写 agentName\`\n---` });
-        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskStatus: ctx.store.getTask(tid)?.status });
+        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: ctx.store.getTask(tid)?.phase, taskStatus: ctx.store.getTask(tid)?.status });
     }
 
     sendTaskInfo(taskId: string) {
@@ -444,7 +444,7 @@ export class TaskFlowHandler {
 
         this._syncTodosToPlanSteps(taskId);
         const t = ctx.store.getTask(taskId);
-        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(taskId), taskId, taskStatus: t?.status });
+        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(taskId), taskId, taskPhase: t?.phase, taskStatus: t?.status });
         this.sendOutputPanelUpdate(taskId);
     }
 

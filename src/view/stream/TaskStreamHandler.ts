@@ -165,7 +165,7 @@ export class TaskStreamHandler extends StreamHandlerBase {
                 const cardShown = this.ctx.showPlanConfirmation(this.tid);
                 this.ctx.sendNodePanelUpdate(this.tid);
                 if (!cardShown) {
-                    this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskStatus: this.ctx.store.getTask(this.tid)?.status });
+                    this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskPhase: task?.phase, taskStatus: this.ctx.store.getTask(this.tid)?.status });
                 }
             } else if (genResult.executeFinished && task?.type === 'task' && task?.phase === 'execute') {
                 log('stream', 'executeFinished — storing execute_confirmation');
@@ -174,21 +174,21 @@ export class TaskStreamHandler extends StreamHandlerBase {
                 log('stream', 'execute_confirmation stored, id=' + confId);
                 this.ctx.sendTaskInfo(this.tid);
                 this.ctx.sendNodePanelUpdate(this.tid);
-                this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskStatus: this.ctx.store.getTask(this.tid)?.status, render: true });
+                this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskPhase: task?.phase, taskStatus: this.ctx.store.getTask(this.tid)?.status, render: true });
             } else if (genResult.selfVerifyFinished && task?.type === 'task' && task?.phase === 'self_verify') {
                 log('stream', 'selfVerifyFinished, waiting for user confirmation');
                 if (cleanedText) this.ctx.storeMessage(this.tid, 'agent', cleanedText);
                 this.ctx.storeMessage(this.tid, 'agent', 'AI 已完成自验，请确认后进入验收阶段。', 'self_verify_confirmation');
                 this.ctx.sendTaskInfo(this.tid);
                 this.ctx.sendNodePanelUpdate(this.tid);
-                this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskStatus: this.ctx.store.getTask(this.tid)?.status, render: true });
+                this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskPhase: task?.phase, taskStatus: this.ctx.store.getTask(this.tid)?.status, render: true });
             } else {
                 const agentMsgId = this.ctx.storeMessage(this.tid, 'agent', cleanedText);
                 if (agentMsgId && !this.ctx.hasSetPlanMessage) {
                     this.ctx.store.updateTaskNodeMessageId(this.tid, 'plan', agentMsgId);
                 }
                 this.ctx.sendNodePanelUpdate(this.tid);
-                this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskStatus: this.ctx.store.getTask(this.tid)?.status });
+                this.router.PostMessage({ type: 'loadMessages', messages: this.ctx.store.getMessages(this.tid), taskId: this.tid, taskPhase: task?.phase, taskStatus: this.ctx.store.getTask(this.tid)?.status });
             }
         }
 
