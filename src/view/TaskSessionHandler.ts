@@ -4,7 +4,6 @@ import type { AcpMessageHandler } from '../types';
 import { ConfigService } from '../core/ConfigService';
 import { classifyIntent } from '../acp/intentUtils';
 import { getCategory } from '../taskflow/templates';
-import { TaskStreamHandler } from './stream/TaskStreamHandler';
 
 export class TaskSessionHandler {
     constructor(private ctx: KCodePanelContext) {}
@@ -231,8 +230,7 @@ export class TaskSessionHandler {
         await this.doPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, '请自验执行结果'), handler);
     }
 
-    createAgentResponseHandler(tid: string, isGoalFormatting: boolean, originalText: string, parseTables = false): AcpMessageHandler {
-        const handler = new TaskStreamHandler(tid, this.ctx, isGoalFormatting, originalText, parseTables);
-        return handler.create();
+    createAgentResponseHandler(_tid: string, _isGoalFormatting: boolean, _originalText: string, _parseTables = false): AcpMessageHandler {
+        throw new Error('createAgentResponseHandler is overridden by TaskViewBridgeV2');
     }
 }

@@ -1,6 +1,6 @@
-import { G } from './state';
+import { G, type FileChange } from './state';
 import { initTemplateChips } from './templateFlow';
-import { reviewChangesMap, createReviewChangesElement, updateAcceptanceButtons, showRejectInput } from './flowCards';
+import { reviewChangesMap } from './demoCards';
 import { renderMarkdown, escapeHtml } from './markdownRenderer';
 import { createCard, createCardMessageElement, createCopyButton } from './cardBuilder';
 import { createTimelineEntry, createMergedTimelineEntry, showTlFilterBar, forceTitle } from './timelineRenderer';
@@ -989,6 +989,194 @@ export function flashInput() {
         tv4Wrapper.classList.add('input-flash');
     }
 }
+
+let selectedReviewFileIdx: number | null = null;
+
+export function getChangeType(original: string, modified: string): { icon: string; label: string } {
+    if (!original) return { icon: '📄', label: '新建' };
+    if (!modified) return { icon: '🗑️', label: '删除' };
+    return { icon: '📝', label: '修改' };
+}
+
+export function getChangeSummary(original: string, modified: string): string {
+    if (!original) return '新建文件';
+    if (!modified) return '删除文件';
+    const oLines = original.split('\n').filter(l => l.trim());
+    const mLines = modified.split('\n').filter(l => l.trim());
+    const added = mLines.length - oLines.length;
+    const changed = Math.abs(added);
+    return added >= 0 ? `+${added} 行` : `${added} 行`;
+}
+
+export function toggleReviewFileSelection(change: FileChange, item: HTMLElement, idx: number) {
+    const rp = document.getElementById('right-panel');
+    if (!rp) return;
+
+    if (selectedReviewFileIdx === idx) {
+        selectedReviewFileIdx = null;
+        item.classList.remove('selected');
+        rp.classList.add('hidden');
+        return;
+    }
+
+    document.querySelectorAll('.review-changes-item.selected').forEach(el => el.classList.remove('selected'));
+
+    selectedReviewFileIdx = idx;
+    item.classList.add('selected');
+    rp.classList.remove('hidden');
+
+    (window as any).showDiffWithFile?.(change.original, change.modified, change.filePath);
+    activateTab('diff');
+}
+
+export function createReviewChangesElement(changes: FileChange[], taskId: string): HTMLElement {
+    const list = document.createElement('div');
+    list.className = 'review-changes';
+
+    const label = document.createElement('div');
+    label.className = 'review-changes-label';
+    label.textContent = `📄 变更文件 (${changes.length})`;
+    list.appendChild(label);
+
+    for (let idx = 0; idx < changes.length; idx++) {
+        const change = changes[idx];
+        const type = getChangeType(change.original, change.modified);
+        const summary = getChangeSummary(change.original, change.modified);
+
+        const item = document.createElement('div');
+        item.className = 'review-changes-item';
+        item.dataset.filePath = change.filePath;
+        item.dataset.idx = String(idx);
+
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'review-changes-icon';
+        iconSpan.textContent = type.icon;
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'review-changes-name';
+        nameSpan.textContent = change.filePath;
+
+        const typeLabel = document.createElement('span');
+        typeLabel.className = 'review-changes-type';
+        typeLabel.textContent = type.label;
+
+        const summarySpan = document.createElement('span');
+        summarySpan.className = 'review-changes-summary';
+        summarySpan.textContent = summary;
+
+        const openBtn = document.createElement('span');
+        openBtn.className = 'review-changes-open';
+        openBtn.textContent = '⇱';
+        openBtn.title = '在 VS Code 中打开对比';
+        openBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            G.vscode.postMessage({
+                type: 'openNativeDiff',
+                original: change.original,
+                modified: change.modified,
+                filePath: change.filePath
+            });
+        });
+
+        item.appendChild(iconSpan);
+        item.appendChild(nameSpan);
+        item.appendChild(typeLabel);
+        item.appendChild(summarySpan);
+        item.appendChild(openBtn);
+
+        item.addEventListener('click', (e) => {
+            if ((e.target as HTMLElement).classList.contains('review-changes-open')) return;
+            toggleReviewFileSelection(change, item, idx);
+        });
+
+        list.appendChild(item);
+    }
+
+    return list;
+}
+
+export function showRejectInput(btn: HTMLElement, taskId: string) {
+    const msgDiv = btn.closest('.chat-msg.agent') as HTMLElement;
+    if (!msgDiv) return;
+
+    const actions = msgDiv.querySelector('.msg-card-actions') as HTMLElement;
+    if (!actions) return;
+
+    const existing = actions.querySelector('.reject-input-area');
+    if (existing) return;
+
+    actions.innerHTML = '';
+
+    const area = document.createElement('div');
+    area.className = 'reject-input-area';
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'reject-input';
+    textarea.placeholder = '驳回原因（可选）...';
+    textarea.rows = 2;
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'reject-btn-row';
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'msg-card-btn primary';
+    confirmBtn.textContent = '确认驳回';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'msg-card-btn secondary';
+    cancelBtn.textContent = '取消';
+
+    confirmBtn.addEventListener('click', () => {
+        const reason = textarea.value.trim();
+        actions.innerHTML = '';
+        const statusEl = document.createElement('div');
+        statusEl.className = 'msg-card-status';
+        statusEl.textContent = reason ? `↩️ 已驳回: ${reason}` : '↩️ 已驳回';
+        actions.appendChild(statusEl);
+        G.vscode.postMessage({ type: 'rejectReview', taskId, reason });
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        actions.innerHTML = '';
+        const approveBtn = document.createElement('button');
+        approveBtn.className = 'msg-card-btn primary';
+        approveBtn.textContent = '验收通过 ✓';
+        approveBtn.addEventListener('click', () => {
+            actions.innerHTML = '';
+            const status = document.createElement('div');
+            status.className = 'msg-card-status';
+            status.textContent = '✅ 已验收通过';
+            actions.appendChild(status);
+            G.vscode.postMessage({ type: 'approveReview', taskId });
+        });
+
+        const rejectBtn = document.createElement('button');
+        rejectBtn.className = 'msg-card-btn secondary';
+        rejectBtn.textContent = '驳回 ↩';
+        rejectBtn.addEventListener('click', () => {
+            showRejectInput(rejectBtn, taskId);
+        });
+
+        actions.appendChild(approveBtn);
+        actions.appendChild(rejectBtn);
+    });
+
+    btnRow.appendChild(confirmBtn);
+    btnRow.appendChild(cancelBtn);
+    area.appendChild(textarea);
+    area.appendChild(btnRow);
+    actions.appendChild(area);
+}
+
+export function updateAcceptanceButtons(taskId: string) {
+    const card = document.querySelector(`.msg-card[data-review-task-id="${taskId}"]`) as any;
+    if (card?.__updateAcceptanceButtons) {
+        card.__updateAcceptanceButtons();
+    }
+}
+
+(window as any).showRejectInput = showRejectInput;
+(window as any).toggleReviewFileSelection = toggleReviewFileSelection;
 
 // ===== Barrel re-exports =====
 

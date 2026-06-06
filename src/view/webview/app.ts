@@ -5,7 +5,7 @@ import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpda
 import { initTemplateChips, renderCategorySelection, focusChatInput } from './templateFlow';
 import { initPluginManager, renderPluginList } from './pluginRegistry';
 import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, addUserMessage, handleKnowledgeExtract, __resetStream, showAgentThinking, updateTaskInfo, updateHeaderRow2 } from './messageRenderer';
-import { handleDemoCardUpdate } from './flowCards';
+import { handleDemoCardUpdate } from './demoCards';
 import { initTaskV2 } from './taskv2/renderManager';
 
 declare function acquireVsCodeApi(): any;
