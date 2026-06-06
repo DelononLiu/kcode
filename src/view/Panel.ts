@@ -16,6 +16,7 @@ import { AssistantHandler } from './AssistantHandler';
 import { CommandRegistry } from '../commands/CommandRegistry';
 import { PluginManager } from '../core/plugin/PluginManager';
 import type { KCodePanelContext, ToolCallState, PendingMessage } from './PanelContext';
+import { TaskViewBridgeV2 } from './TaskViewBridgeV2';
 
 export class Panel {
     readonly panel: vscode.WebviewPanel;
@@ -28,6 +29,7 @@ export class Panel {
     readonly acpLogManager: AcpLogManager;
     readonly assistantHandler: AssistantHandler;
     readonly pluginManager: PluginManager;
+    private taskViewBridge: TaskViewBridgeV2 | null = null;
 
     currentTaskId: string | null = null;
     activeToolCalls: Map<string, ToolCallState> = new Map();
@@ -168,6 +170,15 @@ export class Panel {
             loadAssistant: () => this.loadAssistant(),
         };
         this.ctx = ctx;
+
+        if (this.configService.get<boolean>('taskViewV2', false)) {
+            this.taskViewBridge = new TaskViewBridgeV2(ctx);
+            // Override sendAgentPrompt and loadTask to route through V2 bridge
+            ctx.sendAgentPrompt = async (tid, promptText, isGoalFormatting, originalText) => {
+                await this.taskViewBridge!.sendAgentPrompt(tid, promptText, isGoalFormatting, originalText);
+            };
+            ctx.loadTask = (tid) => this.taskViewBridge!.loadTask(tid);
+        }
 
         this.sessionHandler = new TaskSessionHandler(ctx);
         this.flowHandler = new TaskFlowHandler(ctx);
@@ -327,6 +338,14 @@ export class Panel {
     }
 
     loadTask(taskId: string) {
+        if (this.taskViewBridge) {
+            this.taskViewBridge.loadTask(taskId);
+            this.sessionHandler.ensureSession(taskId).catch(err => {
+                this.flowHandler.showAgentError(taskId, err?.message || 'ACP 会话未就绪');
+            });
+            return;
+        }
+
         this.currentTaskId = taskId;
         this.pendingMessages = [];
         this.taskFlow.loadTask(taskId);

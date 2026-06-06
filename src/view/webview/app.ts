@@ -590,3 +590,5 @@ document.addEventListener('DOMContentLoaded', () => {
 (window as any).renderMarkdown = renderMarkdown;
 (window as any).renderMessages = renderMessages;
 (window as any).__resetStream = __resetStream;
+
+import('./taskv2/renderManager').then(m => m.initTaskV2());
