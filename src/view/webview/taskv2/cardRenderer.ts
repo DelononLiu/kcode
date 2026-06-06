@@ -5,12 +5,17 @@ import { appendToChatMessages } from '../chatStream';
 import { getChatScroll } from '../domContainers';
 import { basePipeline } from './basePipeline';
 
-declare function acquireVsCodeApi(): any;
+let _vscode: any;
 
-const _vscode = acquireVsCodeApi();
+function getVscode(): any {
+    if (!_vscode) {
+        _vscode = (window as any).vscode || (window as any).__vscode || (window as any).acquireVsCodeApi?.();
+    }
+    return _vscode;
+}
 
 function postAction(action: UserAction): void {
-    _vscode.postMessage(action);
+    getVscode().postMessage(action);
 }
 
 function scrollToBottom() {
@@ -222,7 +227,7 @@ export function renderReviewCard(msg: ChatMessage, phase: string, changes?: Arra
             item.innerHTML = `<span class="review-changes-icon">${icon}</span>`
                 + `<span class="review-changes-name">${ch.filePath}</span>`;
             item.addEventListener('click', () => {
-                _vscode.postMessage({
+                getVscode().postMessage({
                     type: 'openNativeDiff',
                     original: ch.original,
                     modified: ch.modified,

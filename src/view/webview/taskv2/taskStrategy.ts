@@ -5,8 +5,9 @@ import { basePipeline } from './basePipeline';
 import { renderCardForMessage } from './cardRenderer';
 import type { FileChange } from '../../../types';
 
-declare function acquireVsCodeApi(): any;
-const _vscode = acquireVsCodeApi();
+function getVscode(): any {
+    return (window as any).vscode || (window as any).__vscode || (window as any).acquireVsCodeApi?.();
+}
 
 const STAGE_ORDER = ['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'];
 const STAGE_LABELS: Record<string, string> = {
@@ -144,7 +145,7 @@ function foldPhases(state: AppState) {
 
 function onUserAction(_state: AppState, action: UserAction) {
     // All user actions are forwarded to extension side
-    _vscode.postMessage(action);
+    getVscode().postMessage(action);
 }
 
 // ──── Strategy ────
