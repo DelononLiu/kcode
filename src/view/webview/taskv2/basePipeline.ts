@@ -54,13 +54,19 @@ function _ensureAgentHeader() {
 
 function startStream() {
     const container = getChatMessages()!;
-    if (_streamBubble && _streamBubble.parentElement) {
-        return;
-    }
 
     hideWorkingIndicator();
     __resetStream();
     resetStreamParser();
+
+    let existing = document.getElementById('__v2_stream');
+    if (existing) {
+        _streamMarkdown = existing;
+        const bubble = existing.closest('.msg-bubble');
+        if (bubble) _streamBubble = bubble as HTMLElement;
+        return;
+    }
+
     ensureChatReady();
     showMessagePlaceholder();
 
@@ -72,6 +78,7 @@ function startStream() {
 
     _streamMarkdown = document.createElement('div');
     _streamMarkdown.className = 'stream-markdown';
+    _streamMarkdown.id = '__v2_stream';
     bubble.appendChild(_streamMarkdown);
     scrollToBottom();
 }
