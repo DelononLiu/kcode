@@ -375,7 +375,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const bodyText = content.replace(/^📋 任务目标确认\n\n/, '');
         // 仍然在 goal 阶段 → 需要交互按钮
-        const needsAction = G.activeTaskPhase === 'goal' && !msg.type.includes('confirmed');
+        const needsAction = msg.phase === 'goal' && !msg.type.includes('confirmed');
 
         const card = createCard({
             headerHtml: '🎯 任务目标',
@@ -428,7 +428,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
         const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
         const bubble = msgDiv.querySelector('.msg-bubble')!;
         const bodyText = content.replace(/^📋 计划方案\n\n/, '');
-        const needsAction = G.activeTaskPhase === 'plan' && msg.type === 'plan_proposal';
+        const needsAction = msg.phase === 'plan' && msg.type === 'plan_proposal';
 
         const card = createCard({
             headerHtml: '📋 计划方案',
@@ -476,7 +476,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
         if (!msgDiv) { console.warn('[KCD] msgDiv null'); return; }
         const bubble = msgDiv.querySelector('.msg-bubble');
         if (!bubble) { console.warn('[KCD] bubble null'); return; }
-        const needsAction = G.activeTaskPhase === 'execute';
+        const needsAction = msg.phase === 'execute';
         const card = createCard({
             headerHtml: '⚡ 执行完成',
             bodyMarkdown: content,
@@ -518,7 +518,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
     if (msg.type === 'self_verify_confirmation') {
         const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
         const bubble = msgDiv.querySelector('.msg-bubble')!;
-        const needsAction = G.activeTaskPhase === 'self_verify';
+        const needsAction = msg.phase === 'self_verify';
         const card = createCard({
             headerHtml: '🔍 自验完成',
             bodyMarkdown: content,
