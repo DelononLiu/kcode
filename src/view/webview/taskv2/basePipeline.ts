@@ -59,6 +59,8 @@ function startStream() {
     }
 
     hideWorkingIndicator();
+    __resetStream();
+    resetStreamParser();
     ensureChatReady();
     showMessagePlaceholder();
 
