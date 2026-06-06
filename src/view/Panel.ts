@@ -173,15 +173,24 @@ export class Panel {
 
         if (this.configService.get<boolean>('taskViewV2', false)) {
             this.taskViewBridge = new TaskViewBridgeV2(ctx);
-            // Override sendAgentPrompt and loadTask to route through V2 bridge
             ctx.sendAgentPrompt = async (tid, promptText, isGoalFormatting, originalText) => {
                 await this.taskViewBridge!.sendAgentPrompt(tid, promptText, isGoalFormatting, originalText);
             };
             ctx.loadTask = (tid) => this.taskViewBridge!.loadTask(tid);
+            // Suppress old-style messages that conflict with V2 state-delta
+            ctx.sendTaskInfo = () => {};
+            ctx.sendNodePanelUpdate = () => {};
         }
 
         this.sessionHandler = new TaskSessionHandler(ctx);
         this.flowHandler = new TaskFlowHandler(ctx);
+
+        // Must override after sessionHandler is created
+        if (this.taskViewBridge) {
+            this.sessionHandler.createAgentResponseHandler = (tid: string, isGoalFormatting: boolean, originalText: string) => {
+                return this.taskViewBridge!.createStreamHandler(tid, isGoalFormatting, originalText);
+            };
+        }
 
         this.pluginManager = new PluginManager(
             store, this.router, this.agentService,

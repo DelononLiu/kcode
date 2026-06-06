@@ -6,6 +6,7 @@ import { initTemplateChips, renderCategorySelection, focusChatInput } from './te
 import { initPluginManager, renderPluginList } from './pluginRegistry';
 import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, addUserMessage, handleKnowledgeExtract, __resetStream, showAgentThinking, updateTaskInfo, updateHeaderRow2 } from './messageRenderer';
 import { handleDemoCardUpdate, showGoalConfirmationCard, handleShowPlanProposal, handleRemovePlanProposal, handleShowReviewRequest, showExecuteConfirmation, showSelfVerifyConfirmation, finalizeGoalMessage, reviewChangesMap } from './flowCards';
+import { initTaskV2 } from './taskv2/renderManager';
 
 declare function acquireVsCodeApi(): any;
 const vscode = acquireVsCodeApi();
@@ -591,4 +592,4 @@ document.addEventListener('DOMContentLoaded', () => {
 (window as any).renderMessages = renderMessages;
 (window as any).__resetStream = __resetStream;
 
-import('./taskv2/renderManager').then(m => m.initTaskV2());
+initTaskV2();
