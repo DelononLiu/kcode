@@ -3,6 +3,7 @@ import type { ViewStrategy } from './viewStrategy';
 import { stateManager } from './state';
 import { basePipeline } from './basePipeline';
 import { taskStrategy, renderTaskMessages, foldPhases } from './taskStrategy';
+import { showTaskView } from '../taskView';
 
 let _strategy: ViewStrategy = taskStrategy;
 
@@ -47,6 +48,7 @@ function handleStateDelta(delta: StateDelta) {
     stateManager.update(delta);
 
     const st = stateManager.state;
+    showTaskView(true);
     _strategy.renderHeader(st);
 
     if (st.viewMode !== 'task') return;
@@ -78,6 +80,7 @@ function handleMessagesSync(msg: { messages: import('../../../types').ChatMessag
     stateManager.setMessages(msg.messages);
 
     const st = stateManager.state;
+    showTaskView(true);
     _strategy.renderHeader(st);
 
     renderTaskMessages(msg.messages);

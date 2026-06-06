@@ -187,6 +187,9 @@ export class Panel {
             if (msg.type === 'updateTaskInfo' || msg.type === 'updateNodePanel') {
                 return;
             }
+            if (msg.type === 'loadMessages' && msg.taskType !== 'assistant') {
+                return;
+            }
             origPost(msg);
         };
 
