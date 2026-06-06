@@ -96,6 +96,10 @@ function renderTaskMessages(messages: ChatMessage[]) {
     const st = stateManager.state;
     const reviewChanges = st.reviewState.changes;
 
+    // Clear container before rendering
+    const container = document.querySelector('#task-view #chat-messages');
+    if (container) container.innerHTML = '';
+
     for (const msg of messages) {
         if (msg.role === 'user') {
             basePipeline.renderUserMessage(msg);
