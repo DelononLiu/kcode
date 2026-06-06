@@ -55,9 +55,10 @@ function _ensureAgentHeader() {
 function startStream() {
     const container = getChatMessages()!;
     if (_streamBubble && _streamBubble.parentElement) {
-        return; // already streaming
+        return;
     }
 
+    hideWorkingIndicator();
     ensureChatReady();
     showMessagePlaceholder();
 
