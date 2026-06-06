@@ -5,7 +5,7 @@ import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpda
 import { initTemplateChips, renderCategorySelection, focusChatInput } from './templateFlow';
 import { initPluginManager, renderPluginList } from './pluginRegistry';
 import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, addUserMessage, handleKnowledgeExtract, __resetStream, showAgentThinking, updateTaskInfo, updateHeaderRow2 } from './messageRenderer';
-import { handleDemoCardUpdate, showGoalConfirmationCard, handleShowPlanProposal, handleRemovePlanProposal, handleShowReviewRequest, showExecuteConfirmation, showSelfVerifyConfirmation, finalizeGoalMessage, reviewChangesMap } from './flowCards';
+import { handleDemoCardUpdate } from './flowCards';
 import { initTaskV2 } from './taskv2/renderManager';
 
 declare function acquireVsCodeApi(): any;
@@ -275,6 +275,7 @@ function initMessageHandler() {
                 G.streamMessageEl = null;
                 G._agentHeaderShown = false;
 
+                // Assistant mode: keep old rendering path
                 if (message.taskType === 'assistant') {
                     G.activeTaskId = message.taskId;
                     G.activeTaskStatus = message.taskStatus || '';
@@ -284,58 +285,11 @@ function initMessageHandler() {
                     break;
                 }
 
-                const isNewTask = !G.activeTaskId || G.activeTaskId !== message.taskId;
+                // Task mode: V2 handles via messages-sync
+                // Only update G state for backward compat (widgets read G.activeTaskId etc.)
                 G.activeTaskId = message.taskId;
                 G.activeTaskStatus = message.taskStatus || '';
                 G.activeTaskType = message.taskType || '';
-
-                if (message.taskId) {
-                    showTaskView(true);
-                    resetPhaseState();
-                    const nameEl = document.getElementById('tv4-task-name');
-                    if (nameEl) nameEl.textContent = message.title || '任务';
-                    const catBadge = document.getElementById('tv4-category-badge');
-                    if (catBadge) {
-                        if (message.category) {
-                            const catDef = G.categoryDefs.find((c: any) => c.key === message.category);
-                            catBadge.textContent = catDef ? `${catDef.icon} ${catDef.label}` : `🧩 ${message.category}`;
-                            catBadge.style.display = '';
-                        } else {
-                            catBadge.style.display = 'none';
-                        }
-                    }
-
-                    const prevPhase = G.activeTaskPhase;
-                    G.activeTaskPhase = message.taskPhase || message.phase || G.activeTaskPhase;
-                    G.activeTaskStatus = message.taskStatus || message.status || G.activeTaskStatus;
-                    if (message.taskPhase || message.phase) updatePhaseBadge(message.taskPhase || message.phase);
-
-                    if (!isNewTask && prevPhase && prevPhase !== G.activeTaskPhase) {
-                        foldPhase(prevPhase);
-                    }
-                }
-
-                if (isNewTask || message.render || message.taskStatus === 'in_review') {
-                    console.log('[KCD] loadMessages trigger: isNewTask=' + isNewTask + ' render=' + !!message.render + ' status=' + message.taskStatus + ' count=' + (message.messages?.length || 0));
-                    const last5 = (message.messages || []).slice(-5).map((m: any) => m.type || '(no type)');
-                    console.log('[KCD] last5 types:', JSON.stringify(last5));
-                    renderMessages(message.messages || []);
-                }
-
-                renderAcpLog();
-                updateHeaderRow2();
-
-                if (message.reviewChanges && message.reviewChanges.length > 0) {
-                    reviewChangesMap.set(message.taskId, message.reviewChanges);
-                    lastReviewChanges = message.reviewChanges;
-                    (window as any).updateOutputPanel?.({}, message.reviewChanges);
-                } else {
-                    lastReviewChanges = [];
-                }
-                G.lastAcceptanceCriteria = message.acceptanceCriteria || null;
-                if (message.reviewChanges || message.acceptanceCriteria) {
-                    G.acceptanceCheckedState.delete(message.taskId);
-                }
                 break;
             case 'showDiff':
                 if ((window as any).showDiff) {
@@ -359,29 +313,15 @@ function initMessageHandler() {
                 addUserMessage(message.content);
                 showAgentThinking();
                 break;
+            case 'showGoalConfirmation':
+            case 'finalizeGoalMessage':
+            case 'showExecuteConfirmation':
+            case 'showSelfVerifyConfirmation':
+            case 'showReviewRequest':
+            case 'showPlanProposal':
+            case 'removePlanProposal':
             case 'updateTaskInfo':
-                if (message.taskType === 'assistant') break;
-                G.activeTaskPhase = message.phase || '';
-                G.activeTaskStatus = message.status || '';
-                G.activeTaskTitle = message.title || '';
-                G.activeTaskGoal = message.goal || '';
-                G.activeTaskCategory = message.category || '';
-                updatePhaseBadge(message.phase || '');
-
-                // 同步 header 任务标题
-                const nameEl = document.getElementById('tv4-task-name');
-                if (nameEl) nameEl.textContent = message.title || '任务';
-                // 更新 header 类别标签
-                const badgeEl = document.getElementById('tv4-category-badge');
-                if (badgeEl) {
-                    if (message.category) {
-                        const catDef = G.categoryDefs.find((c: any) => c.key === message.category);
-                        badgeEl.textContent = catDef ? `${catDef.icon} ${catDef.label}` : `🧩 ${message.category}`;
-                        badgeEl.style.display = '';
-                    } else {
-                        badgeEl.style.display = 'none';
-                    }
-                }
+            case 'updateNodePanel':
                 break;
             case 'flashInput':
                 flashInput();
@@ -392,21 +332,6 @@ function initMessageHandler() {
                     rp.classList.toggle('hidden');
                 }
                 break;
-            case 'showGoalConfirmation':
-                showGoalConfirmationCard(message);
-                break;
-            case 'finalizeGoalMessage':
-                finalizeGoalMessage(message.taskId, message.goal, message.originalRequest, message.categoryLabel);
-                break;
-            case 'showExecuteConfirmation':
-                showExecuteConfirmation(message.taskId);
-                break;
-            case 'showSelfVerifyConfirmation':
-                showSelfVerifyConfirmation(message.taskId);
-                break;
-            case 'showReviewRequest':
-                handleShowReviewRequest(message);
-                break;
             case 'toolCallUpdate':
                 handleToolCallUpdate(message);
                 break;
@@ -416,19 +341,11 @@ function initMessageHandler() {
             case 'pendingQueueUpdate':
                 handlePendingQueueUpdate(message.count, message.items || []);
                 break;
-            case 'showPlanProposal':
-                handleShowPlanProposal(message);
-                break;
-            case 'removePlanProposal':
-                handleRemovePlanProposal();
-                break;
             case 'addSystemMessage':
                 addSystemMessage(message.content);
                 break;
             case 'slashCommandList':
                 G.slashCommands = message.commands || [];
-                break;
-            case 'updateNodePanel':
                 break;
             case 'acpLogEntry':
                 handleAcpLogEntry(message);

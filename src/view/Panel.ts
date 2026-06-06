@@ -179,20 +179,6 @@ export class Panel {
         ctx.sendTaskInfo = () => {};
         ctx.sendNodePanelUpdate = () => {};
 
-        const origPost = this.router.PostMessage.bind(this.router);
-        this.router.PostMessage = (msg: any) => {
-            if (msg.type === 'addUserMessage' && typeof msg.content === 'string' && msg.content !== '✅ 已取消任务') {
-                return;
-            }
-            if (msg.type === 'updateTaskInfo' || msg.type === 'updateNodePanel') {
-                return;
-            }
-            if (msg.type === 'loadMessages' && msg.taskType !== 'assistant') {
-                return;
-            }
-            origPost(msg);
-        };
-
         this.sessionHandler = new TaskSessionHandler(ctx);
         this.flowHandler = new TaskFlowHandler(ctx);
 
