@@ -620,8 +620,8 @@ export function handleToolCallUpdate(msg: any) {
         if (body && newContent) {
             const pre = body.querySelector('pre');
             if (pre) pre.textContent = newContent;
-            const autoExpand = msg.status === 'running' || msg.status === 'pending' || msg.status === 'failed' || msg.status === 'error';
-            if (autoExpand && !body.classList.contains('open')) {
+            // 有内容时自动展开，无论状态如何
+            if (!body.classList.contains('open')) {
                 body.classList.add('open');
                 const expand = existingEntry.querySelector('.tl-entry-expand');
                 if (expand) expand.classList.add('open');
@@ -633,6 +633,9 @@ export function handleToolCallUpdate(msg: any) {
             status: msg.status || '', content: msg.content || msg.output || '',
             taskId: msg.taskId || G.activeTaskId || '',
         });
+        // 新条目默认展开 body
+        const body = entry.querySelector('.tl-entry-body');
+        if (body && (msg.content || msg.output)) body.classList.add('open');
         entry.dataset.tlId = toolId;
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg tool';

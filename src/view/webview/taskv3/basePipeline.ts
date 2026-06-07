@@ -110,11 +110,16 @@ function updateToolEntryInRound(toolCallId: string, changes: { title?: string; k
         // 更新已有条目
         const pre = existing.querySelector('.tl-entry-body pre') as HTMLElement;
         if (pre && changes.output) pre.textContent = changes.output;
+        // 确保 body 展开可见
+        const body = existing.querySelector('.tl-entry-body') as HTMLElement;
+        if (body) body.classList.add('open');
         return;
     }
 
-    // 创建新条目
+    // 创建新条目，默认展开 body 让用户直接看到内容
     const entry = createTimelineEntry({ toolCallId, title: changes.title || '', kind: changes.kind || '', status: changes.status || 'running', output: changes.output || '' });
+    const body = entry.querySelector('.tl-entry-body');
+    if (body) body.classList.add('open');
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg tool';
     msgDiv.dataset.toolCallId = toolCallId;
@@ -134,6 +139,9 @@ function updateToolEntryInRound(toolCallId: string, changes: { title?: string; k
 
 function _createAndAppendToolCard(tc: { toolCallId: string; title: string; kind: string; status: string; output?: string; content?: string }, useAppendToChat: boolean) {
     const entry = createTimelineEntry(tc);
+    // 默认展开工具输出
+    const body = entry.querySelector('.tl-entry-body');
+    if (body && (tc.output || tc.content)) body.classList.add('open');
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg tool';
     msgDiv.dataset.toolCallId = tc.toolCallId;
@@ -224,7 +232,7 @@ function updateThinkingCard(text: string) {
     if (pre) pre.textContent = text;
 }
 
-/** 完成思考：折叠 timeline body */
+/** 完成思考：不再折叠 body，保持内容可见 */
 function finalizeThinkingCard(text: string) {
     const entry = getThinkingEntry();
     if (!entry) return;
@@ -232,9 +240,9 @@ function finalizeThinkingCard(text: string) {
     const pre = entry.querySelector('.tl-entry-body pre') as HTMLElement;
     if (pre && text) pre.textContent = text;
 
-    // 折叠 body
+    // 保持 body 展开，让用户看到思考内容
     const body = entry.querySelector('.tl-entry-body') as HTMLElement;
-    if (body) body.classList.remove('open');
+    if (body) body.classList.add('open');
 
     entry.removeAttribute('id');
 }
@@ -470,6 +478,9 @@ function _renderToolMessage(msg: Message) {
     try { info = JSON.parse(msg.content); } catch { return; }
 
     const entry = createTimelineEntry(info);
+    // 默认展开，让用户直接看到工具输出
+    const body = entry.querySelector('.tl-entry-body');
+    if (body) body.classList.add('open');
     const div = document.createElement('div');
     div.className = 'chat-msg tool';
     div.dataset.msgId = msg.id;

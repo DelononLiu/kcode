@@ -63,6 +63,8 @@ export function createTimelineEntry(msg: any): HTMLElement {
 
     const body = document.createElement('div');
     body.className = 'tl-entry-body';
+    // 默认展开 thinking 内容，让用户直接看到
+    if (tlKind === 'thinking') body.classList.add('open');
 
     if (tlKind === 'thinking') {
         const pre = document.createElement('pre');
@@ -105,6 +107,8 @@ export function createTimelineEntry(msg: any): HTMLElement {
             preview = document.createElement('div');
             preview.className = 'tl-thinking-preview';
             preview.textContent = firstLine;
+            // 如果 body 默认展开，则 preview 默认隐藏
+            if (body.classList.contains('open')) preview.classList.add('hidden');
             preview.addEventListener('click', () => togglers.forEach(fn => fn()));
         }
     }

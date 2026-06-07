@@ -74,7 +74,7 @@ export function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
         const card = makeCard({
             headerHtml: headerWithPreview,
             bodyHtml: content ? '<pre class="tool-body-content" style="white-space:pre-wrap">' + escapeHtml(content) + '</pre>' : undefined,
-            defaultCollapsed: true,
+            defaultCollapsed: false,
             bodyClassName: 'tool-card-body tool-thinking',
             rawData: msg
         });
