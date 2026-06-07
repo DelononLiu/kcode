@@ -165,57 +165,49 @@ function _kindColor(kind: string): string {
 
 // ────── Thinking Card Engine (V3) ──────
 
-const THINKING_MSG_ID = '__v3-thinking-message';
-const THINKING_CARD_ID = '__v3-thinking-card';
+const THINKING_ENTRY_ID = '__v3-thinking-entry';
 
-function getThinkingMsgEl(): HTMLElement | null {
-    return document.getElementById(THINKING_MSG_ID);
+function getThinkingEntry(): HTMLElement | null {
+    return document.getElementById(THINKING_ENTRY_ID);
 }
 
 function startThinking() {
-    if (getThinkingMsgEl()) return;
+    if (getThinkingEntry()) return;
     if (!getOrCreateRoundContainer()) return;
 
-    const msgDiv = createCardMessageElement();
-    msgDiv.id = THINKING_MSG_ID;
-    msgDiv.classList.add('chat-msg', 'agent');
+    const entry = createTimelineEntry({ kind: 'thinking', title: '思考', content: '', status: 'running' });
+    entry.id = THINKING_ENTRY_ID;
 
-    const bubble = msgDiv.querySelector('.msg-bubble') as HTMLElement;
-    if (!bubble) return;
-
-    const svgIcon = '<span class="tool-kind-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a5 5 0 0 0-2 9.6V12l.5.5H9l.5-.5v-1.4A5 5 0 0 0 8 1zm1.5 10H6.5v-1h3v1zm0-1.5H6.5V8.4A4.5 4.5 0 0 1 8 2a4.5 4.5 0 0 1 1.5 6.4v1.1z"/></svg></span>';
-
-    const card = createCard({
-        headerHtml: svgIcon + '<span class="tool-title-label">思考</span>',
-        bodyHtml: '',
-        defaultCollapsed: false,
-        borderColor: '#888',
-        headerBg: '#2d2d2d',
-        headerColor: '#e0e0e0',
-    });
-    card.id = THINKING_CARD_ID;
-    card.dataset.thinking = 'true';
-    bubble.appendChild(card);
-
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chat-msg tool';
     appendToRound(msgDiv);
+    msgDiv.appendChild(entry);
 }
 
 function updateThinkingCard(text: string) {
-    const card = document.getElementById(THINKING_CARD_ID) as HTMLElement | null;
-    if (!card) {
+    let entry = getThinkingEntry();
+    if (!entry) {
         startThinking();
-        const retry = document.getElementById(THINKING_CARD_ID);
-        if (!retry) return;
-        const body = retry.querySelector('.msg-card-body') as HTMLElement;
-        if (body) body.innerHTML = _thinkingBodyHtml(text);
-        return;
+        entry = getThinkingEntry();
+        if (!entry) return;
     }
-    const body = card.querySelector('.msg-card-body') as HTMLElement;
-    if (body) body.innerHTML = _thinkingBodyHtml(text);
+    const pre = entry.querySelector('.tl-entry-body pre') as HTMLElement;
+    if (pre) pre.textContent = text;
 }
 
-function _thinkingBodyHtml(text: string): string {
-    return '<pre class="tool-body-content tool-thinking" style="white-space:pre-wrap">' + escapeHtml(text) + '</pre>';
+/** 完成思考：折叠 timeline body */
+function finalizeThinkingCard(text: string) {
+    const entry = getThinkingEntry();
+    if (!entry) return;
+
+    const pre = entry.querySelector('.tl-entry-body pre') as HTMLElement;
+    if (pre && text) pre.textContent = text;
+
+    // 折叠 body
+    const body = entry.querySelector('.tl-entry-body') as HTMLElement;
+    if (body) body.classList.remove('open');
+
+    entry.removeAttribute('id');
 }
 
 /** 最终确定本轮所有内容并折叠 */
@@ -224,8 +216,7 @@ function finalizeRound() {
     if (!round) return;
 
     // 移除所有特殊 ID
-    document.getElementById(THINKING_MSG_ID)?.removeAttribute('id');
-    document.getElementById(THINKING_CARD_ID)?.removeAttribute('id');
+    document.getElementById(THINKING_ENTRY_ID)?.removeAttribute('id');
     document.getElementById('__v3-stream-message')?.removeAttribute('id');
     document.getElementById(STREAM_CONTENT_ID)?.removeAttribute('id');
 
