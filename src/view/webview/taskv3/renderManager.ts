@@ -42,6 +42,11 @@ export function initTaskV3() {
         if (state.msgVersion !== _lastMsgVersion) {
             basePipeline.renderMessageList(state.messages);
             _lastMsgVersion = state.msgVersion;
+
+            // 非流阶段同步后渲染操作按钮（如 review 无对应 stream-done）
+            if (state.msgVersion === _lastSyncVersion && !state.isGenerating) {
+                _renderPhaseActionsFromSync(state);
+            }
         }
     });
 
@@ -181,8 +186,19 @@ function handleStreamDone(result: StreamResult) {
 }
 
 let _msgVersionCounter = 0;
+/** 标记最近一次 msgVersion 是否由 messages-sync 触发（用于非流场景渲染按钮） */
+let _lastSyncVersion = -1;
+
+function _renderPhaseActionsFromSync(state: import('./types').AppState) {
+    const tid = state.activeTaskId || '';
+    // review 是唯一不通过 stream-done 触发的阶段（由 triggerReviewRequest 直接 sync）
+    if (state.activeTaskPhase === 'review') {
+        renderReviewActions(tid);
+    }
+}
 
 function handleMessagesSync(msg: { messages: import('../../../types').ChatMessage[] }) {
-    // handler 只改数据，subscriber 检测 msgVersion 变化后渲染
-    stateManager.update({ messages: msg.messages as any, msgVersion: ++_msgVersionCounter });
+    const version = ++_msgVersionCounter;
+    _lastSyncVersion = version;
+    stateManager.update({ messages: msg.messages as any, msgVersion: version });
 }
