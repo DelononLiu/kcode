@@ -3,7 +3,7 @@ import type { ViewStrategy } from './viewStrategy';
 import { stateManager } from './state';
 import { basePipeline } from './basePipeline';
 import { taskStrategy } from './taskStrategy';
-import { renderGoalActions, renderPlanActions, renderExecuteActions, renderSelfVerifyActions, renderReviewActions } from './cardRenderer';
+import { renderReviewActions } from './cardRenderer';
 import { showTaskView } from '../taskView';
 
 let _strategy: ViewStrategy = taskStrategy;
@@ -92,11 +92,12 @@ export function initTaskV3() {
 function _updateStreamMsg(text: string) {
     const state = stateManager.snapshot();
     const msgs = [...state.messages];
-    let last = msgs[msgs.length - 1];
 
-    if (!last || !last.streaming) {
+    // 用 streaming 标记找当前流式消息，避免被 thinking/tool 干扰
+    let streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
+    if (streamIdx < 0) {
         const roundGroup = 'rg_' + Date.now();
-        last = {
+        const newMsg: import('./types').Message = {
             id: 'msg_' + Date.now(),
             taskId: state.activeTaskId || '',
             role: 'agent',
@@ -105,13 +106,13 @@ function _updateStreamMsg(text: string) {
             streaming: true,
             roundGroup,
         };
-        msgs.push(last);
+        msgs.push(newMsg);
+        streamIdx = msgs.length - 1;
     }
 
-    last = { ...last, content: text };
-    msgs[msgs.length - 1] = last;
+    msgs[streamIdx] = { ...msgs[streamIdx], content: text };
     stateManager.patch({ messages: msgs });
-    return last;
+    return msgs[streamIdx];
 }
 
 function handleStreamChunk(msg: { text: string }) {
@@ -121,6 +122,32 @@ function handleStreamChunk(msg: { text: string }) {
 
 function handleThinkingChunk(msg: { text: string; status: string }) {
     console.log('[webview thinking-chunk]', msg.status, msg.text ? msg.text.substring(0, 100) : '(empty)');
+    // 写入 state.messages[]（不改变 msgVersion，不触发全量重渲染）
+    const state = stateManager.snapshot();
+    const msgs = [...state.messages];
+    const now = Date.now();
+    const existingIdx = msgs.findIndex(m => m.type === 'thinking' && m.streaming);
+    if (existingIdx >= 0) {
+        msgs[existingIdx] = { ...msgs[existingIdx], content: msg.text, streaming: msg.status !== 'completed' };
+    } else {
+        // 新的 thinking 开始 → 终结前面的 streaming AI reply，切分消息
+        const streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
+        if (streamIdx >= 0) {
+            msgs[streamIdx] = { ...msgs[streamIdx], streaming: false };
+        }
+        msgs.push({
+            id: 'thinking_' + now,
+            taskId: state.activeTaskId || '',
+            role: 'agent',
+            type: 'thinking',
+            content: msg.text,
+            timestamp: now,
+            streaming: msg.status !== 'completed',
+        });
+    }
+    stateManager.patch({ messages: msgs });
+
+    // 同时实时更新 DOM（保证流式响应速度）
     if (msg.status === 'completed') {
         basePipeline.finalizeThinkingCard(msg.text);
     } else {
@@ -137,6 +164,37 @@ function handleToolChunk(msg: { toolCallId: string; title: string; kind: string;
         contentLength: (msg.content || '').length,
         contentPreview: msg.content ? msg.content.substring(0, 200) : '(empty)',
     }));
+    // 写入 state.messages[]（不改变 msgVersion）
+    const state = stateManager.snapshot();
+    const msgs = [...state.messages];
+    const toolContent = JSON.stringify({
+        toolCallId: msg.toolCallId,
+        title: msg.title,
+        kind: msg.kind,
+        status: msg.status,
+        output: msg.content,
+    });
+    const existingIdx = msgs.findIndex(m => m.type === 'tool_call' && m.content && m.content.includes(msg.toolCallId));
+    if (existingIdx >= 0) {
+        msgs[existingIdx] = { ...msgs[existingIdx], content: toolContent };
+    } else {
+        // 新工具开始 → 终结前面的 streaming AI reply，切分消息
+        const streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
+        if (streamIdx >= 0) {
+            msgs[streamIdx] = { ...msgs[streamIdx], streaming: false };
+        }
+        msgs.push({
+            id: 'tool_' + msg.toolCallId,
+            taskId: state.activeTaskId || '',
+            role: 'tool',
+            type: 'tool_call',
+            content: toolContent,
+            timestamp: Date.now(),
+        });
+    }
+    stateManager.patch({ messages: msgs });
+
+    // 同时实时更新 DOM
     basePipeline.updateToolEntryInRound(msg.toolCallId, { title: msg.title, kind: msg.kind, status: msg.status, output: msg.content });
 }
 
@@ -154,48 +212,62 @@ function handleFinalizeGoalMessage(msg: { taskId: string; goal: string }) {
         collapsed: false,
         cardMeta: { type: 'goal', status: 'pending' },
     };
-    stateManager.patch({ messages: [...state.messages, goalMsg] });
     _msgVersion++;
+    stateManager.patch({ messages: [...state.messages, goalMsg], msgVersion: _msgVersion });
 }
 
 function handleStreamDone(result: StreamResult) {
     const state = stateManager.snapshot();
     const msgs = [...state.messages];
 
-    // 终结最后一条 streaming 消息
-    const lastIdx = msgs.length - 1;
-    if (lastIdx >= 0 && msgs[lastIdx].streaming) {
-        msgs[lastIdx] = { ...msgs[lastIdx], streaming: false, collapsed: true, content: result.cleanedText };
+    // 终结最后一条 streaming 消息（不替换 content，各消息已通过 chunk 积累了自己的内容）
+    const streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
+    if (streamIdx >= 0) {
+        msgs[streamIdx] = { ...msgs[streamIdx], streaming: false, collapsed: true };
     }
 
-    stateManager.patch({ messages: msgs });
-    basePipeline.finalizeStream();
-
-    // 工具卡片加入本轮容器（跳过已通过 tool-chunk 实时渲染的）
-    basePipeline.getOrCreateRoundContainer();
+    // 收集本轮所有 tool_calls 中尚未存入 state 的
+    const seenToolIds = new Set(
+        msgs.filter(m => m.type === 'tool_call').map(m => { try { return JSON.parse(m.content).toolCallId; } catch { return null; } }).filter(Boolean)
+    );
     for (const tc of result.toolCalls) {
         if (tc.kind === 'thinking') continue;
-        if (document.querySelector(`[data-tool-call-id="${tc.toolCallId}"]`)) continue;
-        basePipeline.addToolCardToRound(tc);
+        if (seenToolIds.has(tc.toolCallId)) continue;
+        msgs.push({
+            id: 'tool_' + tc.toolCallId,
+            taskId: state.activeTaskId || '',
+            role: 'tool',
+            type: 'tool_call',
+            content: JSON.stringify({ toolCallId: tc.toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output || '' }),
+            timestamp: Date.now(),
+        });
     }
 
-    // 折叠本轮容器
-    basePipeline.finalizeRound();
+    // 建立阶段卡片（在 patch 之前一次性加好，避免多次重渲染）
+    const now = Date.now();
+    if (result.planProposed && state.activeTaskPhase === 'plan' && !msgs.some(m => m.cardMeta?.type === 'plan')) {
+        const agentReply = [...msgs].reverse().find(m => m.role === 'agent' && !m.type && !m.streaming);
+        if (agentReply) {
+            msgs.push({ id: 'plan_card_' + now, taskId: state.activeTaskId || '', role: 'agent', type: 'plan_proposal', content: agentReply.content, phase: 'plan', timestamp: now, collapsed: true, cardMeta: { type: 'plan', status: 'pending' } });
+        }
+    } else if (result.executeFinished && state.activeTaskPhase === 'execute' && !msgs.some(m => m.cardMeta?.type === 'execute')) {
+        msgs.push({ id: 'exec_card_' + now, taskId: state.activeTaskId || '', role: 'agent', type: 'execute_confirmation', content: '', phase: 'execute', timestamp: now, collapsed: true, cardMeta: { type: 'execute', status: 'pending' } });
+    } else if (result.selfVerifyFinished && state.activeTaskPhase === 'self_verify' && !msgs.some(m => m.cardMeta?.type === 'self_verify')) {
+        msgs.push({ id: 'sv_card_' + now, taskId: state.activeTaskId || '', role: 'agent', type: 'self_verify_confirmation', content: '', phase: 'self_verify', timestamp: now, collapsed: true, cardMeta: { type: 'self_verify', status: 'pending' } });
+    } else if (state.activeTaskPhase === 'review' && !msgs.some(m => m.cardMeta?.type === 'review')) {
+        const agentReply = [...msgs].reverse().find(m => m.role === 'agent' && !m.type && !m.streaming);
+        msgs.push({ id: 'review_card_' + now, taskId: state.activeTaskId || '', role: 'agent', type: 'review_request', content: agentReply?.content || '', phase: 'review', timestamp: now, collapsed: true, cardMeta: { type: 'review', status: 'pending' } });
+    }
 
-    // 按阶段标志渲染操作按钮
-    if (result.planProposed && state.activeTaskPhase === 'plan') {
-        renderPlanActions(state.activeTaskId || '');
-    } else if (result.executeFinished && state.activeTaskPhase === 'execute') {
-        renderExecuteActions(state.activeTaskId || '');
-    } else if (result.selfVerifyFinished && state.activeTaskPhase === 'self_verify') {
-        renderSelfVerifyActions(state.activeTaskId || '');
-    } else if (state.activeTaskPhase === 'review') {
-        renderReviewActions(state.activeTaskId || '');
-    } else if (state.activeTaskPhase === 'goal') {
-        // 检查 messages 中是否有刚插入的 goal card（from finalizeGoalMessage）
-        const hasGoalCard = msgs.some(m => m.cardMeta?.type === 'goal' && m.cardMeta?.status === 'pending');
-        if (hasGoalCard) renderGoalActions(state.activeTaskId || '');
-    } else if (!['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'].includes(state.activeTaskPhase)) {
+    // 批量赋 roundGroup + 一次触发重渲染
+    const roundGroup = 'rg_' + now;
+    const finalMsgs = msgs.map(m => m.roundGroup ? m : { ...m, roundGroup });
+    _msgVersion++;
+    stateManager.patch({ messages: finalMsgs, msgVersion: _msgVersion });
+    basePipeline.finalizeStream();
+
+    // 非阶段模式：追加一条最终 AI 回复
+    if (!['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'].includes(state.activeTaskPhase)) {
         basePipeline.appendFinalMessage(result.cleanedText);
     }
 

@@ -3,12 +3,37 @@ import { createCard, createCardMessageElement } from '../cardBuilder';
 import { renderMarkdown } from '../markdownRenderer';
 import { appendToChatMessages } from '../chatStream';
 import { getChatScroll } from '../domContainers';
+import { stateManager } from './state';
 
 function getVscode(): any {
     return (window as any).vscode || (window as any).__vscode || (window as any).acquireVsCodeApi?.();
 }
 
+const CONFIRM_LABELS: Record<string, string> = {
+    confirmGoal: '✅ 确认目标',
+    confirmPlan: '✅ 确认计划',
+    confirmExecuteDone: '✅ 确认执行完成，进入自验',
+    confirmSelfVerifyDone: '✅ 确认自验完成，进入验收',
+    approveReview: '✅ 验收通过',
+    rejectPlan: '↩️ 驳回计划',
+    rejectReview: '↩️ 驳回',
+    cancelTask: '✕ 取消任务',
+};
+
 export function postAction(action: UserAction): void {
+    // 用户操作 → 记录到 state.messages[]
+    const label = CONFIRM_LABELS[action.type];
+    if (label) {
+        const state = stateManager.snapshot();
+        const userMsg: Message = {
+            id: 'action_' + Date.now(),
+            taskId: action.taskId || state.activeTaskId || '',
+            role: 'user',
+            content: label,
+            timestamp: Date.now(),
+        };
+        stateManager.patch({ messages: [...state.messages, userMsg] });
+    }
     getVscode().postMessage(action);
 }
 

@@ -237,7 +237,13 @@ function startThinking() {
 
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg tool';
-    appendToRound(msgDiv);
+    // 插到 stream 消息前，避免思考出现在 AI 回复之后
+    const streamMsg = document.getElementById('__v3-stream-message');
+    if (streamMsg && streamMsg.parentElement) {
+        streamMsg.parentElement.insertBefore(msgDiv, streamMsg);
+    } else {
+        appendToRound(msgDiv);
+    }
     msgDiv.appendChild(entry);
 }
 
@@ -324,7 +330,9 @@ function renderMessageList(messages: Message[]) {
     if (!container) return;
 
     container.replaceChildren();
-    for (const msg of messages) {
+    // 按 timestamp 排序保证时序
+    const sorted = [...messages].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    for (const msg of sorted) {
         _appendMessage(msg, container);
     }
     scrollToBottom();
@@ -350,6 +358,11 @@ function _appendMessage(msg: Message, _container: HTMLElement) {
         renderCardForMessage(msg, msg.phase || '');
         return;
     }
+    // 思考消息（timeline 样式渲染）
+    if (msg.type === 'thinking') {
+        _renderThinkingMessage(msg);
+        return;
+    }
     if (msg.role === 'user') {
         _renderUserMessage(msg);
     } else if (msg.role === 'agent') {
@@ -357,6 +370,25 @@ function _appendMessage(msg: Message, _container: HTMLElement) {
     } else if (msg.role === 'tool') {
         _renderToolMessage(msg);
     }
+}
+
+/** 渲染思考消息为 timeline 条目 */
+function _renderThinkingMessage(msg: Message) {
+    const entry = createTimelineEntry({
+        kind: 'thinking',
+        title: '思考',
+        content: msg.content,
+        status: msg.streaming ? 'running' : 'completed',
+    });
+    // 思考内容始终展开
+    const body = entry.querySelector('.tl-entry-body');
+    if (body) body.classList.add('open');
+    const div = document.createElement('div');
+    div.className = 'chat-msg tool';
+    div.dataset.msgId = msg.id;
+    if (msg.phase) div.dataset.phase = msg.phase;
+    div.appendChild(entry);
+    appendToChatMessages(div);
 }
 
 // ── cardMeta 消息渲染 ──
