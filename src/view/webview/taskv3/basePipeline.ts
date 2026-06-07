@@ -145,12 +145,9 @@ function updateToolEntryInRound(toolCallId: string, changes: { title?: string; k
     msgDiv.dataset.toolCallId = toolCallId;
     msgDiv.appendChild(entry);
 
-    // 插入到 stream 消息前（时间顺序：思考→工具→AI回复）
-    const streamMsg = document.getElementById('__v3-stream-message');
+    // 追加到本轮末尾（时间顺序：AI 回复文本 → 思考 → 工具）
     const round = getRoundContainer();
-    if (streamMsg && streamMsg.parentElement) {
-        streamMsg.parentElement.insertBefore(msgDiv, streamMsg);
-    } else if (round) {
+    if (round) {
         round.appendChild(msgDiv);
     } else {
         appendToChatMessages(msgDiv);
@@ -170,12 +167,9 @@ function _createAndAppendToolCard(tc: { toolCallId: string; title: string; kind:
     if (useAppendToChat) {
         appendToChatMessages(msgDiv);
     } else {
-        // 插入到 stream 消息前（时间顺序：思考→工具→AI回复）
-        const streamMsg = document.getElementById('__v3-stream-message');
+        // 追加到本轮末尾（时间顺序：AI 回复文本 → 思考 → 工具）
         const round = getRoundContainer();
-        if (streamMsg && streamMsg.parentElement) {
-            streamMsg.parentElement.insertBefore(msgDiv, streamMsg);
-        } else if (round) {
+        if (round) {
             round.appendChild(msgDiv);
         } else {
             appendToChatMessages(msgDiv);
@@ -237,13 +231,8 @@ function startThinking() {
 
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg tool';
-    // 插到 stream 消息前，避免思考出现在 AI 回复之后
-    const streamMsg = document.getElementById('__v3-stream-message');
-    if (streamMsg && streamMsg.parentElement) {
-        streamMsg.parentElement.insertBefore(msgDiv, streamMsg);
-    } else {
-        appendToRound(msgDiv);
-    }
+    // 追加到本轮末尾（AI 回复文本在先，思考在后）
+    appendToRound(msgDiv);
     msgDiv.appendChild(entry);
 }
 
