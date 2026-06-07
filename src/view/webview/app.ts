@@ -7,6 +7,7 @@ import { initPluginManager, renderPluginList } from './pluginRegistry';
 import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, addUserMessage, handleKnowledgeExtract, __resetStream, showAgentThinking } from './messageRenderer';
 import { handleDemoCardUpdate } from './demoCards';
 import { initTaskV3 } from './taskv3/renderManager';
+import { stateManager } from './taskv3/state';
 
 
 declare function acquireVsCodeApi(): any;
@@ -313,6 +314,19 @@ function initMessageHandler() {
             case 'addUserMessage':
                 addUserMessage(message.content);
                 showAgentThinking();
+                // 同步写入 v3 state.messages，防止 stream-done 后 renderMessageList 重绘丢失用户消息
+                {
+                    const st = stateManager.snapshot();
+                    const msgs = [...st.messages];
+                    msgs.push({
+                        id: 'user_' + Date.now(),
+                        taskId: st.activeTaskId || '',
+                        role: 'user',
+                        content: message.content,
+                        timestamp: Date.now(),
+                    });
+                    stateManager.patch({ messages: msgs });
+                }
                 break;
             case 'showGoalConfirmation':
             case 'finalizeGoalMessage':
