@@ -260,24 +260,6 @@ function appendFinalMessage(text: string) {
     appendToChatMessages(msgDiv);
 }
 
-function finalizeThinkingCard(text: string) {
-    const card = document.getElementById(THINKING_CARD_ID) as HTMLElement | null;
-    if (!card) return;
-
-    const body = card.querySelector('.msg-card-body') as HTMLElement;
-    if (body && text) body.innerHTML = _thinkingBodyHtml(text);
-
-    // Collapse the thinking card
-    if (body) body.classList.add('collapsed');
-    const toggle = card.querySelector('.msg-card-toggle') as HTMLElement;
-    if (toggle) toggle.classList.add('collapsed');
-    const header = card.querySelector('.msg-card-header') as HTMLElement;
-    if (header) header.setAttribute('aria-expanded', 'false');
-
-    card.removeAttribute('id');
-    getThinkingMsgEl()?.removeAttribute('id');
-}
-
 // ────── Message Engine ──────
 
 function renderMessageList(messages: Message[]) {
