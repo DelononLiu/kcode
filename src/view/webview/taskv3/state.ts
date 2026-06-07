@@ -1,4 +1,4 @@
-import type { AppState, StateSubscriber, StateDelta, StreamState, ReviewState, Message, TaskInfo, ToolCallState, PendingMessage } from './types';
+import type { AppState, StateSubscriber, StateDelta, ReviewState, Message, TaskInfo, PendingMessage } from './types';
 
 function createInitialState(): AppState {
     return {
@@ -8,13 +8,12 @@ function createInitialState(): AppState {
         activeTaskStatus: '',
         taskInfo: createInitialTaskInfo(),
         messages: [],
-        streamState: createInitialStreamState(),
+        msgVersion: 0,
         reviewState: createInitialReviewState(),
         isGenerating: false,
         pendingMessages: [],
         agentName: '',
         modelName: '',
-        pendingGoal: null,
     };
 }
 
@@ -30,10 +29,6 @@ function createInitialTaskInfo(): TaskInfo {
         createdAt: 0,
         executeFinished: false,
     };
-}
-
-function createInitialStreamState(): StreamState {
-    return { active: false, buffer: '', toolCalls: [] };
 }
 
 function createInitialReviewState(): ReviewState {
@@ -64,8 +59,7 @@ class StateManager {
         }
     }
 
-    /** 静默更新状态，不触发订阅者（stream chunk 等高
-频场景使用） */
+    /** 静默更新，不触发订阅者（高频率 streaming 用） */
     patch(delta: StateDelta): void {
         Object.assign(this._state, delta);
     }

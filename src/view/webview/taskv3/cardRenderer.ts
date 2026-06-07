@@ -8,7 +8,7 @@ function getVscode(): any {
     return (window as any).vscode || (window as any).__vscode || (window as any).acquireVsCodeApi?.();
 }
 
-function postAction(action: UserAction): void {
+export function postAction(action: UserAction): void {
     getVscode().postMessage(action);
 }
 
@@ -17,7 +17,7 @@ function scrollToBottom() {
     if (sc) sc.scrollTop = sc.scrollHeight;
 }
 
-function renderCardActions(container: HTMLElement, actions: { text: string; className: string; onClick: () => void }[]) {
+export function renderCardActions(container: HTMLElement, actions: { text: string; className: string; onClick: () => void }[]) {
     const div = document.createElement('div');
     div.className = 'msg-card-actions';
     for (const a of actions) {
@@ -33,7 +33,7 @@ function renderCardActions(container: HTMLElement, actions: { text: string; clas
     container.appendChild(div);
 }
 
-function renderCardStatus(container: HTMLElement, text: string) {
+export function renderCardStatus(container: HTMLElement, text: string) {
     const el = document.createElement('div');
     el.className = 'msg-card-status';
     el.textContent = text;

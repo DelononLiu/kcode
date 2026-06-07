@@ -4,15 +4,15 @@ export interface AppState {
     activeTaskPhase: string;
     activeTaskStatus: string;
     taskInfo: TaskInfo;
+    /** 所有消息（含正在流式的），消息一旦创建永不销毁 */
     messages: Message[];
-    streamState: StreamState;
+    /** 消息版本号，subscriber 据此判断是否需要重渲染消息 */
+    msgVersion: number;
     reviewState: ReviewState;
     isGenerating: boolean;
     pendingMessages: PendingMessage[];
     agentName: string;
     modelName: string;
-    /** 暂存等待 stream-done 后渲染的阶段卡片（避免模块级 let 变量） */
-    pendingGoal?: { taskId: string; goal: string } | null;
 }
 
 export interface Message {
@@ -23,7 +23,20 @@ export interface Message {
     content: string;
     phase?: string;
     timestamp: number;
+
+    // 流式状态 — 此消息正在流式构建中
+    streaming?: boolean;
+
+    // 折叠/分组 — 同 roundGroup 的消息在一轮交互中
     collapsed?: boolean;
+    roundGroup?: string;
+
+    // 卡片元数据（goal/plan/execute 等交互卡片）
+    cardMeta?: {
+        type?: 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
+        confirmed?: boolean;
+        status?: 'pending' | 'confirmed' | 'rejected';
+    };
 }
 
 export interface TaskInfo {
@@ -36,12 +49,6 @@ export interface TaskInfo {
     taskType: string;
     createdAt: number;
     executeFinished: boolean;
-}
-
-export interface StreamState {
-    active: boolean;
-    buffer: string;
-    toolCalls: ToolCallState[];
 }
 
 export interface ToolCallState {

@@ -2,7 +2,7 @@ import type { Message, ToolCallState } from './types';
 import { renderMarkdown } from '../markdownRenderer';
 import { createCard, createCardMessageElement } from '../cardBuilder';
 import { appendToChatMessages } from '../chatStream';
-import { renderCardForMessage } from './cardRenderer';
+import { renderCardForMessage, renderCardActions, renderCardStatus, postAction } from './cardRenderer';
 
 function getContainer(): HTMLElement | null {
     return document.querySelector('#task-view #chat-messages') || null;
@@ -314,6 +314,12 @@ function appendMessage(msg: Message) {
 }
 
 function _appendMessage(msg: Message, _container: HTMLElement) {
+    // cardMeta 优先（新结构）
+    if (msg.cardMeta) {
+        _appendCardMetaMessage(msg, _container);
+        return;
+    }
+    // 老路径（type 字段判断，兼容 messages-sync 来的旧消息）
     if (msg.type && ['goal_confirmation', 'goal_confirmed', 'plan_proposal', 'plan_confirmed',
         'execute_confirmation', 'self_verify_confirmation',
         'review_request', 'review_approved', 'review_rejected'].includes(msg.type)) {
@@ -323,11 +329,110 @@ function _appendMessage(msg: Message, _container: HTMLElement) {
     if (msg.role === 'user') {
         _renderUserMessage(msg);
     } else if (msg.role === 'agent') {
-        _renderAgentMessage(msg);
+        _renderAgentMessage(msg, msg.streaming);
     } else if (msg.role === 'tool') {
         _renderToolMessage(msg);
     }
 }
+
+// ── cardMeta 消息渲染 ──
+
+function _appendCardMetaMessage(msg: Message, _container: HTMLElement) {
+    const phase = msg.phase || msg.cardMeta?.type || '';
+    const isPending = msg.cardMeta?.status === 'pending';
+    const type = msg.cardMeta?.type;
+
+    const headerMap: Record<string, string> = {
+        goal: '🎯 任务目标', plan: '📋 计划方案', execute: '⚡ 执行完成',
+        self_verify: '🔍 自验完成', review: '✅ 验收',
+    };
+    const colorMap: Record<string, string> = {
+        goal: '#3c3c3c', plan: '#4a8bb5', execute: '#d4a84b',
+        self_verify: '#6b9e6b', review: '#2a5a2a',
+    };
+
+    const msgDiv = buildBasicMessage(msg, phase);
+    const bubble = msgDiv.querySelector('.msg-bubble')!;
+
+    const card = createCard({
+        headerHtml: headerMap[type || ''] || '📋 阶段',
+        bodyMarkdown: isPending ? '' : msg.content,
+        rawData: msg,
+        defaultCollapsed: !isPending,
+        borderColor: colorMap[type || ''] || '#3c3c3c',
+        headerBg: '#2d2d2d',
+        headerColor: '#e0e0e0',
+    });
+
+    if (isPending) {
+        _appendCardActions(card, msg);
+    } else {
+        renderCardStatus(card, _cardStatusText(msg));
+    }
+
+    bubble.appendChild(card);
+    _container.appendChild(msgDiv);
+}
+
+function _appendCardActions(card: HTMLElement, msg: Message) {
+    const tid = msg.taskId;
+    const type = msg.cardMeta?.type;
+    const actions: { text: string; className: string; onClick: () => void }[] = [];
+
+    switch (type) {
+        case 'goal':
+            actions.push(
+                { text: '确认目标 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmGoal', taskId: tid }) },
+                { text: '修改需求 ↩', className: 'secondary', onClick: () => postAction({ type: 'reviseGoal', taskId: tid }) },
+                { text: '取消 ✕', className: 'cancel', onClick: () => postAction({ type: 'cancelTask', taskId: tid }) },
+            );
+            break;
+        case 'plan':
+            actions.push(
+                { text: '确认计划 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmPlan', taskId: tid }) },
+                { text: '驳回 ↩', className: 'cancel', onClick: () => postAction({ type: 'rejectPlan', taskId: tid }) },
+            );
+            break;
+        case 'execute':
+            actions.push(
+                { text: '确认完成并进入自验 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmExecuteDone', taskId: tid }) },
+            );
+            break;
+        case 'self_verify':
+            actions.push(
+                { text: '确认自验并进入验收 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmSelfVerifyDone', taskId: tid }) },
+            );
+            break;
+        case 'review':
+            actions.push(
+                { text: '验收通过 ✓', className: 'primary', onClick: () => postAction({ type: 'approveReview', taskId: tid }) },
+                { text: '驳回 ↩', className: 'secondary', onClick: () => postAction({ type: 'rejectReview', taskId: tid }) },
+            );
+            break;
+    }
+    if (actions.length > 0) renderCardActions(card, actions);
+}
+
+function _cardStatusText(msg: Message): string {
+    const type = msg.cardMeta?.type;
+    const status = msg.cardMeta?.status;
+    if (status === 'confirmed') return '✅ 已确认';
+    if (status === 'rejected') return '↩️ 已驳回';
+    return '⏳ 已完成';
+}
+
+function buildBasicMessage(msg: Message, phase: string): HTMLElement {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chat-msg agent';
+    msgDiv.dataset.msgId = msg.id;
+    if (phase) msgDiv.dataset.phase = phase;
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    msgDiv.appendChild(bubble);
+    return msgDiv;
+}
+
+// ── 按 role 渲染 ──
 
 function _renderUserMessage(msg: Message) {
     const div = document.createElement('div');
@@ -348,7 +453,7 @@ function _renderUserMessage(msg: Message) {
     appendToChatMessages(div);
 }
 
-function _renderAgentMessage(msg: Message) {
+function _renderAgentMessage(msg: Message, _streaming?: boolean) {
     const div = document.createElement('div');
     div.className = 'chat-msg agent';
     div.dataset.msgId = msg.id;

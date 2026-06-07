@@ -3,7 +3,7 @@ import type { ViewStrategy } from './viewStrategy';
 import { stateManager } from './state';
 import { basePipeline } from './basePipeline';
 import { taskStrategy } from './taskStrategy';
-import { renderGoalCard, renderGoalActions, renderPlanActions, renderExecuteActions, renderSelfVerifyActions, renderReviewActions } from './cardRenderer';
+import { renderGoalActions, renderPlanActions, renderExecuteActions, renderSelfVerifyActions, renderReviewActions } from './cardRenderer';
 import { showTaskView } from '../taskView';
 
 let _strategy: ViewStrategy = taskStrategy;
@@ -26,15 +26,23 @@ function foldPhases(currentPhase: string) {
     }
 }
 
+let _msgVersion = 0;
 let _initialized = false;
 
 export function initTaskV3() {
     if (_initialized) return;
     _initialized = true;
 
+    let _lastMsgVersion = -1;
     stateManager.subscribe((state) => {
         showTaskView(true);
         _strategy.renderHeader(state);
+
+        // 消息版本变化 → subscriber 驱动重渲染（messages-sync 触发）
+        if (state.msgVersion !== _lastMsgVersion) {
+            basePipeline.renderMessageList(state.messages);
+            _lastMsgVersion = state.msgVersion;
+        }
     });
 
     window.addEventListener('message', (event) => {
@@ -70,16 +78,38 @@ export function initTaskV3() {
     });
 }
 
-// stream-chunk/done 走 patch() 静默更新数据 + 直接调 basePipeline 渲染。
-// 不走 subscriber 是因为 stream chunk 触发全量 subscriber 浪费性能，
-// 且 stream 渲染是增量追加，不需要 header 重渲染。
+// ────── 流式消息处理（数据优先：只改 messages[]，再触发渲染） ──────
 
-function handleStreamChunk(msg: { text: string }) {
-    const ss = stateManager.snapshot().streamState;
-    stateManager.patch({ streamState: { ...ss, buffer: ss.buffer + msg.text, active: true } });
-    basePipeline.appendStreamChunk(msg.text);
+/** 获取或创建 streaming 消息并更新 content */
+function _updateStreamMsg(text: string) {
+    const state = stateManager.snapshot();
+    const msgs = [...state.messages];
+    let last = msgs[msgs.length - 1];
+
+    if (!last || !last.streaming) {
+        const roundGroup = 'rg_' + Date.now();
+        last = {
+            id: 'msg_' + Date.now(),
+            taskId: state.activeTaskId || '',
+            role: 'agent',
+            content: '',
+            timestamp: Date.now(),
+            streaming: true,
+            roundGroup,
+        };
+        msgs.push(last);
+    }
+
+    last = { ...last, content: text };
+    msgs[msgs.length - 1] = last;
+    stateManager.patch({ messages: msgs });
+    return last;
 }
 
+function handleStreamChunk(msg: { text: string }) {
+    const last = _updateStreamMsg(msg.text);
+    basePipeline.appendStreamChunk(msg.text);
+}
 
 function handleThinkingChunk(msg: { text: string; status: string }) {
     if (msg.status === 'completed') {
@@ -90,54 +120,69 @@ function handleThinkingChunk(msg: { text: string; status: string }) {
 }
 
 function handleFinalizeGoalMessage(msg: { taskId: string; goal: string }) {
-    // 暂存到 stateManager，等 stream-done 后在 round 之后渲染
-    stateManager.patch({ pendingGoal: { taskId: msg.taskId, goal: msg.goal } });
-}
-
-function _renderPendingGoal() {
+    // 作为带 cardMeta 的消息存入 messages[]
     const state = stateManager.snapshot();
-    if (!state.pendingGoal) return;
-    // 仅渲染按钮，不重复折叠内的 AI 回复内容
-    renderGoalActions(state.pendingGoal.taskId);
-    stateManager.patch({ pendingGoal: null });
+    const goalMsg: import('./types').Message = {
+        id: 'goal_' + Date.now(),
+        taskId: msg.taskId,
+        role: 'agent',
+        type: 'goal_confirmation',
+        content: msg.goal || '',
+        phase: 'goal',
+        timestamp: Date.now(),
+        collapsed: false,
+        cardMeta: { type: 'goal', status: 'pending' },
+    };
+    stateManager.patch({ messages: [...state.messages, goalMsg] });
+    _msgVersion++;
 }
 
 function handleStreamDone(result: StreamResult) {
-    const ss = stateManager.snapshot().streamState;
-    stateManager.patch({ streamState: { ...ss, buffer: '', active: false } });
+    const state = stateManager.snapshot();
+    const msgs = [...state.messages];
 
-    // 确保容器存在，把工具卡片加入本轮容器（时间顺序）
+    // 终结最后一条 streaming 消息
+    const lastIdx = msgs.length - 1;
+    if (lastIdx >= 0 && msgs[lastIdx].streaming) {
+        msgs[lastIdx] = { ...msgs[lastIdx], streaming: false, collapsed: true, content: result.cleanedText };
+    }
+
+    stateManager.patch({ messages: msgs });
+    basePipeline.finalizeStream();
+
+    // 工具卡片加入本轮容器
     basePipeline.getOrCreateRoundContainer();
     for (const tc of result.toolCalls) {
         if (tc.kind === 'thinking') continue;
         basePipeline.addToolCardToRound(tc);
     }
 
-    // 终结流样式 + 折叠本轮容器（不追加消息，避免重复）
-    basePipeline.finalizeStream();
+    // 折叠本轮容器
     basePipeline.finalizeRound();
 
-    // 按阶段标志渲染操作按钮（无 body，不重复 fold 内容）
-    if (stateManager.snapshot().pendingGoal) {
-        _renderPendingGoal();
-    } else if (result.planProposed && stateManager.state.activeTaskPhase === 'plan') {
-        renderPlanActions(stateManager.state.activeTaskId || '');
-    } else if (result.executeFinished && stateManager.state.activeTaskPhase === 'execute') {
-        renderExecuteActions(stateManager.state.activeTaskId || '');
-    } else if (result.selfVerifyFinished && stateManager.state.activeTaskPhase === 'self_verify') {
-        renderSelfVerifyActions(stateManager.state.activeTaskId || '');
-    } else if (stateManager.state.activeTaskPhase === 'review') {
-        renderReviewActions(stateManager.state.activeTaskId || '');
-    } else if (!['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'].includes(stateManager.state.activeTaskPhase)) {
-        // 非任务阶段（澄清、追问等）才显示最终消息
+    // 按阶段标志渲染操作按钮
+    if (result.planProposed && state.activeTaskPhase === 'plan') {
+        renderPlanActions(state.activeTaskId || '');
+    } else if (result.executeFinished && state.activeTaskPhase === 'execute') {
+        renderExecuteActions(state.activeTaskId || '');
+    } else if (result.selfVerifyFinished && state.activeTaskPhase === 'self_verify') {
+        renderSelfVerifyActions(state.activeTaskId || '');
+    } else if (state.activeTaskPhase === 'review') {
+        renderReviewActions(state.activeTaskId || '');
+    } else if (state.activeTaskPhase === 'goal') {
+        // 检查 messages 中是否有刚插入的 goal card（from finalizeGoalMessage）
+        const hasGoalCard = msgs.some(m => m.cardMeta?.type === 'goal' && m.cardMeta?.status === 'pending');
+        if (hasGoalCard) renderGoalActions(state.activeTaskId || '');
+    } else if (!['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'].includes(state.activeTaskPhase)) {
         basePipeline.appendFinalMessage(result.cleanedText);
     }
 
-    _strategy.onStreamDone(stateManager.state, result);
+    _strategy.onStreamDone(state, result);
 }
 
+let _msgVersionCounter = 0;
+
 function handleMessagesSync(msg: { messages: import('../../../types').ChatMessage[] }) {
-    stateManager.update({ messages: msg.messages as any });
-    const state = stateManager.state;
-    basePipeline.renderMessageList(state.messages as any);
+    // handler 只改数据，subscriber 检测 msgVersion 变化后渲染
+    stateManager.update({ messages: msg.messages as any, msgVersion: ++_msgVersionCounter });
 }
