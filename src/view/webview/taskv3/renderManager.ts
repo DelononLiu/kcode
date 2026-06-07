@@ -54,7 +54,7 @@ export function initTaskV3() {
         const message = event.data;
         if (!message || !message.type) return;
 
-        const v3Types = ['state-delta', 'stream-chunk', 'stream-done', 'messages-sync', 'finalizeGoalMessage', 'thinking-chunk'];
+        const v3Types = ['state-delta', 'stream-chunk', 'stream-done', 'messages-sync', 'finalizeGoalMessage', 'thinking-chunk', 'tool-chunk'];
         if (!v3Types.includes(message.type)) return;
 
         switch (message.type) {
@@ -78,6 +78,9 @@ export function initTaskV3() {
                 break;
             case 'thinking-chunk':
                 handleThinkingChunk(message as unknown as { text: string; status: string; type: string });
+                break;
+            case 'tool-chunk':
+                handleToolChunk(message as unknown as { toolCallId: string; title: string; kind: string; status: string; content: string; type: string });
                 break;
         }
     });
@@ -122,6 +125,10 @@ function handleThinkingChunk(msg: { text: string; status: string }) {
     } else {
         basePipeline.updateThinkingCard(msg.text);
     }
+}
+
+function handleToolChunk(msg: { toolCallId: string; title: string; kind: string; status: string; content: string }) {
+    basePipeline.updateToolEntryInRound(msg.toolCallId, { title: msg.title, kind: msg.kind, status: msg.status, output: msg.content });
 }
 
 function handleFinalizeGoalMessage(msg: { taskId: string; goal: string }) {

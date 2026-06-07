@@ -149,6 +149,8 @@ export class TaskViewBridgeV2 {
                         this.completeReasoning();
                         this.activeToolCalls.set(toolCallId, { title, kind, status });
                         this._emitToolCall(toolCallId, title, kind, status);
+                        // V3: 实时工具卡片
+                        this.router.PostMessage({ type: 'tool-chunk', taskId: this.tid, toolCallId, title, kind, status, content: '' });
                     },
                     onToolCallUpdate: (toolCallId: string, status: string, content?: string, title?: string, kind?: string) => {
                         const tc = this.activeToolCalls.get(toolCallId);
@@ -159,6 +161,8 @@ export class TaskViewBridgeV2 {
                             if (kind) tc.kind = kind;
                         }
                         this._emitToolCall(toolCallId, tc?.title || '', tc?.kind || '', status, content);
+                        // V3: 更新实时工具卡片
+                        this.router.PostMessage({ type: 'tool-chunk', taskId: this.tid, toolCallId, title: tc?.title || title, kind: tc?.kind || kind, status, content: content || '' });
                     },
                     onPlan: (entries) => this.onPlan(entries),
                     onError: (error) => this.onError(error),
