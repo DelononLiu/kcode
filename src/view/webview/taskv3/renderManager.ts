@@ -162,10 +162,11 @@ function handleStreamDone(result: StreamResult) {
     stateManager.patch({ messages: msgs });
     basePipeline.finalizeStream();
 
-    // 工具卡片加入本轮容器
+    // 工具卡片加入本轮容器（跳过已通过 tool-chunk 实时渲染的）
     basePipeline.getOrCreateRoundContainer();
     for (const tc of result.toolCalls) {
         if (tc.kind === 'thinking') continue;
+        if (document.querySelector(`[data-tool-call-id="${tc.toolCallId}"]`)) continue;
         basePipeline.addToolCardToRound(tc);
     }
 

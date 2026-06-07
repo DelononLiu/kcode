@@ -103,6 +103,35 @@ function addToolCardToRound(tc: { toolCallId: string; title: string; kind: strin
     _createAndAppendToolCard(tc, false);
 }
 
+/** 实时流：在 stream 前插入/更新工具时间线条目（tool-chunk 消息） */
+function updateToolEntryInRound(toolCallId: string, changes: { title?: string; kind?: string; status?: string; output?: string }) {
+    const existing = document.querySelector(`[data-tool-call-id="${toolCallId}"]`);
+    if (existing) {
+        // 更新已有条目
+        const pre = existing.querySelector('.tl-entry-body pre') as HTMLElement;
+        if (pre && changes.output) pre.textContent = changes.output;
+        return;
+    }
+
+    // 创建新条目
+    const entry = createTimelineEntry({ toolCallId, title: changes.title || '', kind: changes.kind || '', status: changes.status || 'running', output: changes.output || '' });
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'chat-msg tool';
+    msgDiv.dataset.toolCallId = toolCallId;
+    msgDiv.appendChild(entry);
+
+    // 插入到 stream 消息前（时间顺序：思考→工具→AI回复）
+    const streamMsg = document.getElementById('__v3-stream-message');
+    const round = getRoundContainer();
+    if (streamMsg && streamMsg.parentElement) {
+        streamMsg.parentElement.insertBefore(msgDiv, streamMsg);
+    } else if (round) {
+        round.appendChild(msgDiv);
+    } else {
+        appendToChatMessages(msgDiv);
+    }
+}
+
 function _createAndAppendToolCard(tc: { toolCallId: string; title: string; kind: string; status: string; output?: string; content?: string }, useAppendToChat: boolean) {
     const entry = createTimelineEntry(tc);
     const msgDiv = document.createElement('div');
@@ -456,6 +485,7 @@ export const basePipeline = {
     addToolCard,
     addToolCardToRound,
     updateToolCard,
+    updateToolEntryInRound,
     updateThinkingCard,
     finalizeThinkingCard,
     finalizeRound,
