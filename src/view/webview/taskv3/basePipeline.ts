@@ -3,7 +3,7 @@ import { renderMarkdown, escapeHtml } from '../markdownRenderer';
 import { createCard, createCardMessageElement } from '../cardBuilder';
 import { appendToChatMessages } from '../chatStream';
 import { renderCardForMessage, renderCardActions, renderCardStatus, postAction } from './cardRenderer';
-import { renderToolBubbleContent } from '../toolRenderer';
+import { createTimelineEntry } from '../timelineRenderer';
 
 function getContainer(): HTMLElement | null {
     return document.querySelector('#task-view #chat-messages') || null;
@@ -104,15 +104,11 @@ function addToolCardToRound(tc: { toolCallId: string; title: string; kind: strin
 }
 
 function _createAndAppendToolCard(tc: { toolCallId: string; title: string; kind: string; status: string; output?: string; content?: string }, useAppendToChat: boolean) {
+    const entry = createTimelineEntry(tc);
     const msgDiv = document.createElement('div');
     msgDiv.className = 'chat-msg tool';
     msgDiv.dataset.toolCallId = tc.toolCallId;
-
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble tool-bubble';
-    msgDiv.appendChild(bubble);
-
-    renderToolBubbleContent(bubble, tc);
+    msgDiv.appendChild(entry);
 
     if (useAppendToChat) {
         appendToChatMessages(msgDiv);
@@ -471,17 +467,12 @@ function _renderToolMessage(msg: Message) {
     let info: any;
     try { info = JSON.parse(msg.content); } catch { return; }
 
+    const entry = createTimelineEntry(info);
     const div = document.createElement('div');
     div.className = 'chat-msg tool';
     div.dataset.msgId = msg.id;
     if (msg.phase) div.dataset.phase = msg.phase;
-
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble tool-bubble';
-    div.appendChild(bubble);
-
-    renderToolBubbleContent(bubble, info);
-
+    div.appendChild(entry);
     appendToChatMessages(div);
 }
 
