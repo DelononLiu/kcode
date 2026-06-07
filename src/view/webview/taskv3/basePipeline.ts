@@ -1,8 +1,8 @@
-import type { Message } from './types';
-import { stateManager } from './state';
+import type { Message, ToolCallState } from './types';
 import { renderMarkdown } from '../markdownRenderer';
 import { createCard, createCardMessageElement } from '../cardBuilder';
 import { appendToChatMessages } from '../chatStream';
+import { renderCardForMessage } from './cardRenderer';
 
 function getContainer(): HTMLElement | null {
     return document.querySelector('#task-view #chat-messages') || null;
@@ -149,6 +149,12 @@ function appendMessage(msg: Message) {
 }
 
 function _appendMessage(msg: Message, container: HTMLElement) {
+    if (msg.type && ['goal_confirmation', 'goal_confirmed', 'plan_proposal', 'plan_confirmed',
+        'execute_confirmation', 'self_verify_confirmation',
+        'review_request', 'review_approved', 'review_rejected'].includes(msg.type)) {
+        renderCardForMessage(msg, msg.phase || '');
+        return;
+    }
     if (msg.role === 'user') {
         _renderUserMessage(msg, container);
     } else if (msg.role === 'agent') {

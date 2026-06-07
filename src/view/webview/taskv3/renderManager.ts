@@ -87,4 +87,6 @@ function handleStreamDone(result: StreamResult) {
 
 function handleMessagesSync(msg: { messages: import('../../../types').ChatMessage[] }) {
     stateManager.update({ messages: msg.messages as any });
+    const state = stateManager.state;
+    basePipeline.renderMessageList(state.messages as any);
 }
