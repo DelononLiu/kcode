@@ -71,6 +71,65 @@ export function renderGoalCard(msg: Message, phase: string) {
     scrollToBottom();
 }
 
+/** 折叠后仅渲染目标操作按钮（无卡片内容，避免和 fold 内重复） */
+export function renderGoalActions(taskId: string) {
+    _renderPhaseActions(taskId, 'goal', '🎯 任务目标', [
+        { text: '确认目标 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmGoal', taskId }) },
+        { text: '修改需求 ↩', className: 'secondary', onClick: () => postAction({ type: 'reviseGoal', taskId }) },
+        { text: '取消 ✕', className: 'cancel', onClick: () => postAction({ type: 'cancelTask', taskId }) },
+    ]);
+}
+
+/** 折叠后仅渲染计划操作按钮 */
+export function renderPlanActions(taskId: string) {
+    _renderPhaseActions(taskId, 'plan', '📋 计划方案', [
+        { text: '确认计划 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmPlan', taskId }) },
+        { text: '驳回 ↩', className: 'cancel', onClick: () => postAction({ type: 'rejectPlan', taskId }) },
+    ]);
+}
+
+/** 折叠后仅渲染执行操作按钮 */
+export function renderExecuteActions(taskId: string) {
+    _renderPhaseActions(taskId, 'execute', '⚡ 执行完成', [
+        { text: '确认完成并进入自验 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmExecuteDone', taskId }) },
+    ]);
+}
+
+/** 折叠后仅渲染自验操作按钮 */
+export function renderSelfVerifyActions(taskId: string) {
+    _renderPhaseActions(taskId, 'self_verify', '🔍 自验完成', [
+        { text: '确认自验并进入验收 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmSelfVerifyDone', taskId }) },
+    ]);
+}
+
+/** 折叠后仅渲染验收操作按钮 */
+export function renderReviewActions(taskId: string) {
+    _renderPhaseActions(taskId, 'review', '✅ 验收', [
+        { text: '验收通过 ✓', className: 'primary', onClick: () => postAction({ type: 'approveReview', taskId }) },
+        { text: '驳回 ↩', className: 'secondary', onClick: () => postAction({ type: 'rejectReview', taskId }) },
+    ]);
+}
+
+/** 通用阶段按钮渲染（空 body，不重复 fold 内容） */
+function _renderPhaseActions(taskId: string, phase: string, headerText: string, actions: { text: string; className: string; onClick: () => void }[]) {
+    const msgDiv = createCardMessageElement(taskId, phase);
+    const bubble = msgDiv.querySelector('.msg-bubble')!;
+
+    const card = createCard({
+        headerHtml: headerText,
+        bodyMarkdown: '',
+        defaultCollapsed: true,
+        borderColor: '#3c3c3c',
+        headerBg: '#2d2d2d',
+        headerColor: '#e0e0e0',
+    });
+
+    renderCardActions(card, actions);
+    bubble.appendChild(card);
+    appendToChatMessages(msgDiv);
+    scrollToBottom();
+}
+
 export function renderPlanCard(msg: Message, phase: string) {
     const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
     const bubble = msgDiv.querySelector('.msg-bubble')!;

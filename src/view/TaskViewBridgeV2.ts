@@ -98,6 +98,74 @@ export class TaskViewBridgeV2 {
                 this._originalText = ot;
             }
 
+            protected shouldSuppressToolCallDisplay(): boolean {
+                return true;
+            }
+
+            protected completeReasoning(): void {
+                if (!this.reasoningActive) return;
+                this.reasoningActive = false;
+                const full = this.reasoningText;
+                this.reasoningText = '';
+                this.flushAcpRecvBuffer?.();
+                if (full) this.sendAcpLog?.('recv', full);
+                this.flushAcpRecvBuffer?.();
+                const rc = this.activeToolCalls.get(this.currentReasoningId);
+                if (rc) {
+                    rc.status = 'completed';
+                    rc.output = full;
+                }
+                // V3: send thinking as independent card message, NOT embedded in stream-chunk
+                if (full) {
+                    this.router.PostMessage({
+                        type: 'thinking-chunk',
+                        taskId: this.tid,
+                        toolCallId: this.currentReasoningId,
+                        text: full,
+                        status: 'completed',
+                    });
+                }
+            }
+
+            create(): AcpMessageHandler {
+                return {
+                    onText: (chunk: string) => {
+                        this.completeReasoning();
+                        this.onText(chunk);
+                    },
+                    onReasoning: (text: string) => {
+                        if (!this.reasoningActive) {
+                            this.currentReasoningId = 'reasoning_' + Date.now();
+                            this.reasoningActive = true;
+                            this.activeToolCalls.set(this.currentReasoningId, { title: '思考', kind: 'thinking', status: 'running' });
+                            this.router.PostMessage({ type: 'thinking-chunk', taskId: this.tid, toolCallId: this.currentReasoningId, text: '', status: 'running' });
+                        }
+                        this.reasoningText += text;
+                        const tc = this.activeToolCalls.get(this.currentReasoningId);
+                        if (tc) tc.output = this.reasoningText;
+                        this.router.PostMessage({ type: 'thinking-chunk', taskId: this.tid, toolCallId: this.currentReasoningId, text: this.reasoningText, status: 'running' });
+                    },
+                    onToolCall: (toolCallId: string, title: string, kind: string, status: string) => {
+                        this.completeReasoning();
+                        this.activeToolCalls.set(toolCallId, { title, kind, status });
+                        this._emitToolCall(toolCallId, title, kind, status);
+                    },
+                    onToolCallUpdate: (toolCallId: string, status: string, content?: string, title?: string, kind?: string) => {
+                        const tc = this.activeToolCalls.get(toolCallId);
+                        if (tc) {
+                            tc.status = status;
+                            if (content) tc.output = content;
+                            if (title) tc.title = title;
+                            if (kind) tc.kind = kind;
+                        }
+                        this._emitToolCall(toolCallId, tc?.title || '', tc?.kind || '', status, content);
+                    },
+                    onPlan: (entries) => this.onPlan(entries),
+                    onError: (error) => this.onError(error),
+                    onDone: (stopReason) => this.onDone(stopReason),
+                };
+            }
+
             protected sendDisplayUpdate(text: string): void {
                 this._bridge.sendStreamChunk(text);
             }
@@ -124,7 +192,6 @@ export class TaskViewBridgeV2 {
                         this._ctx.storeMessage(this.tid, 'agent', cleanedText);
                     }
                     this._ctx.taskFlow.resetGeneration(this.tid);
-                    this._bridge.sendMessagesSync(this.tid);
                     return;
                 }
 

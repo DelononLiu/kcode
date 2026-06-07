@@ -14,6 +14,7 @@ function createInitialState(): AppState {
         pendingMessages: [],
         agentName: '',
         modelName: '',
+        pendingGoal: null,
     };
 }
 

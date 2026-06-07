@@ -11,6 +11,8 @@ export interface AppState {
     pendingMessages: PendingMessage[];
     agentName: string;
     modelName: string;
+    /** 暂存等待 stream-done 后渲染的阶段卡片（避免模块级 let 变量） */
+    pendingGoal?: { taskId: string; goal: string } | null;
 }
 
 export interface Message {
