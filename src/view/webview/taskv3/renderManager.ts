@@ -37,12 +37,10 @@ export function initTaskV3() {
         showTaskView(true);
         _strategy.renderHeader(state);
 
-        // 消息版本变化 → subscriber 驱动重渲染（messages-sync 触发）
         if (state.msgVersion !== _lastMsgVersion) {
             basePipeline.renderMessageList(state.messages);
             _lastMsgVersion = state.msgVersion;
 
-            // 非流阶段同步后渲染操作按钮（如 review 无对应 stream-done）
             if (state.msgVersion === _lastSyncVersion && !state.isGenerating) {
                 _renderPhaseActionsFromSync(state);
             }
@@ -85,14 +83,10 @@ export function initTaskV3() {
     });
 }
 
-// ────── 流式消息处理（数据优先：只改 messages[]，再触发渲染） ──────
-
-/** 获取或创建 streaming 消息并更新 content */
 function _updateStreamMsg(text: string) {
     const state = stateManager.snapshot();
     const msgs = [...state.messages];
 
-    // 用 streaming 标记找当前流式消息，避免被 thinking/tool 干扰
     let streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
     if (streamIdx < 0) {
         const roundGroup = 'rg_' + Date.now();
@@ -121,7 +115,6 @@ function handleStreamChunk(msg: { text: string }) {
 
 function handleThinkingChunk(msg: { text: string; status: string }) {
     console.log('[webview thinking-chunk]', msg.status, msg.text ? msg.text.substring(0, 100) : '(empty)');
-    // 写入 state.messages[]（不改变 msgVersion，不触发全量重渲染）
     const state = stateManager.snapshot();
     const msgs = [...state.messages];
     const now = Date.now();
@@ -129,11 +122,6 @@ function handleThinkingChunk(msg: { text: string; status: string }) {
     if (existingIdx >= 0) {
         msgs[existingIdx] = { ...msgs[existingIdx], content: msg.text, streaming: msg.status !== 'completed' };
     } else {
-        // 新的 thinking 开始 → 终结前面的 streaming AI reply，切分消息
-        const streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
-        if (streamIdx >= 0) {
-            msgs[streamIdx] = { ...msgs[streamIdx], streaming: false };
-        }
         msgs.push({
             id: 'thinking_' + now,
             taskId: state.activeTaskId || '',
@@ -146,7 +134,6 @@ function handleThinkingChunk(msg: { text: string; status: string }) {
     }
     stateManager.patch({ messages: msgs });
 
-    // 同时实时更新 DOM（保证流式响应速度）
     if (msg.status === 'completed') {
         basePipeline.finalizeThinkingCard(msg.text);
     } else {
@@ -163,7 +150,6 @@ function handleToolChunk(msg: { toolCallId: string; title: string; kind: string;
         contentLength: (msg.content || '').length,
         contentPreview: msg.content ? msg.content.substring(0, 200) : '(empty)',
     }));
-    // 写入 state.messages[]（不改变 msgVersion）
     const state = stateManager.snapshot();
     const msgs = [...state.messages];
     const toolContent = JSON.stringify({
@@ -177,11 +163,6 @@ function handleToolChunk(msg: { toolCallId: string; title: string; kind: string;
     if (existingIdx >= 0) {
         msgs[existingIdx] = { ...msgs[existingIdx], content: toolContent };
     } else {
-        // 新工具开始 → 终结前面的 streaming AI reply，切分消息
-        const streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
-        if (streamIdx >= 0) {
-            msgs[streamIdx] = { ...msgs[streamIdx], streaming: false };
-        }
         msgs.push({
             id: 'tool_' + msg.toolCallId,
             taskId: state.activeTaskId || '',
@@ -193,26 +174,21 @@ function handleToolChunk(msg: { toolCallId: string; title: string; kind: string;
     }
     stateManager.patch({ messages: msgs });
 
-    // 同时实时更新 DOM
     basePipeline.updateToolEntryInRound(msg.toolCallId, { title: msg.title, kind: msg.kind, status: msg.status, output: msg.content });
 }
 
 function handleFinalizeGoalMessage(msg: { taskId: string; goal: string }) {
-    // goal 内容已通过 AI 回复消息流入 state，不需要单独建卡片
-    // 按钮由 handleStreamDone 中的 renderGoalActions 处理
 }
 
 function handleStreamDone(result: StreamResult) {
     const state = stateManager.snapshot();
     const msgs = [...state.messages];
 
-    // 终结最后一条 streaming 消息（不替换 content，各消息已通过 chunk 积累了自己的内容）
     const streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
     if (streamIdx >= 0) {
         msgs[streamIdx] = { ...msgs[streamIdx], streaming: false, collapsed: true };
     }
 
-    // 收集本轮所有 tool_calls 中尚未存入 state 的
     const seenToolIds = new Set(
         msgs.filter(m => m.type === 'tool_call').map(m => { try { return JSON.parse(m.content).toolCallId; } catch { return null; } }).filter(Boolean)
     );
@@ -229,13 +205,11 @@ function handleStreamDone(result: StreamResult) {
         });
     }
 
-    // 批量赋 roundGroup + 一次触发重渲染
     const roundGroup = 'rg_' + Date.now();
     const finalMsgs = msgs.map(m => m.roundGroup ? m : { ...m, roundGroup });
     basePipeline.finalizeStream();
     stateManager.patch({ messages: finalMsgs, msgVersion: (state.msgVersion || 0) + 1 });
 
-    // 按阶段渲染操作按钮（不在 messages 中建卡片，纯 DOM 按钮行）
     if (result.planProposed && state.activeTaskPhase === 'plan') {
         renderPlanActions(state.activeTaskId || '');
     } else if (result.executeFinished && state.activeTaskPhase === 'execute') {
@@ -254,13 +228,11 @@ function handleStreamDone(result: StreamResult) {
 }
 
 let _msgVersionCounter = 0;
-/** 标记最近一次 msgVersion 是否由 messages-sync 触发（用于非流场景渲染按钮） */
 let _lastSyncVersion = -1;
 
 function _renderPhaseActionsFromSync(state: import('./types').AppState) {
     const tid = state.activeTaskId || '';
     if (state.activeTaskPhase !== 'review') return;
-    // review_approved 可能不存在于 store 中，改用用户"验收通过"消息判断
     const hasResult = state.messages.some(m =>
         m.type === 'review_approved' || m.type === 'review_rejected'
         || (m.role === 'user' && m.content.includes('验收通过'))
