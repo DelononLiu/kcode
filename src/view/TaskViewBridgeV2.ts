@@ -211,28 +211,7 @@ export class TaskViewBridgeV2 {
                     return;
                 }
 
-                if (!this._isGoalFormatting) {
-                    for (const [toolCallId, tc] of this.activeToolCalls) {
-                        this._ctx.store.addMessage({
-                            id: this._ctx.store.nextMessageId(this.tid),
-                            taskId: this.tid,
-                            role: 'tool',
-                            type: 'tool_call',
-                            content: JSON.stringify({ toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output || '' }),
-                            phase: task?.phase,
-                            timestamp: Date.now(),
-                        });
-                    }
-                }
-
-                if (!this._isGoalFormatting) {
-                    for (const [, tc] of this.activeToolCalls) {
-                        if (tc.output && (/\[TASK_UPDATE\]/i.test(tc.output) || /<TODO_UPDATE>|<\/*title>/i.test(tc.output))) {
-                            this._ctx.taskFlow.processChunk(this.tid, tc.output);
-                        }
-                    }
-                }
-
+                // 1. 先存 agent 消息（AI 回复文本先落盘，获得较早的时间戳）
                 if (this._isGoalFormatting) {
                     this._ctx.taskFlow.processGoalProposal(this.tid, cleanedText, this._originalText, this._originalText);
                 } else {
@@ -248,6 +227,30 @@ export class TaskViewBridgeV2 {
                         this._ctx.triggerReviewRequest(this.tid, cleanedText);
                     } else if (task?.type === 'task' && task?.phase === 'plan') {
                         this._ctx.showPlanConfirmation(this.tid);
+                    }
+                }
+
+                // 2. 从工具输出中解析协议指令
+                if (!this._isGoalFormatting) {
+                    for (const [, tc] of this.activeToolCalls) {
+                        if (tc.output && (/\[TASK_UPDATE\]/i.test(tc.output) || /<TODO_UPDATE>|<\/*title>/i.test(tc.output))) {
+                            this._ctx.taskFlow.processChunk(this.tid, tc.output);
+                        }
+                    }
+                }
+
+                // 3. 再存工具消息（时间戳晚于 agent，排序后正确出现在 AI 回复之后）
+                if (!this._isGoalFormatting) {
+                    for (const [toolCallId, tc] of this.activeToolCalls) {
+                        this._ctx.store.addMessage({
+                            id: this._ctx.store.nextMessageId(this.tid),
+                            taskId: this.tid,
+                            role: 'tool',
+                            type: 'tool_call',
+                            content: JSON.stringify({ toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output || '' }),
+                            phase: task?.phase,
+                            timestamp: Date.now(),
+                        });
                     }
                 }
 
