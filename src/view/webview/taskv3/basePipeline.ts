@@ -148,7 +148,7 @@ function appendMessage(msg: Message) {
     scrollToBottom();
 }
 
-function _appendMessage(msg: Message, container: HTMLElement) {
+function _appendMessage(msg: Message, _container: HTMLElement) {
     if (msg.type && ['goal_confirmation', 'goal_confirmed', 'plan_proposal', 'plan_confirmed',
         'execute_confirmation', 'self_verify_confirmation',
         'review_request', 'review_approved', 'review_rejected'].includes(msg.type)) {
@@ -156,18 +156,19 @@ function _appendMessage(msg: Message, container: HTMLElement) {
         return;
     }
     if (msg.role === 'user') {
-        _renderUserMessage(msg, container);
+        _renderUserMessage(msg);
     } else if (msg.role === 'agent') {
-        _renderAgentMessage(msg, container);
+        _renderAgentMessage(msg);
     } else if (msg.role === 'tool') {
-        _renderToolMessage(msg, container);
+        _renderToolMessage(msg);
     }
 }
 
-function _renderUserMessage(msg: Message, container: HTMLElement) {
+function _renderUserMessage(msg: Message) {
     const div = document.createElement('div');
     div.className = 'chat-msg user';
     div.dataset.msgId = msg.id;
+    if (msg.phase) div.dataset.phase = msg.phase;
 
     const sender = document.createElement('div');
     sender.className = 'msg-sender';
@@ -179,10 +180,10 @@ function _renderUserMessage(msg: Message, container: HTMLElement) {
     bubble.innerHTML = renderMarkdown(msg.content);
     div.appendChild(bubble);
 
-    container.appendChild(div);
+    appendToChatMessages(div);
 }
 
-function _renderAgentMessage(msg: Message, container: HTMLElement) {
+function _renderAgentMessage(msg: Message) {
     const div = document.createElement('div');
     div.className = 'chat-msg agent';
     div.dataset.msgId = msg.id;
@@ -193,10 +194,10 @@ function _renderAgentMessage(msg: Message, container: HTMLElement) {
     bubble.innerHTML = renderMarkdown(msg.content);
     div.appendChild(bubble);
 
-    container.appendChild(div);
+    appendToChatMessages(div);
 }
 
-function _renderToolMessage(msg: Message, container: HTMLElement) {
+function _renderToolMessage(msg: Message) {
     if (msg.type !== 'tool_call') return;
 
     let info: any;
@@ -222,7 +223,7 @@ function _renderToolMessage(msg: Message, container: HTMLElement) {
     card.dataset.toolCallId = info.toolCallId;
 
     bubble.appendChild(card);
-    container.appendChild(div);
+    appendToChatMessages(div);
 }
 
 export const basePipeline = {
