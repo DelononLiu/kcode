@@ -627,6 +627,11 @@ export function handleToolCallUpdate(msg: any) {
                 if (expand) expand.classList.add('open');
             }
         }
+        // 更新标题（初始"Terminal"→实际命令等）
+        if (msg.title) {
+            const titleEl = existingEntry.querySelector('.tl-entry-title') as HTMLElement;
+            if (titleEl) titleEl.textContent = msg.title;
+        }
     } else {
         const entry = createTimelineEntry({
             toolCallId: toolId, kind, title: msg.title || '',

@@ -4,7 +4,7 @@ import { escapeHtml } from './markdownRenderer';
 export function getTlKind(kind: string): string {
     if (kind === 'thinking') return 'thinking';
     if (kind === 'read' || kind === 'write' || kind === 'edit' || kind === 'todowrite' || kind === 'todo') return 'file';
-    if (kind === 'bash' || kind === 'command' || kind === 'terminal') return 'command';
+    if (kind === 'bash' || kind === 'command' || kind === 'terminal' || kind === 'execute') return 'command';
     if (kind === 'grep' || kind === 'search' || kind === 'glob') return 'search';
     if (kind === 'device') return 'device';
     return 'command';

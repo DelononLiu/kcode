@@ -160,7 +160,14 @@ export class TaskViewBridgeV2 {
                             if (title) tc.title = title;
                             if (kind) tc.kind = kind;
                         }
-                        this._emitToolCall(toolCallId, tc?.title || '', tc?.kind || '', status, content);
+                        console.log('[V3 bridge tool-chunk]', JSON.stringify({
+                            toolCallId,
+                            kind: tc?.kind || kind,
+                            title: tc?.title || title,
+                            status,
+                            contentLength: content?.length || 0,
+                            contentPreview: content ? content.substring(0, 200) : '(empty)',
+                        }));
                         // V3: 更新实时工具卡片
                         this.router.PostMessage({ type: 'tool-chunk', taskId: this.tid, toolCallId, title: tc?.title || title, kind: tc?.kind || kind, status, content: content || '' });
                     },

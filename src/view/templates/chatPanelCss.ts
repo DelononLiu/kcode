@@ -235,7 +235,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .msg-card-btn.cancel:hover{background:rgba(255,255,255,.04);color:#bbb}
 .msg-card-status{padding:4px 12px 10px;font-size:12px;color:#777;text-align:center}
 .msg-card-body.tool-card-body{max-height:250px}
-.msg-card[data-tool-kind="bash"] .msg-card-header,.msg-card[data-tool-kind="command"] .msg-card-header,.msg-card[data-tool-kind="terminal"] .msg-card-header{border-left-color:var(--tool-color-bash)}
+.msg-card[data-tool-kind="bash"] .msg-card-header,.msg-card[data-tool-kind="command"] .msg-card-header,.msg-card[data-tool-kind="terminal"] .msg-card-header,.msg-card[data-tool-kind="execute"] .msg-card-header{border-left-color:var(--tool-color-bash)}
 .msg-card[data-tool-kind="read"] .msg-card-header{border-left-color:var(--tool-color-read)}
 .msg-card[data-tool-kind="write"] .msg-card-header,.msg-card[data-tool-kind="edit"] .msg-card-header{border-left-color:var(--tool-color-write)}
 .msg-card[data-tool-kind="glob"] .msg-card-header{border-left-color:var(--tool-color-glob)}

@@ -113,8 +113,19 @@ function updateToolEntryInRound(toolCallId: string, changes: { title?: string; k
         // 确保 body 展开可见
         const body = existing.querySelector('.tl-entry-body') as HTMLElement;
         if (body) body.classList.add('open');
+        // 更新标题（初始"Terminal"→"date"等）
+        if (changes.title) {
+            const titleEl = existing.querySelector('.tl-entry-title') as HTMLElement;
+            if (titleEl) titleEl.textContent = changes.title;
+        }
+        console.log('[basePipeline updateTool]', toolCallId, 'existing, output length:', changes.output?.length || 0);
         return;
     }
+    console.log('[basePipeline createTool]', JSON.stringify({
+        toolCallId, kind: changes.kind, title: changes.title, status: changes.status,
+        outputLength: (changes.output || '').length,
+        outputPreview: changes.output ? changes.output.substring(0, 200) : '(empty)',
+    }));
 
     // 创建新条目，默认展开 body 让用户直接看到内容
     const entry = createTimelineEntry({ toolCallId, title: changes.title || '', kind: changes.kind || '', status: changes.status || 'running', output: changes.output || '' });

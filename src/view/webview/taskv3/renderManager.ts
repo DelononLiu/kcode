@@ -120,6 +120,7 @@ function handleStreamChunk(msg: { text: string }) {
 }
 
 function handleThinkingChunk(msg: { text: string; status: string }) {
+    console.log('[webview thinking-chunk]', msg.status, msg.text ? msg.text.substring(0, 100) : '(empty)');
     if (msg.status === 'completed') {
         basePipeline.finalizeThinkingCard(msg.text);
     } else {
@@ -128,6 +129,14 @@ function handleThinkingChunk(msg: { text: string; status: string }) {
 }
 
 function handleToolChunk(msg: { toolCallId: string; title: string; kind: string; status: string; content: string }) {
+    console.log('[webview tool-chunk]', JSON.stringify({
+        toolCallId: msg.toolCallId,
+        kind: msg.kind,
+        title: msg.title,
+        status: msg.status,
+        contentLength: (msg.content || '').length,
+        contentPreview: msg.content ? msg.content.substring(0, 200) : '(empty)',
+    }));
     basePipeline.updateToolEntryInRound(msg.toolCallId, { title: msg.title, kind: msg.kind, status: msg.status, output: msg.content });
 }
 

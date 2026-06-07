@@ -76,6 +76,16 @@ export class KCodeClient implements acp.Client {
             case 'tool_call': {
                 const toolKind = update.kind ?? 'other';
                 const displayTitle = extractToolDisplayTitle(update);
+                console.log('[ACP tool_call]', JSON.stringify({
+                    toolCallId: update.toolCallId,
+                    kind: toolKind,
+                    title: displayTitle,
+                    status: update.status ?? 'pending',
+                    rawInput: update.rawInput,
+                    rawOutput: update.rawOutput,
+                    locations: update.locations,
+                    content: update.content,
+                }, null, 2));
                 handler.onToolCall?.(
                     update.toolCallId,
                     displayTitle,
@@ -88,16 +98,27 @@ export class KCodeClient implements acp.Client {
                 const status = update.status ?? 'pending';
                 const item = update.content?.[0];
                 let textContent: string | undefined;
-                if (item) {
+                // 优先用 rawOutput（干净文本，无 markdown 包裹）
+                if (update.rawOutput != null) {
+                    textContent = String(update.rawOutput);
+                } else if (item) {
                     if (item.type === 'content' && (item as any).content?.type === 'text') {
                         textContent = (item as any).content.text;
                     } else if (item.type === 'diff') {
                         textContent = (item as any).newText;
                     }
                 }
-                if (!textContent && update.rawOutput != null) {
-                    textContent = String(update.rawOutput);
-                }
+                console.log('[ACP tool_call_update]', JSON.stringify({
+                    toolCallId: update.toolCallId,
+                    kind: update.kind,
+                    title: update.title,
+                    status,
+                    textContent: textContent ? textContent.substring(0, 300) : '(empty)',
+                    rawInput: update.rawInput !== undefined ? (typeof update.rawInput === 'string' ? update.rawInput.substring(0, 200) : '(object)') : undefined,
+                    rawOutput: update.rawOutput !== undefined ? String(update.rawOutput).substring(0, 300) : undefined,
+                    contentItem: item ? { type: item.type, contentKeys: Object.keys(item).join(',') } : undefined,
+                    locations: update.locations,
+                }, null, 2));
                 if (update.rawInput != null) {
                     const input = typeof update.rawInput === 'string' ? update.rawInput : JSON.stringify(update.rawInput);
                     if (input) log(input);

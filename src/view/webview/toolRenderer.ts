@@ -15,8 +15,9 @@ export function formatToolTitle(kind: string, title: string): string {
         case 'read': label = '读取'; detail = title; break;
         case 'write': label = '写入'; detail = title; break;
         case 'edit': label = '修改'; detail = title; break;
-        case 'bash': label = '命令'; detail = title; break;
-        case 'command': label = '命令'; detail = title; break;
+        case 'bash':
+        case 'command':
+        case 'execute': label = '命令'; detail = title; break;
         case 'terminal': label = '终端'; detail = title; break;
         case 'grep':
         case 'search': label = '搜索'; detail = title; break;
@@ -86,13 +87,13 @@ export function renderToolBubbleContent(bubble: HTMLElement, msg: any) {
     let bodyHtml = '';
     if (displayContent) {
         let preClass = 'tool-body-content';
-        if (kind === 'bash' || kind === 'command' || kind === 'terminal') preClass += ' tool-bash-output';
+        if (kind === 'bash' || kind === 'command' || kind === 'terminal' || kind === 'execute') preClass += ' tool-bash-output';
         else if (kind === 'write' || kind === 'edit') preClass += ' tool-body-diff';
         bodyHtml = '<pre class="' + preClass + '">' + escapeHtml(displayContent) + '</pre>';
     }
 
     let bodyClassName = 'tool-card-body';
-    if (kind === 'bash' || kind === 'command' || kind === 'terminal') bodyClassName += ' tool-body-bash';
+    if (kind === 'bash' || kind === 'command' || kind === 'terminal' || kind === 'execute') bodyClassName += ' tool-body-bash';
 
     const card = makeCard({
         headerHtml,
@@ -109,6 +110,7 @@ export function getToolKindIcon(kind: string): string {
         case 'bash':
         case 'command':
         case 'terminal':
+        case 'execute':
             return '<span class="tool-kind-icon">$</span> ';
         case 'read':
             return '<span class="tool-kind-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M10.5 1H3.5L3 1.5v13l.5.5h9l.5-.5V4.5L10.5 1zM10 2.2L12.8 5H10V2.2zM4 14V2h5v3.5l.5.5H12v8H4z"/></svg></span> ';
