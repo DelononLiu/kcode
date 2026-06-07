@@ -199,10 +199,15 @@ let _lastSyncVersion = -1;
 
 function _renderPhaseActionsFromSync(state: import('./types').AppState) {
     const tid = state.activeTaskId || '';
-    // review 是唯一不通过 stream-done 触发的阶段（由 triggerReviewRequest 直接 sync）
-    if (state.activeTaskPhase === 'review') {
-        renderReviewActions(tid);
-    }
+    if (state.activeTaskPhase !== 'review') return;
+    // review_approved 可能不存在于 store 中，改用用户"验收通过"消息判断
+    const hasResult = state.messages.some(m =>
+        m.type === 'review_approved' || m.type === 'review_rejected'
+        || (m.role === 'user' && m.content.includes('验收通过'))
+        || (m.role === 'user' && m.content.includes('驳回'))
+    );
+    if (hasResult) return;
+    renderReviewActions(tid);
 }
 
 function handleMessagesSync(msg: { messages: import('../../../types').ChatMessage[] }) {
