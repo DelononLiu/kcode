@@ -314,7 +314,7 @@ function initMessageHandler() {
             case 'addUserMessage':
                 addUserMessage(message.content);
                 showAgentThinking();
-                // 同步写入 v3 state.messages，防止 stream-done 后 renderMessageList 重绘丢失用户消息
+                // 写入 v3 state.messages 确保 messages-sync 后 user 消息不丢
                 {
                     const st = stateManager.snapshot();
                     const msgs = [...st.messages];
