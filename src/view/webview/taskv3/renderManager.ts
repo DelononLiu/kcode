@@ -3,7 +3,7 @@ import type { ViewStrategy } from './viewStrategy';
 import { stateManager } from './state';
 import { basePipeline } from './basePipeline';
 import { taskStrategy } from './taskStrategy';
-import { renderReviewActions } from './cardRenderer';
+import { renderGoalActions, renderPlanActions, renderExecuteActions, renderSelfVerifyActions, renderReviewActions } from './cardRenderer';
 import { showTaskView } from '../taskView';
 
 let _strategy: ViewStrategy = taskStrategy;
@@ -26,7 +26,6 @@ function foldPhases(currentPhase: string) {
     }
 }
 
-let _msgVersion = 0;
 let _initialized = false;
 
 export function initTaskV3() {
@@ -199,21 +198,8 @@ function handleToolChunk(msg: { toolCallId: string; title: string; kind: string;
 }
 
 function handleFinalizeGoalMessage(msg: { taskId: string; goal: string }) {
-    // 作为带 cardMeta 的消息存入 messages[]
-    const state = stateManager.snapshot();
-    const goalMsg: import('./types').Message = {
-        id: 'goal_' + Date.now(),
-        taskId: msg.taskId,
-        role: 'agent',
-        type: 'goal_confirmation',
-        content: msg.goal || '',
-        phase: 'goal',
-        timestamp: Date.now(),
-        collapsed: false,
-        cardMeta: { type: 'goal', status: 'pending' },
-    };
-    _msgVersion++;
-    stateManager.patch({ messages: [...state.messages, goalMsg], msgVersion: _msgVersion });
+    // goal 内容已通过 AI 回复消息流入 state，不需要单独建卡片
+    // 按钮由 handleStreamDone 中的 renderGoalActions 处理
 }
 
 function handleStreamDone(result: StreamResult) {
@@ -243,31 +229,24 @@ function handleStreamDone(result: StreamResult) {
         });
     }
 
-    // 建立阶段卡片（在 patch 之前一次性加好，避免多次重渲染）
-    const now = Date.now();
-    if (result.planProposed && state.activeTaskPhase === 'plan' && !msgs.some(m => m.cardMeta?.type === 'plan')) {
-        const agentReply = [...msgs].reverse().find(m => m.role === 'agent' && !m.type && !m.streaming);
-        if (agentReply) {
-            msgs.push({ id: 'plan_card_' + now, taskId: state.activeTaskId || '', role: 'agent', type: 'plan_proposal', content: agentReply.content, phase: 'plan', timestamp: now, collapsed: true, cardMeta: { type: 'plan', status: 'pending' } });
-        }
-    } else if (result.executeFinished && state.activeTaskPhase === 'execute' && !msgs.some(m => m.cardMeta?.type === 'execute')) {
-        msgs.push({ id: 'exec_card_' + now, taskId: state.activeTaskId || '', role: 'agent', type: 'execute_confirmation', content: '', phase: 'execute', timestamp: now, collapsed: true, cardMeta: { type: 'execute', status: 'pending' } });
-    } else if (result.selfVerifyFinished && state.activeTaskPhase === 'self_verify' && !msgs.some(m => m.cardMeta?.type === 'self_verify')) {
-        msgs.push({ id: 'sv_card_' + now, taskId: state.activeTaskId || '', role: 'agent', type: 'self_verify_confirmation', content: '', phase: 'self_verify', timestamp: now, collapsed: true, cardMeta: { type: 'self_verify', status: 'pending' } });
-    } else if (state.activeTaskPhase === 'review' && !msgs.some(m => m.cardMeta?.type === 'review')) {
-        const agentReply = [...msgs].reverse().find(m => m.role === 'agent' && !m.type && !m.streaming);
-        msgs.push({ id: 'review_card_' + now, taskId: state.activeTaskId || '', role: 'agent', type: 'review_request', content: agentReply?.content || '', phase: 'review', timestamp: now, collapsed: true, cardMeta: { type: 'review', status: 'pending' } });
-    }
-
     // 批量赋 roundGroup + 一次触发重渲染
-    const roundGroup = 'rg_' + now;
+    const roundGroup = 'rg_' + Date.now();
     const finalMsgs = msgs.map(m => m.roundGroup ? m : { ...m, roundGroup });
-    _msgVersion++;
-    stateManager.patch({ messages: finalMsgs, msgVersion: _msgVersion });
     basePipeline.finalizeStream();
+    stateManager.patch({ messages: finalMsgs, msgVersion: (state.msgVersion || 0) + 1 });
 
-    // 非阶段模式：追加一条最终 AI 回复
-    if (!['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'].includes(state.activeTaskPhase)) {
+    // 按阶段渲染操作按钮（不在 messages 中建卡片，纯 DOM 按钮行）
+    if (result.planProposed && state.activeTaskPhase === 'plan') {
+        renderPlanActions(state.activeTaskId || '');
+    } else if (result.executeFinished && state.activeTaskPhase === 'execute') {
+        renderExecuteActions(state.activeTaskId || '');
+    } else if (result.selfVerifyFinished && state.activeTaskPhase === 'self_verify') {
+        renderSelfVerifyActions(state.activeTaskId || '');
+    } else if (state.activeTaskPhase === 'review') {
+        renderReviewActions(state.activeTaskId || '');
+    } else if (state.activeTaskPhase === 'goal') {
+        renderGoalActions(state.activeTaskId || '');
+    } else if (!['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'].includes(state.activeTaskPhase)) {
         basePipeline.appendFinalMessage(result.cleanedText);
     }
 

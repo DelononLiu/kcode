@@ -21,18 +21,18 @@ const CONFIRM_LABELS: Record<string, string> = {
 };
 
 export function postAction(action: UserAction): void {
-    // 用户操作 → 记录到 state.messages[]
     const label = CONFIRM_LABELS[action.type];
     if (label) {
         const state = stateManager.snapshot();
-        const userMsg: Message = {
+        const msgs = [...state.messages];
+        msgs.push({
             id: 'action_' + Date.now(),
             taskId: action.taskId || state.activeTaskId || '',
             role: 'user',
             content: label,
             timestamp: Date.now(),
-        };
-        stateManager.patch({ messages: [...state.messages, userMsg] });
+        });
+        stateManager.patch({ messages: msgs });
     }
     getVscode().postMessage(action);
 }

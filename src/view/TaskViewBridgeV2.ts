@@ -1,6 +1,9 @@
+import * as vscode from 'vscode';
 import type { KCodePanelContext } from './PanelContext';
 import { StreamHandlerBase } from './stream/StreamHandlerBase';
 import type { AcpMessageHandler } from '../types';
+
+const _dbg = vscode.window.createOutputChannel('KCode Debug', { log: true });
 
 export class TaskViewBridgeV2 {
     private ctx: KCodePanelContext;
@@ -54,6 +57,8 @@ export class TaskViewBridgeV2 {
 
     sendStreamDone(taskId: string, cleanedText: string, toolCalls: Array<{ toolCallId: string; title: string; kind: string; status: string; output?: string }>, phaseFlags?: { planProposed?: boolean; executeFinished?: boolean; selfVerifyFinished?: boolean }) {
         const genResult = this.ctx.taskFlow.getGenResult(taskId);
+        const task = this.ctx.store.getTask(taskId);
+        _dbg.info(`stream-done taskId=${taskId} phase=${task?.phase} planProposed=${genResult.planProposed} executeFinished=${genResult.executeFinished} selfVerifyFinished=${genResult.selfVerifyFinished} toolCalls=${toolCalls.length}`);
         this.ctx.router.PostMessage({
             type: 'stream-done',
             cleanedText,

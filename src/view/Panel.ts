@@ -67,6 +67,7 @@ export class Panel {
             onPhaseChanged: (taskId) => {
                 this.flowHandler.sendTaskInfo(taskId);
                 this.flowHandler.sendNodePanelUpdate(taskId);
+                this.taskViewBridge?.sendStateDelta(taskId);
                 this.refreshSidebarCallback?.();
                 this.pluginManager.dispatchPhaseChanged(taskId, '', store.getTask(taskId)?.phase || '');
             },
