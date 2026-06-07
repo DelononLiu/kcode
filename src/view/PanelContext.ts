@@ -9,6 +9,7 @@ export interface ToolCallState {
     kind: string;
     status: string;
     output?: string;
+    eventTime?: number;
 }
 
 export interface PendingMessage {

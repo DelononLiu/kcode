@@ -87,6 +87,7 @@ export class TaskViewBridgeV2 {
             private _bridge: TaskViewBridgeV2;
             private _isGoalFormatting: boolean;
             private _originalText: string;
+            private _agentStartTime: number = 0;
 
             constructor(tid: string, b: TaskViewBridgeV2, c: KCodePanelContext, isGF: boolean, ot: string) {
                 super(
@@ -136,13 +137,14 @@ export class TaskViewBridgeV2 {
                 return {
                     onText: (chunk: string) => {
                         this.completeReasoning();
+                        if (!this._agentStartTime) this._agentStartTime = Date.now();
                         this.onText(chunk);
                     },
                     onReasoning: (text: string) => {
                         if (!this.reasoningActive) {
                             this.currentReasoningId = 'reasoning_' + Date.now();
                             this.reasoningActive = true;
-                            this.activeToolCalls.set(this.currentReasoningId, { title: '思考', kind: 'thinking', status: 'running' });
+                            this.activeToolCalls.set(this.currentReasoningId, { title: '思考', kind: 'thinking', status: 'running', eventTime: Date.now() });
                             this.router.PostMessage({ type: 'thinking-chunk', taskId: this.tid, toolCallId: this.currentReasoningId, text: '', status: 'running' });
                         }
                         this.reasoningText += text;
@@ -152,7 +154,7 @@ export class TaskViewBridgeV2 {
                     },
                     onToolCall: (toolCallId: string, title: string, kind: string, status: string) => {
                         this.completeReasoning();
-                        this.activeToolCalls.set(toolCallId, { title, kind, status });
+                        this.activeToolCalls.set(toolCallId, { title, kind, status, eventTime: Date.now() });
                         this._emitToolCall(toolCallId, title, kind, status);
                         // V3: 实时工具卡片
                         this.router.PostMessage({ type: 'tool-chunk', taskId: this.tid, toolCallId, title, kind, status, content: '' });
@@ -211,7 +213,7 @@ export class TaskViewBridgeV2 {
                     return;
                 }
 
-                // 1. 先存 agent 消息（AI 回复文本先落盘，获得较早的时间戳）
+                // 1. 存 agent 消息（用 _agentStartTime 记录事件真实发生时间）
                 if (this._isGoalFormatting) {
                     this._ctx.taskFlow.processGoalProposal(this.tid, cleanedText, this._originalText, this._originalText);
                 } else {
@@ -220,7 +222,14 @@ export class TaskViewBridgeV2 {
                     }
 
                     if (cleanedText) {
-                        this._ctx.storeMessage(this.tid, 'agent', cleanedText);
+                        this._ctx.store.addMessage({
+                            id: this._ctx.store.nextMessageId(this.tid),
+                            taskId: this.tid,
+                            role: 'agent',
+                            content: cleanedText,
+                            phase: task?.phase,
+                            timestamp: this._agentStartTime || Date.now(),
+                        });
                     }
 
                     if (task?.type === 'task' && task?.phase === 'review' && task?.status !== 'completed' && task?.status !== 'cancelled') {
@@ -239,7 +248,7 @@ export class TaskViewBridgeV2 {
                     }
                 }
 
-                // 3. 再存工具消息（时间戳晚于 agent，排序后正确出现在 AI 回复之后）
+                // 3. 存工具消息（用 eventTime 记录事件真实发生时间）
                 if (!this._isGoalFormatting) {
                     for (const [toolCallId, tc] of this.activeToolCalls) {
                         this._ctx.store.addMessage({
@@ -249,7 +258,7 @@ export class TaskViewBridgeV2 {
                             type: 'tool_call',
                             content: JSON.stringify({ toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output || '' }),
                             phase: task?.phase,
-                            timestamp: Date.now(),
+                            timestamp: tc.eventTime || Date.now(),
                         });
                     }
                 }
