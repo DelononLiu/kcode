@@ -108,11 +108,20 @@ function updateToolEntryInRound(toolCallId: string, changes: { title?: string; k
     const existing = document.querySelector(`[data-tool-call-id="${toolCallId}"]`);
     if (existing) {
         // 更新已有条目
-        const pre = existing.querySelector('.tl-entry-body pre') as HTMLElement;
-        if (pre && changes.output) pre.textContent = changes.output;
-        // 确保 body 展开可见
-        const body = existing.querySelector('.tl-entry-body') as HTMLElement;
-        if (body) body.classList.add('open');
+        const bodyEl = existing.querySelector('.tl-entry-body') as HTMLElement;
+        if (bodyEl) {
+            let pre = bodyEl.querySelector('pre') as HTMLElement;
+            // 如果首次创建时 output 为空没生成 pre，现在补上
+            if (!pre && changes.output) {
+                const wrap = document.createElement('div');
+                wrap.className = 'tl-body-bash';
+                pre = document.createElement('pre');
+                wrap.appendChild(pre);
+                bodyEl.appendChild(wrap);
+            }
+            if (pre && changes.output) pre.textContent = changes.output;
+            bodyEl.classList.add('open');
+        }
         // 更新标题（初始"Terminal"→"date"等）
         if (changes.title) {
             const titleEl = existing.querySelector('.tl-entry-title') as HTMLElement;
@@ -128,7 +137,7 @@ function updateToolEntryInRound(toolCallId: string, changes: { title?: string; k
     }));
 
     // 创建新条目，默认展开 body 让用户直接看到内容
-    const entry = createTimelineEntry({ toolCallId, title: changes.title || '', kind: changes.kind || '', status: changes.status || 'running', output: changes.output || '' });
+    const entry = createTimelineEntry({ toolCallId, title: changes.title || '', kind: changes.kind || '', status: changes.status || 'running', content: changes.output || '' });
     const body = entry.querySelector('.tl-entry-body');
     if (body) body.classList.add('open');
     const msgDiv = document.createElement('div');

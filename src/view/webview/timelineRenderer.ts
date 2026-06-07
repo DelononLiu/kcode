@@ -66,30 +66,29 @@ export function createTimelineEntry(msg: any): HTMLElement {
     // 默认展开 thinking 内容，让用户直接看到
     if (tlKind === 'thinking') body.classList.add('open');
 
+    // 始终创建 body 结构（即使 output 为空），以便后续更新填充
     if (tlKind === 'thinking') {
         const pre = document.createElement('pre');
         pre.className = 'tl-body-thinking';
         pre.textContent = output;
         body.appendChild(pre);
+    } else if (tlKind === 'file') {
+        const isDiff = kind === 'write' || kind === 'edit';
+        const pre = document.createElement('pre');
+        if (isDiff) pre.className = 'tl-body-diff';
+        pre.textContent = output;
+        body.appendChild(pre);
+    } else if (tlKind === 'command' || tlKind === 'device') {
+        const wrap = document.createElement('div');
+        wrap.className = 'tl-body-bash';
+        const pre = document.createElement('pre');
+        pre.textContent = output;
+        wrap.appendChild(pre);
+        body.appendChild(wrap);
     } else if (output) {
-        if (tlKind === 'file') {
-            const isDiff = kind === 'write' || kind === 'edit';
-            const pre = document.createElement('pre');
-            if (isDiff) pre.className = 'tl-body-diff';
-            pre.textContent = output;
-            body.appendChild(pre);
-        } else if (tlKind === 'command' || tlKind === 'device') {
-            const wrap = document.createElement('div');
-            wrap.className = 'tl-body-bash';
-            const pre = document.createElement('pre');
-            pre.textContent = output;
-            wrap.appendChild(pre);
-            body.appendChild(wrap);
-        } else {
-            const pre = document.createElement('pre');
-            pre.textContent = output;
-            body.appendChild(pre);
-        }
+        const pre = document.createElement('pre');
+        pre.textContent = output;
+        body.appendChild(pre);
     }
 
 
