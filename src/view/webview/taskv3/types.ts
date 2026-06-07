@@ -1,33 +1,33 @@
-import type { ChatMessage as _ChatMessage, PlanStep, FileChange } from '../../../types';
-
-export type ChatMessage = _ChatMessage;
-export type { PlanStep, FileChange };
-
 export interface AppState {
     viewMode: 'task' | 'assistant';
     activeTaskId: string | null;
     activeTaskPhase: string;
     activeTaskStatus: string;
     taskInfo: TaskInfo;
-    confirmedItems: string[];
-    planSteps: PlanStep[];
-    planVersion: number;
-    messages: ChatMessage[];
+    messages: Message[];
     streamState: StreamState;
     reviewState: ReviewState;
     isGenerating: boolean;
     pendingMessages: PendingMessage[];
     agentName: string;
     modelName: string;
-    hooks: Record<string, string[]>;
-    workspaceHooks: Record<string, string[]>;
+}
+
+export interface Message {
+    id: string;
+    taskId: string;
+    role: 'user' | 'agent' | 'tool';
+    type?: string;
+    content: string;
+    phase?: string;
+    timestamp: number;
+    collapsed?: boolean;
 }
 
 export interface TaskInfo {
     title: string;
     goal: string;
     category: string;
-    categoryLabel?: string;
     phase: string;
     phaseLabel: string;
     status: string;
@@ -40,8 +40,6 @@ export interface StreamState {
     active: boolean;
     buffer: string;
     toolCalls: ToolCallState[];
-    reasoningText: string;
-    reasoningActive: boolean;
 }
 
 export interface ToolCallState {
@@ -57,6 +55,12 @@ export interface ToolCallState {
 export interface ReviewState {
     changes: FileChange[];
     acceptanceCriteria: string[];
+}
+
+interface FileChange {
+    filePath: string;
+    original: string;
+    modified: string;
 }
 
 export interface PendingMessage {
@@ -84,5 +88,4 @@ export interface UserAction {
 }
 
 export type StateSubscriber = (state: AppState) => void;
-
 export type StateDelta = Partial<AppState>;

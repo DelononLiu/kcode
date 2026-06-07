@@ -6,7 +6,7 @@ import { initTemplateChips, renderCategorySelection, focusChatInput } from './te
 import { initPluginManager, renderPluginList } from './pluginRegistry';
 import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, addUserMessage, handleKnowledgeExtract, __resetStream, showAgentThinking } from './messageRenderer';
 import { handleDemoCardUpdate } from './demoCards';
-import { initTaskV2 } from './taskv2/renderManager';
+
 
 declare function acquireVsCodeApi(): any;
 const vscode = acquireVsCodeApi();
@@ -509,4 +509,3 @@ document.addEventListener('DOMContentLoaded', () => {
 (window as any).renderMessages = renderMessages;
 (window as any).__resetStream = __resetStream;
 
-initTaskV2();
