@@ -1,8 +1,9 @@
 import type { Message, ToolCallState } from './types';
-import { renderMarkdown } from '../markdownRenderer';
+import { renderMarkdown, escapeHtml } from '../markdownRenderer';
 import { createCard, createCardMessageElement } from '../cardBuilder';
 import { appendToChatMessages } from '../chatStream';
 import { renderCardForMessage, renderCardActions, renderCardStatus, postAction } from './cardRenderer';
+import { renderToolBubbleContent } from '../toolRenderer';
 
 function getContainer(): HTMLElement | null {
     return document.querySelector('#task-view #chat-messages') || null;
@@ -111,16 +112,7 @@ function _createAndAppendToolCard(tc: { toolCallId: string; title: string; kind:
     bubble.className = 'msg-bubble tool-bubble';
     msgDiv.appendChild(bubble);
 
-    const card = createCard({
-        headerHtml: `${_kindIcon(tc.kind)} ${tc.title}`,
-        bodyMarkdown: tc.output || tc.content || '',
-        defaultCollapsed: tc.status === 'completed',
-        borderColor: _kindColor(tc.kind),
-        headerBg: '#2d2d2d',
-        headerColor: '#e0e0e0',
-    });
-    card.dataset.toolCallId = tc.toolCallId;
-    bubble.appendChild(card);
+    renderToolBubbleContent(bubble, tc);
 
     if (useAppendToChat) {
         appendToChatMessages(msgDiv);
@@ -195,11 +187,13 @@ function startThinking() {
     const bubble = msgDiv.querySelector('.msg-bubble') as HTMLElement;
     if (!bubble) return;
 
+    const svgIcon = '<span class="tool-kind-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a5 5 0 0 0-2 9.6V12l.5.5H9l.5-.5v-1.4A5 5 0 0 0 8 1zm1.5 10H6.5v-1h3v1zm0-1.5H6.5V8.4A4.5 4.5 0 0 1 8 2a4.5 4.5 0 0 1 1.5 6.4v1.1z"/></svg></span>';
+
     const card = createCard({
-        headerHtml: '💭 思考',
-        bodyMarkdown: '',
+        headerHtml: svgIcon + '<span class="tool-title-label">思考</span>',
+        bodyHtml: '',
         defaultCollapsed: false,
-        borderColor: '#777',
+        borderColor: '#888',
         headerBg: '#2d2d2d',
         headerColor: '#e0e0e0',
     });
@@ -217,11 +211,15 @@ function updateThinkingCard(text: string) {
         const retry = document.getElementById(THINKING_CARD_ID);
         if (!retry) return;
         const body = retry.querySelector('.msg-card-body') as HTMLElement;
-        if (body) body.innerHTML = renderMarkdown(text);
+        if (body) body.innerHTML = _thinkingBodyHtml(text);
         return;
     }
     const body = card.querySelector('.msg-card-body') as HTMLElement;
-    if (body) body.innerHTML = renderMarkdown(text);
+    if (body) body.innerHTML = _thinkingBodyHtml(text);
+}
+
+function _thinkingBodyHtml(text: string): string {
+    return '<pre class="tool-body-content tool-thinking" style="white-space:pre-wrap">' + escapeHtml(text) + '</pre>';
 }
 
 /** 最终确定本轮所有内容并折叠 */
@@ -280,7 +278,7 @@ function finalizeThinkingCard(text: string) {
     if (!card) return;
 
     const body = card.querySelector('.msg-card-body') as HTMLElement;
-    if (body && text) body.innerHTML = renderMarkdown(text);
+    if (body && text) body.innerHTML = _thinkingBodyHtml(text);
 
     // Collapse the thinking card
     if (body) body.classList.add('collapsed');
@@ -482,17 +480,8 @@ function _renderToolMessage(msg: Message) {
     bubble.className = 'msg-bubble tool-bubble';
     div.appendChild(bubble);
 
-    const card = createCard({
-        headerHtml: `${_kindIcon(info.kind)} ${info.title || info.kind}`,
-        bodyMarkdown: info.output || '',
-        defaultCollapsed: info.status === 'completed',
-        borderColor: _kindColor(info.kind),
-        headerBg: '#2d2d2d',
-        headerColor: '#e0e0e0',
-    });
-    card.dataset.toolCallId = info.toolCallId;
+    renderToolBubbleContent(bubble, info);
 
-    bubble.appendChild(card);
     appendToChatMessages(div);
 }
 
