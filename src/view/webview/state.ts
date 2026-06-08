@@ -21,10 +21,12 @@ export const G = {
     taskHooks: {} as Record<string, string[]>,
     workspaceHooks: {} as Record<string, string[]>,
     slashCommands: [] as { name: string; description: string }[],
+    activeSlashCmd: null as string | null,
     lastTaskInfo: null as any,
     lastReviewChanges: [] as any[],
 
     acpLogEnabled: false,
+    editorContext: null as any,
     acpLogEntries: [] as { direction: string; text: string; timestamp: number; taskId: string }[],
     acpLogMaxGlobal: 5000,
     acpLogMaxTask: 2000,

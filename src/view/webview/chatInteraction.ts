@@ -514,9 +514,7 @@ export function showSlashMenu(commands: { name: string; description: string }[],
         if (i === 0) item.classList.add('hover');
         item.innerHTML = `<span class="slash-context-name">${cmd.name}</span><span class="slash-context-desc">${cmd.description}</span>`;
         item.addEventListener('click', () => {
-            input.value = cmd.name + ' ';
-            input.focus();
-            input.setSelectionRange(input.value.length, input.value.length);
+            selectSlashCommand(cmd.name, input);
             hideSlashMenu();
         });
         menu.appendChild(item);
@@ -553,6 +551,7 @@ export function focusChatInput() {
 
 /** 为任意输入框绑定 slash 菜单：输入 / 弹出命令列表，Enter 选择，Esc 关闭 */
 export function bindSlashToInput(input: HTMLTextAreaElement, onSend: (text: string) => void) {
+    let _lastSlashRequest = 0;
     input.addEventListener('input', () => {
         const val = input.value;
         if (val.startsWith('/') && !val.includes(' ')) {
@@ -566,6 +565,11 @@ export function bindSlashToInput(input: HTMLTextAreaElement, onSend: (text: stri
             }
         }
         hideSlashMenu();
+        // 输入了完整的 slash 命令（有空格）→ 实时请求上下文
+        if (val.startsWith('/') && val.includes(' ') && Date.now() - _lastSlashRequest > 300) {
+            _lastSlashRequest = Date.now();
+            G.vscode.postMessage({ type: 'requestEditorContext' });
+        }
     });
 
     input.addEventListener('keydown', (e) => {
@@ -589,4 +593,40 @@ export function bindSlashToInput(input: HTMLTextAreaElement, onSend: (text: stri
             hideSlashMenu();
         }
     });
+}
+
+/** 选中 slash 命令：显示 badge，输入框只留参数部分 */
+export function selectSlashCommand(cmdName: string, input: HTMLTextAreaElement) {
+    G.activeSlashCmd = cmdName;
+    // 如果输入框以 / 开头，提取已有的参数部分
+    const val = input.value.trim();
+    const existingArgs = val.startsWith('/') && val.includes(' ') ? val.slice(val.indexOf(' ') + 1) : '';
+    input.value = existingArgs;
+    input.focus();
+    // 更新 command badge
+    updateCmdBadge();
+    // 请求编辑器上下文
+    G.vscode.postMessage({ type: 'requestEditorContext' });
+}
+
+/** 更新 V4 init 输入框的命令标签显示 */
+export function updateCmdBadge() {
+    const badge = document.getElementById('tv4-cmd-badge');
+    if (!badge) return;
+    if (G.activeSlashCmd) {
+        badge.innerHTML = `${G.activeSlashCmd} <span class="tv4-cmd-close" id="tv4-cmd-close">✕</span>`;
+        badge.classList.add('visible');
+        const closeBtn = badge.querySelector('#tv4-cmd-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                G.activeSlashCmd = null;
+                badge.classList.remove('visible');
+                const input = document.getElementById('tv4-init-input') as HTMLTextAreaElement;
+                if (input) input.placeholder = '描述你的需求，或输入 / 选择命令...';
+            });
+        }
+    } else {
+        badge.classList.remove('visible');
+    }
 }

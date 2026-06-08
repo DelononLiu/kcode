@@ -312,6 +312,10 @@ export class Panel {
         this.router.on('selectTask', (msg) => { this.loadTask(msg.taskId); this.refreshSidebarCallback?.(); });
         this.router.on('sendAssistantMessage', async (msg) => { await this.assistantHandler.handleMessage(msg.text); });
         this.router.on('slashCommand', async (msg) => { await this.handleSlashCommand(msg.text, msg.taskId); });
+        this.router.on('requestEditorContext', () => {
+            const ctx = this.getEditorContext();
+            this.router.PostMessage({ type: 'editorContext', ...ctx });
+        });
         this.router.on('switchAgent', (msg) => { this.sessionHandler.handleSwitchAgent(msg.label); });
         this.router.on('openSettings', () => vscode.commands.executeCommand('kcode.openSettings'));
         this.router.on('openKnowledgeEntry', (msg) => vscode.commands.executeCommand('kcode.openKnowledgeWiki', msg.entryId));
@@ -413,19 +417,92 @@ export class Panel {
 
     autoSendGoal(taskId: string, text: string) { this.sessionHandler.handleSendMessage(text, taskId); }
 
+    /** 获取当前的编辑器上下文（活动文件、选中文本、诊断信息） */
+    private getEditorContext(): {
+        activeFile?: string;
+        selection?: string;
+        selectionRange?: { startLine: number; endLine: number };
+        diagnostics?: { file: string; line: number; message: string; severity: string }[];
+    } {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return {};
+        const ctx: any = {};
+        ctx.activeFile = vscode.workspace.asRelativePath(editor.document.uri);
+        if (!editor.selection.isEmpty) {
+            ctx.selection = editor.document.getText(editor.selection);
+            ctx.selectionRange = { startLine: editor.selection.start.line + 1, endLine: editor.selection.end.line + 1 };
+        }
+        const diag = vscode.languages.getDiagnostics(editor.document.uri);
+        if (diag.length > 0) {
+            ctx.diagnostics = diag.filter(d => d.severity <= vscode.DiagnosticSeverity.Error).slice(0, 5).map(d => ({
+                file: ctx.activeFile!, line: d.range.start.line + 1, message: d.message, severity: ['error','warning','info','hint'][d.severity] || 'info',
+            }));
+        }
+        return ctx;
+    }
+
+    /** 根据命令类型构建上下文前缀 */
+    private _buildContextPrefix(category: string): string {
+        const ctx = this.getEditorContext();
+        switch (category) {
+            case 'code_review':
+                if (ctx.selection) return `审查以下选中代码 (${ctx.activeFile}:${ctx.selectionRange?.startLine}-${ctx.selectionRange?.endLine}):\n\`\`\`\n${ctx.selection}\n\`\`\``;
+                if (ctx.activeFile) return `审查文件: ${ctx.activeFile}`;
+                break;
+            case 'problem_analysis': {
+                const parts: string[] = [];
+                if (ctx.selection) parts.push(`报错信息:\n\`\`\`\n${ctx.selection}\n\`\`\``);
+                if (ctx.activeFile) parts.push(`排查入口文件: ${ctx.activeFile}`);
+                if (ctx.diagnostics?.length) parts.push(`当前诊断问题:\n${ctx.diagnostics.map(d => `  ${d.file}:${d.line} [${d.severity}] ${d.message}`).join('\n')}`);
+                if (parts.length > 0) return parts.join('\n\n');
+                break;
+            }
+            case 'defect_analysis':
+                if (ctx.selection) return `缺陷代码 (${ctx.activeFile}:${ctx.selectionRange?.startLine}-${ctx.selectionRange?.endLine}):\n\`\`\`\n${ctx.selection}\n\`\`\``;
+                if (ctx.activeFile) return `分析文件: ${ctx.activeFile}`;
+                break;
+            case 'log_analysis':
+                if (ctx.selection) return `日志内容:\n\`\`\`\n${ctx.selection}\n\`\`\``;
+                break;
+            // /feature: no auto-context
+        }
+        return '';
+    }
+
+    /** 获取上下文提示文本（供 WebView 展示） */
+    private _getContextHint(category: string): string {
+        const ctx = this.getEditorContext();
+        const parts: string[] = [];
+        if (ctx.activeFile) parts.push(`📄 ${ctx.activeFile}`);
+        if (ctx.selection) parts.push(`📝 已选中 ${ctx.selection.length} 字符`);
+        if (ctx.diagnostics?.length) parts.push(`⚠️ ${ctx.diagnostics.length} 个诊断`);
+        return parts.join('  ·  ');
+    }
+
+    /** 根据编辑器上下文自动补全命令参数，有用户输入时追加到上下文后面 */
+    private _enrichWithContext(args: string, category: string): string {
+        const ctxPrefix = this._buildContextPrefix(category);
+        if (args.trim()) {
+            return ctxPrefix ? `${ctxPrefix}\n\n---\n${args}` : args;
+        }
+        return ctxPrefix; // 无用户输入时纯上下文
+    }
+
     private async _createTaskWithCategory(args: string, taskId: string | null | undefined, category: string, subType?: string) {
-        if (!args) {
-            this.router.PostMessage({ type: 'addSystemMessage', content: `用法: /<命令> <描述>\n示例: /debug 页面按钮点击无响应` });
+        const enriched = this._enrichWithContext(args, category);
+        if (!enriched) {
+            this.router.PostMessage({ type: 'addSystemMessage', content: `用法: /<命令> <描述>\n无上下文时请手动输入描述。\n示例: /debug 页面按钮点击无响应` });
             return;
         }
         if (!taskId) {
             await vscode.commands.executeCommand('kcode.newTask');
             taskId = this.currentTaskId;
         }
-        if (taskId && args) {
-            this.store.updateTaskTitle(taskId, args);
+        if (taskId && enriched) {
+            const titleText = args.trim() || enriched.replace(/\n```[\s\S]*?```/g, '').replace(/\n/g, ' ').substring(0, 50);
+            this.store.updateTaskTitle(taskId, titleText);
             this.flowHandler.sendTaskInfo(taskId);
-            await this.sessionHandler.handleSendMessage(args, taskId, category);
+            await this.sessionHandler.handleSendMessage(enriched, taskId, category);
         }
     }
 

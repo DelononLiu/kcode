@@ -164,10 +164,12 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             ${svgIcon('cube')}
             <span class="tv4-accent">KCode</span> Task
         </div>
-        <div class="tv4-init-box">
-            <textarea id="tv4-init-input" placeholder="输入原始工程任务..." rows="1" autofocus></textarea>
+        <div class="tv4-init-box" id="tv4-init-box">
+            <span class="tv4-cmd-badge" id="tv4-cmd-badge"></span>
+            <textarea id="tv4-init-input" placeholder="描述你的需求，或输入 / 选择命令..." rows="1" autofocus></textarea>
             <span class="tv4-enter-badge">↵ Enter</span>
         </div>
+        <div class="tv4-context-hint" id="tv4-context-hint"></div>
         <div class="tv4-example-chips">
             <span class="tv4-example-chip" data-text="Python实现一个数字金字塔的命令行脚本，层数作为入参，默认5层">🐍 Python实现一个数字金字塔的命令行脚本，层数作为入参，默认5层</span>
             <span class="tv4-example-chip" data-text="分析构建失败问题">🔧 分析构建失败问题</span>

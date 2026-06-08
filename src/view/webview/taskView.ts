@@ -1,3 +1,5 @@
+import { G } from './state';
+
 export const STAGE_ORDER = ['goal', 'plan', 'execute', 'self_verify', 'review'];
 
 export function groupPhases(): void { /* disabled */ }
@@ -17,5 +19,6 @@ export function showTaskView(asControlPanel: boolean = false): void {
     } else {
         if (initEl) initEl.style.display = '';
         if (panelEl) panelEl.style.display = 'none';
+        G.vscode.postMessage({ type: 'requestEditorContext' });
     }
 }

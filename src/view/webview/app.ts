@@ -1,7 +1,7 @@
 import { G, type FileChange } from './state';
 import { showAssistantView, initAgentSelector, initModelSelector, truncateModel } from './assistantView';
 import { showTaskView } from './taskView';
-import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpdate, sendMessageFromInput, focusChatInput, bindSlashToInput, hideSlashMenu } from './chatInteraction';
+import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpdate, sendMessageFromInput, focusChatInput, bindSlashToInput, hideSlashMenu, selectSlashCommand, updateCmdBadge } from './chatInteraction';
 import { initPluginManager, renderPluginList } from './pluginRegistry';
 import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, handleKnowledgeExtract, __resetStream } from './messageRenderer';
 import { handleDemoCardUpdate } from './demoCards';
@@ -115,7 +115,20 @@ function initTabs() {
 
 // ===== V4 Layout =====
 
+function updateEditorContextHint() {
+    const hint = document.getElementById('tv4-context-hint');
+    if (!hint) return;
+    const ctx = G.editorContext;
+    const parts: string[] = [];
+    if (ctx?.activeFile) parts.push(`📄 ${ctx.activeFile}`);
+    if (ctx?.selection) parts.push(`📝 已选中 ${ctx.selection.length} 个字符`);
+    if (ctx?.diagnostics?.length) parts.push(`⚠️ ${ctx.diagnostics.length} 个诊断问题`);
+    hint.textContent = parts.join('  ·  ');
+}
+
 function initV4Layout() {
+    // 请求当前编辑器上下文
+    G.vscode.postMessage({ type: 'requestEditorContext' });
     const initInput = document.getElementById('tv4-init-input') as HTMLTextAreaElement;
     if (initInput) {
         const AUTO_GROW_MAX = 300;
@@ -126,18 +139,22 @@ function initV4Layout() {
             el.style.overflowY = scrollH > AUTO_GROW_MAX ? 'auto' : 'hidden';
         }
         initInput.addEventListener('input', () => autoGrow(initInput));
-        bindSlashToInput(initInput, (text) => {
-            const nameEl = document.getElementById('tv4-task-name');
-            if (nameEl) nameEl.textContent = text;
-            if (text.startsWith('/')) {
-                // slash 命令：直接发送到 extension 侧处理
-                G.vscode.postMessage({ type: 'newTaskWithText', text });
-                showTaskView(true);
-            } else {
-                G.vscode.postMessage({ type: 'newTaskWithText', text });
-                showTaskView(true);
+
+        function commitInitInput(text: string) {
+            let fullText = text;
+            if (G.activeSlashCmd) {
+                fullText = text.trim() ? `${G.activeSlashCmd} ${text.trim()}` : G.activeSlashCmd;
             }
-        });
+            const nameEl = document.getElementById('tv4-task-name');
+            if (nameEl) nameEl.textContent = fullText;
+            G.vscode.postMessage({ type: 'newTaskWithText', text: fullText });
+            // 清理
+            G.activeSlashCmd = null;
+            updateCmdBadge();
+            showTaskView(true);
+        }
+
+        bindSlashToInput(initInput, commitInitInput);
     }
 
     // Example chips
@@ -173,11 +190,15 @@ function initV4Layout() {
         input.addEventListener('input', () => autoGrowTv4(input));
 
         const sendTv4 = (text: string) => {
-            if (text.startsWith('/')) {
-                G.vscode.postMessage({ type: 'slashCommand', text, taskId: G.activeTaskId });
+            let fullText = text;
+            if (G.activeSlashCmd) fullText = text.trim() ? `${G.activeSlashCmd} ${text.trim()}` : G.activeSlashCmd;
+            if (fullText.startsWith('/')) {
+                G.vscode.postMessage({ type: 'slashCommand', text: fullText, taskId: G.activeTaskId });
             } else {
-                G.vscode.postMessage({ type: 'sendMessage', text, taskId: G.activeTaskId });
+                G.vscode.postMessage({ type: 'sendMessage', text: fullText, taskId: G.activeTaskId });
             }
+            G.activeSlashCmd = null;
+            updateCmdBadge();
             input.value = '';
             autoGrowTv4(input);
         };
@@ -187,9 +208,7 @@ function initV4Layout() {
             if (text && G.activeTaskId) sendTv4(text);
         });
 
-        bindSlashToInput(input, (text) => {
-            if (text && G.activeTaskId) sendTv4(text);
-        });
+        bindSlashToInput(input, sendTv4);
     }
 
     if (stopBtn) {
@@ -391,6 +410,10 @@ function initMessageHandler() {
                 break;
             case 'slashCommandList':
                 G.slashCommands = message.commands || [];
+                break;
+            case 'editorContext':
+                G.editorContext = message;
+                updateEditorContextHint();
                 break;
             case 'acpLogEntry':
                 handleAcpLogEntry(message);

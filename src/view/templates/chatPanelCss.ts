@@ -51,6 +51,13 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tv4-example-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;font-size:12px;line-height:1.6;color:var(--text-dim);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:4px;cursor:pointer;user-select:none;transition:all .15s;font-family:inherit;text-align:center;max-width:400px}
 .tv4-example-chip:hover{color:var(--text-main);background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2)}
 .tv4-enter-badge{background:var(--bg-item);border:1px solid var(--border);color:var(--text-dim);padding:2px 6px;border-radius:4px;font-size:11px;font-family:monospace}
+.tv4-cmd-badge{display:none;align-items:center;padding:3px 8px;background:rgba(74,139,181,.15);border:1px solid rgba(74,139,181,.3);border-radius:4px;font-size:12px;font-weight:500;color:#7bb8d6;white-space:nowrap;flex-shrink:0;gap:4px;cursor:pointer;user-select:none;margin-right:4px}
+.tv4-cmd-badge.visible{display:inline-flex}
+.tv4-cmd-badge .tv4-cmd-close{font-size:14px;line-height:1;opacity:.5;cursor:pointer;padding:0 2px}
+.tv4-cmd-badge .tv4-cmd-close:hover{opacity:1}
+.tv4-context-hint{max-width:680px;margin:10px auto 0;padding:6px 10px;font-size:12px;color:#aaa;min-height:20px;text-align:left;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:4px;display:none}
+.tv4-context-hint:not(:empty){display:block}
+.tv4-context-hint .ctx-icon{font-size:11px;margin-right:4px}
 
 /* === V4 Panel Layout === */
 .tv4-panel{display:flex;flex-direction:column;height:100vh;width:100vw;background:var(--vscode-editor-background,var(--bg-deep))}

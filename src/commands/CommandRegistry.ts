@@ -20,7 +20,8 @@ export class CommandRegistry {
   getSlashCommands(): { name: string; description: string; usage?: string }[] {
     const result: { name: string; description: string; usage?: string }[] = [];
     for (const [name, info] of this.slashHandlers) {
-      result.push({ name: '/' + name, description: info.description, usage: info.usage });
+      // name 已包含 / 前缀（注册时传入），不要重复添加
+      result.push({ name, description: info.description, usage: info.usage });
     }
     return result;
   }
