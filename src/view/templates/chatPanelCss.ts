@@ -326,6 +326,14 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tl-thinking-preview{padding:2px 0 2px 22px;font-size:11.5px;font-style:italic;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;min-height:18px}
 .tl-thinking-preview.hidden{display:none}
 
+/* === Round Summary === */
+.round-summary{display:flex;align-items:center;gap:7px;padding:3px 0;font-size:12px;color:#777;cursor:pointer;user-select:none;transition:color .15s}
+.round-summary:hover{color:#bbb}
+.round-summary-icon{font-size:10px;width:14px;text-align:center;flex-shrink:0;color:#666;transition:color .15s}
+.round-summary-text{font-weight:500}
+.round-summary-detail{font-size:11px;color:#555;margin-left:4px}
+
+
 .tl-filter-bar{display:flex;gap:4px;padding:4px 0;flex-wrap:wrap}
 .tl-filter-bar.hidden{display:none}
 .tl-filter-btn{background:rgba(255,255,255,.04);border:1px solid transparent;border-radius:3px;color:#888;font-size:11px;padding:2px 8px;cursor:pointer;font-family:inherit}

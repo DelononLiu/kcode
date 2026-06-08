@@ -128,6 +128,31 @@ export function initTaskV3() {
     }
 }
 
+function _countRoundMsgs(msgs: import('./types').Message[], rg: string): { thinking: number; tools: Record<string, number> } | null {
+    let thinking = 0;
+    const tools: Record<string, number> = {};
+    for (const m of msgs) {
+        if (m.roundGroup !== rg) continue;
+        if (m.type === 'thinking') { thinking++; continue; }
+        if (m.type === 'tool_call') {
+            try { const info = JSON.parse(m.content); const k = info.kind || 'other'; tools[k] = (tools[k] || 0) + 1; } catch {}
+        }
+    }
+    if (thinking === 0 && Object.keys(tools).length === 0) return null;
+    return { thinking, tools };
+}
+
+function _buildSummaryHtml(counts: { thinking: number; tools: Record<string, number> }): string {
+    const ICONS: Record<string, string> = { read: '📖', write: '✏️', edit: '✏️', bash: '💻', command: '💻', terminal: '💻', grep: '🔍', search: '🔍', glob: '🔍' };
+    const parts: string[] = [];
+    if (counts.thinking > 0) parts.push('💭 思考');
+    for (const [kind, cnt] of Object.entries(counts.tools)) {
+        const icon = ICONS[kind] || '🔧';
+        parts.push(`${icon} ${kind}${cnt > 1 ? ` (${cnt})` : ''}`);
+    }
+    return parts.join(' · ');
+}
+
 function _updateStreamMsg(text: string) {
     const state = stateManager.snapshot();
     const msgs = [...state.messages];
@@ -165,18 +190,31 @@ function handleThinkingChunk(msg: { text: string; status: string }) {
     const state = stateManager.snapshot();
     const msgs = [...state.messages];
     const now = Date.now();
+    const streamMsg = msgs.find(m => m.role === 'agent' && m.streaming);
+    const rg = streamMsg?.roundGroup || '';
+    const newId = 'thinking_' + now;
+
     const existingIdx = msgs.findIndex(m => m.type === 'thinking' && m.streaming);
     if (existingIdx >= 0) {
         msgs[existingIdx] = { ...msgs[existingIdx], content: msg.text, streaming: msg.status !== 'completed' };
     } else {
+        // 数据驱动折叠：新思考卡片到达时，自动折叠同轮之前的工具/思考卡片
+        if (rg) {
+            for (let i = 0; i < msgs.length; i++) {
+                if (msgs[i].roundGroup === rg && (msgs[i].type === 'tool_call' || msgs[i].type === 'thinking')) {
+                    msgs[i] = { ...msgs[i], collapsed: true };
+                }
+            }
+        }
         msgs.push({
-            id: 'thinking_' + now,
+            id: newId,
             taskId: state.activeTaskId || '',
             role: 'agent',
             type: 'thinking',
             content: msg.text,
             timestamp: now,
             streaming: msg.status !== 'completed',
+            roundGroup: rg,
         });
     }
     stateManager.patch({ messages: msgs });
@@ -204,17 +242,30 @@ function handleToolChunk(msg: { toolCallId: string; title: string; kind: string;
         status: msg.status,
         output: msg.content,
     });
+    const toolId = 'tool_' + msg.toolCallId;
+    const streamMsg = msgs.find(m => m.role === 'agent' && m.streaming);
+    const rg = streamMsg?.roundGroup || '';
+
     const existingIdx = msgs.findIndex(m => m.type === 'tool_call' && m.content && m.content.includes(msg.toolCallId));
     if (existingIdx >= 0) {
         msgs[existingIdx] = { ...msgs[existingIdx], content: toolContent };
     } else {
+        // 数据驱动折叠：新工具卡片到达时，自动折叠同轮之前的工具/思考卡片
+        if (rg) {
+            for (let i = 0; i < msgs.length; i++) {
+                if (msgs[i].roundGroup === rg && (msgs[i].type === 'tool_call' || msgs[i].type === 'thinking')) {
+                    msgs[i] = { ...msgs[i], collapsed: true };
+                }
+            }
+        }
         msgs.push({
-            id: 'tool_' + msg.toolCallId,
+            id: toolId,
             taskId: state.activeTaskId || '',
             role: 'tool',
             type: 'tool_call',
             content: toolContent,
             timestamp: Date.now(),
+            roundGroup: rg,
         });
     }
     stateManager.patch({ messages: msgs });
@@ -260,9 +311,46 @@ function handleStreamDone(result: StreamResult) {
     }
 
     const roundGroup = 'rg_' + Date.now();
-    const finalMsgs = msgs.map(m => m.roundGroup ? m : { ...m, roundGroup });
-    // 先 patch（触发 auto-sync），再清理 round
-    stateManager.patch({ messages: finalMsgs });
+    const finalMsgs = msgs.map(m => (m.roundGroup || m.role === 'user') ? m : { ...m, roundGroup });
+
+    // 统计本轮 tool/thinking 数量，生成 summary
+    const counts = _countRoundMsgs(finalMsgs, roundGroup);
+    // 找到本轮最后一条非 tool/thinking 的 agent 消息作为最终回复（不折叠）
+    let finalAgentIdx = -1;
+    for (let i = finalMsgs.length - 1; i >= 0; i--) {
+        const m = finalMsgs[i];
+        if (m.roundGroup === roundGroup && m.role === 'agent' && !m.cardMeta && m.type !== 'thinking') {
+            finalAgentIdx = i;
+            break;
+        }
+    }
+    // 标记本轮所有消息为 collapsed，除了 user 消息、最终 agent 回复和 cardMeta
+    const collapsedMsgs = finalMsgs.map((m, idx) => {
+        if (m.roundGroup !== roundGroup || m.role === 'user') return m;
+        if (idx === finalAgentIdx) {
+            const { collapsed: _, ...rest } = m as any;
+            return rest;
+        }
+        if (m.cardMeta) return m;
+        return { ...m, collapsed: true };
+    });
+    // 有工具/思考卡片时，在第一条之前插入 round_summary 消息
+    if (counts) {
+        const summaryMsg: import('./types').Message = {
+            id: 'round_summary_' + Date.now(),
+            taskId: state.activeTaskId || '',
+            role: 'agent',
+            type: 'round_summary',
+            content: JSON.stringify(counts),
+            timestamp: Date.now(),
+            roundGroup,
+            collapsed: true,
+        };
+        const firstIdx = collapsedMsgs.findIndex(m => m.roundGroup === roundGroup && (m.type === 'tool_call' || m.type === 'thinking'));
+        if (firstIdx >= 0) collapsedMsgs.splice(firstIdx, 0, summaryMsg);
+        else collapsedMsgs.push(summaryMsg);
+    }
+    stateManager.patch({ messages: collapsedMsgs });
     basePipeline.finalizeStream();
     basePipeline.closeRound();
 
@@ -326,6 +414,31 @@ function _appendPhaseActionsToCard(card: HTMLElement, msg: import('./types').Mes
 }
 
 function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
+    // ── round summary：可点击的折叠摘要条 ──
+    if (msg.type === 'round_summary') {
+        let counts: { thinking: number; tools: Record<string, number> };
+        try { counts = JSON.parse(msg.content); } catch { return null; }
+        const div = document.createElement('div');
+        div.className = 'chat-msg agent round-summary';
+        div.dataset.msgId = msg.id;
+        const icon = msg.collapsed ? '▶' : '▼';
+        div.innerHTML = `<span class="round-summary-icon">${icon}</span><span class="round-summary-text">${_buildSummaryHtml(counts)}</span>`;
+        div.addEventListener('click', () => {
+            const st = stateManager.snapshot();
+            const cur = st.messages.find(m => m.id === msg.id);
+            const targetCollapsed = !(cur?.collapsed);
+            const toggled = st.messages.map(m => {
+                if (m.id === msg.id) return { ...m, collapsed: targetCollapsed };
+                if (m.roundGroup === (msg as any).roundGroup && m.type !== 'round_summary' && !m.cardMeta && 'collapsed' in (m as any)) {
+                    return { ...m, collapsed: targetCollapsed };
+                }
+                return m;
+            });
+            stateManager.patch({ messages: toggled });
+        });
+        return div;
+    }
+
     // ── cardMeta 消息：创建可交互的阶段卡片 ──
     if (msg.cardMeta) {
         const type = msg.cardMeta.type || '';
@@ -379,12 +492,13 @@ function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
     if (msg.type === 'thinking') {
         const entry = createTimelineEntry({ kind: 'thinking', title: '思考', content: msg.content, status: msg.streaming ? 'running' : 'completed' });
         const body = entry.querySelector('.tl-entry-body');
-        if (body) body.classList.add('open');
+        if (body && !msg.collapsed) body.classList.add('open');
         const div = document.createElement('div');
         div.className = 'chat-msg tool';
         div.dataset.msgId = msg.id;
         if (msg.phase) div.dataset.phase = msg.phase;
         div.appendChild(entry);
+        if (msg.collapsed) div.style.display = 'none';
         return div;
     }
 
@@ -393,12 +507,13 @@ function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
         try { info = JSON.parse(msg.content); } catch { return null; }
         const entry = createTimelineEntry(info);
         const body = entry.querySelector('.tl-entry-body');
-        if (body) body.classList.add('open');
+        if (body && !msg.collapsed) body.classList.add('open');
         const div = document.createElement('div');
         div.className = 'chat-msg tool';
         div.dataset.msgId = msg.id;
         if (msg.phase) div.dataset.phase = msg.phase;
         div.appendChild(entry);
+        if (msg.collapsed) div.style.display = 'none';
         return div;
     }
 
@@ -436,6 +551,7 @@ function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
             bubble.innerHTML = renderMarkdown(msg.content);
         }
         div.appendChild(bubble);
+        if (msg.collapsed) div.style.display = 'none';
         return div;
     }
 
@@ -443,6 +559,9 @@ function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
 }
 
 function _updateMsgElement(el: HTMLElement, msg: import('./types').Message) {
+    if (msg.type !== 'round_summary') {
+        (el as HTMLElement).style.display = msg.collapsed ? 'none' : '';
+    }
     if (msg.role === 'agent' && msg.streaming) {
         const contentEl = el.querySelector('#__v3-stream-content') as HTMLElement;
         if (contentEl && !_streamRafPending) {
@@ -463,6 +582,8 @@ function _updateMsgElement(el: HTMLElement, msg: import('./types').Message) {
             const entry = el.querySelector('.tl-entry') as HTMLElement;
             if (entry) entry.removeAttribute('id');
         }
+        const body = el.querySelector('.tl-entry-body');
+        if (body) body.classList.toggle('open', !msg.collapsed);
     }
     if (msg.type === 'tool_call') {
         const pre = el.querySelector('.tl-entry-body pre') as HTMLElement;
@@ -472,6 +593,12 @@ function _updateMsgElement(el: HTMLElement, msg: import('./types').Message) {
                 if (info.output) pre.textContent = info.output;
             } catch {}
         }
+        const body = el.querySelector('.tl-entry-body');
+        if (body) body.classList.toggle('open', !msg.collapsed);
+    }
+    if (msg.type === 'round_summary') {
+        const icon = el.querySelector('.round-summary-icon') as HTMLElement;
+        if (icon) icon.textContent = msg.collapsed ? '▶' : '▼';
     }
 }
 
@@ -600,8 +727,8 @@ function _syncMessages() {
         if (msg.role === 'user') {
             appendToChatMessages(msgEl);
         } else if (msg.role === 'agent' && !msg.streaming && !msg.cardMeta) {
-            // Completed agent: append to round if active, else direct
-            const round = basePipeline.getOrCreateRoundContainer();
+            // Completed agent: append to existing round (don't create new), else direct
+            const round = basePipeline.getRoundContainer();
             if (round) round.appendChild(msgEl);
             else appendToChatMessages(msgEl);
         } else {
@@ -676,5 +803,78 @@ function _renderPhaseActionsFromSync(state: import('./types').AppState) {
 function handleMessagesSync(msg: { messages: import('../../../types').ChatMessage[] }) {
     const version = ++_msgVersionCounter;
     _lastSyncVersion = version;
-    stateManager.update({ messages: msg.messages as any, msgVersion: version });
+
+    // 为历史消息分配 roundGroup、插入 summary、折叠 tool/thinking
+    const raw: import('./types').Message[] = msg.messages as any[];
+    let currentRound = '';
+    const result: import('./types').Message[] = [];
+
+    // 扫描找出各轮 segment
+    type Segment = { msgs: import('./types').Message[]; rg: string };
+    const segments: Segment[] = [];
+    let seg: Segment = { msgs: [], rg: '' };
+    for (const m of raw) {
+        if (m.role === 'user') {
+            if (seg.msgs.length > 0) segments.push(seg);
+            seg = { msgs: [], rg: '' };
+        }
+        if (!seg.rg && (m.role === 'agent' || m.role === 'tool')) {
+            seg.rg = 'rg_hist_' + m.id;
+        }
+        if (seg.rg) seg.msgs.push(m);
+    }
+    if (seg.msgs.length > 0) segments.push(seg);
+
+    for (let i = 0; i < raw.length; i++) {
+        const m = { ...raw[i] };
+        if (m.role === 'user') { result.push(m); continue; }
+
+        const seg2 = segments.find(s => s.msgs.some(x => x.id === m.id));
+        const rg = seg2?.rg || '';
+        m.roundGroup = rg;
+        result.push(m);
+    }
+
+    // 每个 segment：找到最终 agent 回复，其余折叠，生成 summary
+    const insertions: { idx: number; msg: import('./types').Message }[] = [];
+    for (const seg2 of segments) {
+        // 找到该 segment 中最后一条 agent（非 thinking）作为最终回复
+        let finalIdx = -1;
+        for (let i = result.length - 1; i >= 0; i--) {
+            const m = result[i];
+            if (m.roundGroup === seg2.rg && m.role === 'agent' && !m.cardMeta && m.type !== 'thinking') {
+                finalIdx = i;
+                break;
+            }
+        }
+        // 折叠 segment 中除最终回复和 cardMeta 外的所有消息
+        for (let i = 0; i < result.length; i++) {
+            const m = result[i];
+            if (m.roundGroup !== seg2.rg) continue;
+            if (i === finalIdx) continue;
+            if (m.cardMeta) continue;
+            result[i] = { ...m, collapsed: true };
+        }
+        // 统计并插入 summary
+        const counts = _countRoundMsgs(result.filter(m => m.roundGroup === seg2.rg), seg2.rg);
+        if (!counts) continue;
+        const firstIdx = result.findIndex(m => m.roundGroup === seg2.rg && m.collapsed);
+        if (firstIdx < 0) continue;
+        const summaryMsg: import('./types').Message = {
+            id: 'round_summary_hist_' + seg2.rg,
+            taskId: result[0]?.taskId || '',
+            role: 'agent',
+            type: 'round_summary',
+            content: JSON.stringify(counts),
+            timestamp: (result[firstIdx]?.timestamp || Date.now()) - 1,
+            roundGroup: seg2.rg,
+            collapsed: true,
+        };
+        insertions.push({ idx: firstIdx, msg: summaryMsg });
+    }
+    for (const ins of insertions.sort((a, b) => b.idx - a.idx)) {
+        result.splice(ins.idx, 0, ins.msg);
+    }
+
+    stateManager.update({ messages: result, msgVersion: version });
 }

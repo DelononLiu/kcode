@@ -3,6 +3,7 @@ import { renderMarkdown } from '../markdownRenderer';
 import { createCard } from '../cardBuilder';
 import { appendToChatMessages } from '../chatStream';
 import { renderCardForMessage, renderCardActions, renderCardStatus, postAction } from './cardRenderer';
+import { stateManager } from './state';
 import { createTimelineEntry } from '../timelineRenderer';
 import { getChatScroll } from '../domContainers';
 
@@ -134,6 +135,11 @@ function _appendMessage(msg: Message, _container: HTMLElement) {
         renderCardForMessage(msg, msg.phase || '');
         return;
     }
+    // round summary：可点击的折叠摘要条
+    if (msg.type === 'round_summary') {
+        _renderRoundSummary(msg);
+        return;
+    }
     // 思考消息（timeline 样式渲染）
     if (msg.type === 'thinking') {
         _renderThinkingMessage(msg);
@@ -156,14 +162,50 @@ function _renderThinkingMessage(msg: Message) {
         content: msg.content,
         status: msg.streaming ? 'running' : 'completed',
     });
-    // 思考内容始终展开
     const body = entry.querySelector('.tl-entry-body');
-    if (body) body.classList.add('open');
+    if (body && !msg.collapsed) body.classList.add('open');
     const div = document.createElement('div');
     div.className = 'chat-msg tool';
     div.dataset.msgId = msg.id;
     if (msg.phase) div.dataset.phase = msg.phase;
     div.appendChild(entry);
+    if (msg.collapsed) div.style.display = 'none';
+    appendToChatMessages(div);
+}
+
+function _buildSummaryHtml(counts: { thinking: number; tools: Record<string, number> }): string {
+    const ICONS: Record<string, string> = { read: '📖', write: '✏️', edit: '✏️', bash: '💻', command: '💻', terminal: '💻', grep: '🔍', search: '🔍', glob: '🔍' };
+    const parts: string[] = [];
+    if (counts.thinking > 0) parts.push('💭 思考');
+    for (const [kind, cnt] of Object.entries(counts.tools)) {
+        const icon = ICONS[kind] || '🔧';
+        parts.push(`${icon} ${kind}${cnt > 1 ? ` (${cnt})` : ''}`);
+    }
+    return parts.join(' · ');
+}
+
+/** 渲染 round summary 为可点击折叠条 */
+function _renderRoundSummary(msg: Message) {
+    let counts: { thinking: number; tools: Record<string, number> };
+    try { counts = JSON.parse(msg.content); } catch { return; }
+    const div = document.createElement('div');
+    div.className = 'chat-msg agent round-summary';
+    div.dataset.msgId = msg.id;
+    const icon = msg.collapsed ? '▶' : '▼';
+    div.innerHTML = `<span class="round-summary-icon">${icon}</span><span class="round-summary-text">${_buildSummaryHtml(counts)}</span>`;
+    div.addEventListener('click', () => {
+        const st = stateManager.snapshot();
+        const cur = st.messages.find(m => m.id === msg.id);
+        const targetCollapsed = !(cur?.collapsed);
+        const toggled = st.messages.map(m => {
+            if (m.id === msg.id) return { ...m, collapsed: targetCollapsed };
+            if (m.roundGroup === msg.roundGroup && m.type !== 'round_summary' && !m.cardMeta && 'collapsed' in (m as any)) {
+                return { ...m, collapsed: targetCollapsed };
+            }
+            return m;
+        });
+        stateManager.patch({ messages: toggled });
+    });
     appendToChatMessages(div);
 }
 
@@ -306,14 +348,14 @@ function _renderToolMessage(msg: Message) {
     try { info = JSON.parse(msg.content); } catch { return; }
 
     const entry = createTimelineEntry(info);
-    // 默认展开，让用户直接看到工具输出
     const body = entry.querySelector('.tl-entry-body');
-    if (body) body.classList.add('open');
+    if (body && !msg.collapsed) body.classList.add('open');
     const div = document.createElement('div');
     div.className = 'chat-msg tool';
     div.dataset.msgId = msg.id;
     if (msg.phase) div.dataset.phase = msg.phase;
     div.appendChild(entry);
+    if (msg.collapsed) div.style.display = 'none';
     appendToChatMessages(div);
 }
 
@@ -324,4 +366,5 @@ export const basePipeline = {
     getOrCreateRoundContainer,
     renderMessageList,
     scrollToBottom,
+    getRoundContainer,
 };
