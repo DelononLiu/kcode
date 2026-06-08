@@ -69,6 +69,13 @@ export function initTaskV3() {
         const v3Types = ['state-delta', 'stream-chunk', 'stream-done', 'messages-sync', 'finalizeGoalMessage', 'thinking-chunk', 'tool-chunk'];
         if (!v3Types.includes(message.type)) return;
 
+        // 过滤非当前任务的流式消息 — 只对 streaming 相关消息做检查，
+        // state-delta / messages-sync 是切换任务/同步状态的入口，不能过滤。
+        if (message.taskId && message.taskId !== stateManager.state.activeTaskId) {
+            const streamingTypes = ['stream-chunk', 'stream-done', 'thinking-chunk', 'tool-chunk'];
+            if (streamingTypes.includes(message.type)) return;
+        }
+
         switch (message.type) {
             case 'state-delta': {
                 const delta = message as unknown as StateDelta & { type: string };

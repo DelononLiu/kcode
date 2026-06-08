@@ -302,7 +302,7 @@ function initMessageHandler() {
             case 'agentStreamUpdate':
                 if (G.activeTaskType === 'assistant') {
                     handleAgentStreamUpdate(message.text);
-                } else {
+                } else if (!message.taskId || message.taskId === G.activeTaskId) {
                     const st = stateManager.snapshot();
                     const msgs = [...st.messages];
                     msgs.push({

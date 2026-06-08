@@ -51,8 +51,8 @@ export class TaskViewBridgeV2 {
         this.ctx.router.PostMessage({ type: 'messages-sync', messages });
     }
 
-    sendStreamChunk(text: string) {
-        this.ctx.router.PostMessage({ type: 'stream-chunk', text });
+    sendStreamChunk(taskId: string, text: string) {
+        this.ctx.router.PostMessage({ type: 'stream-chunk', taskId, text });
     }
 
     sendStreamDone(taskId: string, cleanedText: string, toolCalls: Array<{ toolCallId: string; title: string; kind: string; status: string; output?: string }>, phaseFlags?: { planProposed?: boolean; executeFinished?: boolean; selfVerifyFinished?: boolean }) {
@@ -61,6 +61,7 @@ export class TaskViewBridgeV2 {
         _dbg.info(`stream-done taskId=${taskId} phase=${task?.phase} planProposed=${genResult.planProposed} executeFinished=${genResult.executeFinished} selfVerifyFinished=${genResult.selfVerifyFinished} toolCalls=${toolCalls.length}`);
         this.ctx.router.PostMessage({
             type: 'stream-done',
+            taskId,
             cleanedText,
             planProposed: genResult.planProposed,
             executeFinished: genResult.executeFinished,
@@ -185,7 +186,7 @@ export class TaskViewBridgeV2 {
             }
 
             protected sendDisplayUpdate(text: string): void {
-                this._bridge.sendStreamChunk(text);
+                this._bridge.sendStreamChunk(this._id, text);
             }
 
             protected onText(chunk: string): void {
@@ -268,12 +269,16 @@ export class TaskViewBridgeV2 {
                     toolCallId: id, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output,
                 }));
 
-                this._bridge.sendStateDelta(this.tid);
-                this._bridge.sendStreamDone(this.tid, cleanedText, toolCalls, {
-                    planProposed: genResult.planProposed,
-                    executeFinished: genResult.executeFinished,
-                    selfVerifyFinished: genResult.selfVerifyFinished,
-                });
+                // 只有当前用户正在查看的任务才发 state-delta/stream-done，
+                // 否则等回切时由 loadTask 统一同步
+                if (this.tid === this._ctx.currentTaskId) {
+                    this._bridge.sendStateDelta(this.tid);
+                    this._bridge.sendStreamDone(this.tid, cleanedText, toolCalls, {
+                        planProposed: genResult.planProposed,
+                        executeFinished: genResult.executeFinished,
+                        selfVerifyFinished: genResult.selfVerifyFinished,
+                    });
+                }
 
                 this.activeToolCalls.clear();
                 this._ctx.taskFlow.resetGeneration(this.tid);
