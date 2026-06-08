@@ -23,8 +23,8 @@ function renderHeader(state: AppState) {
 
     const catBadge = document.getElementById('tv4-category-badge');
     if (catBadge) {
-        if (ti.category) {
-            catBadge.textContent = `🧩 ${ti.category}`;
+        if (ti.categoryLabel) {
+            catBadge.textContent = `🧩 ${ti.categoryLabel}`;
             catBadge.style.display = '';
         } else {
             catBadge.style.display = 'none';

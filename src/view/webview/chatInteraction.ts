@@ -104,10 +104,6 @@ export function sendMessageFromInput() {
         return;
     }
     const msg: any = { type: 'sendMessage', text, taskId: G.activeTaskId };
-    if (G.selectedCategory) {
-        msg.category = G.selectedCategory;
-        G.selectedCategory = null;
-    }
     G.vscode.postMessage(msg);
 }
 
@@ -502,9 +498,10 @@ export function getCaretPos(textarea: HTMLTextAreaElement): { x: number; y: numb
     return { x: taRect.left + spanRect.left - mirrorRect.left, y: taRect.top + spanRect.top - mirrorRect.top };
 }
 
-export function showSlashMenu(commands: { name: string; description: string }[]) {
+export function showSlashMenu(commands: { name: string; description: string }[], inputEl?: HTMLTextAreaElement) {
     hideSlashMenu();
-    const input = document.getElementById('chat-input') as HTMLTextAreaElement;
+    const input = inputEl || document.getElementById('chat-input') as HTMLTextAreaElement;
+    if (!input) return;
     const caret = getCaretPos(input);
     const menu = document.createElement('div');
     menu.className = 'slash-context-menu';
@@ -547,4 +544,49 @@ export function moveSlashSel(dir: number) {
     items.forEach(el => el.classList.remove('hover'));
     G._slashSelIdx = Math.max(0, Math.min(items.length - 1, G._slashSelIdx + dir));
     items[G._slashSelIdx]?.classList.add('hover');
+}
+
+export function focusChatInput() {
+    const el = document.getElementById('chat-input') as HTMLTextAreaElement;
+    if (el) el.focus();
+}
+
+/** 为任意输入框绑定 slash 菜单：输入 / 弹出命令列表，Enter 选择，Esc 关闭 */
+export function bindSlashToInput(input: HTMLTextAreaElement, onSend: (text: string) => void) {
+    input.addEventListener('input', () => {
+        const val = input.value;
+        if (val.startsWith('/') && !val.includes(' ')) {
+            const query = val.slice(1).toLowerCase();
+            const matched = !query ? G.slashCommands : G.slashCommands.filter(
+                c => c.name.toLowerCase().replace(/^\//, '').startsWith(query) || c.name.toLowerCase().startsWith('/' + query)
+            );
+            if (matched.length > 0) {
+                showSlashMenu(matched, input);
+                return;
+            }
+        }
+        hideSlashMenu();
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (G._slashMenuEl && e.key === 'Escape') { hideSlashMenu(); return; }
+        if (G._slashMenuEl && e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            const active = G._slashMenuEl.querySelector('.slash-menu-item.hover') as HTMLElement;
+            if (active) { active.click(); hideSlashMenu(); return; }
+        }
+        if (G._slashMenuEl && e.key === 'ArrowDown') { e.preventDefault(); moveSlashSel(1); return; }
+        if (G._slashMenuEl && e.key === 'ArrowUp') { e.preventDefault(); moveSlashSel(-1); return; }
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            const text = input.value.trim();
+            if (text) onSend(text);
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (G._slashMenuEl && !G._slashMenuEl.contains(e.target as Node) && e.target !== input) {
+            hideSlashMenu();
+        }
+    });
 }

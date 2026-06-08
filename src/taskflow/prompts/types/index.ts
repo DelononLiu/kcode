@@ -25,3 +25,13 @@ export function getTypePrompt(category: string): TypePhasePrompts | undefined {
 export function getAllRegisteredTypes(): string[] {
   return Array.from(registry.keys());
 }
+
+// ──── 注册分析类任务专属提示词 ────
+
+import { PROBLEM_ANALYSIS_PROMPTS } from './problem_analysis';
+import { DEFECT_ANALYSIS_PROMPTS } from './defect_analysis';
+import { LOG_ANALYSIS_PROMPTS } from './log_analysis';
+
+registerTypePrompt('problem_analysis', PROBLEM_ANALYSIS_PROMPTS);
+registerTypePrompt('defect_analysis', DEFECT_ANALYSIS_PROMPTS);
+registerTypePrompt('log_analysis', LOG_ANALYSIS_PROMPTS);

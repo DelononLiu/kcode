@@ -2,6 +2,12 @@ import * as vscode from 'vscode';
 import type { KCodePanelContext } from './PanelContext';
 import { StreamHandlerBase } from './stream/StreamHandlerBase';
 import type { AcpMessageHandler } from '../types';
+import { getCategory } from '../taskflow/templates';
+
+function catLabel(category?: string): string {
+    if (!category) return '';
+    return getCategory(category as any)?.label || category;
+}
 
 const _dbg = vscode.window.createOutputChannel('KCode Debug', { log: true });
 
@@ -30,6 +36,7 @@ export class TaskViewBridgeV2 {
                 title: task.title,
                 goal: task.goal,
                 category: task.category || '',
+                categoryLabel: catLabel(task.category),
                 phase: task.phase,
                 phaseLabel: phaseLabels[task.phase] || task.phase,
                 status: task.status,

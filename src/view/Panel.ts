@@ -5,7 +5,7 @@ import { TaskStore } from '../store/TaskStore';
 import { TaskFlow } from '../taskflow/TaskFlow';
 import { AgentService } from '../core/AgentService';
 import { ConfigService } from '../core/ConfigService';
-import { getCategories, getCategory } from '../taskflow/templates';
+import { getCategory } from '../taskflow/templates';
 import { parseWorkspaceHooks } from '../taskflow/workspaceHooks';
 import { getWebviewContent as getTemplateHtml } from './templates/chatPanelHtml';
 import { MessageRouter } from './MessageRouter';
@@ -138,6 +138,9 @@ export class Panel {
         this.commandRegistry.registerSlashCommand('/logic', '逻辑缺陷分析', async (args, tid) => {
             await this._createTaskWithCategory(args, tid, 'defect_analysis', 'logic_defect');
         }, '/logic <缺陷描述>');
+        this.commandRegistry.registerSlashCommand('/log', '日志分析', async (args, tid) => {
+            await this._createTaskWithCategory(args, tid, 'log_analysis', 'error_log');
+        }, '/log <日志内容或路径>');
 
         this.sendSlashCommandList();
 
@@ -211,7 +214,6 @@ export class Panel {
 
         this.acpLogManager.enabled = this.configService.get<boolean>('log.acpLogEnabled', false);
         this.router.PostMessage({ type: 'acpLogState', enabled: this.acpLogManager.enabled, maxGlobal: this.configService.get<number>('log.acpLogMaxGlobal', 5000), maxTask: this.configService.get<number>('log.acpLogMaxTask', 2000) });
-        this.router.PostMessage({ type: 'updateCategoryDefs', categories: getCategories() });
 
         this.sessionHandler.sendAgentList();
 
@@ -270,11 +272,17 @@ export class Panel {
         this.router.on('toggleAcpLog', (msg) => { this.acpLogManager.enabled = msg.enabled; this.configService.set('log.acpLogEnabled', msg.enabled); this.configService.save(); });
         this.router.on('newTask', () => vscode.commands.executeCommand('kcode.newTask'));
         this.router.on('newTaskWithText', async (msg) => {
+            const text = msg.text || '';
+            // 如果是 slash 命令，走命令处理（自动创建任务+分类）
+            if (text.startsWith('/') && text.includes(' ')) {
+                await this.handleSlashCommand(text);
+                return;
+            }
             await vscode.commands.executeCommand('kcode.newTask');
-            if (this.currentTaskId && msg.text) {
-                this.store.updateTaskTitle(this.currentTaskId, msg.text);
+            if (this.currentTaskId && text) {
+                this.store.updateTaskTitle(this.currentTaskId, text);
                 this.flowHandler.sendTaskInfo(this.currentTaskId);
-                this.sessionHandler.handleSendMessage(msg.text, this.currentTaskId);
+                this.sessionHandler.handleSendMessage(text, this.currentTaskId);
             }
         });
         this.router.on('stageInput', async (msg) => {
@@ -625,11 +633,6 @@ export class Panel {
         });
     }
 
-    startTemplateFlow(taskId: string) {
-        this.loadTask(taskId);
-        this.router.PostMessage({ type: 'startTemplateFlow', taskId });
-    }
-
     setGenerationState(generating: boolean) {
         this.isGenerating = generating;
         this.router.PostMessage({ type: 'generationState', isGenerating: generating });
@@ -667,10 +670,6 @@ export class Panel {
     getCurrentTaskId(): string | null { return this.currentTaskId; }
     setRefreshSidebarCallback(cb: () => void) { this.refreshSidebarCallback = cb; this.ctx.refreshSidebarCallback = cb; }
     onDidDispose(callback: () => void) { this.onDisposeCallback = callback; }
-
-    private sendCategoryDefs() {
-        this.router.PostMessage({ type: 'updateCategoryDefs', categories: getCategories() });
-    }
 
     private getWebviewContent(): string {
         const agents = [

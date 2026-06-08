@@ -1,5 +1,4 @@
 import { G, type FileChange } from './state';
-import { initTemplateChips } from './templateFlow';
 import { reviewChangesMap } from './demoCards';
 import { renderMarkdown, escapeHtml } from './markdownRenderer';
 import { createCard, createCardMessageElement, createCopyButton } from './cardBuilder';
@@ -192,7 +191,6 @@ export function renderMessages(messages: any[]) {
         scrollContainer.classList.remove('chat-empty');
         document.getElementById('chat-header')?.style.removeProperty('display');
         document.getElementById('chat-body')?.classList.remove('showing-categories');
-        initTemplateChips();
         if (inputEl) inputEl.placeholder = '输入需求，开始与 AI 对话';
         return;
     }
@@ -802,7 +800,10 @@ export function updateTaskInfo(info: any) {
         }
     }
 
-    if (info.category) {
+    if (info.categoryLabel) {
+        const modeCapsule = document.getElementById('header-mode-capsule');
+        if (modeCapsule) modeCapsule.textContent = info.categoryLabel;
+    } else if (info.category) {
         const modeCapsule = document.getElementById('header-mode-capsule');
         if (modeCapsule) modeCapsule.textContent = info.category;
     }

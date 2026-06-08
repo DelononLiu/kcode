@@ -132,33 +132,6 @@ export async function activate(context: vscode.ExtensionContext) {
         await importGitHubIssue(store, (taskId, goal) => openTaskInPanel(context, taskId, goal), refreshSidebar);
     });
 
-    const newTaskFromTemplateCmd = vscode.commands.registerCommand('kcode.newTaskFromTemplate', () => {
-        if (!store || !panel) return;
-        const existingEmpty = store.findEmptyTask();
-        if (existingEmpty) {
-            refreshSidebar();
-            panel.startTemplateFlow(existingEmpty.id);
-            return;
-        }
-        const task: Task = {
-            id: `task_${Date.now()}`,
-            title: 'New Task',
-            goal: '',
-            type: 'task',
-            status: 'pending',
-            phase: 'goal',
-            confirmedItems: [],
-            pendingItems: [],
-            planSteps: [],
-            originalRequest: '',
-            createdAt: Date.now(),
-            workspace: workspaceRoot,
-        };
-        store.addTask(task);
-        refreshSidebar();
-        panel.startTemplateFlow(task.id);
-    });
-
     const settingsCmd = vscode.commands.registerCommand('kcode.openSettings', async () => {
         if (!settingsProvider) {
             settingsProvider = new SettingsProvider(context, configService!, () => {
@@ -198,7 +171,7 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(openCmd, newTaskCmd, selectTaskCmd, importGitHubCmd, newTaskFromTemplateCmd, settingsCmd, myTasksCmd, knowledgeCmd, refreshKnowledgeCmd);
+    context.subscriptions.push(openCmd, newTaskCmd, selectTaskCmd, importGitHubCmd, settingsCmd, myTasksCmd, knowledgeCmd, refreshKnowledgeCmd);
 }
 
 export function deactivate() {

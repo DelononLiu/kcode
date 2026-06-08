@@ -1,8 +1,7 @@
 import { G, type FileChange } from './state';
 import { showAssistantView, initAgentSelector, initModelSelector, truncateModel } from './assistantView';
 import { showTaskView } from './taskView';
-import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpdate, sendMessageFromInput } from './chatInteraction';
-import { initTemplateChips, renderCategorySelection, focusChatInput } from './templateFlow';
+import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpdate, sendMessageFromInput, focusChatInput, bindSlashToInput, hideSlashMenu } from './chatInteraction';
 import { initPluginManager, renderPluginList } from './pluginRegistry';
 import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, handleKnowledgeExtract, __resetStream } from './messageRenderer';
 import { handleDemoCardUpdate } from './demoCards';
@@ -127,13 +126,15 @@ function initV4Layout() {
             el.style.overflowY = scrollH > AUTO_GROW_MAX ? 'auto' : 'hidden';
         }
         initInput.addEventListener('input', () => autoGrow(initInput));
-        initInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey && initInput.value.trim()) {
-                e.preventDefault();
-                const taskText = initInput.value;
-                const nameEl = document.getElementById('tv4-task-name');
-                if (nameEl) nameEl.textContent = taskText;
-                G.vscode.postMessage({ type: 'newTaskWithText', text: taskText });
+        bindSlashToInput(initInput, (text) => {
+            const nameEl = document.getElementById('tv4-task-name');
+            if (nameEl) nameEl.textContent = text;
+            if (text.startsWith('/')) {
+                // slash 命令：直接发送到 extension 侧处理
+                G.vscode.postMessage({ type: 'newTaskWithText', text });
+                showTaskView(true);
+            } else {
+                G.vscode.postMessage({ type: 'newTaskWithText', text });
                 showTaskView(true);
             }
         });
@@ -171,23 +172,23 @@ function initV4Layout() {
         }
         input.addEventListener('input', () => autoGrowTv4(input));
 
-        sendBtn.addEventListener('click', () => {
-            if (input.value.trim() && G.activeTaskId) {
-                G.vscode.postMessage({ type: 'sendMessage', text: input.value.trim(), taskId: G.activeTaskId });
-                input.value = '';
-                autoGrowTv4(input);
+        const sendTv4 = (text: string) => {
+            if (text.startsWith('/')) {
+                G.vscode.postMessage({ type: 'slashCommand', text, taskId: G.activeTaskId });
+            } else {
+                G.vscode.postMessage({ type: 'sendMessage', text, taskId: G.activeTaskId });
             }
+            input.value = '';
+            autoGrowTv4(input);
+        };
+
+        sendBtn.addEventListener('click', () => {
+            const text = input.value.trim();
+            if (text && G.activeTaskId) sendTv4(text);
         });
 
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                if (input.value.trim() && G.activeTaskId) {
-                    G.vscode.postMessage({ type: 'sendMessage', text: input.value.trim(), taskId: G.activeTaskId });
-                    input.value = '';
-                    autoGrowTv4(input);
-                }
-            }
+        bindSlashToInput(input, (text) => {
+            if (text && G.activeTaskId) sendTv4(text);
         });
     }
 
@@ -412,15 +413,6 @@ function initMessageHandler() {
                 break;
             case 'toggleViewMode':
                 break;
-            case 'updateCategoryDefs':
-                G.categoryDefs = message.categories;
-                initTemplateChips();
-                break;
-
-            case 'startTemplateFlow':
-                renderCategorySelection();
-                break;
-
             case 'updateOutputPanel':
                 break;
             case 'agentList':
@@ -539,7 +531,6 @@ document.addEventListener('DOMContentLoaded', () => {
             initAgentSelector(agents);
         }
     }
-    initTemplateChips();
 
     (window as any).__openNativeDiff = (original: string, modified: string, filePath: string) => {
         G.vscode.postMessage({ type: 'openNativeDiff', original, modified, filePath });

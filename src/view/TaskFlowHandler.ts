@@ -4,6 +4,11 @@ import type { Task, FileChange, ProgressNode, PlanStep } from '../types';
 import { getCategory } from '../taskflow/templates';
 import { taskLogStore } from '../store/TaskLogStore';
 
+function catLabel(category?: string): string {
+    if (!category) return '';
+    return getCategory(category as any)?.label || category;
+}
+
 export class TaskFlowHandler {
     constructor(private ctx: KCodePanelContext) {}
 
@@ -152,6 +157,7 @@ export class TaskFlowHandler {
                 title: task?.title,
                 goal: task?.goal,
                 category: task?.category || '',
+                categoryLabel: catLabel(task?.category),
                 phase: task?.phase,
                 phaseLabel: phaseLabels[task?.phase || ''] || task?.phase || '',
                 status: 'in_review',
@@ -209,6 +215,7 @@ export class TaskFlowHandler {
                 title: task?.title,
                 goal: task?.goal,
                 category: task?.category || '',
+                categoryLabel: catLabel(task?.category),
                 phase: 'review',
                 phaseLabel: '验收',
                 status: 'completed',
@@ -306,7 +313,7 @@ export class TaskFlowHandler {
         ctx.router.PostMessage({
             type: 'updateTaskInfo', taskId: taskId, title: task.title, goal: task.goal, goalHint: task.goal ? '🎯 ' + task.goal : '',
             status: task.status, phase: task.phase,             phaseLabel: phaseLabels[task.phase] || task.phase,
-            taskType: task.type, category: task.category, createdAt: task.createdAt, originalRequest: task.originalRequest || '', pendingReviewFiles: 0,
+            taskType: task.type, category: task.category, categoryLabel: catLabel(task.category), createdAt: task.createdAt, originalRequest: task.originalRequest || '', pendingReviewFiles: 0,
             confirmedItems: task.confirmedItems, pendingItems: task.pendingItems, planSteps: task.planSteps,
             planVersion: task.planVersion || 1,
             riskItems: task.riskItems || [],
@@ -380,6 +387,7 @@ export class TaskFlowHandler {
                 title: task?.title,
                 goal: task?.goal,
                 category: task?.category || '',
+                categoryLabel: catLabel(task?.category),
                 phase: task?.phase || '',
                 status: task?.status || '',
                 taskType: task?.type,

@@ -43,6 +43,7 @@ export interface TaskInfo {
     title: string;
     goal: string;
     category: string;
+    categoryLabel: string;
     phase: string;
     phaseLabel: string;
     status: string;

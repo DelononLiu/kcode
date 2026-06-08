@@ -19,8 +19,5 @@ describe('G', () => {
         expect(G.acpLogMaxTask).toBe(2000);
     });
 
-    it('初始 categoryDefs 为空数组', () => {
-        expect(G.categoryDefs).toEqual([]);
-        expect(G.selectedCategory).toBeNull();
-    });
+
 });

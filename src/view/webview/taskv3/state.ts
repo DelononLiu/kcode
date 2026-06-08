@@ -22,6 +22,7 @@ function createInitialTaskInfo(): TaskInfo {
         title: '',
         goal: '',
         category: '',
+        categoryLabel: '',
         phase: '',
         phaseLabel: '',
         status: '',
