@@ -190,8 +190,7 @@ function _renderRoundSummary(msg: Message) {
     div.className = 'chat-msg agent round-summary';
     div.dataset.msgId = msg.id;
     if (msg.phase) div.dataset.phase = msg.phase;
-    const icon = msg.collapsed ? '▶' : '▼';
-    div.innerHTML = `<span class="round-summary-icon">${icon}</span><span class="round-summary-text">${_buildSummaryHtml(counts)}</span>`;
+    div.innerHTML = `<span class="round-summary-chip">${_buildSummaryHtml(counts)}</span>`;
     div.addEventListener('click', () => {
         const st = stateManager.snapshot();
         const cur = st.messages.find(m => m.id === msg.id);

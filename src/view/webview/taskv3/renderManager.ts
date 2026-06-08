@@ -427,7 +427,7 @@ function _appendPhaseActionsToCard(card: HTMLElement, msg: import('./types').Mes
 }
 
 function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
-    // ── round summary：可点击的折叠摘要条 ──
+    // ── round summary：Chip 风格的折叠摘要条（VS Code Copilot 风格）──
     if (msg.type === 'round_summary') {
         let counts: { thinking: number; tools: Record<string, number> };
         try { counts = JSON.parse(msg.content); } catch { return null; }
@@ -435,8 +435,8 @@ function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
         div.className = 'chat-msg agent round-summary';
         div.dataset.msgId = msg.id;
         if (msg.phase) div.dataset.phase = msg.phase;
-        const icon = msg.collapsed ? '▶' : '▼';
-        div.innerHTML = `<span class="round-summary-icon">${icon}</span><span class="round-summary-text">${_buildSummaryHtml(counts)}</span>`;
+        // chip 风格：整个 bar 就是按钮，无独立箭头图标
+        div.innerHTML = `<span class="round-summary-chip">${_buildSummaryHtml(counts)}</span>`;
         div.addEventListener('click', () => {
             const st = stateManager.snapshot();
             const cur = st.messages.find(m => m.id === msg.id);
@@ -611,8 +611,11 @@ function _updateMsgElement(el: HTMLElement, msg: import('./types').Message) {
         if (body) body.classList.toggle('open', !msg.collapsed);
     }
     if (msg.type === 'round_summary') {
-        const icon = el.querySelector('.round-summary-icon') as HTMLElement;
-        if (icon) icon.textContent = msg.collapsed ? '▶' : '▼';
+        // chip 风格无需更新图标，展开/折叠由 CSS class 控制
+        const chip = el.querySelector('.round-summary-chip') as HTMLElement;
+        if (chip) {
+            el.classList.toggle('expanded', !msg.collapsed);
+        }
     }
 }
 
