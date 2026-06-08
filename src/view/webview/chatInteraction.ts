@@ -605,6 +605,9 @@ export function selectSlashCommand(cmdName: string, input: HTMLTextAreaElement) 
     input.focus();
     // 更新 command badge
     updateCmdBadge();
+    // 立即显示占位提示
+    const hint = document.getElementById('tv4-context-hint');
+    if (hint && !hint.textContent) hint.textContent = '⏳ 获取编辑器上下文...';
     // 请求编辑器上下文
     G.vscode.postMessage({ type: 'requestEditorContext' });
 }

@@ -119,11 +119,16 @@ function updateEditorContextHint() {
     const hint = document.getElementById('tv4-context-hint');
     if (!hint) return;
     const ctx = G.editorContext;
+    if (!ctx) return;
     const parts: string[] = [];
-    if (ctx?.activeFile) parts.push(`📄 ${ctx.activeFile}`);
-    if (ctx?.selection) parts.push(`📝 已选中 ${ctx.selection.length} 个字符`);
-    if (ctx?.diagnostics?.length) parts.push(`⚠️ ${ctx.diagnostics.length} 个诊断问题`);
-    hint.textContent = parts.join('  ·  ');
+    if (ctx.activeFile) parts.push(`📄 ${ctx.activeFile}`);
+    if (ctx.selection) parts.push(`📝 已选中 ${ctx.selection.length} 字符`);
+    if (ctx.diagnostics?.length) parts.push(`⚠️ ${ctx.diagnostics.length} 个诊断`);
+    if (parts.length > 0) {
+        hint.textContent = parts.join('  ·  ');
+    } else {
+        hint.textContent = '💡 打开一个文件或选中代码，将自动作为上下文填充';
+    }
 }
 
 function initV4Layout() {
