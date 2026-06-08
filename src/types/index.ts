@@ -49,7 +49,7 @@ export interface CategoryDef {
     analysisFramework: string;
     executionHints: string[];
     acceptanceCriteria: string[];
-    flowOverride?: Array<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review'>;
+    flowOverride?: Array<'goal' | 'plan' | 'execute' | 'self_verify' | 'review'>;
     flowIteration?: FlowIterationTemplate;
 }
 
@@ -81,7 +81,7 @@ export interface Task {
     category?: TaskCategory;
     subType?: string;
     status: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
-    phase: 'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
+    phase: 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
     confirmedItems: string[];
     pendingItems: string[];
     planSteps: PlanStep[];
@@ -96,8 +96,8 @@ export interface Task {
     group?: string;
     containerId?: string;
     source?: TaskSource;
-    nodeMessageIds?: Partial<Record<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string>>;
-    hooks?: Partial<Record<'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string[]>>;
+    nodeMessageIds?: Partial<Record<'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string>>;
+    hooks?: Partial<Record<'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string[]>>;
     sessionId?: string;  // ACP session ID for agent context persistence
     flowIteration?: {
         enabled: boolean;
@@ -172,7 +172,7 @@ export interface KnowledgeEntry {
     tags: string[];
     createdAt: number;
     source?: string;
-    phase?: 'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
+    phase?: 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
 }
 
 export interface TimelineEntry {
@@ -217,7 +217,7 @@ export interface FileLogEntry {
 
 export interface ProgressNode {
     id: string;
-    type: 'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
+    type: 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
     label: string;
     status: 'pending' | 'active' | 'completed' | 'cancelled';
     order: number;

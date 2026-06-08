@@ -1,4 +1,4 @@
-export const STAGE_ORDER = ['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'];
+export const STAGE_ORDER = ['goal', 'plan', 'execute', 'self_verify', 'review'];
 
 export function groupPhases(): void { /* disabled */ }
 export function foldPhase(_phase: string): void { /* disabled */ }

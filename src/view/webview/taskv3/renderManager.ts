@@ -23,7 +23,7 @@ export function getStrategy(): ViewStrategy {
 }
 
 function foldPhases(currentPhase: string) {
-    const STAGE_ORDER = ['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'];
+    const STAGE_ORDER = ['goal', 'plan', 'execute', 'self_verify', 'review'];
     const idx = STAGE_ORDER.indexOf(currentPhase);
     if (idx < 0 || !_strategy.shouldFoldPhases()) return;
     for (let i = 0; i < idx; i++) {
@@ -53,9 +53,6 @@ export function initTaskV3() {
             }
             _lastMsgVersion = state.msgVersion;
 
-            if (state.msgVersion === _lastSyncVersion && !state.isGenerating) {
-                _renderPhaseActionsFromSync(state);
-            }
         }
     });
 
@@ -76,8 +73,12 @@ export function initTaskV3() {
         const v3Types = ['state-delta', 'stream-chunk', 'stream-done', 'messages-sync', 'finalizeGoalMessage', 'thinking-chunk', 'tool-chunk'];
         if (!v3Types.includes(message.type)) return;
 
-        // 过滤非当前任务的流式消息 — 只对 streaming 相关消息做检查，
-        // state-delta / messages-sync 是切换任务/同步状态的入口，不能过滤。
+        // task view 隐藏时，只处理 state-delta / messages-sync，跳过流式消息
+        const taskView = document.querySelector('#task-view') as HTMLElement;
+        const taskHidden = !taskView || taskView.style.display === 'none';
+        if (taskHidden && !['state-delta', 'messages-sync'].includes(message.type)) return;
+
+        // 过滤非当前任务的流式消息
         if (message.taskId && message.taskId !== stateManager.state.activeTaskId) {
             const streamingTypes = ['stream-chunk', 'stream-done', 'thinking-chunk', 'tool-chunk'];
             if (streamingTypes.includes(message.type)) return;
@@ -712,8 +713,11 @@ function _ensurePhaseActionCard(phase: string, taskId: string) {
 }
 
 function _syncMessages() {
+    // 非 task 视图时不渲染（用户切到小助手等）
+    const taskView = document.querySelector('#task-view') as HTMLElement;
+    if (!taskView || taskView.style.display === 'none') return;
     const msgs = stateManager.state.messages;
-    const container = document.querySelector('#task-view #chat-messages');
+    const container = taskView.querySelector('#chat-messages');
     if (!container) return;
 
     for (let i = 0; i < msgs.length; i++) {
@@ -763,64 +767,12 @@ let _lastSyncVersion = -1;
 
 let _streamRafPending = false;
 
-function _renderPhaseActionsFromSync(state: import('./types').AppState) {
-    const tid = state.activeTaskId || '';
-    if (!tid) return;
-
-    switch (state.activeTaskPhase) {
-        case 'goal': {
-            const hasConfirmedGoal = state.messages.some(m =>
-                m.type === 'goal_confirmed'
-                || m.type === 'plan_proposal'
-                || m.type === 'plan_confirmed'
-                || (m.role === 'user' && m.content.includes('确认目标'))
-            );
-            if (hasConfirmedGoal) return;
-            _ensurePhaseActionCard('goal', tid);
-            break;
-        }
-        case 'plan': {
-            const hasConfirmedPlan = state.messages.some(m =>
-                m.type === 'plan_confirmed'
-                || (m.role === 'user' && (m.content.includes('确认计划') || m.content.includes('驳回计划')))
-            );
-            if (hasConfirmedPlan) return;
-            _ensurePhaseActionCard('plan', tid);
-            break;
-        }
-        case 'execute': {
-            const hasConfirmedExecute = state.messages.some(m =>
-                (m.role === 'user' && (m.content.includes('确认执行') || m.content.includes('确认完成')))
-            );
-            if (hasConfirmedExecute) return;
-            _ensurePhaseActionCard('execute', tid);
-            break;
-        }
-        case 'self_verify': {
-            const hasConfirmedVerify = state.messages.some(m =>
-                (m.role === 'user' && (m.content.includes('确认自验') || m.content.includes('进入验收')))
-            );
-            if (hasConfirmedVerify) return;
-            _ensurePhaseActionCard('self_verify', tid);
-            break;
-        }
-        case 'review': {
-            const hasResult = state.messages.some(m =>
-                m.type === 'review_approved' || m.type === 'review_rejected'
-                || (m.role === 'user' && (m.content.includes('验收通过') || m.content.includes('驳回')))
-            );
-            if (hasResult) return;
-            _ensurePhaseActionCard('review', tid);
-            break;
-        }
-        default:
-            break;
-    }
-}
-
 function handleMessagesSync(msg: { messages: import('../../../types').ChatMessage[] }) {
+    // 当前 webview 中有 streaming 消息 → 任务还在流式，保留 webview 状态
+    if (stateManager.state.messages.some((m: any) => m.streaming)) return;
     const version = ++_msgVersionCounter;
     _lastSyncVersion = version;
     const collapsed = _collapseAllRounds(msg.messages as any[]);
+
     stateManager.update({ messages: collapsed, msgVersion: version });
 }

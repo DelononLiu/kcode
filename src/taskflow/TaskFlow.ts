@@ -1,7 +1,6 @@
 import type { Task, PlanStep, ChatMessage, TodoItem, KnowledgeEntry, TimelineEntry } from '../types';
 import { BASE_PROMPT } from './prompts/base';
 import { PROTOCOL_CORE, PROTOCOL_DELEGATE, PROTOCOL_KNOWLEDGE } from './prompts/protocol';
-import { DEMAND_PROMPT } from './prompts/demand';
 import { GOAL_PROMPT } from './prompts/goal';
 import { PLAN_PROMPT } from './prompts/plan';
 import { EXECUTE_PROMPT } from './prompts/execute';
@@ -503,7 +502,7 @@ export class TaskFlow {
 
     validateAction(currentPhase: string, action: string): boolean {
         const validActions: Record<string, string[]> = {
-            'demand': ['propose_goal'],
+            
             'goal': ['propose_goal'],
             'plan': ['propose_plan'],
             'execute': ['plan_step_update'],
@@ -680,7 +679,7 @@ export class TaskFlow {
 
         const appendix = this.buildProtocolAppendix(task);
         // 只有需求/目标/计划阶段需要目标上下文，执行/自验/验收阶段已确认目标无需重复发送
-        const needsContext = ['demand', 'goal', 'plan'].includes(task.phase);
+        const needsContext = ['goal', 'plan'].includes(task.phase);
         const layers = [
             needsContext ? this.buildTaskContext(task) : '',
             this.buildPhasePrompt(task),
@@ -754,7 +753,7 @@ export class TaskFlow {
     private buildPhasePrompt(task: Task): string {
         let basePrompt = (() => {
             switch (task.phase) {
-                case 'demand':  return DEMAND_PROMPT;
+                
                 case 'goal':    return GOAL_PROMPT;
                 case 'plan':    return PLAN_PROMPT;
                 case 'execute':     return EXECUTE_PROMPT;

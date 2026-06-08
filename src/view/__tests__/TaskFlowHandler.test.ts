@@ -17,7 +17,7 @@ import type { Task, FileChange, ProgressNode } from '../../types';
 function makeMockTask(overrides: Partial<Task> = {}): Task {
     return {
         id: 'task-1', title: 'Test', goal: '', type: 'task', status: 'pending',
-        phase: 'demand', confirmedItems: [], pendingItems: [], planSteps: [],
+        phase: 'goal', confirmedItems: [], pendingItems: [], planSteps: [],
         createdAt: Date.now(), pinned: false, ...overrides,
     };
 }
@@ -110,15 +110,15 @@ describe('TaskFlowHandler', () => {
         });
 
         it('pending 任务首节点 active 其余 pending', () => {
-            mocks.store.getTask.mockReturnValue(makeMockTask({ status: 'pending', phase: 'demand' }));
+            mocks.store.getTask.mockReturnValue(makeMockTask({ status: 'pending', phase: 'goal' }));
             mocks.store.getMessages.mockReturnValue([]);
             const nodes = mocks.handler.deriveNodes('task-1');
-            expect(nodes).toHaveLength(6);
+            expect(nodes).toHaveLength(5);
             expect(nodes[0].status).toBe('active');
             expect(nodes.slice(1).every(n => n.status === 'pending')).toBe(true);
         });
 
-        it('completed 任务前 6 节点全部 completed', () => {
+        it('completed 任务前 5 节点全部 completed', () => {
             mocks.store.getTask.mockReturnValue(makeMockTask({ status: 'completed', phase: 'review' }));
             mocks.store.getMessages.mockReturnValue([{ type: 'review_request' } as any]);
             mocks.taskFlow.getPlanEntries.mockReturnValue([{ content: 'step', priority: 'high', status: 'completed' }]);
@@ -127,7 +127,7 @@ describe('TaskFlowHandler', () => {
         });
 
         it('interruptAt 中断点标记 cancelled', () => {
-            mocks.store.getTask.mockReturnValue(makeMockTask({ status: 'cancelled', phase: 'demand', goal: '' }));
+            mocks.store.getTask.mockReturnValue(makeMockTask({ status: 'cancelled', phase: 'goal', goal: '' }));
             mocks.store.getMessages.mockReturnValue([]);
             const nodes = mocks.handler.deriveNodes('task-1');
             const cancelled = nodes.find(n => n.status === 'cancelled');

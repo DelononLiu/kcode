@@ -5,7 +5,6 @@ import * as os from 'os';
 import { TaskFlow, ITaskStore, TaskFlowDelegate } from '../TaskFlow';
 import type { Task, PlanStep, ChatMessage } from '../../types';
 import { setExternalDir } from '../externalPrompts';
-import { DEMAND_PROMPT } from '../prompts/demand';
 import { GOAL_PROMPT } from '../prompts/goal';
 import { PLAN_PROMPT } from '../prompts/plan';
 import { EXECUTE_PROMPT } from '../prompts/execute';
@@ -152,7 +151,7 @@ class MockDelegate implements TaskFlowDelegate {
 function makeFlow(overrides: Partial<Task> = {}) {
     const task: Task = {
         id: 'task_1', title: 'Test', goal: '', type: 'task', status: 'pending',
-        phase: 'demand', confirmedItems: [], pendingItems: [], planSteps: [],
+        phase: 'goal', confirmedItems: [], pendingItems: [], planSteps: [],
         planVersion: 1, riskItems: [], boundaryItems: [], createdAt: Date.now(),
         ...overrides,
     };
@@ -171,7 +170,6 @@ function makeFlow(overrides: Partial<Task> = {}) {
 describe('buildPrompt', () => {
     it('输出各阶段对应的 System Prompt', () => {
         const cases: Array<{ phase: Task['phase']; expectText: string; prompt: string }> = [
-            { phase: 'demand',  expectText: '需求收集（Demand）',  prompt: DEMAND_PROMPT },
             { phase: 'goal',    expectText: '目标确认（Goal）',    prompt: GOAL_PROMPT },
             { phase: 'plan',    expectText: '计划制定（Plan）',    prompt: PLAN_PROMPT },
             { phase: 'execute', expectText: '执行（Execute）',     prompt: EXECUTE_PROMPT },

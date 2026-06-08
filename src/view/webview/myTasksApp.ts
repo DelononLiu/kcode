@@ -4,7 +4,7 @@ interface TaskData {
     id: string;
     title: string;
     status: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
-    phase: 'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
+    phase: 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
     containerId?: string;
     createdAt: number;
     archived?: boolean;
@@ -19,10 +19,8 @@ interface ContainerEntity {
 }
 
 const PHASE_LABELS: Record<string, string> = {
-    demand: '\u9700\u6c42', goal: '\u76ee\u6807', plan: '\u8ba1\u5212', execute: '\u6267\u884c', self_verify: '\u81ea\u9a8c', review: '\u9a8c\u6536',
 };
 const PHASE_CLASS: Record<string, string> = {
-    demand: 'phase-demand', goal: 'phase-goal', plan: 'phase-plan',
     execute: 'phase-execute', self_verify: 'phase-self_verify', review: 'phase-review',
 };
 const STATUS_LABELS: Record<string, string> = {

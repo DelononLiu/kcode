@@ -17,7 +17,7 @@ const plugin: KCodePlugin = {
             const firstUserMsg = messages.find((m: any) => m.role === 'user');
             const newTask: Task = {
                 id: `task_${Date.now()}`, title: firstUserMsg ? firstUserMsg.content.substring(0, 50).replace(/\n/g, ' ') : '从对话创建的任务',
-                goal: '', type: 'task', status: 'pending', phase: 'demand',
+                goal: '', type: 'task', status: 'pending', phase: 'goal',
                 confirmedItems: [], pendingItems: [], planSteps: [], originalRequest: '', createdAt: Date.now(), pinned: false,
                 workspace: vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,
             };

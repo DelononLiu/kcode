@@ -28,7 +28,7 @@ describe('TaskStore', () => {
     it('addTask and getTasks round-trip', () => {
         const task: Task = {
             id: 't1', title: 'Test', goal: '', type: 'task', status: 'pending',
-            phase: 'demand', confirmedItems: [], pendingItems: [], planSteps: [],
+            phase: 'goal', confirmedItems: [], pendingItems: [], planSteps: [],
             createdAt: Date.now(),
         };
         store.addTask(task);
@@ -39,7 +39,7 @@ describe('TaskStore', () => {
     it('getTask returns single task', () => {
         const task: Task = {
             id: 't2', title: 'Two', goal: '', type: 'task', status: 'pending',
-            phase: 'demand', confirmedItems: [], pendingItems: [], planSteps: [],
+            phase: 'goal', confirmedItems: [], pendingItems: [], planSteps: [],
             createdAt: Date.now(),
         };
         store.addTask(task);
@@ -50,7 +50,7 @@ describe('TaskStore', () => {
     it('deleteTask removes task and messages', () => {
         const task: Task = {
             id: 't3', title: 'Three', goal: '', type: 'task', status: 'pending',
-            phase: 'demand', confirmedItems: [], pendingItems: [], planSteps: [],
+            phase: 'goal', confirmedItems: [], pendingItems: [], planSteps: [],
             createdAt: Date.now(),
         };
         store.addTask(task);
@@ -67,7 +67,7 @@ describe('TaskStore', () => {
     it('getMessages / addMessage round-trip', () => {
         const task: Task = {
             id: 't4', title: 'Four', goal: '', type: 'task', status: 'pending',
-            phase: 'demand', confirmedItems: [], pendingItems: [], planSteps: [],
+            phase: 'goal', confirmedItems: [], pendingItems: [], planSteps: [],
             createdAt: Date.now(),
         };
         store.addTask(task);

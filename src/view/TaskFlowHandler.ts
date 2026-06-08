@@ -121,6 +121,7 @@ export class TaskFlowHandler {
 
     triggerReviewRequest(tid: string, content: string) {
         const { ctx } = this;
+        const phaseLabels: Record<string, string> = { goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收' };
         const task = ctx.store.getTask(tid);
         if (task?.status === 'completed' || task?.status === 'cancelled') return;
         ctx.store.updateTaskNodeMessageId(tid, 'review', '');
@@ -141,7 +142,6 @@ export class TaskFlowHandler {
             acceptanceCriteria = cat?.acceptanceCriteria;
         }
 
-        const phaseLabels: Record<string, string> = { demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收' };
         ctx.router.PostMessage({
             type: 'state-delta',
             viewMode: 'task',
@@ -286,9 +286,9 @@ export class TaskFlowHandler {
 
     sendTaskInfo(taskId: string) {
         const { ctx } = this;
+        const phaseLabels: Record<string, string> = { goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收' };
         const task = ctx.store.getTask(taskId);
         if (!task) return;
-        const phaseLabels: Record<string, string> = { demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收' };
         const messages = ctx.store.getMessages(taskId);
         const filePathsFromTools: string[] = [];
         for (const msg of messages) {
@@ -381,7 +381,6 @@ export class TaskFlowHandler {
                 goal: task?.goal,
                 category: task?.category || '',
                 phase: task?.phase || '',
-                phaseLabel: (task?.phase ? { demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收' }[task.phase] : undefined) || task?.phase || '',
                 status: task?.status || '',
                 taskType: task?.type,
                 createdAt: task?.createdAt,
@@ -427,12 +426,11 @@ export class TaskFlowHandler {
 
         const nm = task.nodeMessageIds || {};
         return [
-            { id: 'demand', type: 'demand' as const, label: '需求提交', status: ns('demand', hasGoal || hasConfirmedGoal || s === 'in_review' || s === 'completed', !(hasGoal || hasConfirmedGoal) && s !== 'cancelled'), order: 1, messageId: nm.demand },
-            { id: 'goal', type: 'goal' as const, label: '目标确认', status: ns('goal', hasConfirmedGoal, hasGoal && !hasConfirmedGoal && s !== 'cancelled'), order: 2, messageId: nm.goal },
-            { id: 'plan', type: 'plan' as const, label: '计划', status: ns('plan', hasPlan || s === 'in_review' || s === 'completed', phase === 'plan'), order: 3, messageId: nm.plan },
-            { id: 'execute', type: 'execute' as const, label: '执行', status: ns('execute', s === 'in_review' || s === 'completed' || phase === 'self_verify', phase === 'execute' && s === 'active'), order: 4, messageId: nm.execute, iteration: iterCount, maxIteration: maxIter },
-            { id: 'self_verify', type: 'self_verify' as const, label: '自验', status: ns('self_verify', hasSelfVerify && s !== 'active', phase === 'self_verify'), order: 5, messageId: nm.self_verify },
-            { id: 'review', type: 'review' as const, label: '验收', status: ns('review', s === 'completed', phase === 'review' && s === 'in_review'), order: 6, messageId: nm.review },
+            { id: 'goal', type: 'goal' as const, label: '目标确认', status: ns('goal', hasConfirmedGoal, !hasConfirmedGoal && s !== 'cancelled'), order: 1, messageId: nm.goal },
+            { id: 'plan', type: 'plan' as const, label: '计划', status: ns('plan', hasPlan || s === 'in_review' || s === 'completed', phase === 'plan'), order: 2, messageId: nm.plan },
+            { id: 'execute', type: 'execute' as const, label: '执行', status: ns('execute', s === 'in_review' || s === 'completed' || phase === 'self_verify', phase === 'execute' && s === 'active'), order: 3, messageId: nm.execute, iteration: iterCount, maxIteration: maxIter },
+            { id: 'self_verify', type: 'self_verify' as const, label: '自验', status: ns('self_verify', hasSelfVerify && s !== 'active', phase === 'self_verify'), order: 4, messageId: nm.self_verify },
+            { id: 'review', type: 'review' as const, label: '验收', status: ns('review', s === 'completed', phase === 'review' && s === 'in_review'), order: 5, messageId: nm.review },
         ];
     }
 
@@ -534,7 +532,7 @@ export class TaskFlowHandler {
         if (!parentTask) return;
         const fullGoal = payload.relevantSnippets ? `${payload.goal}\n\n技术上下文：${payload.relevantSnippets}` : payload.goal;
         const newTask: Task = {
-            id: `task_${Date.now()}`, title: payload.title, goal: fullGoal, type: 'task', status: 'pending', phase: 'demand',
+            id: `task_${Date.now()}`, title: payload.title, goal: fullGoal, type: 'task', status: 'pending', phase: 'goal',
             confirmedItems: payload.confirmedItems || [], pendingItems: [], planSteps: [], originalRequest: payload.title, createdAt: Date.now(),
             pinned: false, source: parentTask.source, containerId: parentTask.containerId, group: parentTask.group,
             workspace: vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,

@@ -1,6 +1,5 @@
 /** 每个任务类型可按阶段自定义提示词，非必填，缺哪个阶段就用通用 prompt */
 export interface TypePhasePrompts {
-  demand?: string;
   goal?: string;
   plan?: string;
   execute?: string;

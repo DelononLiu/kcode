@@ -298,7 +298,6 @@ export class MyTasksProvider {
         .status-pending::before { background: #888; }
         .status-cancelled::before { background: #555; }
         .phase-tag { display: inline-block; padding: 1px 6px; font-size: 11px; border-radius: 3px; font-weight: 500; }
-        .phase-demand { background: rgba(156,39,176,.2); color: #ce93d8; }
         .phase-goal { background: rgba(33,150,243,.2); color: #90caf9; }
         .phase-plan { background: rgba(255,152,0,.2); color: #ffcc80; }
         .phase-execute { background: rgba(76,175,80,.2); color: #a5d6a7; }

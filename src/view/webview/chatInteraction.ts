@@ -296,9 +296,8 @@ export function initChat() {
 
     if (hooksEditBtn && hooksEditor && hooksPhasesList && hooksCloseBtn) {
         const phaseLabels: Record<string, string> = {
-            demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收'
         };
-        const phaseOrder = ['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'];
+        const phaseOrder = ['goal', 'plan', 'execute', 'self_verify', 'review'];
 
         const hList = hooksPhasesList;
         function renderHooksEditor() {

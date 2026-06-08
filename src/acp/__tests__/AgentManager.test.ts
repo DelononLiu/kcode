@@ -7,6 +7,13 @@ vi.mock('vscode', () => ({
     window: { createOutputChannel: vi.fn(() => ({ appendLine: vi.fn() })) },
 }));
 
+vi.mock('../../env/NodeManager', () => ({
+    getNodeBinDir: vi.fn().mockReturnValue(''),
+    getNodeExePath: vi.fn().mockReturnValue(null),
+    ensureNode: vi.fn().mockResolvedValue(null),
+    needsManagedNode: vi.fn().mockResolvedValue(false),
+}));
+
 vi.mock('child_process', () => ({
     spawn: vi.fn(),
 }));

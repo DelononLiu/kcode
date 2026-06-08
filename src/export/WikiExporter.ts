@@ -61,7 +61,6 @@ export class WikiExporter {
         const timeline = this.store.getTaskTimeline(taskId);
 
         const phaseLabels: Record<string, string> = {
-            demand: '需求', goal: '目标', plan: '计划',
             execute: '执行', self_verify: '自验', review: '验收',
         };
         const statusLabels: Record<string, string> = {

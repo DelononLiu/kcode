@@ -820,8 +820,7 @@ export function updateTaskInfo(info: any) {
 
 function getStageLabel(phase: string): string {
     const labels: Record<string, string> = {
-        demand: '需求提取', goal: '目标确定', plan: '计划确定',
-        execute: '执行修改', self_verify: '自验结果', review: '确认验收',
+        goal: '目标确定', plan: '计划确定', execute: '执行修改', self_verify: '自验结果', review: '确认验收',
     };
     return labels[phase] || phase;
 }

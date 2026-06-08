@@ -10,7 +10,7 @@ export const BASE_PROMPT = `你是一个专注于任务驱动的 AI 编程助手
 - [TASK_UPDATE] 块内的字段名固定为大写：ACTION / CATEGORY / STEPS / INDEX / STATUS
 - 列表项使用短横线 - 格式
 - 不要输出 [TASK_UPDATE] 以外的任何协议标记
-- 在 demand/goal 阶段输出 propose_goal 时，如有把握可附带 CATEGORY 字段推荐任务类别（见协议参考中的分类体系）；拿不准就不要输出，不强求
+- 在 goal 阶段输出 propose_goal 时，如有把握可附带 CATEGORY 字段推荐任务类别（见协议参考中的分类体系）；拿不准就不要输出，不强求
 
 【协议块保护区】
 所有协议标记（[TASK_UPDATE]、<KNOWLEDGE_ENTRY>、[TASK_DELEGATE]、<TODO_UPDATE> 等）

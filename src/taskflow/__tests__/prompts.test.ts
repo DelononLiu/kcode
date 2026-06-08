@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { BASE_PROMPT } from '../prompts/base';
 import { PROTOCOL_PROMPT, PROTOCOL_CORE, PROTOCOL_DELEGATE, PROTOCOL_KNOWLEDGE } from '../prompts/protocol';
-import { DEMAND_PROMPT } from '../prompts/demand';
 import { GOAL_PROMPT } from '../prompts/goal';
 import { PLAN_PROMPT } from '../prompts/plan';
 import { EXECUTE_PROMPT } from '../prompts/execute';
@@ -15,7 +14,6 @@ describe('prompts', () => {
         { name: 'PROTOCOL_CORE', content: PROTOCOL_CORE, keyword: 'TASK_UPDATE' },
         { name: 'PROTOCOL_DELEGATE', content: PROTOCOL_DELEGATE, keyword: 'TASK_DELEGATE' },
         { name: 'PROTOCOL_KNOWLEDGE', content: PROTOCOL_KNOWLEDGE, keyword: 'KNOWLEDGE_ENTRY' },
-        { name: 'DEMAND_PROMPT', content: DEMAND_PROMPT, keyword: '需求收集' },
         { name: 'GOAL_PROMPT', content: GOAL_PROMPT, keyword: '目标确认' },
         { name: 'PLAN_PROMPT', content: PLAN_PROMPT, keyword: '计划制定' },
         { name: 'EXECUTE_PROMPT', content: EXECUTE_PROMPT, keyword: '执行' },
@@ -77,13 +75,6 @@ describe('prompts', () => {
             expect(PROTOCOL_KNOWLEDGE).toContain('tags');
         });
 
-        it('DEMAND_PROMPT 包含 demand 阶段协议', () => {
-            expect(DEMAND_PROMPT).toContain('Demand');
-            expect(DEMAND_PROMPT).toContain('ACTION: propose_goal');
-            expect(DEMAND_PROMPT).toContain('[TASK_UPDATE]');
-            expect(DEMAND_PROMPT).toContain('[/TASK_UPDATE]');
-            expect(DEMAND_PROMPT).not.toContain('finish_execute');
-            expect(DEMAND_PROMPT).not.toContain('propose_plan');
         });
 
         it('GOAL_PROMPT 包含 goal 阶段协议', () => {
@@ -129,4 +120,3 @@ describe('prompts', () => {
             expect(REVIEW_PROMPT).toContain('code_snippet');
         });
     });
-});

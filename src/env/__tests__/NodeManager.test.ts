@@ -3,6 +3,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
+vi.mock('vscode', () => ({
+    window: { createOutputChannel: () => ({ appendLine: vi.fn(), info: vi.fn() }) },
+    workspace: { getConfiguration: vi.fn(() => ({ get: vi.fn().mockReturnValue('') })) },
+}));
+
 // ── mock 工厂 ──────────────────────────────────────────────
 
 const mockExecFn = vi.fn();

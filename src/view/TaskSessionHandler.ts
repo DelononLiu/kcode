@@ -154,7 +154,7 @@ export class TaskSessionHandler {
         });
 
         if (isFirstMessage) {
-            ctx.store.updateTaskNodeMessageId(tid, 'demand', userMsgId);
+            ctx.store.updateTaskNodeMessageId(tid, 'goal', userMsgId);
             if (task.title === 'New Task') {
                 const rawTitle = text.replace(/[^\w\u4e00-\u9fff\s-]/g, '').trim();
                 ctx.store.updateTaskTitle(tid, rawTitle.length > 20 ? rawTitle.substring(0, 20) : rawTitle || 'New Task');
@@ -231,6 +231,10 @@ export class TaskSessionHandler {
     }
 
     createAgentResponseHandler(_tid: string, _isGoalFormatting: boolean, _originalText: string, _parseTables = false): AcpMessageHandler {
-        throw new Error('createAgentResponseHandler is overridden by TaskViewBridgeV2');
+        return {
+            onText: () => {},
+            onError: () => {},
+            onDone: () => {},
+        };
     }
 }

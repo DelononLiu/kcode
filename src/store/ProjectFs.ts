@@ -26,7 +26,7 @@ interface MetaFile {
 	goal?: string;
 	type?: 'task';
 	status?: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
-	phase?: 'demand' | 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
+	phase?: 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
 	createdAt?: number;
 	workspace?: string;
 	pinned?: boolean;
@@ -637,7 +637,7 @@ export class ProjectFs {
 			goal: (meta.goal as string) || '',
 			type: (meta.type as 'task') || 'task',
 			status: (meta.status as Task['status']) || 'pending',
-			phase: (meta.phase as Task['phase']) || 'demand',
+			phase: (meta.phase as Task['phase']) || 'goal',
 			confirmedItems: (meta.confirmedItems as string[]) || [],
 			pendingItems: (meta.pendingItems as string[]) || [],
 			planSteps: (meta.planSteps as Task['planSteps']) || [],

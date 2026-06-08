@@ -11,7 +11,7 @@ let lastReviewChanges: any[] = [];
 let cardActiveTools: { toolCallId: string; title: string; kind: string; status: string; output?: string }[] = [];
 let _fileChangesMap: Map<string, { original: string; modified: string }> = new Map();
 
-const PHASE_ORDER = ['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'];
+const PHASE_ORDER = ['goal', 'plan', 'execute', 'self_verify', 'review'];
 
 function escapeHtml(text: string): string {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -101,7 +101,7 @@ function renderCol1(goal: string, confirmed: string[], risks: string[], boundari
     if (risks.length > 0) html += cs('⚠️ 风险', risks.map(i => `<span class="col-risk medium">${escapeHtml(i)}</span>`).join(' '));
     if (boundaries.length > 0) html += cs('🚧 边界', boundaries.map(i => `<div class="col-boundary">${escapeHtml(i)}</div>`).join(''));
     if (status === 'completed') html += `<div class="col-done-block"><div class="col-done-icon">🎉</div><div class="col-done-text">已完成</div></div>`;
-    else if (['demand', 'goal'].includes(phase) && !goal) { if (!html) html = `<div class="col-empty">等待 AI 生成目标方案...</div>`; }
+    else if (['goal'].includes(phase) && !goal) { if (!html) html = `<div class="col-empty">等待 AI 生成目标方案...</div>`; }
     html += _btns(phase, status);
     el.innerHTML = html || `<div class="col-empty">等待确认目标...</div>`;
 }

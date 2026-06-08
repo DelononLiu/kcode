@@ -25,7 +25,7 @@ STEPS:
 如果你有把握，在 propose_goal 时附带最匹配的类别。拿不准就不要输出，系统不强求。
 
 可用动作（按阶段）：
-  demand / goal → propose_goal：提出目标确认（可附带 CATEGORY 字段自动归类）
+  goal → propose_goal：提出目标确认（可附带 CATEGORY 字段自动归类）
   plan          → propose_plan：提出执行计划
    execute       → finish_execute：标记执行完成（由系统处理）
    execute       → plan_step_update：更新计划步骤状态（INDEX:步骤序号, STATUS: active/completed）
@@ -33,7 +33,7 @@ STEPS:
    review        → accept / reject：验收通过或驳回（由系统处理）
 
 阶段流转规则：
-   demand → propose_goal → goal
+
     plan   → propose_plan → execute
    execute → plan_step_update（实时更新步骤状态）
    execute → finish_execute → self_verify（自动流转）

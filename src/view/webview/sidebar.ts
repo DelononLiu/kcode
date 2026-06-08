@@ -404,7 +404,7 @@ declare function acquireVsCodeApi(): any;
     }
 
     function getPhaseLetter(phase: string): string {
-        const map: Record<string, string> = { demand: 'D', goal: 'T', plan: 'P', execute: 'E', self_verify: 'V', review: 'C' };
+        const map: Record<string, string> = { goal: 'T', plan: 'P', execute: 'E', self_verify: 'V', review: 'C' };
         return map[phase] || '';
     }
 

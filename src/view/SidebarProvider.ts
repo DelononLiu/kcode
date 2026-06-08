@@ -220,7 +220,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             goal: '',
             type: 'task',
             status: 'pending',
-            phase: 'demand',
+            phase: 'goal',
             confirmedItems: [],
             pendingItems: [],
             planSteps: [],

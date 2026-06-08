@@ -29,7 +29,7 @@ export class TaskStore {
         const tasks = this.fs.getAllTasks();
         return tasks.map(t => ({
             ...t,
-            phase: t.phase || ('demand' as const),
+            phase: t.phase || ('goal' as const),
             confirmedItems: t.confirmedItems || [],
             pendingItems: t.pendingItems || [],
             planSteps: t.planSteps || [],

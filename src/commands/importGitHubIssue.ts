@@ -289,7 +289,7 @@ export async function importGitHubIssue(
         goal: issue.body,
         type: 'task',
         status: 'pending',
-        phase: 'demand',
+        phase: 'goal',
         confirmedItems: [],
         pendingItems: [],
         planSteps: [],

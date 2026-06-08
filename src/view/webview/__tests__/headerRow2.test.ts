@@ -40,7 +40,7 @@ describe('updateHeaderRow2', () => {
         G.activeTaskPhase = 'execute';
         updateHeaderRow2();
         const doneEl = document.getElementById('h2-done-pipeline')!;
-        expect(doneEl.textContent).toBe('已完成: 需求提取→目标确定→计划确定');
+        expect(doneEl.textContent).toBe('已完成: 目标确定→计划确定');
     });
 
     it('should show pending pipeline for phase=execute', () => {
@@ -51,9 +51,9 @@ describe('updateHeaderRow2', () => {
         expect(pendingEl.textContent).toBe('待完成: 自验结果→确认验收');
     });
 
-    it('should show no done pipeline for phase=demand', () => {
-        setDom('demand', 0);
-        G.activeTaskPhase = 'demand';
+    it('should show no done pipeline for phase=goal', () => {
+        setDom('goal', 0);
+        G.activeTaskPhase = 'goal';
         updateHeaderRow2();
         const doneEl = document.getElementById('h2-done-pipeline')!;
         expect(doneEl.textContent).toBe('');

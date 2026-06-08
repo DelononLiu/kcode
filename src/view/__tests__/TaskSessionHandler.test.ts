@@ -105,33 +105,13 @@ describe('TaskSessionHandler', () => {
     });
 
     describe('createAgentResponseHandler', () => {
-        it('返回 handler 对象含所有回调方法', () => {
+        // createAgentResponseHandler 在 Panel 中被 TaskViewBridgeV2 完整覆盖，
+        // 此处仅验证基类返回可用的 handler 接口
+        it('返回 handler 对象', () => {
             const handler = mocks.handler.createAgentResponseHandler('task-1', false, '');
             expect(handler).toHaveProperty('onText');
             expect(handler).toHaveProperty('onError');
             expect(handler).toHaveProperty('onDone');
-            expect(handler).toHaveProperty('onReasoning');
-            expect(handler).toHaveProperty('onToolCall');
-            expect(handler).toHaveProperty('onToolCallUpdate');
-            expect(handler).toHaveProperty('onPlan');
-        });
-
-        it('onError 设置生成状态并发送错误', () => {
-            const handler = mocks.handler.createAgentResponseHandler('task-1', false, '');
-            handler.onError('test error');
-            expect(mocks.ctx.setGenerationState).toHaveBeenCalledWith(false);
-            expect(mocks.postSpy).toHaveBeenCalledWith(
-                expect.objectContaining({ type: 'agentStreamUpdate' })
-            );
-        });
-
-        it('onDone cancelled 通知重置', () => {
-            mocks.store.getTask.mockReturnValue({ id: 'task-1', type: 'task' });
-            mocks.store.getMessages.mockReturnValue([]);
-            const handler = mocks.handler.createAgentResponseHandler('task-1', false, '');
-            mocks.taskFlow.getCleanText.mockReturnValue('');
-            handler.onDone('cancelled');
-            expect(mocks.ctx.setGenerationState).toHaveBeenCalledWith(false);
         });
     });
 

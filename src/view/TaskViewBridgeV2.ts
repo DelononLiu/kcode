@@ -17,7 +17,6 @@ export class TaskViewBridgeV2 {
         if (!task) return;
 
         const phaseLabels: Record<string, string> = {
-            demand: '需求', goal: '目标', plan: '计划',
             execute: '执行', self_verify: '自验', review: '验收',
         };
 
@@ -244,7 +243,7 @@ export class TaskViewBridgeV2 {
                 if (this._isGoalFormatting) {
                     this._ctx.taskFlow.processGoalProposal(this.tid, cleanedText, this._originalText, this._originalText);
                 } else {
-                    if (task?.type === 'task' && this._ctx.taskFlow.isGoalProposed(this.tid) && task.phase === 'demand') {
+                    if (task?.type === 'task' && this._ctx.taskFlow.isGoalProposed(this.tid) && task.phase === 'goal') {
                         this._ctx.taskFlow.processGoalProposal(this.tid, cleanedText, '', '');
                     }
 
@@ -267,6 +266,29 @@ export class TaskViewBridgeV2 {
                 }
 
                 const genResult = this._ctx.taskFlow.getGenResult(this.tid);
+
+                // 4. 存阶段确认卡片到 store（webview 不持久化，扩展端需要存储）
+                const _PHASE_TYPE: Record<string, string> = {
+                    goal: 'goal_confirmation', plan: 'plan_proposal', execute: 'execute_confirmation',
+                    self_verify: 'self_verify_confirmation', review: 'review_request',
+                };
+                const _shouldCard = (p: string) => {
+                    if (task?.phase !== p) return false;
+                    if (p === 'plan') return genResult.planProposed;
+                    if (p === 'execute') return genResult.executeFinished;
+                    if (p === 'self_verify') return genResult.selfVerifyFinished;
+                    return true; // goal, review
+                };
+                if (_shouldCard(task?.phase || '') && _PHASE_TYPE[task?.phase || '']) {
+                    const cid = this._ctx.store.nextMessageId(this.tid);
+                    this._ctx.store.addMessage({
+                        id: cid, taskId: this.tid, role: 'agent',
+                        type: _PHASE_TYPE[task?.phase || ''] as any,
+                        content: '', phase: task?.phase,
+                        timestamp: Date.now(),
+                    });
+                }
+
                 const toolCalls = Array.from(this.activeToolCalls.entries()).map(([id, tc]) => ({
                     toolCallId: id, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output,
                 }));
