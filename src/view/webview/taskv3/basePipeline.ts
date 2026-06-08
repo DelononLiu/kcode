@@ -4,15 +4,17 @@ import { createCard, createCardMessageElement } from '../cardBuilder';
 import { appendToChatMessages } from '../chatStream';
 import { renderCardForMessage, renderCardActions, renderCardStatus, postAction } from './cardRenderer';
 import { createTimelineEntry } from '../timelineRenderer';
+import { getChatScroll } from '../domContainers';
 
 function getContainer(): HTMLElement | null {
     return document.querySelector('#task-view #chat-messages') || null;
 }
 
+/** 滚动到聊天底部（始终执行，不检查用户滚动锁定） */
 function scrollToBottom() {
-    const container = getContainer();
-    if (container) {
-        container.scrollTop = container.scrollHeight;
+    const sc = getChatScroll();
+    if (sc) {
+        sc.scrollTop = sc.scrollHeight;
     }
 }
 

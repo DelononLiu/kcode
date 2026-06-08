@@ -8,6 +8,7 @@ import { showTaskView } from '../taskView';
 import { appendToChatMessages } from '../chatStream';
 import { renderMarkdown } from '../markdownRenderer';
 import { createTimelineEntry } from '../timelineRenderer';
+import { G } from '../state';
 
 let _strategy: ViewStrategy = taskStrategy;
 
@@ -53,7 +54,12 @@ export function initTaskV3() {
 
     stateManager.onPatch(() => {
         _syncMessages();
-        basePipeline.scrollToBottom();
+        // 智能滚动锁定：用户未往上翻时才自动滚到底部
+        if (!G._userScrolledUp) {
+            G._programmaticScroll = true;
+            basePipeline.scrollToBottom();
+            requestAnimationFrame(() => { G._programmaticScroll = false; });
+        }
     });
 
     window.addEventListener('message', (event) => {
@@ -90,6 +96,22 @@ export function initTaskV3() {
                 break;
         }
     });
+
+    // 为 Task 视图滚动容器 (#tv4-scroll) 挂载用户滚动检测
+    // 注意：initChat() 在 DOMContentLoaded 时挂载了 Assistant 视图的检测，
+    // 但当时 #task-view 是 display:none, getActiveView() 返回 'assistant'，
+    // 所以 #tv4-scroll 没有获取到滚动事件监听，这里补上。
+    const taskScroller = document.querySelector('#tv4-scroll') as HTMLElement | null;
+    if (taskScroller) {
+        taskScroller.addEventListener('wheel', (e) => {
+            if (e.deltaY < 0) G._userScrolledUp = true;
+        });
+        taskScroller.addEventListener('scroll', () => {
+            if (G._programmaticScroll) return;
+            const atBottom = taskScroller.scrollTop + taskScroller.clientHeight >= taskScroller.scrollHeight - 16;
+            G._userScrolledUp = !atBottom;
+        });
+    }
 }
 
 function _updateStreamMsg(text: string) {
@@ -98,6 +120,9 @@ function _updateStreamMsg(text: string) {
 
     let streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
     if (streamIdx < 0) {
+        // 新流开始：重置用户滚动状态，允许自动滚动
+        G._userScrolledUp = false;
+
         const roundGroup = 'rg_' + Date.now();
         const newMsg: import('./types').Message = {
             id: 'msg_' + Date.now(),
