@@ -10,7 +10,6 @@ export class TaskFlowHandler {
     async handleConfirmGoal(tid: string, originalRequest: string) {
         const { ctx } = this;
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认目标', timestamp: Date.now() });
-        ctx.router.PostMessage({ type: 'addUserMessage', content: '✅ 确认目标' });
         ctx.taskFlow.confirmGoal(tid);
         await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, originalRequest), false, originalRequest);
     }
@@ -27,8 +26,7 @@ export class TaskFlowHandler {
 
     handleCancelTask(tid: string) {
         const { ctx } = this;
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✕ 已取消任务', timestamp: Date.now() });
-        ctx.router.PostMessage({ type: 'addUserMessage', content: '✕ 已取消任务' });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✕ 取消任务', timestamp: Date.now() });
         ctx.store.updateTaskStatus(tid, 'cancelled');
         ctx.store.clearReviewChanges(tid);
         ctx.store.addTimelineEntry(tid, { timestamp: Date.now(), type: 'phase_change', summary: '任务取消', detail: '用户主动取消任务' });
@@ -47,7 +45,6 @@ export class TaskFlowHandler {
     async handleConfirmPlan(tid: string) {
         const { ctx } = this;
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认计划', timestamp: Date.now() });
-        ctx.router.PostMessage({ type: 'addUserMessage', content: '✅ 确认计划' });
         ctx.taskFlow.confirmPlan(tid);
         await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, '计划已确认，请开始执行。'), false, '计划已确认，请开始执行。');
     }
@@ -69,8 +66,7 @@ export class TaskFlowHandler {
 
     async handleConfirmExecuteDone(tid: string) {
         const { ctx } = this;
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认完成，进入自验', timestamp: Date.now() });
-        ctx.router.PostMessage({ type: 'addUserMessage', content: '✅ 确认完成，进入自验' });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认执行完成，进入自验', timestamp: Date.now() });
         ctx.taskFlow.confirmExecuteDone(tid);
         ctx.sendTaskInfo(tid);
         ctx.sendNodePanelUpdate(tid);
@@ -79,8 +75,7 @@ export class TaskFlowHandler {
 
     async handleConfirmSelfVerifyDone(tid: string) {
         const { ctx } = this;
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认自验，进入验收', timestamp: Date.now() });
-        ctx.router.PostMessage({ type: 'addUserMessage', content: '✅ 确认自验，进入验收' });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认自验完成，进入验收', timestamp: Date.now() });
         const cleanedText = ctx.taskFlow.confirmSelfVerifyDone(tid);
         ctx.sendTaskInfo(tid);
         ctx.sendNodePanelUpdate(tid);
@@ -95,8 +90,7 @@ export class TaskFlowHandler {
 
     handleRejectPlan(tid: string) {
         const { ctx } = this;
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '↩️ 调整计划', timestamp: Date.now() });
-        ctx.router.PostMessage({ type: 'addUserMessage', content: '↩️ 调整计划' });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '↩️ 驳回计划', timestamp: Date.now() });
         ctx.taskFlow.rejectPlan(tid);
     }
 
@@ -199,7 +193,6 @@ export class TaskFlowHandler {
     handleApproveReview(tid: string) {
         const { ctx } = this;
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 验收通过', timestamp: Date.now() });
-        ctx.router.PostMessage({ type: 'addUserMessage', content: '✅ 验收通过' });
         ctx.taskFlow.finishReview(tid);
         const task = ctx.store.getTask(tid);
         const changes = ctx.store.getReviewChanges(tid);
@@ -237,12 +230,11 @@ export class TaskFlowHandler {
 
     async handleRejectReview(tid: string, reason?: string) {
         const { ctx } = this;
-        const rejectMsg = reason ? `↩️ 驳回: ${reason}` : '↩️ 驳回，请继续修改';
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: rejectMsg, timestamp: Date.now() });
-        ctx.router.PostMessage({ type: 'addUserMessage', content: rejectMsg });
+        const promptMsg = reason ? `↩️ 驳回: ${reason}` : '↩️ 驳回，请继续修改';
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '↩️ 驳回', timestamp: Date.now() });
         ctx.taskFlow.rejectReview(tid);
         ctx.store.clearReviewChanges(tid);
-        await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, rejectMsg), false, rejectMsg);
+        await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, promptMsg), false, promptMsg);
     }
 
     showAgentError(tid: string, errorMsg: string) {

@@ -3,10 +3,12 @@ import type { ViewStrategy } from './viewStrategy';
 import { stateManager } from './state';
 import { basePipeline } from './basePipeline';
 import { taskStrategy } from './taskStrategy';
-import { renderGoalActions, renderPlanActions, renderExecuteActions, renderSelfVerifyActions, renderReviewActions } from './cardRenderer';
+import { postAction, renderCardActions } from './cardRenderer';
+import { createCard } from '../cardBuilder';
 import { showTaskView } from '../taskView';
 import { appendToChatMessages } from '../chatStream';
 import { renderMarkdown } from '../markdownRenderer';
+import { formatTimestamp } from '../messageRenderer';
 import { createTimelineEntry } from '../timelineRenderer';
 import { G } from '../state';
 
@@ -44,6 +46,11 @@ export function initTaskV3() {
         if (state.msgVersion !== _lastMsgVersion) {
             _renderedMsgIds.clear();
             basePipeline.renderMessageList(state.messages);
+            // 将所有消息标记为已渲染（包括 cardMeta），
+            // 确保 _syncMessages 增量同步时能找到正确的 DOM 插入锚点
+            for (const msg of state.messages) {
+                _renderedMsgIds.add(msg.id);
+            }
             _lastMsgVersion = state.msgVersion;
 
             if (state.msgVersion === _lastSyncVersion && !state.isGenerating) {
@@ -241,25 +248,34 @@ function handleStreamDone(result: StreamResult) {
         });
     }
 
+    // 非阶段消息：把最终回复也加入 messages 数组，走数据驱动渲染
+    if (!['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'].includes(state.activeTaskPhase) && result.cleanedText) {
+        msgs.push({
+            id: 'agent_final_' + Date.now(),
+            taskId: state.activeTaskId || '',
+            role: 'agent',
+            content: result.cleanedText,
+            timestamp: Date.now(),
+        });
+    }
+
     const roundGroup = 'rg_' + Date.now();
     const finalMsgs = msgs.map(m => m.roundGroup ? m : { ...m, roundGroup });
-    // 先 patch（触发 auto-sync，在 round 关闭前追加遗漏的工具卡片），再清理 round
+    // 先 patch（触发 auto-sync），再清理 round
     stateManager.patch({ messages: finalMsgs });
     basePipeline.finalizeStream();
     basePipeline.closeRound();
 
     if (result.planProposed && state.activeTaskPhase === 'plan') {
-        renderPlanActions(state.activeTaskId || '');
+        _ensurePhaseActionCard('plan', state.activeTaskId || '');
     } else if (result.executeFinished && state.activeTaskPhase === 'execute') {
-        renderExecuteActions(state.activeTaskId || '');
+        _ensurePhaseActionCard('execute', state.activeTaskId || '');
     } else if (result.selfVerifyFinished && state.activeTaskPhase === 'self_verify') {
-        renderSelfVerifyActions(state.activeTaskId || '');
+        _ensurePhaseActionCard('self_verify', state.activeTaskId || '');
     } else if (state.activeTaskPhase === 'review') {
-        renderReviewActions(state.activeTaskId || '');
+        _ensurePhaseActionCard('review', state.activeTaskId || '');
     } else if (state.activeTaskPhase === 'goal') {
-        renderGoalActions(state.activeTaskId || '');
-    } else if (!['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'].includes(state.activeTaskPhase)) {
-        basePipeline.appendFinalMessage(result.cleanedText);
+        _ensurePhaseActionCard('goal', state.activeTaskId || '');
     }
 
     _strategy.onStreamDone(state, result);
@@ -269,8 +285,95 @@ function handleStreamDone(result: StreamResult) {
 
 let _renderedMsgIds = new Set<string>();
 
+/** 为 cardMeta 阶段卡片添加操作按钮 */
+function _appendPhaseActionsToCard(card: HTMLElement, msg: import('./types').Message) {
+    const tid = msg.taskId;
+    const type = msg.cardMeta?.type;
+    const actions: { text: string; className: string; onClick: () => void }[] = [];
+
+    switch (type) {
+        case 'goal':
+            actions.push(
+                { text: '确认目标 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmGoal', taskId: tid }) },
+                { text: '修改需求 ↩', className: 'secondary', onClick: () => postAction({ type: 'reviseGoal', taskId: tid }) },
+                { text: '取消 ✕', className: 'cancel', onClick: () => postAction({ type: 'cancelTask', taskId: tid }) },
+            );
+            break;
+        case 'plan':
+            actions.push(
+                { text: '确认计划 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmPlan', taskId: tid }) },
+                { text: '驳回 ↩', className: 'cancel', onClick: () => postAction({ type: 'rejectPlan', taskId: tid }) },
+            );
+            break;
+        case 'execute':
+            actions.push(
+                { text: '确认完成并进入自验 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmExecuteDone', taskId: tid }) },
+            );
+            break;
+        case 'self_verify':
+            actions.push(
+                { text: '确认自验并进入验收 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmSelfVerifyDone', taskId: tid }) },
+            );
+            break;
+        case 'review':
+            actions.push(
+                { text: '验收通过 ✓', className: 'primary', onClick: () => postAction({ type: 'approveReview', taskId: tid }) },
+                { text: '驳回 ↩', className: 'secondary', onClick: () => postAction({ type: 'rejectReview', taskId: tid }) },
+            );
+            break;
+    }
+    if (actions.length > 0) renderCardActions(card, actions);
+}
+
 function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
-    if (msg.cardMeta) return null;
+    // ── cardMeta 消息：创建可交互的阶段卡片 ──
+    if (msg.cardMeta) {
+        const type = msg.cardMeta.type || '';
+        const isPending = msg.cardMeta.status === 'pending';
+        const headerMap: Record<string, string> = {
+            goal: '🎯 任务目标', plan: '📋 计划方案', execute: '⚡ 执行完成',
+            self_verify: '🔍 自验完成', review: '✅ 验收',
+        };
+        const colorMap: Record<string, string> = {
+            goal: '#3c3c3c', plan: '#4a8bb5', execute: '#d4a84b',
+            self_verify: '#6b9e6b', review: '#2a5a2a',
+        };
+        const headerBgMap: Record<string, string> = {
+            goal: '#2d2d2d', plan: '#1e2d3d', execute: '#2d2d2d',
+            self_verify: '#2d2d2d', review: '#1a3a1a',
+        };
+
+        const div = document.createElement('div');
+        div.className = 'chat-msg agent';
+        div.dataset.msgId = msg.id;
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+
+        const card = createCard({
+            headerHtml: headerMap[type] || '📋 阶段',
+            bodyMarkdown: isPending ? '' : msg.content,
+            rawData: msg,
+            defaultCollapsed: !isPending,
+            borderColor: colorMap[type] || '#3c3c3c',
+            headerBg: headerBgMap[type] || '#2d2d2d',
+            headerColor: '#e0e0e0',
+        });
+
+        if (isPending) {
+            _appendPhaseActionsToCard(card, msg);
+        } else {
+            const statusEl = document.createElement('div');
+            statusEl.className = 'msg-card-status';
+            statusEl.textContent = msg.cardMeta?.status === 'confirmed' ? '✅ 已确认'
+                : msg.cardMeta?.status === 'rejected' ? '↩️ 已驳回'
+                : '⏳ 已完成';
+            card.appendChild(statusEl);
+        }
+
+        bubble.appendChild(card);
+        div.appendChild(bubble);
+        return div;
+    }
 
     if (msg.type === 'thinking') {
         const entry = createTimelineEntry({ kind: 'thinking', title: '思考', content: msg.content, status: msg.streaming ? 'running' : 'completed' });
@@ -302,7 +405,8 @@ function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
         div.dataset.msgId = msg.id;
         const sender = document.createElement('div');
         sender.className = 'msg-sender';
-        sender.textContent = 'You';
+        const ts = msg.timestamp ? formatTimestamp(msg.timestamp) : '';
+        sender.innerHTML = 'You' + (ts ? ' <span class="msg-timestamp">' + ts + '</span>' : '');
         div.appendChild(sender);
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble';
@@ -357,35 +461,139 @@ function _updateMsgElement(el: HTMLElement, msg: import('./types').Message) {
     }
 }
 
+/**
+ * 在 DOM 中为当前消息找到正确的插入位置。
+ * 优先向前查找已渲染的前一条消息，插到它后面；
+ * 如果没有，则向后查找已渲染的后一条消息，插到它前面。
+ * 如果都没有，返回 false，调用方按回退逻辑追加。
+ */
+function _insertAtCorrectPosition(
+    container: Element,
+    el: Element,
+    msgs: import('./types').Message[],
+    currentIndex: number
+): boolean {
+    // 1) 向前查找最近的已渲染消息，插到它后面
+    for (let j = currentIndex - 1; j >= 0; j--) {
+        const prevMsg = msgs[j];
+        if (_renderedMsgIds.has(prevMsg.id)) {
+            const prevEl = container.querySelector(`[data-msg-id="${prevMsg.id}"]`);
+            if (prevEl) {
+                // prevEl 可能在 round 容器内部，需要找到 container 的直接子节点
+                let insertAfter: Element = prevEl;
+                while (insertAfter.parentElement && insertAfter.parentElement !== container) {
+                    insertAfter = insertAfter.parentElement;
+                }
+                insertAfter.insertAdjacentElement('afterend', el);
+                return true;
+            }
+        }
+    }
+
+    // 2) 向后查找最近的已渲染消息，插到它前面
+    for (let j = currentIndex + 1; j < msgs.length; j++) {
+        const nextMsg = msgs[j];
+        if (_renderedMsgIds.has(nextMsg.id)) {
+            const nextEl = container.querySelector(`[data-msg-id="${nextMsg.id}"]`);
+            if (nextEl) {
+                let insertBefore: Node = nextEl;
+                while (insertBefore.parentElement && insertBefore.parentElement !== container) {
+                    insertBefore = insertBefore.parentElement;
+                }
+                container.insertBefore(el, insertBefore);
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * 确保阶段操作卡片存在于 messages 数组中。
+ * 这是 phase action 卡片的唯一入口 —— 所有调用方必须通过此函数，
+ * 而非直接操作 DOM（renderGoalActions 等）。
+ */
+function _ensurePhaseActionCard(phase: string, taskId: string) {
+    const state = stateManager.snapshot();
+    const msgs = [...state.messages];
+
+    // 避免重复：同阶段已有 pending 卡片则跳过
+    const alreadyPending = msgs.some(m =>
+        m.cardMeta?.type === phase && m.cardMeta?.status === 'pending'
+    );
+    if (alreadyPending) return;
+
+    // 避免重复：同阶段已有确认过的消息则跳过
+    const actionLabels: Record<string, string> = {
+        goal: '确认目标', plan: '确认计划', execute: '确认执行',
+        self_verify: '确认自验', review: '验收通过',
+    };
+    const label = actionLabels[phase];
+    if (label) {
+        const alreadyConfirmed = msgs.some(m =>
+            m.role === 'user' && m.content.includes(label)
+        );
+        if (alreadyConfirmed) return;
+    }
+
+    msgs.push({
+        id: 'phase_' + phase + '_' + Date.now(),
+        taskId,
+        role: 'agent',
+        content: '',
+        timestamp: Date.now(),
+        cardMeta: {
+            type: phase as 'goal' | 'plan' | 'execute' | 'self_verify' | 'review',
+            status: 'pending',
+        },
+    });
+    stateManager.patch({ messages: msgs });
+}
+
 function _syncMessages() {
     const msgs = stateManager.state.messages;
     const container = document.querySelector('#task-view #chat-messages');
     if (!container) return;
 
-    for (const msg of msgs) {
+    for (let i = 0; i < msgs.length; i++) {
+        const msg = msgs[i];
         if (_renderedMsgIds.has(msg.id)) {
             const el = container.querySelector(`[data-msg-id="${msg.id}"]`) as HTMLElement;
             if (el) _updateMsgElement(el, msg);
             continue;
         }
         const el = _createMsgElement(msg);
-        if (!el) continue;
+        if (!el) {
+            // cardMeta 等无法创建独立 DOM 元素的消息：
+            // 如果 DOM 中已存在对应元素（由 renderMessageList 全量渲染），标记为已渲染
+            if (container.querySelector(`[data-msg-id="${msg.id}"]`)) {
+                _renderedMsgIds.add(msg.id);
+            }
+            continue;
+        }
 
+        const msgEl: HTMLElement = el;
         _renderedMsgIds.add(msg.id);
 
-        // User messages go directly; streaming content (agent/thinking/tool) goes in round container
+        // 尝试按数组顺序插入到正确位置
+        if (_insertAtCorrectPosition(container, msgEl, msgs, i)) {
+            continue;
+        }
+
+        // 回退：后面没有已渲染的锚点消息，按原有规则追加
         if (msg.role === 'user') {
-            appendToChatMessages(el);
+            appendToChatMessages(msgEl);
         } else if (msg.role === 'agent' && !msg.streaming && !msg.cardMeta) {
             // Completed agent: append to round if active, else direct
             const round = basePipeline.getOrCreateRoundContainer();
-            if (round) round.appendChild(el);
-            else appendToChatMessages(el);
+            if (round) round.appendChild(msgEl);
+            else appendToChatMessages(msgEl);
         } else {
             // Streaming agent, thinking, tool → round container
             const round = basePipeline.getOrCreateRoundContainer();
-            if (round) round.appendChild(el);
-            else appendToChatMessages(el);
+            if (round) round.appendChild(msgEl);
+            else appendToChatMessages(msgEl);
         }
     }
 }
@@ -395,14 +603,57 @@ let _lastSyncVersion = -1;
 
 function _renderPhaseActionsFromSync(state: import('./types').AppState) {
     const tid = state.activeTaskId || '';
-    if (state.activeTaskPhase !== 'review') return;
-    const hasResult = state.messages.some(m =>
-        m.type === 'review_approved' || m.type === 'review_rejected'
-        || (m.role === 'user' && m.content.includes('验收通过'))
-        || (m.role === 'user' && m.content.includes('驳回'))
-    );
-    if (hasResult) return;
-    renderReviewActions(tid);
+    if (!tid) return;
+
+    switch (state.activeTaskPhase) {
+        case 'goal': {
+            const hasConfirmedGoal = state.messages.some(m =>
+                m.type === 'goal_confirmed'
+                || m.type === 'plan_proposal'
+                || m.type === 'plan_confirmed'
+                || (m.role === 'user' && m.content.includes('确认目标'))
+            );
+            if (hasConfirmedGoal) return;
+            _ensurePhaseActionCard('goal', tid);
+            break;
+        }
+        case 'plan': {
+            const hasConfirmedPlan = state.messages.some(m =>
+                m.type === 'plan_confirmed'
+                || (m.role === 'user' && (m.content.includes('确认计划') || m.content.includes('驳回计划')))
+            );
+            if (hasConfirmedPlan) return;
+            _ensurePhaseActionCard('plan', tid);
+            break;
+        }
+        case 'execute': {
+            const hasConfirmedExecute = state.messages.some(m =>
+                (m.role === 'user' && (m.content.includes('确认执行') || m.content.includes('确认完成')))
+            );
+            if (hasConfirmedExecute) return;
+            _ensurePhaseActionCard('execute', tid);
+            break;
+        }
+        case 'self_verify': {
+            const hasConfirmedVerify = state.messages.some(m =>
+                (m.role === 'user' && (m.content.includes('确认自验') || m.content.includes('进入验收')))
+            );
+            if (hasConfirmedVerify) return;
+            _ensurePhaseActionCard('self_verify', tid);
+            break;
+        }
+        case 'review': {
+            const hasResult = state.messages.some(m =>
+                m.type === 'review_approved' || m.type === 'review_rejected'
+                || (m.role === 'user' && (m.content.includes('验收通过') || m.content.includes('驳回')))
+            );
+            if (hasResult) return;
+            _ensurePhaseActionCard('review', tid);
+            break;
+        }
+        default:
+            break;
+    }
 }
 
 function handleMessagesSync(msg: { messages: import('../../../types').ChatMessage[] }) {

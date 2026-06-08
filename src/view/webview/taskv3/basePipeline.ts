@@ -1,6 +1,6 @@
 import type { Message, ToolCallState } from './types';
-import { renderMarkdown, escapeHtml } from '../markdownRenderer';
-import { createCard, createCardMessageElement } from '../cardBuilder';
+import { renderMarkdown } from '../markdownRenderer';
+import { createCard } from '../cardBuilder';
 import { appendToChatMessages } from '../chatStream';
 import { renderCardForMessage, renderCardActions, renderCardStatus, postAction } from './cardRenderer';
 import { createTimelineEntry } from '../timelineRenderer';
@@ -54,38 +54,6 @@ function appendToRound(el: Element) {
 
 const STREAM_CONTENT_ID = '__v3-stream-content';
 
-function startStream() {
-    if (document.getElementById(STREAM_CONTENT_ID)) return;
-    if (!getOrCreateRoundContainer()) return;
-
-    const msgDiv = createCardMessageElement();
-    const bubble = msgDiv.querySelector('.msg-bubble') as HTMLElement;
-    if (!bubble) return;
-
-    const content = document.createElement('div');
-    content.id = STREAM_CONTENT_ID;
-    content.className = 'stream-markdown';
-    bubble.appendChild(content);
-
-    msgDiv.id = '__v3-stream-message';
-    msgDiv.classList.add('chat-msg', 'agent');
-    appendToRound(msgDiv);
-}
-
-function appendStreamChunk(text: string) {
-    const content = document.getElementById(STREAM_CONTENT_ID);
-    if (!content) {
-        startStream();
-        const retry = document.getElementById(STREAM_CONTENT_ID);
-        if (!retry) return;
-        retry.innerHTML = renderMarkdown(text);
-        scrollToBottom();
-        return;
-    }
-    content.innerHTML = renderMarkdown(text);
-    scrollToBottom();
-}
-
 function finalizeStream() {
     const el = document.getElementById(STREAM_CONTENT_ID);
     if (el) el.removeAttribute('id');
@@ -94,127 +62,6 @@ function finalizeStream() {
 }
 
 // ────── Tool Card Engine ──────
-
-function addToolCard(tc: { toolCallId: string; title: string; kind: string; status: string; output?: string; content?: string }) {
-    finalizeStream();
-    _createAndAppendToolCard(tc, true);
-}
-
-/** 插入工具卡片到本轮容器（时间顺序），不终结流 */
-function addToolCardToRound(tc: { toolCallId: string; title: string; kind: string; status: string; output?: string; content?: string }) {
-    _createAndAppendToolCard(tc, false);
-}
-
-/** 实时流：在 stream 前插入/更新工具时间线条目（tool-chunk 消息） */
-function updateToolEntryInRound(toolCallId: string, changes: { title?: string; kind?: string; status?: string; output?: string }) {
-    const existing = document.querySelector(`[data-tool-call-id="${toolCallId}"]`);
-    if (existing) {
-        // 更新已有条目
-        const bodyEl = existing.querySelector('.tl-entry-body') as HTMLElement;
-        if (bodyEl) {
-            let pre = bodyEl.querySelector('pre') as HTMLElement;
-            // 如果首次创建时 output 为空没生成 pre，现在补上
-            if (!pre && changes.output) {
-                const wrap = document.createElement('div');
-                wrap.className = 'tl-body-bash';
-                pre = document.createElement('pre');
-                wrap.appendChild(pre);
-                bodyEl.appendChild(wrap);
-            }
-            if (pre && changes.output) pre.textContent = changes.output;
-            bodyEl.classList.add('open');
-        }
-        // 更新标题（初始"Terminal"→"date"等）
-        if (changes.title) {
-            const titleEl = existing.querySelector('.tl-entry-title') as HTMLElement;
-            if (titleEl) titleEl.textContent = changes.title;
-        }
-        console.log('[basePipeline updateTool]', toolCallId, 'existing, output length:', changes.output?.length || 0);
-        return;
-    }
-    console.log('[basePipeline createTool]', JSON.stringify({
-        toolCallId, kind: changes.kind, title: changes.title, status: changes.status,
-        outputLength: (changes.output || '').length,
-        outputPreview: changes.output ? changes.output.substring(0, 200) : '(empty)',
-    }));
-
-    // 创建新条目，默认展开 body 让用户直接看到内容
-    const entry = createTimelineEntry({ toolCallId, title: changes.title || '', kind: changes.kind || '', status: changes.status || 'running', content: changes.output || '' });
-    const body = entry.querySelector('.tl-entry-body');
-    if (body) body.classList.add('open');
-    const msgDiv = document.createElement('div');
-    msgDiv.className = 'chat-msg tool';
-    msgDiv.dataset.toolCallId = toolCallId;
-    msgDiv.appendChild(entry);
-
-    // 追加到本轮末尾（时间顺序：AI 回复文本 → 思考 → 工具）
-    const round = getRoundContainer();
-    if (round) {
-        round.appendChild(msgDiv);
-    } else {
-        appendToChatMessages(msgDiv);
-    }
-}
-
-function _createAndAppendToolCard(tc: { toolCallId: string; title: string; kind: string; status: string; output?: string; content?: string }, useAppendToChat: boolean) {
-    const entry = createTimelineEntry(tc);
-    // 默认展开工具输出
-    const body = entry.querySelector('.tl-entry-body');
-    if (body && (tc.output || tc.content)) body.classList.add('open');
-    const msgDiv = document.createElement('div');
-    msgDiv.className = 'chat-msg tool';
-    msgDiv.dataset.toolCallId = tc.toolCallId;
-    msgDiv.appendChild(entry);
-
-    if (useAppendToChat) {
-        appendToChatMessages(msgDiv);
-    } else {
-        // 追加到本轮末尾（时间顺序：AI 回复文本 → 思考 → 工具）
-        const round = getRoundContainer();
-        if (round) {
-            round.appendChild(msgDiv);
-        } else {
-            appendToChatMessages(msgDiv);
-        }
-    }
-}
-
-function updateToolCard(toolCallId: string, changes: { output?: string; content?: string; status?: string }) {
-    const card = document.querySelector(`.msg-card[data-tool-call-id="${toolCallId}"]`) as HTMLElement | null;
-    if (!card) return;
-
-    if (changes.output !== undefined || changes.content !== undefined) {
-        const body = card.querySelector('.msg-card-body') as HTMLElement | null;
-        if (body) {
-            body.innerHTML = renderMarkdown(changes.output || changes.content || '');
-        }
-    }
-
-    if (changes.status === 'completed' || changes.status === 'failed') {
-        const header = card.querySelector('.msg-card-header') as HTMLElement | null;
-        if (header) header.setAttribute('aria-expanded', 'true');
-    }
-}
-
-function _kindIcon(kind: string): string {
-    const map: Record<string, string> = {
-        bash: '💻', command: '💻', terminal: '💻', shell: '💻',
-        read: '📖', write: '✏️', edit: '✏️',
-        grep: '🔍', glob: '🔍', search: '🔍',
-        thinking: '💭',
-    };
-    return map[kind] || '🔧';
-}
-
-function _kindColor(kind: string): string {
-    const map: Record<string, string> = {
-        bash: '#d4a84b', command: '#d4a84b', terminal: '#d4a84b',
-        read: '#4a8bb5', write: '#4a8bb5', edit: '#4a8bb5',
-        grep: '#6b9e6b', glob: '#6b9e6b', search: '#6b9e6b',
-        thinking: '#777',
-    };
-    return map[kind] || '#3c3c3c';
-}
 
 // ────── Thinking Card Engine (V3) ──────
 
@@ -238,17 +85,6 @@ function startThinking() {
     msgDiv.appendChild(entry);
 }
 
-function updateThinkingCard(text: string) {
-    let entry = getThinkingEntry();
-    if (!entry) {
-        startThinking();
-        entry = getThinkingEntry();
-        if (!entry) return;
-    }
-    const pre = entry.querySelector('.tl-entry-body pre') as HTMLElement;
-    if (pre) pre.textContent = text;
-}
-
 /** 完成思考：不再折叠 body，保持内容可见 */
 function finalizeThinkingCard(text: string) {
     const entry = getThinkingEntry();
@@ -270,56 +106,6 @@ function closeRound() {
     if (round) round.removeAttribute('id');
 }
 
-/** 最终确定本轮所有内容并折叠 */
-function finalizeRound() {
-    const round = getRoundContainer();
-    if (!round) return;
-
-    // 移除所有特殊 ID
-    document.getElementById(THINKING_ENTRY_ID)?.removeAttribute('id');
-    document.getElementById('__v3-stream-message')?.removeAttribute('id');
-    document.getElementById(STREAM_CONTENT_ID)?.removeAttribute('id');
-
-    // 不要继续从流式 API 更新
-    round.removeAttribute('id');
-
-    // 为当前内容添加折叠头 + 折叠体
-    const header = document.createElement('div');
-    header.className = 'v3-round-header';
-    header.innerHTML = '<span class="v3-round-header-text">📋 本轮交互详情</span><span class="v3-round-toggle">▶</span>';
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'v3-round-content collapsed';
-
-    // 把 round 里的子元素移到 wrapper 中
-    while (round.firstChild) {
-        wrapper.appendChild(round.firstChild);
-    }
-
-    round.appendChild(header);
-    round.appendChild(wrapper);
-
-    header.addEventListener('click', () => {
-        const isOpen = wrapper.classList.toggle('collapsed');
-        const toggleEl = header.querySelector('.v3-round-toggle') as HTMLElement;
-        if (toggleEl) toggleEl.textContent = isOpen ? '▶' : '▼';
-    });
-
-    round.classList.add('v3-round-folded');
-}
-
-/** 在折叠 round 后追加最终 AI 回复消息（用于无阶段卡片时） */
-function appendFinalMessage(text: string) {
-    const msgDiv = document.createElement('div');
-    msgDiv.className = 'chat-msg agent v3-round-result';
-    msgDiv.dataset.role = 'agent';
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble';
-    bubble.innerHTML = renderMarkdown(text || '');
-    msgDiv.appendChild(bubble);
-    appendToChatMessages(msgDiv);
-}
-
 // ────── Message Engine ──────
 
 function renderMessageList(messages: Message[]) {
@@ -332,13 +118,6 @@ function renderMessageList(messages: Message[]) {
     for (const msg of sorted) {
         _appendMessage(msg, container);
     }
-    scrollToBottom();
-}
-
-function appendMessage(msg: Message) {
-    const container = getContainer();
-    if (!container) return;
-    _appendMessage(msg, container);
     scrollToBottom();
 }
 
@@ -539,20 +318,10 @@ function _renderToolMessage(msg: Message) {
 }
 
 export const basePipeline = {
-    startStream,
-    appendStreamChunk,
     finalizeStream,
     closeRound,
-    addToolCard,
-    addToolCardToRound,
-    updateToolCard,
-    updateToolEntryInRound,
-    updateThinkingCard,
     finalizeThinkingCard,
-    finalizeRound,
-    appendFinalMessage,
     getOrCreateRoundContainer,
     renderMessageList,
-    appendMessage,
     scrollToBottom,
 };
