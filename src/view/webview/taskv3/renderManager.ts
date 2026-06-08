@@ -5,6 +5,9 @@ import { basePipeline } from './basePipeline';
 import { taskStrategy } from './taskStrategy';
 import { renderGoalActions, renderPlanActions, renderExecuteActions, renderSelfVerifyActions, renderReviewActions } from './cardRenderer';
 import { showTaskView } from '../taskView';
+import { appendToChatMessages } from '../chatStream';
+import { renderMarkdown } from '../markdownRenderer';
+import { createTimelineEntry } from '../timelineRenderer';
 
 let _strategy: ViewStrategy = taskStrategy;
 
@@ -38,6 +41,7 @@ export function initTaskV3() {
         _strategy.renderHeader(state);
 
         if (state.msgVersion !== _lastMsgVersion) {
+            _renderedMsgIds.clear();
             basePipeline.renderMessageList(state.messages);
             _lastMsgVersion = state.msgVersion;
 
@@ -45,6 +49,11 @@ export function initTaskV3() {
                 _renderPhaseActionsFromSync(state);
             }
         }
+    });
+
+    stateManager.onPatch(() => {
+        _syncMessages();
+        basePipeline.scrollToBottom();
     });
 
     window.addEventListener('message', (event) => {
@@ -109,8 +118,7 @@ function _updateStreamMsg(text: string) {
 }
 
 function handleStreamChunk(msg: { text: string }) {
-    const last = _updateStreamMsg(msg.text);
-    basePipeline.appendStreamChunk(msg.text);
+    _updateStreamMsg(msg.text);
 }
 
 function handleThinkingChunk(msg: { text: string; status: string }) {
@@ -136,8 +144,6 @@ function handleThinkingChunk(msg: { text: string; status: string }) {
 
     if (msg.status === 'completed') {
         basePipeline.finalizeThinkingCard(msg.text);
-    } else {
-        basePipeline.updateThinkingCard(msg.text);
     }
 }
 
@@ -173,8 +179,6 @@ function handleToolChunk(msg: { toolCallId: string; title: string; kind: string;
         });
     }
     stateManager.patch({ messages: msgs });
-
-    basePipeline.updateToolEntryInRound(msg.toolCallId, { title: msg.title, kind: msg.kind, status: msg.status, output: msg.content });
 }
 
 function handleFinalizeGoalMessage(msg: { taskId: string; goal: string }) {
@@ -207,9 +211,10 @@ function handleStreamDone(result: StreamResult) {
 
     const roundGroup = 'rg_' + Date.now();
     const finalMsgs = msgs.map(m => m.roundGroup ? m : { ...m, roundGroup });
+    // 先 patch（触发 auto-sync，在 round 关闭前追加遗漏的工具卡片），再清理 round
+    stateManager.patch({ messages: finalMsgs });
     basePipeline.finalizeStream();
     basePipeline.closeRound();
-    stateManager.patch({ messages: finalMsgs });
 
     if (result.planProposed && state.activeTaskPhase === 'plan') {
         renderPlanActions(state.activeTaskId || '');
@@ -226,6 +231,131 @@ function handleStreamDone(result: StreamResult) {
     }
 
     _strategy.onStreamDone(state, result);
+}
+
+// ────── 数据驱动 DOM 同步 ──────
+
+let _renderedMsgIds = new Set<string>();
+
+function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
+    if (msg.cardMeta) return null;
+
+    if (msg.type === 'thinking') {
+        const entry = createTimelineEntry({ kind: 'thinking', title: '思考', content: msg.content, status: msg.streaming ? 'running' : 'completed' });
+        const body = entry.querySelector('.tl-entry-body');
+        if (body) body.classList.add('open');
+        const div = document.createElement('div');
+        div.className = 'chat-msg tool';
+        div.dataset.msgId = msg.id;
+        div.appendChild(entry);
+        return div;
+    }
+
+    if (msg.type === 'tool_call') {
+        let info: any;
+        try { info = JSON.parse(msg.content); } catch { return null; }
+        const entry = createTimelineEntry(info);
+        const body = entry.querySelector('.tl-entry-body');
+        if (body) body.classList.add('open');
+        const div = document.createElement('div');
+        div.className = 'chat-msg tool';
+        div.dataset.msgId = msg.id;
+        div.appendChild(entry);
+        return div;
+    }
+
+    if (msg.role === 'user') {
+        const div = document.createElement('div');
+        div.className = 'chat-msg user';
+        div.dataset.msgId = msg.id;
+        const sender = document.createElement('div');
+        sender.className = 'msg-sender';
+        sender.textContent = 'You';
+        div.appendChild(sender);
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+        bubble.innerHTML = renderMarkdown(msg.content);
+        div.appendChild(bubble);
+        return div;
+    }
+
+    if (msg.role === 'agent' && !msg.cardMeta) {
+        const div = document.createElement('div');
+        div.className = 'chat-msg agent';
+        div.dataset.msgId = msg.id;
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+        if (msg.streaming) {
+            const content = document.createElement('div');
+            content.id = '__v3-stream-content';
+            content.className = 'stream-markdown';
+            content.innerHTML = renderMarkdown(msg.content);
+            bubble.appendChild(content);
+        } else {
+            bubble.innerHTML = renderMarkdown(msg.content);
+        }
+        div.appendChild(bubble);
+        return div;
+    }
+
+    return null;
+}
+
+function _updateMsgElement(el: HTMLElement, msg: import('./types').Message) {
+    if (msg.role === 'agent' && msg.streaming) {
+        const contentEl = el.querySelector('#__v3-stream-content') as HTMLElement;
+        if (contentEl) contentEl.innerHTML = renderMarkdown(msg.content);
+    }
+    if (msg.type === 'thinking') {
+        const pre = el.querySelector('.tl-entry-body pre') as HTMLElement;
+        if (pre) pre.textContent = msg.content;
+        if (!msg.streaming) {
+            const entry = el.querySelector('.tl-entry') as HTMLElement;
+            if (entry) entry.removeAttribute('id');
+        }
+    }
+    if (msg.type === 'tool_call') {
+        const pre = el.querySelector('.tl-entry-body pre') as HTMLElement;
+        if (pre) {
+            try {
+                const info = JSON.parse(msg.content);
+                if (info.output) pre.textContent = info.output;
+            } catch {}
+        }
+    }
+}
+
+function _syncMessages() {
+    const msgs = stateManager.state.messages;
+    const container = document.querySelector('#task-view #chat-messages');
+    if (!container) return;
+
+    for (const msg of msgs) {
+        if (_renderedMsgIds.has(msg.id)) {
+            const el = container.querySelector(`[data-msg-id="${msg.id}"]`) as HTMLElement;
+            if (el) _updateMsgElement(el, msg);
+            continue;
+        }
+        const el = _createMsgElement(msg);
+        if (!el) continue;
+
+        _renderedMsgIds.add(msg.id);
+
+        // User messages go directly; streaming content (agent/thinking/tool) goes in round container
+        if (msg.role === 'user') {
+            appendToChatMessages(el);
+        } else if (msg.role === 'agent' && !msg.streaming && !msg.cardMeta) {
+            // Completed agent: append to round if active, else direct
+            const round = basePipeline.getOrCreateRoundContainer();
+            if (round) round.appendChild(el);
+            else appendToChatMessages(el);
+        } else {
+            // Streaming agent, thinking, tool → round container
+            const round = basePipeline.getOrCreateRoundContainer();
+            if (round) round.appendChild(el);
+            else appendToChatMessages(el);
+        }
+    }
 }
 
 let _msgVersionCounter = 0;

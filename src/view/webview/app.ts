@@ -8,7 +8,6 @@ import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkin
 import { handleDemoCardUpdate } from './demoCards';
 import { initTaskV3 } from './taskv3/renderManager';
 import { stateManager } from './taskv3/state';
-import { basePipeline } from './taskv3/basePipeline';
 
 
 declare function acquireVsCodeApi(): any;
@@ -314,7 +313,6 @@ function initMessageHandler() {
                         timestamp: Date.now(),
                     });
                     stateManager.patch({ messages: msgs });
-                    basePipeline.appendMessage(msgs[msgs.length - 1]);
                 }
                 break;
             case 'agentStatus':
@@ -329,6 +327,10 @@ function initMessageHandler() {
             case 'addUserMessage':
                 {
                     const st = stateManager.snapshot();
+                    // 跳过 postAction 已添加的重复消息（确认目标/计划等按钮）
+                    const lastMsg = st.messages[st.messages.length - 1];
+                    if (lastMsg?.role === 'user' && lastMsg.content === message.content) break;
+
                     const msgs = [...st.messages];
                     const userMsg = {
                         id: 'user_' + Date.now(),
@@ -339,7 +341,6 @@ function initMessageHandler() {
                     };
                     msgs.push(userMsg);
                     stateManager.patch({ messages: msgs });
-                    basePipeline.appendMessage(userMsg);
                 }
                 break;
             case 'showGoalConfirmation':
@@ -385,7 +386,6 @@ function initMessageHandler() {
                         timestamp: Date.now(),
                     });
                     stateManager.patch({ messages: msgs });
-                    basePipeline.appendMessage(msgs[msgs.length - 1]);
                 }
                 break;
             case 'slashCommandList':
