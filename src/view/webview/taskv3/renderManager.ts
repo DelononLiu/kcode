@@ -128,18 +128,97 @@ export function initTaskV3() {
     }
 }
 
-function _countRoundMsgs(msgs: import('./types').Message[], rg: string): { thinking: number; tools: Record<string, number> } | null {
+type _Message = import('./types').Message;
+
+function _findLastUserIdx(msgs: _Message[]): number {
+    for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'user') return i;
+    }
+    return -1;
+}
+
+/** 折叠一个 round（user 消息之后、下一条 user 消息之前的所有消息） */
+function _collapseRound(msgs: _Message[], startIdx: number, endIdx: number): { msgs: _Message[]; summary: _Message | null } {
+    if (startIdx > endIdx) return { msgs, summary: null };
+
+    const rg = 'rg_' + msgs[startIdx].id;
+    const result = [...msgs];
+    let finalAgentIdx = -1;
     let thinking = 0;
     const tools: Record<string, number> = {};
-    for (const m of msgs) {
-        if (m.roundGroup !== rg) continue;
-        if (m.type === 'thinking') { thinking++; continue; }
-        if (m.type === 'tool_call') {
-            try { const info = JSON.parse(m.content); const k = info.kind || 'other'; tools[k] = (tools[k] || 0) + 1; } catch {}
+
+    // 第一遍：分配 roundGroup、找最终 agent 回复、统计
+    for (let i = startIdx; i <= endIdx; i++) {
+        result[i] = { ...result[i], roundGroup: rg };
+        if (result[i].role === 'agent' && !result[i].cardMeta && result[i].type !== 'thinking') {
+            finalAgentIdx = i;
+        }
+        if (result[i].type === 'thinking') { thinking++; }
+        if (result[i].type === 'tool_call') {
+            try { const info = JSON.parse(result[i].content); const k = info.kind || 'other'; tools[k] = (tools[k] || 0) + 1; } catch {}
         }
     }
-    if (thinking === 0 && Object.keys(tools).length === 0) return null;
-    return { thinking, tools };
+
+    // 第二遍：折叠除最终回复和 cardMeta 外的所有消息
+    for (let i = startIdx; i <= endIdx; i++) {
+        if (i === finalAgentIdx) {
+            const { collapsed: _, ...rest } = result[i] as any;
+            result[i] = rest;
+        } else if (!result[i].cardMeta) {
+            result[i] = { ...result[i], collapsed: true };
+        }
+    }
+
+    // 生成 summary
+    const hasCards = thinking > 0 || Object.keys(tools).length > 0;
+    if (!hasCards) return { msgs: result, summary: null };
+
+    const firstIdx = result.findIndex((_m, i) => i >= startIdx && i <= endIdx && 'collapsed' in (result[i] as any));
+    const summary: _Message = {
+        id: 'round_summary_' + rg,
+        taskId: result[startIdx]?.taskId || '',
+        role: 'agent',
+        type: 'round_summary',
+        content: JSON.stringify({ thinking, tools }),
+        timestamp: (firstIdx >= 0 ? result[firstIdx].timestamp : Date.now()) - 1,
+        roundGroup: rg,
+        collapsed: true,
+    };
+    return { msgs: result, summary };
+}
+
+function _collapseAllRounds(msgs: _Message[]): _Message[] {
+    const userIdx = _findLastUserIdx(msgs);
+    if (userIdx < 0) return msgs;
+
+    // 处理所有轮：从第一个 user 开始，每段一个 round
+    const result = [...msgs];
+    const insertions: { idx: number; msg: _Message }[] = [];
+    let roundStart = -1;
+
+    for (let i = 0; i < result.length; i++) {
+        if (result[i].role === 'user') {
+            roundStart = i + 1;
+            continue;
+        }
+        if (roundStart > 0 && (i === result.length - 1 || result[i + 1]?.role === 'user')) {
+            // round 结束：从 roundStart 到 i
+            const end = i;
+            const collapsed = _collapseRound(result, roundStart, end);
+            for (let j = roundStart; j <= end; j++) {
+                result[j] = collapsed.msgs[j];
+            }
+            if (collapsed.summary) {
+                const insIdx = collapsed.msgs.findIndex((_m, k) => k >= roundStart && k <= end && 'collapsed' in (collapsed.msgs[k] as any));
+                if (insIdx >= 0) insertions.push({ idx: insIdx, msg: collapsed.summary });
+            }
+        }
+    }
+
+    for (const ins of insertions.sort((a, b) => b.idx - a.idx)) {
+        result.splice(ins.idx, 0, ins.msg);
+    }
+    return result;
 }
 
 function _buildSummaryHtml(counts: { thinking: number; tools: Record<string, number> }): string {
@@ -159,10 +238,8 @@ function _updateStreamMsg(text: string) {
 
     let streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
     if (streamIdx < 0) {
-        // 新流开始：重置用户滚动状态，允许自动滚动
         G._userScrolledUp = false;
 
-        const roundGroup = 'rg_' + Date.now();
         const newMsg: import('./types').Message = {
             id: 'msg_' + Date.now(),
             taskId: state.activeTaskId || '',
@@ -170,7 +247,6 @@ function _updateStreamMsg(text: string) {
             content: '',
             timestamp: Date.now(),
             streaming: true,
-            roundGroup,
         };
         msgs.push(newMsg);
         streamIdx = msgs.length - 1;
@@ -190,31 +266,19 @@ function handleThinkingChunk(msg: { text: string; status: string }) {
     const state = stateManager.snapshot();
     const msgs = [...state.messages];
     const now = Date.now();
-    const streamMsg = msgs.find(m => m.role === 'agent' && m.streaming);
-    const rg = streamMsg?.roundGroup || '';
-    const newId = 'thinking_' + now;
 
     const existingIdx = msgs.findIndex(m => m.type === 'thinking' && m.streaming);
     if (existingIdx >= 0) {
         msgs[existingIdx] = { ...msgs[existingIdx], content: msg.text, streaming: msg.status !== 'completed' };
     } else {
-        // 数据驱动折叠：新思考卡片到达时，自动折叠同轮之前的工具/思考卡片
-        if (rg) {
-            for (let i = 0; i < msgs.length; i++) {
-                if (msgs[i].roundGroup === rg && (msgs[i].type === 'tool_call' || msgs[i].type === 'thinking')) {
-                    msgs[i] = { ...msgs[i], collapsed: true };
-                }
-            }
-        }
         msgs.push({
-            id: newId,
+            id: 'thinking_' + now,
             taskId: state.activeTaskId || '',
             role: 'agent',
             type: 'thinking',
             content: msg.text,
             timestamp: now,
             streaming: msg.status !== 'completed',
-            roundGroup: rg,
         });
     }
     stateManager.patch({ messages: msgs });
@@ -242,30 +306,18 @@ function handleToolChunk(msg: { toolCallId: string; title: string; kind: string;
         status: msg.status,
         output: msg.content,
     });
-    const toolId = 'tool_' + msg.toolCallId;
-    const streamMsg = msgs.find(m => m.role === 'agent' && m.streaming);
-    const rg = streamMsg?.roundGroup || '';
 
     const existingIdx = msgs.findIndex(m => m.type === 'tool_call' && m.content && m.content.includes(msg.toolCallId));
     if (existingIdx >= 0) {
         msgs[existingIdx] = { ...msgs[existingIdx], content: toolContent };
     } else {
-        // 数据驱动折叠：新工具卡片到达时，自动折叠同轮之前的工具/思考卡片
-        if (rg) {
-            for (let i = 0; i < msgs.length; i++) {
-                if (msgs[i].roundGroup === rg && (msgs[i].type === 'tool_call' || msgs[i].type === 'thinking')) {
-                    msgs[i] = { ...msgs[i], collapsed: true };
-                }
-            }
-        }
         msgs.push({
-            id: toolId,
+            id: 'tool_' + msg.toolCallId,
             taskId: state.activeTaskId || '',
             role: 'tool',
             type: 'tool_call',
             content: toolContent,
             timestamp: Date.now(),
-            roundGroup: rg,
         });
     }
     stateManager.patch({ messages: msgs });
@@ -278,11 +330,13 @@ function handleStreamDone(result: StreamResult) {
     const state = stateManager.snapshot();
     const msgs = [...state.messages];
 
+    // 停止流式标记
     const streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
     if (streamIdx >= 0) {
-        msgs[streamIdx] = { ...msgs[streamIdx], streaming: false, collapsed: true };
+        msgs[streamIdx] = { ...msgs[streamIdx], streaming: false };
     }
 
+    // 补充未在流式中出现的 tool call
     const seenToolIds = new Set(
         msgs.filter(m => m.type === 'tool_call').map(m => { try { return JSON.parse(m.content).toolCallId; } catch { return null; } }).filter(Boolean)
     );
@@ -299,57 +353,17 @@ function handleStreamDone(result: StreamResult) {
         });
     }
 
-    // 非阶段消息：把最终回复也加入 messages 数组，走数据驱动渲染
-    if (!['demand', 'goal', 'plan', 'execute', 'self_verify', 'review'].includes(state.activeTaskPhase) && result.cleanedText) {
-        msgs.push({
-            id: 'agent_final_' + Date.now(),
-            taskId: state.activeTaskId || '',
-            role: 'agent',
-            content: result.cleanedText,
-            timestamp: Date.now(),
-        });
+    // 位置计算折叠：最后一个 user 消息之后 = 本轮
+    const lastUser = _findLastUserIdx(msgs);
+    const roundStart = lastUser >= 0 ? lastUser + 1 : 0;
+    const { msgs: collapsedMsgs, summary } = _collapseRound(msgs, roundStart, msgs.length - 1);
+
+    if (summary) {
+        const insIdx = collapsedMsgs.findIndex((_m, i) => i >= roundStart && 'collapsed' in (collapsedMsgs[i] as any));
+        if (insIdx >= 0) collapsedMsgs.splice(insIdx, 0, summary);
+        else collapsedMsgs.push(summary);
     }
 
-    const roundGroup = 'rg_' + Date.now();
-    const finalMsgs = msgs.map(m => (m.roundGroup || m.role === 'user') ? m : { ...m, roundGroup });
-
-    // 统计本轮 tool/thinking 数量，生成 summary
-    const counts = _countRoundMsgs(finalMsgs, roundGroup);
-    // 找到本轮最后一条非 tool/thinking 的 agent 消息作为最终回复（不折叠）
-    let finalAgentIdx = -1;
-    for (let i = finalMsgs.length - 1; i >= 0; i--) {
-        const m = finalMsgs[i];
-        if (m.roundGroup === roundGroup && m.role === 'agent' && !m.cardMeta && m.type !== 'thinking') {
-            finalAgentIdx = i;
-            break;
-        }
-    }
-    // 标记本轮所有消息为 collapsed，除了 user 消息、最终 agent 回复和 cardMeta
-    const collapsedMsgs = finalMsgs.map((m, idx) => {
-        if (m.roundGroup !== roundGroup || m.role === 'user') return m;
-        if (idx === finalAgentIdx) {
-            const { collapsed: _, ...rest } = m as any;
-            return rest;
-        }
-        if (m.cardMeta) return m;
-        return { ...m, collapsed: true };
-    });
-    // 有工具/思考卡片时，在第一条之前插入 round_summary 消息
-    if (counts) {
-        const summaryMsg: import('./types').Message = {
-            id: 'round_summary_' + Date.now(),
-            taskId: state.activeTaskId || '',
-            role: 'agent',
-            type: 'round_summary',
-            content: JSON.stringify(counts),
-            timestamp: Date.now(),
-            roundGroup,
-            collapsed: true,
-        };
-        const firstIdx = collapsedMsgs.findIndex(m => m.roundGroup === roundGroup && (m.type === 'tool_call' || m.type === 'thinking'));
-        if (firstIdx >= 0) collapsedMsgs.splice(firstIdx, 0, summaryMsg);
-        else collapsedMsgs.push(summaryMsg);
-    }
     stateManager.patch({ messages: collapsedMsgs });
     basePipeline.finalizeStream();
     basePipeline.closeRound();
@@ -803,78 +817,6 @@ function _renderPhaseActionsFromSync(state: import('./types').AppState) {
 function handleMessagesSync(msg: { messages: import('../../../types').ChatMessage[] }) {
     const version = ++_msgVersionCounter;
     _lastSyncVersion = version;
-
-    // 为历史消息分配 roundGroup、插入 summary、折叠 tool/thinking
-    const raw: import('./types').Message[] = msg.messages as any[];
-    let currentRound = '';
-    const result: import('./types').Message[] = [];
-
-    // 扫描找出各轮 segment
-    type Segment = { msgs: import('./types').Message[]; rg: string };
-    const segments: Segment[] = [];
-    let seg: Segment = { msgs: [], rg: '' };
-    for (const m of raw) {
-        if (m.role === 'user') {
-            if (seg.msgs.length > 0) segments.push(seg);
-            seg = { msgs: [], rg: '' };
-        }
-        if (!seg.rg && (m.role === 'agent' || m.role === 'tool')) {
-            seg.rg = 'rg_hist_' + m.id;
-        }
-        if (seg.rg) seg.msgs.push(m);
-    }
-    if (seg.msgs.length > 0) segments.push(seg);
-
-    for (let i = 0; i < raw.length; i++) {
-        const m = { ...raw[i] };
-        if (m.role === 'user') { result.push(m); continue; }
-
-        const seg2 = segments.find(s => s.msgs.some(x => x.id === m.id));
-        const rg = seg2?.rg || '';
-        m.roundGroup = rg;
-        result.push(m);
-    }
-
-    // 每个 segment：找到最终 agent 回复，其余折叠，生成 summary
-    const insertions: { idx: number; msg: import('./types').Message }[] = [];
-    for (const seg2 of segments) {
-        // 找到该 segment 中最后一条 agent（非 thinking）作为最终回复
-        let finalIdx = -1;
-        for (let i = result.length - 1; i >= 0; i--) {
-            const m = result[i];
-            if (m.roundGroup === seg2.rg && m.role === 'agent' && !m.cardMeta && m.type !== 'thinking') {
-                finalIdx = i;
-                break;
-            }
-        }
-        // 折叠 segment 中除最终回复和 cardMeta 外的所有消息
-        for (let i = 0; i < result.length; i++) {
-            const m = result[i];
-            if (m.roundGroup !== seg2.rg) continue;
-            if (i === finalIdx) continue;
-            if (m.cardMeta) continue;
-            result[i] = { ...m, collapsed: true };
-        }
-        // 统计并插入 summary
-        const counts = _countRoundMsgs(result.filter(m => m.roundGroup === seg2.rg), seg2.rg);
-        if (!counts) continue;
-        const firstIdx = result.findIndex(m => m.roundGroup === seg2.rg && m.collapsed);
-        if (firstIdx < 0) continue;
-        const summaryMsg: import('./types').Message = {
-            id: 'round_summary_hist_' + seg2.rg,
-            taskId: result[0]?.taskId || '',
-            role: 'agent',
-            type: 'round_summary',
-            content: JSON.stringify(counts),
-            timestamp: (result[firstIdx]?.timestamp || Date.now()) - 1,
-            roundGroup: seg2.rg,
-            collapsed: true,
-        };
-        insertions.push({ idx: firstIdx, msg: summaryMsg });
-    }
-    for (const ins of insertions.sort((a, b) => b.idx - a.idx)) {
-        result.splice(ins.idx, 0, ins.msg);
-    }
-
-    stateManager.update({ messages: result, msgVersion: version });
+    const collapsed = _collapseAllRounds(msg.messages as any[]);
+    stateManager.update({ messages: collapsed, msgVersion: version });
 }
