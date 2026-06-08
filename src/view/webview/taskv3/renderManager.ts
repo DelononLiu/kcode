@@ -209,8 +209,7 @@ function _collapseAllRounds(msgs: _Message[]): _Message[] {
                 result[j] = collapsed.msgs[j];
             }
             if (collapsed.summary) {
-                const insIdx = collapsed.msgs.findIndex((_m, k) => k >= roundStart && k <= end && 'collapsed' in (collapsed.msgs[k] as any));
-                if (insIdx >= 0) insertions.push({ idx: insIdx, msg: collapsed.summary });
+                insertions.push({ idx: roundStart, msg: collapsed.summary });
             }
         }
     }
@@ -359,9 +358,7 @@ function handleStreamDone(result: StreamResult) {
     const { msgs: collapsedMsgs, summary } = _collapseRound(msgs, roundStart, msgs.length - 1);
 
     if (summary) {
-        const insIdx = collapsedMsgs.findIndex((_m, i) => i >= roundStart && 'collapsed' in (collapsedMsgs[i] as any));
-        if (insIdx >= 0) collapsedMsgs.splice(insIdx, 0, summary);
-        else collapsedMsgs.push(summary);
+        collapsedMsgs.splice(roundStart, 0, summary);
     }
 
     stateManager.patch({ messages: collapsedMsgs });
