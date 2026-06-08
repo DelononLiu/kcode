@@ -346,6 +346,7 @@ function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
         const div = document.createElement('div');
         div.className = 'chat-msg agent';
         div.dataset.msgId = msg.id;
+        if (type) div.dataset.phase = type;
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble';
 
@@ -382,6 +383,7 @@ function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
         const div = document.createElement('div');
         div.className = 'chat-msg tool';
         div.dataset.msgId = msg.id;
+        if (msg.phase) div.dataset.phase = msg.phase;
         div.appendChild(entry);
         return div;
     }
@@ -395,6 +397,7 @@ function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
         const div = document.createElement('div');
         div.className = 'chat-msg tool';
         div.dataset.msgId = msg.id;
+        if (msg.phase) div.dataset.phase = msg.phase;
         div.appendChild(entry);
         return div;
     }
@@ -403,6 +406,7 @@ function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
         const div = document.createElement('div');
         div.className = 'chat-msg user';
         div.dataset.msgId = msg.id;
+        if (msg.phase) div.dataset.phase = msg.phase;
         const sender = document.createElement('div');
         sender.className = 'msg-sender';
         const ts = msg.timestamp ? formatTimestamp(msg.timestamp) : '';
@@ -419,6 +423,7 @@ function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
         const div = document.createElement('div');
         div.className = 'chat-msg agent';
         div.dataset.msgId = msg.id;
+        if (msg.phase) div.dataset.phase = msg.phase;
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble';
         if (msg.streaming) {
@@ -542,6 +547,7 @@ function _ensurePhaseActionCard(phase: string, taskId: string) {
         taskId,
         role: 'agent',
         content: '',
+        phase,
         timestamp: Date.now(),
         cardMeta: {
             type: phase as 'goal' | 'plan' | 'execute' | 'self_verify' | 'review',

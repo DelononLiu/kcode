@@ -69,7 +69,7 @@ function onUserAction(_state: AppState, action: UserAction) {
 // ──── Guards ────
 
 function showPhasePanel(): boolean { return true; }
-function shouldFoldPhases(): boolean { return true; }
+function shouldFoldPhases(): boolean { return false; }
 function showOutputPanel(): boolean { return true; }
 
 export const taskStrategy: ViewStrategy = {
