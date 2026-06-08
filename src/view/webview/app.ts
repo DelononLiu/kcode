@@ -554,4 +554,8 @@ document.addEventListener('DOMContentLoaded', () => {
 (window as any).__resetStream = __resetStream;
 
 initTaskV3();
+// 同步 V3 activeTaskId 到 G，供 V4 输入框和 V2 遗留代码使用
+stateManager.subscribe((state) => {
+    if (state.activeTaskId) G.activeTaskId = state.activeTaskId;
+});
 
