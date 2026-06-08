@@ -130,11 +130,19 @@ export function initTaskV3() {
 
 type _Message = import('./types').Message;
 
-function _findLastUserIdx(msgs: _Message[]): number {
-    for (let i = msgs.length - 1; i >= 0; i--) {
-        if (msgs[i].role === 'user') return i;
-    }
-    return -1;
+// 不可折叠的消息类型：phase 卡片、停止消息、摘要条
+const NON_COLLAPSIBLE = new Set([
+    'goal_confirmation', 'goal_confirmed', 'goal_updated',
+    'plan_proposal', 'plan_confirmed',
+    'execute_confirmation',
+    'self_verify_confirmation',
+    'review_request', 'review_approved', 'review_rejected',
+    'stop_message',
+    'round_summary',
+    'todo',
+]);
+function _isNonCollapsible(m: { type?: string; cardMeta?: any }): boolean {
+    return !!(m.cardMeta || (m.type && NON_COLLAPSIBLE.has(m.type)));
 }
 
 /** 折叠一个 round（user 消息之后、下一条 user 消息之前的所有消息） */
@@ -150,21 +158,21 @@ function _collapseRound(msgs: _Message[], startIdx: number, endIdx: number): { m
     // 第一遍：分配 roundGroup、找最终 agent 回复、统计
     for (let i = startIdx; i <= endIdx; i++) {
         result[i] = { ...result[i], roundGroup: rg };
-        if (result[i].role === 'agent' && !result[i].cardMeta && result[i].type !== 'thinking') {
+        if (result[i].role === 'agent' && !_isNonCollapsible(result[i]) && result[i].type !== 'thinking') {
             finalAgentIdx = i;
         }
         if (result[i].type === 'thinking') { thinking++; }
         if (result[i].type === 'tool_call') {
-            try { const info = JSON.parse(result[i].content); const k = info.kind || 'other'; tools[k] = (tools[k] || 0) + 1; } catch {}
+            try { const info = JSON.parse(result[i].content); if (info.kind === 'thinking') { thinking++; } else { const k = info.kind || 'other'; tools[k] = (tools[k] || 0) + 1; } } catch {}
         }
     }
 
-    // 第二遍：折叠除最终回复和 cardMeta 外的所有消息
+    // 第二遍：折叠除最终回复和不可折叠消息外的所有消息
     for (let i = startIdx; i <= endIdx; i++) {
         if (i === finalAgentIdx) {
             const { collapsed: _, ...rest } = result[i] as any;
             result[i] = rest;
-        } else if (!result[i].cardMeta) {
+        } else if (!_isNonCollapsible(result[i])) {
             result[i] = { ...result[i], collapsed: true };
         }
     }
@@ -173,14 +181,14 @@ function _collapseRound(msgs: _Message[], startIdx: number, endIdx: number): { m
     const hasCards = thinking > 0 || Object.keys(tools).length > 0;
     if (!hasCards) return { msgs: result, summary: null };
 
-    const firstIdx = result.findIndex((_m, i) => i >= startIdx && i <= endIdx && 'collapsed' in (result[i] as any));
     const summary: _Message = {
         id: 'round_summary_' + rg,
         taskId: result[startIdx]?.taskId || '',
         role: 'agent',
         type: 'round_summary',
         content: JSON.stringify({ thinking, tools }),
-        timestamp: (firstIdx >= 0 ? result[firstIdx].timestamp : Date.now()) - 1,
+        phase: result[startIdx]?.phase,
+        timestamp: Date.now(),
         roundGroup: rg,
         collapsed: true,
     };
@@ -188,29 +196,29 @@ function _collapseRound(msgs: _Message[], startIdx: number, endIdx: number): { m
 }
 
 function _collapseAllRounds(msgs: _Message[]): _Message[] {
-    const userIdx = _findLastUserIdx(msgs);
-    if (userIdx < 0) return msgs;
+    // 剥离已有的 round_summary（上次 collapse 的产物），重新计算
+    const cleaned = msgs.filter(m => m.type !== 'round_summary');
 
-    // 处理所有轮：从第一个 user 开始，每段一个 round
-    const result = [...msgs];
+    const userIdx: number[] = [];
+    for (let i = 0; i < cleaned.length; i++) {
+        if (cleaned[i].role === 'user') userIdx.push(i);
+    }
+    if (userIdx.length === 0) return msgs;
+
+    const result = [...cleaned];
     const insertions: { idx: number; msg: _Message }[] = [];
-    let roundStart = -1;
 
-    for (let i = 0; i < result.length; i++) {
-        if (result[i].role === 'user') {
-            roundStart = i + 1;
-            continue;
+    for (let ri = 0; ri < userIdx.length; ri++) {
+        const start = userIdx[ri] + 1;
+        const end = ri + 1 < userIdx.length ? userIdx[ri + 1] - 1 : result.length - 1;
+        if (start > end) continue;
+
+        const collapsed = _collapseRound(result, start, end);
+        for (let j = start; j <= end; j++) {
+            result[j] = collapsed.msgs[j];
         }
-        if (roundStart > 0 && (i === result.length - 1 || result[i + 1]?.role === 'user')) {
-            // round 结束：从 roundStart 到 i
-            const end = i;
-            const collapsed = _collapseRound(result, roundStart, end);
-            for (let j = roundStart; j <= end; j++) {
-                result[j] = collapsed.msgs[j];
-            }
-            if (collapsed.summary) {
-                insertions.push({ idx: roundStart, msg: collapsed.summary });
-            }
+        if (collapsed.summary) {
+            insertions.push({ idx: start, msg: collapsed.summary });
         }
     }
 
@@ -352,14 +360,7 @@ function handleStreamDone(result: StreamResult) {
         });
     }
 
-    // 位置计算折叠：最后一个 user 消息之后 = 本轮
-    const lastUser = _findLastUserIdx(msgs);
-    const roundStart = lastUser >= 0 ? lastUser + 1 : 0;
-    const { msgs: collapsedMsgs, summary } = _collapseRound(msgs, roundStart, msgs.length - 1);
-
-    if (summary) {
-        collapsedMsgs.splice(roundStart, 0, summary);
-    }
+    const collapsedMsgs = _collapseAllRounds(msgs);
 
     stateManager.patch({ messages: collapsedMsgs });
     basePipeline.finalizeStream();
@@ -432,6 +433,7 @@ function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
         const div = document.createElement('div');
         div.className = 'chat-msg agent round-summary';
         div.dataset.msgId = msg.id;
+        if (msg.phase) div.dataset.phase = msg.phase;
         const icon = msg.collapsed ? '▶' : '▼';
         div.innerHTML = `<span class="round-summary-icon">${icon}</span><span class="round-summary-text">${_buildSummaryHtml(counts)}</span>`;
         div.addEventListener('click', () => {
@@ -440,7 +442,7 @@ function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
             const targetCollapsed = !(cur?.collapsed);
             const toggled = st.messages.map(m => {
                 if (m.id === msg.id) return { ...m, collapsed: targetCollapsed };
-                if (m.roundGroup === (msg as any).roundGroup && m.type !== 'round_summary' && !m.cardMeta && 'collapsed' in (m as any)) {
+                if (m.roundGroup === (msg as any).roundGroup && m.type !== 'round_summary' && !_isNonCollapsible(m) && 'collapsed' in (m as any)) {
                     return { ...m, collapsed: targetCollapsed };
                 }
                 return m;
@@ -689,10 +691,15 @@ function _ensurePhaseActionCard(phase: string, taskId: string) {
         if (alreadyConfirmed) return;
     }
 
+    const phaseTypeMap: Record<string, string> = {
+        goal: 'goal_confirmation', plan: 'plan_proposal', execute: 'execute_confirmation',
+        self_verify: 'self_verify_confirmation', review: 'review_request',
+    };
     msgs.push({
         id: 'phase_' + phase + '_' + Date.now(),
         taskId,
         role: 'agent',
+        type: phaseTypeMap[phase] || undefined,
         content: '',
         phase,
         timestamp: Date.now(),

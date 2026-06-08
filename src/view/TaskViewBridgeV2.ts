@@ -214,7 +214,33 @@ export class TaskViewBridgeV2 {
                     return;
                 }
 
-                // 1. 存 agent 消息（用 _agentStartTime 记录事件真实发生时间）
+                // 1. 从工具输出中解析协议指令
+                if (!this._isGoalFormatting) {
+                    for (const [, tc] of this.activeToolCalls) {
+                        if (tc.output && (/\[TASK_UPDATE\]/i.test(tc.output) || /<TODO_UPDATE>|<\/*title>/i.test(tc.output))) {
+                            this._ctx.taskFlow.processChunk(this.tid, tc.output);
+                        }
+                    }
+                }
+
+                // 2. 先存工具消息（时序上 thinking/tool 在 agent 文本之前）
+                if (!this._isGoalFormatting) {
+                    const sorted = Array.from(this.activeToolCalls.entries())
+                        .sort((a, b) => (a[1].eventTime || 0) - (b[1].eventTime || 0));
+                    for (const [toolCallId, tc] of sorted) {
+                        this._ctx.store.addMessage({
+                            id: this._ctx.store.nextMessageId(this.tid),
+                            taskId: this.tid,
+                            role: 'tool',
+                            type: 'tool_call',
+                            content: JSON.stringify({ toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output || '' }),
+                            phase: task?.phase,
+                            timestamp: tc.eventTime || Date.now(),
+                        });
+                    }
+                }
+
+                // 3. 再存 agent 消息（时序上在工具之后）
                 if (this._isGoalFormatting) {
                     this._ctx.taskFlow.processGoalProposal(this.tid, cleanedText, this._originalText, this._originalText);
                 } else {
@@ -237,30 +263,6 @@ export class TaskViewBridgeV2 {
                         this._ctx.triggerReviewRequest(this.tid, cleanedText);
                     } else if (task?.type === 'task' && task?.phase === 'plan') {
                         this._ctx.showPlanConfirmation(this.tid);
-                    }
-                }
-
-                // 2. 从工具输出中解析协议指令
-                if (!this._isGoalFormatting) {
-                    for (const [, tc] of this.activeToolCalls) {
-                        if (tc.output && (/\[TASK_UPDATE\]/i.test(tc.output) || /<TODO_UPDATE>|<\/*title>/i.test(tc.output))) {
-                            this._ctx.taskFlow.processChunk(this.tid, tc.output);
-                        }
-                    }
-                }
-
-                // 3. 存工具消息（用 eventTime 记录事件真实发生时间）
-                if (!this._isGoalFormatting) {
-                    for (const [toolCallId, tc] of this.activeToolCalls) {
-                        this._ctx.store.addMessage({
-                            id: this._ctx.store.nextMessageId(this.tid),
-                            taskId: this.tid,
-                            role: 'tool',
-                            type: 'tool_call',
-                            content: JSON.stringify({ toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output || '' }),
-                            phase: task?.phase,
-                            timestamp: tc.eventTime || Date.now(),
-                        });
                     }
                 }
 

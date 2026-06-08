@@ -114,9 +114,7 @@ function renderMessageList(messages: Message[]) {
     if (!container) return;
 
     container.replaceChildren();
-    // 按 timestamp 排序保证时序
-    const sorted = [...messages].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-    for (const msg of sorted) {
+    for (const msg of messages) {
         _appendMessage(msg, container);
     }
     scrollToBottom();
@@ -191,6 +189,7 @@ function _renderRoundSummary(msg: Message) {
     const div = document.createElement('div');
     div.className = 'chat-msg agent round-summary';
     div.dataset.msgId = msg.id;
+    if (msg.phase) div.dataset.phase = msg.phase;
     const icon = msg.collapsed ? '▶' : '▼';
     div.innerHTML = `<span class="round-summary-icon">${icon}</span><span class="round-summary-text">${_buildSummaryHtml(counts)}</span>`;
     div.addEventListener('click', () => {
@@ -338,6 +337,7 @@ function _renderAgentMessage(msg: Message, _streaming?: boolean) {
     bubble.innerHTML = renderMarkdown(msg.content);
     div.appendChild(bubble);
 
+    if (msg.collapsed) div.style.display = 'none';
     appendToChatMessages(div);
 }
 
