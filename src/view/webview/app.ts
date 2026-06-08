@@ -4,10 +4,11 @@ import { showTaskView } from './taskView';
 import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpdate, sendMessageFromInput } from './chatInteraction';
 import { initTemplateChips, renderCategorySelection, focusChatInput } from './templateFlow';
 import { initPluginManager, renderPluginList } from './pluginRegistry';
-import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, addUserMessage, handleKnowledgeExtract, __resetStream, showAgentThinking } from './messageRenderer';
+import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, handleKnowledgeExtract, __resetStream } from './messageRenderer';
 import { handleDemoCardUpdate } from './demoCards';
 import { initTaskV3 } from './taskv3/renderManager';
 import { stateManager } from './taskv3/state';
+import { basePipeline } from './taskv3/basePipeline';
 
 
 declare function acquireVsCodeApi(): any;
@@ -300,7 +301,21 @@ function initMessageHandler() {
                 }
                 break;
             case 'agentStreamUpdate':
-                handleAgentStreamUpdate(message.text);
+                if (G.activeTaskType === 'assistant') {
+                    handleAgentStreamUpdate(message.text);
+                } else {
+                    const st = stateManager.snapshot();
+                    const msgs = [...st.messages];
+                    msgs.push({
+                        id: 'msg_' + Date.now(),
+                        taskId: st.activeTaskId || '',
+                        role: 'agent' as const,
+                        content: message.text,
+                        timestamp: Date.now(),
+                    });
+                    stateManager.patch({ messages: msgs });
+                    basePipeline.appendMessage(msgs[msgs.length - 1]);
+                }
                 break;
             case 'agentStatus':
                 handleAgentStatus(message.status, message.message, message.agentName || '', message.modelName || '');
@@ -312,20 +327,19 @@ function initMessageHandler() {
                 if (focusTv4Input) focusTv4Input.focus();
                 break;
             case 'addUserMessage':
-                addUserMessage(message.content);
-                showAgentThinking();
-                // 写入 v3 state.messages 确保 messages-sync 后 user 消息不丢
                 {
                     const st = stateManager.snapshot();
                     const msgs = [...st.messages];
-                    msgs.push({
+                    const userMsg = {
                         id: 'user_' + Date.now(),
                         taskId: st.activeTaskId || '',
-                        role: 'user',
+                        role: 'user' as const,
                         content: message.content,
                         timestamp: Date.now(),
-                    });
+                    };
+                    msgs.push(userMsg);
                     stateManager.patch({ messages: msgs });
+                    basePipeline.appendMessage(userMsg);
                 }
                 break;
             case 'showGoalConfirmation':
@@ -348,6 +362,7 @@ function initMessageHandler() {
                 }
                 break;
             case 'toolCallUpdate':
+                if (G.activeTaskType !== 'assistant') break; // task mode: V3 handles via tool-chunk
                 handleToolCallUpdate(message);
                 break;
             case 'generationState':
@@ -357,7 +372,21 @@ function initMessageHandler() {
                 handlePendingQueueUpdate(message.count, message.items || []);
                 break;
             case 'addSystemMessage':
-                addSystemMessage(message.content);
+                if (G.activeTaskType === 'assistant') {
+                    addSystemMessage(message.content);
+                } else {
+                    const st = stateManager.snapshot();
+                    const msgs = [...st.messages];
+                    msgs.push({
+                        id: 'sys_' + Date.now(),
+                        taskId: st.activeTaskId || '',
+                        role: 'agent' as const,
+                        content: message.content,
+                        timestamp: Date.now(),
+                    });
+                    stateManager.patch({ messages: msgs });
+                    basePipeline.appendMessage(msgs[msgs.length - 1]);
+                }
                 break;
             case 'slashCommandList':
                 G.slashCommands = message.commands || [];

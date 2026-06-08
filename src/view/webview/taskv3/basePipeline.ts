@@ -262,6 +262,12 @@ function finalizeThinkingCard(text: string) {
     entry.removeAttribute('id');
 }
 
+/** 关闭本轮容器（不折叠），下次流式会开新 round */
+function closeRound() {
+    const round = getRoundContainer();
+    if (round) round.removeAttribute('id');
+}
+
 /** 最终确定本轮所有内容并折叠 */
 function finalizeRound() {
     const round = getRoundContainer();
@@ -534,6 +540,7 @@ export const basePipeline = {
     startStream,
     appendStreamChunk,
     finalizeStream,
+    closeRound,
     addToolCard,
     addToolCardToRound,
     updateToolCard,

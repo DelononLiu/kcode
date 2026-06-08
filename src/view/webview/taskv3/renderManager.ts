@@ -208,6 +208,7 @@ function handleStreamDone(result: StreamResult) {
     const roundGroup = 'rg_' + Date.now();
     const finalMsgs = msgs.map(m => m.roundGroup ? m : { ...m, roundGroup });
     basePipeline.finalizeStream();
+    basePipeline.closeRound();
     stateManager.patch({ messages: finalMsgs });
 
     if (result.planProposed && state.activeTaskPhase === 'plan') {
