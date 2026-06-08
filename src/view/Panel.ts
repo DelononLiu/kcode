@@ -179,6 +179,7 @@ export class Panel {
         ctx.loadTask = (tid) => this.taskViewBridge!.loadTask(tid);
         ctx.sendTaskInfo = () => {};
         ctx.sendNodePanelUpdate = () => {};
+        ctx.sendMessagesSync = (tid) => this.taskViewBridge!.sendMessagesSync(tid);
 
         this.sessionHandler = new TaskSessionHandler(ctx);
         this.flowHandler = new TaskFlowHandler(ctx);

@@ -445,7 +445,16 @@ function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
 function _updateMsgElement(el: HTMLElement, msg: import('./types').Message) {
     if (msg.role === 'agent' && msg.streaming) {
         const contentEl = el.querySelector('#__v3-stream-content') as HTMLElement;
-        if (contentEl) contentEl.innerHTML = renderMarkdown(msg.content);
+        if (contentEl && !_streamRafPending) {
+            _streamRafPending = true;
+            requestAnimationFrame(() => {
+                _streamRafPending = false;
+                const current = stateManager.state.messages.find(m => m.role === 'agent' && m.streaming);
+                if (current && contentEl) {
+                    contentEl.innerHTML = renderMarkdown(current.content);
+                }
+            });
+        }
     }
     if (msg.type === 'thinking') {
         const pre = el.querySelector('.tl-entry-body pre') as HTMLElement;
@@ -606,6 +615,8 @@ function _syncMessages() {
 
 let _msgVersionCounter = 0;
 let _lastSyncVersion = -1;
+
+let _streamRafPending = false;
 
 function _renderPhaseActionsFromSync(state: import('./types').AppState) {
     const tid = state.activeTaskId || '';

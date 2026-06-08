@@ -61,4 +61,6 @@ export interface KCodePanelContext {
     loadTask(taskId: string): void;
     /** 加载小助手 */
     loadAssistant(): void;
+    /** 同步消息列表到 WebView（V3 协议，由 TaskViewBridgeV2 注入） */
+    sendMessagesSync?(taskId: string): void;
 }

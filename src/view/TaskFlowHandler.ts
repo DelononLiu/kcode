@@ -116,8 +116,7 @@ export class TaskFlowHandler {
             ctx.store.addMessage({ id, taskId: tid, role: 'agent', content: partialText, timestamp: Date.now() });
         }
         ctx.taskFlow.resetGeneration(tid);
-        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: ctx.store.getTask(tid)?.phase, taskStatus: ctx.store.getTask(tid)?.status });
-        ctx.router.PostMessage({ type: 'messages-sync', messages: ctx.store.getMessages(tid) });
+        ctx.sendMessagesSync?.(tid);
     }
 
     triggerReviewRequest(tid: string, content: string) {
@@ -167,8 +166,7 @@ export class TaskFlowHandler {
             workspaceHooks: ctx.taskFlow['workspaceHooks'] || {},
         });
 
-        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: task?.phase, taskStatus: 'in_review', reviewChanges: changes.length > 0 ? changes : undefined, acceptanceCriteria });
-        ctx.router.PostMessage({ type: 'messages-sync', messages: ctx.store.getMessages(tid) });
+        ctx.sendMessagesSync?.(tid);
         ctx.sendNodePanelUpdate(tid);
         ctx.refreshSidebarCallback?.();
     }
@@ -201,8 +199,28 @@ export class TaskFlowHandler {
         if (changes.length > 0) report += `📄 **变更文件**：${changes.length} 个\n${changes.map(c => `  - \`${c.filePath}\``).join('\n')}`;
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', content: report, timestamp: Date.now() });
         ctx.store.clearReviewChanges(tid);
-        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: 'review', taskStatus: 'completed', reviewChanges: [] });
-        ctx.router.PostMessage({ type: 'messages-sync', messages: ctx.store.getMessages(tid) });
+        ctx.router.PostMessage({
+            type: 'state-delta',
+            viewMode: 'task',
+            activeTaskId: tid,
+            activeTaskPhase: 'review',
+            activeTaskStatus: 'completed',
+            taskInfo: {
+                title: task?.title,
+                goal: task?.goal,
+                category: task?.category || '',
+                phase: 'review',
+                phaseLabel: '验收',
+                status: 'completed',
+                taskType: task?.type,
+                createdAt: task?.createdAt,
+                executeFinished: ctx.taskFlow.isExecuteFinished(tid),
+            },
+            confirmedItems: task?.confirmedItems || [],
+            planSteps: task?.planSteps || [],
+            planVersion: task?.planVersion || 1,
+        });
+        ctx.sendMessagesSync?.(tid);
         this.sendTaskInfo(tid);
     }
 
@@ -216,8 +234,29 @@ export class TaskFlowHandler {
 
         if (failed.length === 0) {
             ctx.taskFlow.finishReview(tid);
-            ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: 'review', taskStatus: 'completed' });
-            ctx.router.PostMessage({ type: 'messages-sync', messages: ctx.store.getMessages(tid) });
+            const t = ctx.store.getTask(tid);
+            ctx.router.PostMessage({
+                type: 'state-delta',
+                viewMode: 'task',
+                activeTaskId: tid,
+                activeTaskPhase: 'review',
+                activeTaskStatus: 'completed',
+                taskInfo: {
+                    title: t?.title,
+                    goal: t?.goal,
+                    category: t?.category || '',
+                    phase: 'review',
+                    phaseLabel: '验收',
+                    status: 'completed',
+                    taskType: t?.type,
+                    createdAt: t?.createdAt,
+                    executeFinished: ctx.taskFlow.isExecuteFinished(tid),
+                },
+                confirmedItems: t?.confirmedItems || [],
+                planSteps: t?.planSteps || [],
+                planVersion: t?.planVersion || 1,
+            });
+            ctx.sendMessagesSync?.(tid);
             this.sendTaskInfo(tid);
         } else {
             ctx.store.updateTaskPhase(tid, 'execute');
@@ -242,8 +281,7 @@ export class TaskFlowHandler {
         const id = ctx.store.nextMessageId(tid);
         ctx.store.addMessage({ id, taskId: tid, role: 'agent', content: `错误: ${errorMsg}`, timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n---\n⚠️ **${errorMsg}**\n\n\`👉 在 KCode 侧边栏底部齿轮图标 → 设置 → Agent 配置 中填写 agentName\`\n---` });
-        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(tid), taskId: tid, taskPhase: ctx.store.getTask(tid)?.phase, taskStatus: ctx.store.getTask(tid)?.status });
-        ctx.router.PostMessage({ type: 'messages-sync', messages: ctx.store.getMessages(tid) });
+        ctx.sendMessagesSync?.(tid);
     }
 
     sendTaskInfo(taskId: string) {
@@ -331,15 +369,29 @@ export class TaskFlowHandler {
 
     sendTaskMessages(taskId: string) {
         const { ctx } = this;
-        const messages = ctx.store.getMessages(taskId);
         const task = ctx.store.getTask(taskId);
-        const reviewChanges = ctx.store.getReviewChanges(taskId);
-        let acceptanceCriteria: string[] | undefined;
-        if (task?.category && task?.status === 'in_review') {
-            acceptanceCriteria = getCategory(task.category)?.acceptanceCriteria;
-        }
-        ctx.router.PostMessage({ type: 'loadMessages', messages, taskId, title: task?.title, taskType: task?.type, taskStatus: task?.status, taskPhase: task?.phase, category: task?.category, reviewChanges: reviewChanges.length > 0 ? reviewChanges : undefined, acceptanceCriteria });
-        ctx.router.PostMessage({ type: 'messages-sync', messages });
+        ctx.router.PostMessage({
+            type: 'state-delta',
+            viewMode: 'task',
+            activeTaskId: taskId,
+            activeTaskPhase: task?.phase || '',
+            activeTaskStatus: task?.status || '',
+            taskInfo: {
+                title: task?.title,
+                goal: task?.goal,
+                category: task?.category || '',
+                phase: task?.phase || '',
+                phaseLabel: (task?.phase ? { demand: '需求', goal: '目标', plan: '计划', execute: '执行', self_verify: '自验', review: '验收' }[task.phase] : undefined) || task?.phase || '',
+                status: task?.status || '',
+                taskType: task?.type,
+                createdAt: task?.createdAt,
+                executeFinished: ctx.taskFlow.isExecuteFinished(taskId),
+            },
+            confirmedItems: task?.confirmedItems || [],
+            planSteps: task?.planSteps || [],
+            planVersion: task?.planVersion || 1,
+        });
+        ctx.sendMessagesSync?.(taskId);
     }
 
     deriveNodes(taskId: string): ProgressNode[] {
@@ -460,9 +512,7 @@ export class TaskFlowHandler {
         }
 
         this._syncTodosToPlanSteps(taskId);
-        const t = ctx.store.getTask(taskId);
-        ctx.router.PostMessage({ type: 'loadMessages', messages: ctx.store.getMessages(taskId), taskId, taskPhase: t?.phase, taskStatus: t?.status });
-        ctx.router.PostMessage({ type: 'messages-sync', messages: ctx.store.getMessages(taskId) });
+        ctx.sendMessagesSync?.(taskId);
         this.sendOutputPanelUpdate(taskId);
     }
 
