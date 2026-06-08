@@ -31,7 +31,9 @@ export function getAllRegisteredTypes(): string[] {
 import { PROBLEM_ANALYSIS_PROMPTS } from './problem_analysis';
 import { DEFECT_ANALYSIS_PROMPTS } from './defect_analysis';
 import { LOG_ANALYSIS_PROMPTS } from './log_analysis';
+import { CODE_REVIEW_PROMPTS } from './code_review';
 
 registerTypePrompt('problem_analysis', PROBLEM_ANALYSIS_PROMPTS);
 registerTypePrompt('defect_analysis', DEFECT_ANALYSIS_PROMPTS);
 registerTypePrompt('log_analysis', LOG_ANALYSIS_PROMPTS);
+registerTypePrompt('code_review', CODE_REVIEW_PROMPTS);
