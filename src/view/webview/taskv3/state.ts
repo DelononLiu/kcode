@@ -81,3 +81,4 @@ class StateManager {
 }
 
 export const stateManager = new StateManager();
+export { StateManager };

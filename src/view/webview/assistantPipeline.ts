@@ -1,0 +1,198 @@
+/**
+ * 助理视图渲染管线（共用 msgRenderer 内核，独立 StateManager 实例）
+ *
+ * 与任务管线（renderManager/basePipeline）平行，不含 phase/round/cardMeta 逻辑。
+ */
+
+import { StateManager } from './taskv3/state';
+import { createMsgElement, updateMsgElement, setMsgPostAction } from './taskv3/msgRenderer';
+import type { Message } from './taskv3/types';
+import { getChatMessages, getChatScroll } from './domContainers';
+import { G } from './state';
+
+// ── 助理专用 StateManager ──
+let _asstSm: StateManager | null = null;
+let _renderedMsgIds = new Set<string>();
+let _lastMsgVersion = -1;
+
+/** 初始化助理管线（注册消息监听 + 状态订阅） */
+export function initAssistantPipeline() {
+    if (_asstSm) return;
+    _asstSm = new StateManager();
+
+    // postAction 桩（助理无 cardMeta 操作，留空）
+    setMsgPostAction(() => {});
+
+    _asstSm.subscribe((state) => {
+        if (state.msgVersion !== _lastMsgVersion) {
+            _renderedMsgIds.clear();
+            _renderAll(state.messages);
+            _lastMsgVersion = state.msgVersion;
+        }
+    });
+
+    _asstSm.onPatch(() => {
+        _syncMessages();
+        if (!G._userScrolledUp) {
+            G._programmaticScroll = true;
+            const scroller = getChatScroll();
+            if (scroller) scroller.scrollTop = scroller.scrollHeight;
+            requestAnimationFrame(() => { G._programmaticScroll = false; });
+        }
+    });
+
+    window.addEventListener('message', (event) => {
+        const msg = event.data;
+        if (!msg || !msg.type) return;
+        const v3Types = ['stream-chunk', 'stream-done', 'thinking-chunk', 'tool-chunk'];
+        if (!v3Types.includes(msg.type)) return;
+
+        // 过滤任务消息
+        if (msg.taskId) return;
+
+        switch (msg.type) {
+            case 'stream-chunk':
+                _handleStreamChunk(msg.text);
+                break;
+            case 'stream-done':
+                _handleStreamDone();
+                break;
+            case 'thinking-chunk':
+                _handleThinkingChunk(msg);
+                break;
+            case 'tool-chunk':
+                _handleToolChunk(msg);
+                break;
+        }
+    });
+}
+
+/** 主动添加用户/agent 消息（用于加载历史或手动追加） */
+export function addAssistantMessage(msg: Message) {
+    if (!_asstSm) return;
+    const msgs = [..._asstSm.state.messages, msg];
+    _asstSm.patch({ messages: msgs, msgVersion: ++_lastMsgVersion });
+}
+
+export function setAssistantMessages(messages: Message[]) {
+    if (!_asstSm) return;
+    _asstSm.patch({ messages, msgVersion: ++_lastMsgVersion });
+}
+
+export function getAssistantStateManager(): StateManager | null {
+    return _asstSm;
+}
+
+// ── 内部实现 ──
+
+function _handleStreamChunk(text: string) {
+    if (!_asstSm) return;
+    const msgs = [..._asstSm.state.messages];
+    let streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
+    if (streamIdx < 0) {
+        G._userScrolledUp = false;
+        const newMsg: Message = {
+            id: 'msg_' + Date.now(),
+            taskId: '',
+            role: 'agent',
+            content: '',
+            timestamp: Date.now(),
+            streaming: true,
+        };
+        msgs.push(newMsg);
+        streamIdx = msgs.length - 1;
+    }
+    msgs[streamIdx] = { ...msgs[streamIdx], content: text };
+    _asstSm.patch({ messages: msgs });
+}
+
+function _handleStreamDone() {
+    if (!_asstSm) return;
+    const msgs = _asstSm.state.messages.map(m =>
+        m.streaming ? { ...m, streaming: false } : m
+    );
+    _asstSm.patch({ messages: msgs });
+}
+
+function _handleThinkingChunk(msg: { text: string; status: string }) {
+    if (!_asstSm) return;
+    const msgs = [..._asstSm.state.messages];
+    const now = Date.now();
+    const existingIdx = msgs.findIndex(m => m.type === 'thinking' && m.streaming);
+    if (existingIdx >= 0) {
+        msgs[existingIdx] = { ...msgs[existingIdx], content: msg.text, streaming: msg.status !== 'completed' };
+    } else {
+        msgs.push({
+            id: 'thinking_' + now,
+            taskId: '',
+            role: 'agent',
+            type: 'thinking',
+            content: msg.text,
+            timestamp: now,
+            streaming: msg.status !== 'completed',
+        });
+    }
+    _asstSm.patch({ messages: msgs });
+}
+
+function _handleToolChunk(msg: { toolCallId: string; title: string; kind: string; status: string; content: string }) {
+    if (!_asstSm) return;
+    const msgs = [..._asstSm.state.messages];
+    const toolContent = JSON.stringify({
+        toolCallId: msg.toolCallId,
+        title: msg.title,
+        kind: msg.kind,
+        status: msg.status,
+        output: msg.content,
+    });
+    const existingIdx = msgs.findIndex(m => m.type === 'tool_call' && m.content && m.content.includes(msg.toolCallId));
+    if (existingIdx >= 0) {
+        msgs[existingIdx] = { ...msgs[existingIdx], content: toolContent };
+    } else {
+        msgs.push({
+            id: 'tool_' + msg.toolCallId,
+            taskId: '',
+            role: 'tool',
+            type: 'tool_call',
+            content: toolContent,
+            timestamp: Date.now(),
+        });
+    }
+    _asstSm.patch({ messages: msgs });
+}
+
+/** 渲染所有消息到 DOM */
+function _renderAll(messages: Message[]) {
+    const container = getChatMessages();
+    if (!container) return;
+    container.innerHTML = '';
+    _renderedMsgIds.clear();
+    for (const msg of messages) {
+        const el = createMsgElement(msg, _asstSm!);
+        if (el) {
+            container.appendChild(el);
+            _renderedMsgIds.add(msg.id);
+        }
+    }
+}
+
+/** 增量同步 DOM */
+function _syncMessages() {
+    if (!_asstSm) return;
+    const msgs = _asstSm.state.messages;
+    const container = getChatMessages();
+    if (!container) return;
+
+    for (let i = 0; i < msgs.length; i++) {
+        const msg = msgs[i];
+        if (_renderedMsgIds.has(msg.id)) {
+            const el = container.querySelector(`[data-msg-id="${msg.id}"]`) as HTMLElement;
+            if (el) updateMsgElement(el, msg, _asstSm);
+            continue;
+        }
+        const el = createMsgElement(msg, _asstSm);
+        if (!el) continue;
+        _renderedMsgIds.add(msg.id);
+        container.appendChild(el);
+    }
+}

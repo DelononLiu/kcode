@@ -3,13 +3,10 @@ import type { ViewStrategy } from './viewStrategy';
 import { stateManager } from './state';
 import { basePipeline } from './basePipeline';
 import { taskStrategy } from './taskStrategy';
-import { postAction, renderCardActions } from './cardRenderer';
-import { createCard } from '../cardBuilder';
+import { postAction } from './cardRenderer';
+import { createMsgElement, updateMsgElement, buildSummaryHtml, setMsgPostAction, isNonCollapsible } from './msgRenderer';
 import { showTaskView } from '../taskView';
 import { appendToChatMessages } from '../chatStream';
-import { renderMarkdown } from '../markdownRenderer';
-import { formatTimestamp } from '../messageRenderer';
-import { createTimelineEntry } from '../timelineRenderer';
 import { G } from '../state';
 
 let _strategy: ViewStrategy = taskStrategy;
@@ -37,6 +34,8 @@ let _initialized = false;
 export function initTaskV3() {
     if (_initialized) return;
     _initialized = true;
+
+    setMsgPostAction(postAction);
 
     let _lastMsgVersion = -1;
     stateManager.subscribe((state) => {
@@ -131,21 +130,6 @@ export function initTaskV3() {
 
 type _Message = import('./types').Message;
 
-// 不可折叠的消息类型：phase 卡片、停止消息、摘要条
-const NON_COLLAPSIBLE = new Set([
-    'goal_confirmation', 'goal_confirmed', 'goal_updated',
-    'plan_proposal', 'plan_confirmed',
-    'execute_confirmation',
-    'self_verify_confirmation',
-    'review_request', 'review_approved', 'review_rejected',
-    'stop_message',
-    'round_summary',
-    'todo',
-]);
-function _isNonCollapsible(m: { type?: string; cardMeta?: any }): boolean {
-    return !!(m.cardMeta || (m.type && NON_COLLAPSIBLE.has(m.type)));
-}
-
 /** 折叠一个 round（user 消息之后、下一条 user 消息之前的所有消息） */
 function _collapseRound(msgs: _Message[], startIdx: number, endIdx: number): { msgs: _Message[]; summary: _Message | null } {
     if (startIdx > endIdx) return { msgs, summary: null };
@@ -159,7 +143,7 @@ function _collapseRound(msgs: _Message[], startIdx: number, endIdx: number): { m
     // 第一遍：分配 roundGroup、找最终 agent 回复、统计
     for (let i = startIdx; i <= endIdx; i++) {
         result[i] = { ...result[i], roundGroup: rg };
-        if (result[i].role === 'agent' && !_isNonCollapsible(result[i]) && result[i].type !== 'thinking') {
+        if (result[i].role === 'agent' && !isNonCollapsible(result[i]) && result[i].type !== 'thinking') {
             finalAgentIdx = i;
         }
         if (result[i].type === 'thinking') { thinking++; }
@@ -173,7 +157,7 @@ function _collapseRound(msgs: _Message[], startIdx: number, endIdx: number): { m
         if (i === finalAgentIdx) {
             const { collapsed: _, ...rest } = result[i] as any;
             result[i] = rest;
-        } else if (!_isNonCollapsible(result[i])) {
+        } else if (!isNonCollapsible(result[i])) {
             result[i] = { ...result[i], collapsed: true };
         }
     }
@@ -227,17 +211,6 @@ function _collapseAllRounds(msgs: _Message[]): _Message[] {
         result.splice(ins.idx, 0, ins.msg);
     }
     return result;
-}
-
-function _buildSummaryHtml(counts: { thinking: number; tools: Record<string, number> }): string {
-    const ICONS: Record<string, string> = { read: '📖', write: '✏️', edit: '✏️', bash: '💻', command: '💻', terminal: '💻', grep: '🔍', search: '🔍', glob: '🔍' };
-    const parts: string[] = [];
-    if (counts.thinking > 0) parts.push('💭 思考');
-    for (const [kind, cnt] of Object.entries(counts.tools)) {
-        const icon = ICONS[kind] || '🔧';
-        parts.push(`${icon} ${kind}${cnt > 1 ? ` (${cnt})` : ''}`);
-    }
-    return parts.join(' · ');
 }
 
 function _updateStreamMsg(text: string) {
@@ -387,244 +360,6 @@ function handleStreamDone(result: StreamResult) {
 let _renderedMsgIds = new Set<string>();
 
 /** 为 cardMeta 阶段卡片添加操作按钮 */
-function _appendPhaseActionsToCard(card: HTMLElement, msg: import('./types').Message) {
-    const tid = msg.taskId;
-    const type = msg.cardMeta?.type;
-    const actions: { text: string; className: string; onClick: () => void }[] = [];
-
-    switch (type) {
-        case 'goal':
-            actions.push(
-                { text: '确认目标 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmGoal', taskId: tid }) },
-                { text: '修改需求 ↩', className: 'secondary', onClick: () => postAction({ type: 'reviseGoal', taskId: tid }) },
-                { text: '取消 ✕', className: 'cancel', onClick: () => postAction({ type: 'cancelTask', taskId: tid }) },
-            );
-            break;
-        case 'plan':
-            actions.push(
-                { text: '确认计划 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmPlan', taskId: tid }) },
-                { text: '驳回 ↩', className: 'cancel', onClick: () => postAction({ type: 'rejectPlan', taskId: tid }) },
-            );
-            break;
-        case 'execute':
-            actions.push(
-                { text: '确认完成并进入自验 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmExecuteDone', taskId: tid }) },
-            );
-            break;
-        case 'self_verify':
-            actions.push(
-                { text: '确认自验并进入验收 ✓', className: 'primary', onClick: () => postAction({ type: 'confirmSelfVerifyDone', taskId: tid }) },
-            );
-            break;
-        case 'review':
-            actions.push(
-                { text: '验收通过 ✓', className: 'primary', onClick: () => postAction({ type: 'approveReview', taskId: tid }) },
-                { text: '驳回 ↩', className: 'secondary', onClick: () => postAction({ type: 'rejectReview', taskId: tid }) },
-            );
-            break;
-    }
-    if (actions.length > 0) renderCardActions(card, actions);
-}
-
-function _createMsgElement(msg: import('./types').Message): HTMLElement | null {
-    // ── round summary：Chip 风格的折叠摘要条（VS Code Copilot 风格）──
-    if (msg.type === 'round_summary') {
-        let counts: { thinking: number; tools: Record<string, number> };
-        try { counts = JSON.parse(msg.content); } catch { return null; }
-        const div = document.createElement('div');
-        div.className = 'chat-msg agent round-summary';
-        div.dataset.msgId = msg.id;
-        if (msg.phase) div.dataset.phase = msg.phase;
-        // chip 风格：整个 bar 就是按钮，无独立箭头图标
-        div.innerHTML = `<span class="round-summary-chip">${_buildSummaryHtml(counts)}</span>`;
-        div.addEventListener('click', () => {
-            const st = stateManager.snapshot();
-            const cur = st.messages.find(m => m.id === msg.id);
-            const targetCollapsed = !(cur?.collapsed);
-            const toggled = st.messages.map(m => {
-                if (m.id === msg.id) return { ...m, collapsed: targetCollapsed };
-                if (m.roundGroup === (msg as any).roundGroup && m.type !== 'round_summary' && !_isNonCollapsible(m) && 'collapsed' in (m as any)) {
-                    return { ...m, collapsed: targetCollapsed };
-                }
-                return m;
-            });
-            stateManager.patch({ messages: toggled });
-        });
-        return div;
-    }
-
-    // ── cardMeta 消息：创建可交互的阶段卡片 ──
-    if (msg.cardMeta) {
-        const type = msg.cardMeta.type || '';
-        const isPending = msg.cardMeta.status === 'pending';
-        const headerMap: Record<string, string> = {
-            goal: '🎯 任务目标', plan: '📋 计划方案', execute: '⚡ 执行完成',
-            self_verify: '🔍 自验完成', review: '✅ 验收',
-        };
-        const colorMap: Record<string, string> = {
-            goal: '#3c3c3c', plan: '#4a8bb5', execute: '#d4a84b',
-            self_verify: '#6b9e6b', review: '#2a5a2a',
-        };
-        const headerBgMap: Record<string, string> = {
-            goal: '#2d2d2d', plan: '#1e2d3d', execute: '#2d2d2d',
-            self_verify: '#2d2d2d', review: '#1a3a1a',
-        };
-
-        const div = document.createElement('div');
-        div.className = 'chat-msg agent';
-        div.dataset.msgId = msg.id;
-        if (type) div.dataset.phase = type;
-        const bubble = document.createElement('div');
-        bubble.className = 'msg-bubble';
-
-        const card = createCard({
-            headerHtml: headerMap[type] || '📋 阶段',
-            bodyMarkdown: isPending ? '' : msg.content,
-            rawData: msg,
-            defaultCollapsed: !isPending,
-            borderColor: colorMap[type] || '#3c3c3c',
-            headerBg: headerBgMap[type] || '#2d2d2d',
-            headerColor: '#e0e0e0',
-        });
-
-        if (isPending) {
-            _appendPhaseActionsToCard(card, msg);
-        } else {
-            const statusEl = document.createElement('div');
-            statusEl.className = 'msg-card-status';
-            statusEl.textContent = msg.cardMeta?.status === 'confirmed' ? '✅ 已确认'
-                : msg.cardMeta?.status === 'rejected' ? '↩️ 已驳回'
-                : '⏳ 已完成';
-            card.appendChild(statusEl);
-        }
-
-        bubble.appendChild(card);
-        div.appendChild(bubble);
-        return div;
-    }
-
-    if (msg.type === 'thinking') {
-        const entry = createTimelineEntry({ kind: 'thinking', title: '思考', content: msg.content, status: msg.streaming ? 'running' : 'completed' });
-        const body = entry.querySelector('.tl-entry-body');
-        if (body && !msg.collapsed) body.classList.add('open');
-        const div = document.createElement('div');
-        div.className = 'chat-msg tool';
-        div.dataset.msgId = msg.id;
-        if (msg.phase) div.dataset.phase = msg.phase;
-        div.appendChild(entry);
-        if (msg.collapsed) div.style.display = 'none';
-        return div;
-    }
-
-    if (msg.type === 'tool_call') {
-        let info: any;
-        try { info = JSON.parse(msg.content); } catch { return null; }
-        const entry = createTimelineEntry(info);
-        const body = entry.querySelector('.tl-entry-body');
-        if (body && !msg.collapsed) body.classList.add('open');
-        const div = document.createElement('div');
-        div.className = 'chat-msg tool';
-        div.dataset.msgId = msg.id;
-        if (msg.phase) div.dataset.phase = msg.phase;
-        div.appendChild(entry);
-        if (msg.collapsed) div.style.display = 'none';
-        return div;
-    }
-
-    if (msg.role === 'user') {
-        const div = document.createElement('div');
-        div.className = 'chat-msg user';
-        div.dataset.msgId = msg.id;
-        if (msg.phase) div.dataset.phase = msg.phase;
-        const sender = document.createElement('div');
-        sender.className = 'msg-sender';
-        const ts = msg.timestamp ? formatTimestamp(msg.timestamp) : '';
-        sender.innerHTML = 'You' + (ts ? ' <span class="msg-timestamp">' + ts + '</span>' : '');
-        div.appendChild(sender);
-        const bubble = document.createElement('div');
-        bubble.className = 'msg-bubble';
-        bubble.innerHTML = renderMarkdown(msg.content);
-        div.appendChild(bubble);
-        return div;
-    }
-
-    if (msg.role === 'agent' && !msg.cardMeta) {
-        const div = document.createElement('div');
-        div.className = 'chat-msg agent';
-        div.dataset.msgId = msg.id;
-        if (msg.phase) div.dataset.phase = msg.phase;
-        const bubble = document.createElement('div');
-        bubble.className = 'msg-bubble';
-        if (msg.streaming) {
-            const content = document.createElement('div');
-            content.id = '__v3-stream-content';
-            content.className = 'stream-markdown';
-            content.innerHTML = renderMarkdown(msg.content);
-            bubble.appendChild(content);
-        } else {
-            bubble.innerHTML = renderMarkdown(msg.content);
-        }
-        div.appendChild(bubble);
-        if (msg.collapsed) div.style.display = 'none';
-        return div;
-    }
-
-    return null;
-}
-
-function _updateMsgElement(el: HTMLElement, msg: import('./types').Message) {
-    if (msg.type !== 'round_summary') {
-        (el as HTMLElement).style.display = msg.collapsed ? 'none' : '';
-    }
-    if (msg.role === 'agent' && msg.streaming) {
-        const contentEl = el.querySelector('#__v3-stream-content') as HTMLElement;
-        if (contentEl && !_streamRafPending) {
-            _streamRafPending = true;
-            requestAnimationFrame(() => {
-                _streamRafPending = false;
-                const current = stateManager.state.messages.find(m => m.role === 'agent' && m.streaming);
-                if (current && contentEl) {
-                    contentEl.innerHTML = renderMarkdown(current.content);
-                }
-            });
-        }
-    }
-    if (msg.type === 'thinking') {
-        const pre = el.querySelector('.tl-entry-body pre') as HTMLElement;
-        if (pre) pre.textContent = msg.content;
-        if (!msg.streaming) {
-            const entry = el.querySelector('.tl-entry') as HTMLElement;
-            if (entry) entry.removeAttribute('id');
-        }
-        const body = el.querySelector('.tl-entry-body');
-        if (body) body.classList.toggle('open', !msg.collapsed);
-    }
-    if (msg.type === 'tool_call') {
-        const pre = el.querySelector('.tl-entry-body pre') as HTMLElement;
-        if (pre) {
-            try {
-                const info = JSON.parse(msg.content);
-                if (info.output) pre.textContent = info.output;
-            } catch {}
-        }
-        const body = el.querySelector('.tl-entry-body');
-        if (body) body.classList.toggle('open', !msg.collapsed);
-    }
-    if (msg.type === 'round_summary') {
-        // chip 风格无需更新图标，展开/折叠由 CSS class 控制
-        const chip = el.querySelector('.round-summary-chip') as HTMLElement;
-        if (chip) {
-            el.classList.toggle('expanded', !msg.collapsed);
-        }
-    }
-}
-
-/**
- * 在 DOM 中为当前消息找到正确的插入位置。
- * 优先向前查找已渲染的前一条消息，插到它后面；
- * 如果没有，则向后查找已渲染的后一条消息，插到它前面。
- * 如果都没有，返回 false，调用方按回退逻辑追加。
- */
 function _insertAtCorrectPosition(
     container: Element,
     el: Element,
@@ -727,10 +462,10 @@ function _syncMessages() {
         const msg = msgs[i];
         if (_renderedMsgIds.has(msg.id)) {
             const el = container.querySelector(`[data-msg-id="${msg.id}"]`) as HTMLElement;
-            if (el) _updateMsgElement(el, msg);
+            if (el) updateMsgElement(el, msg, stateManager);
             continue;
         }
-        const el = _createMsgElement(msg);
+        const el = createMsgElement(msg, stateManager);
         if (!el) {
             // cardMeta 等无法创建独立 DOM 元素的消息：
             // 如果 DOM 中已存在对应元素（由 renderMessageList 全量渲染），标记为已渲染
@@ -768,7 +503,6 @@ function _syncMessages() {
 let _msgVersionCounter = 0;
 let _lastSyncVersion = -1;
 
-let _streamRafPending = false;
 
 function handleMessagesSync(msg: { messages: import('../../../types').ChatMessage[] }) {
     // 当前 webview 中有 streaming 消息 → 任务还在流式，保留 webview 状态

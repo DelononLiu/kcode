@@ -6,6 +6,7 @@ import { renderCardForMessage, renderCardActions, renderCardStatus, postAction }
 import { stateManager } from './state';
 import { createTimelineEntry } from '../timelineRenderer';
 import { getChatScroll } from '../domContainers';
+import { buildSummaryHtml, isNonCollapsible } from './msgRenderer';
 
 function getContainer(): HTMLElement | null {
     return document.querySelector('#task-view #chat-messages') || null;
@@ -171,17 +172,6 @@ function _renderThinkingMessage(msg: Message) {
     appendToChatMessages(div);
 }
 
-function _buildSummaryHtml(counts: { thinking: number; tools: Record<string, number> }): string {
-    const ICONS: Record<string, string> = { read: '📖', write: '✏️', edit: '✏️', bash: '💻', command: '💻', terminal: '💻', grep: '🔍', search: '🔍', glob: '🔍' };
-    const parts: string[] = [];
-    if (counts.thinking > 0) parts.push('💭 思考');
-    for (const [kind, cnt] of Object.entries(counts.tools)) {
-        const icon = ICONS[kind] || '🔧';
-        parts.push(`${icon} ${kind}${cnt > 1 ? ` (${cnt})` : ''}`);
-    }
-    return parts.join(' · ');
-}
-
 /** 渲染 round summary 为可点击折叠条 */
 function _renderRoundSummary(msg: Message) {
     let counts: { thinking: number; tools: Record<string, number> };
@@ -190,7 +180,7 @@ function _renderRoundSummary(msg: Message) {
     div.className = 'chat-msg agent round-summary';
     div.dataset.msgId = msg.id;
     if (msg.phase) div.dataset.phase = msg.phase;
-    div.innerHTML = `<span class="round-summary-chip">${_buildSummaryHtml(counts)}</span>`;
+    div.innerHTML = `<span class="round-summary-chip">${buildSummaryHtml(counts)}</span>`;
     div.addEventListener('click', () => {
         const st = stateManager.snapshot();
         const cur = st.messages.find(m => m.id === msg.id);
