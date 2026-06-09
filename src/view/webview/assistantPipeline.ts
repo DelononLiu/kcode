@@ -47,15 +47,15 @@ export function initAssistantPipeline() {
         const v3Types = ['stream-chunk', 'stream-done', 'thinking-chunk', 'tool-chunk'];
         if (!v3Types.includes(msg.type)) return;
 
-        // 过滤任务消息
+        // 过滤任务消息（有 taskId 的由 renderManager 处理）
         if (msg.taskId) return;
 
         switch (msg.type) {
             case 'stream-chunk':
-                _handleStreamChunk(msg.text);
+                streamAssistantMessage(msg.text);
                 break;
             case 'stream-done':
-                _handleStreamDone();
+                finishAssistantStream();
                 break;
             case 'thinking-chunk':
                 _handleThinkingChunk(msg);
@@ -65,6 +65,57 @@ export function initAssistantPipeline() {
                 break;
         }
     });
+}
+
+/** 流式更新当前 agent 消息（累积追加文本） */
+export function streamAssistantMessage(text: string) {
+    if (!_asstSm) return;
+    const st = _asstSm.snapshot();
+    let streamIdx = st.messages.findIndex(m => m.role === 'agent' && m.streaming);
+    if (streamIdx < 0) {
+        G._userScrolledUp = false;
+        st.messages.push({
+            id: 'msg_' + Date.now(),
+            taskId: '',
+            role: 'agent',
+            content: '',
+            timestamp: Date.now(),
+            streaming: true,
+        });
+        streamIdx = st.messages.length - 1;
+    }
+    st.messages[streamIdx] = { ...st.messages[streamIdx], content: text };
+    _asstSm.patch({ messages: st.messages, msgVersion: ++_lastMsgVersion });
+}
+
+/** 流式结束，取消 streaming 标记 */
+export function finishAssistantStream() {
+    if (!_asstSm) return;
+    const msgs = _asstSm.state.messages.map(m =>
+        m.streaming ? { ...m, streaming: false } : m
+    );
+    _asstSm.patch({ messages: msgs, msgVersion: ++_lastMsgVersion });
+}
+
+/** 添加工具调用/思考消息 */
+export function addAssistantToolMessage(kind: string, toolCallId: string, title: string, status: string, output: string) {
+    if (!_asstSm) return;
+    const msgs = [..._asstSm.state.messages];
+    const toolContent = JSON.stringify({ toolCallId, title, kind, status, output });
+    const existingIdx = msgs.findIndex(m => m.type === 'tool_call' && m.content && m.content.includes(toolCallId));
+    if (existingIdx >= 0) {
+        msgs[existingIdx] = { ...msgs[existingIdx], content: toolContent };
+    } else {
+        msgs.push({
+            id: 'tool_' + toolCallId,
+            taskId: '',
+            role: 'tool',
+            type: 'tool_call',
+            content: toolContent,
+            timestamp: Date.now(),
+        });
+    }
+    _asstSm.patch({ messages: msgs, msgVersion: ++_lastMsgVersion });
 }
 
 /** 主动添加用户/agent 消息（用于加载历史或手动追加） */

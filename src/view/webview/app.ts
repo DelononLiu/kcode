@@ -7,6 +7,7 @@ import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkin
 import { handleDemoCardUpdate } from './demoCards';
 import { initTaskV3 } from './taskv3/renderManager';
 import { stateManager } from './taskv3/state';
+import { initAssistantPipeline, addAssistantMessage, setAssistantMessages, streamAssistantMessage, finishAssistantStream, addAssistantToolMessage } from './assistantPipeline';
 
 
 declare function acquireVsCodeApi(): any;
@@ -302,13 +303,21 @@ function initMessageHandler() {
                 G.streamMessageEl = null;
                 G._agentHeaderShown = false;
 
-                // Assistant mode: keep old rendering path
+                // Assistant mode: use V3 pipeline
                 if (message.taskType === 'assistant') {
                     G.activeTaskId = message.taskId;
                     G.activeTaskStatus = message.taskStatus || '';
                     G.activeTaskType = message.taskType || '';
                     showAssistantView();
-                    renderMessages(message.messages || []);
+                    const asstMsgs = (message.messages || []).map((m: any) => ({
+                        id: m.id || ('msg_' + Date.now()),
+                        taskId: '',
+                        role: m.role || 'agent',
+                        type: m.type,
+                        content: m.content || '',
+                        timestamp: m.timestamp || Date.now(),
+                    }));
+                    setAssistantMessages(asstMsgs);
                     break;
                 }
 
@@ -326,7 +335,7 @@ function initMessageHandler() {
                 break;
             case 'agentStreamUpdate':
                 if (G.activeTaskType === 'assistant') {
-                    handleAgentStreamUpdate(message.text);
+                    streamAssistantMessage(message.text);
                 } else if (!message.taskId || message.taskId === G.activeTaskId) {
                     const st = stateManager.snapshot();
                     const msgs = [...st.messages];
@@ -341,7 +350,9 @@ function initMessageHandler() {
                 }
                 break;
             case 'agentStatus':
-                handleAgentStatus(message.status, message.message, message.agentName || '', message.modelName || '');
+                if (G.activeTaskType !== 'assistant') {
+                    handleAgentStatus(message.status, message.message, message.agentName || '', message.modelName || '');
+                }
                 break;
             case 'focusInput':
                 const focusInputEl = document.getElementById('chat-input') as HTMLTextAreaElement;
@@ -351,21 +362,28 @@ function initMessageHandler() {
                 break;
             case 'addUserMessage':
                 {
-                    const st = stateManager.snapshot();
-                    // 跳过 postAction 已添加的重复消息（确认目标/计划等按钮）
-                    const lastMsg = st.messages[st.messages.length - 1];
-                    if (lastMsg?.role === 'user' && lastMsg.content === message.content) break;
-
-                    const msgs = [...st.messages];
-                    const userMsg = {
-                        id: 'user_' + Date.now(),
-                        taskId: st.activeTaskId || '',
-                        role: 'user' as const,
-                        content: message.content,
-                        timestamp: Date.now(),
-                    };
-                    msgs.push(userMsg);
-                    stateManager.patch({ messages: msgs });
+                    if (G.activeTaskType === 'assistant') {
+                        addAssistantMessage({
+                            id: 'user_' + Date.now(),
+                            taskId: '',
+                            role: 'user',
+                            content: message.content,
+                            timestamp: Date.now(),
+                        });
+                    } else {
+                        const st = stateManager.snapshot();
+                        const lastMsg = st.messages[st.messages.length - 1];
+                        if (lastMsg?.role === 'user' && lastMsg.content === message.content) break;
+                        const msgs = [...st.messages];
+                        msgs.push({
+                            id: 'user_' + Date.now(),
+                            taskId: st.activeTaskId || '',
+                            role: 'user' as const,
+                            content: message.content,
+                            timestamp: Date.now(),
+                        });
+                        stateManager.patch({ messages: msgs });
+                    }
                 }
                 break;
             case 'showGoalConfirmation':
@@ -389,7 +407,13 @@ function initMessageHandler() {
                 break;
             case 'toolCallUpdate':
                 if (G.activeTaskType !== 'assistant') break; // task mode: V3 handles via tool-chunk
-                handleToolCallUpdate(message);
+                addAssistantToolMessage(
+                    message.kind || 'bash',
+                    message.toolCallId || '',
+                    message.title || '',
+                    message.status || 'running',
+                    message.content || ''
+                );
                 break;
             case 'generationState':
                 handleGenerationState(message.isGenerating);
@@ -547,6 +571,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     initChat();
     initMessageHandler();
+    initAssistantPipeline();
     initNavButtons();
     initPluginManager();
     initV4Layout();
