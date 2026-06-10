@@ -1,6 +1,7 @@
 /**
- * bootstrap — app shell startup (去 Tauri 化)
+ * bootstrap — app shell startup
  *
- * VS Code Webview 环境不需要 Tauri 的启动逻辑（window label、多窗口等），
- * 这里只保留最小启动行为。
+ * VS Code Webview 环境，去 Tauri 化。
+ * 只初始化 i18n 和必要的运行时状态。
  */
+import "./i18n";
