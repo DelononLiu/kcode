@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { KanbanView } from "./features/kanban/KanbanView";
-import { ThreadList } from "./features/app/components/ThreadList";
+import { Sidebar } from "./features/app/components/Sidebar";
 import { ComposerInput } from "./features/composer/components/ComposerInput";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { bridge } from "./services/bridge";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import type { KnowledgeEntry } from "./types";
@@ -27,7 +28,7 @@ const msgId = () => `m_${Date.now()}_${++msgIdSeq}`;
 
 export function AppShell() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>("kanban");
+  const [tab, setTab] = useState<Tab>("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<EngineStatus>({ connected: false });
@@ -92,8 +93,8 @@ export function AppShell() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* 侧边栏 — ThreadList */}
-        <aside className="w-60 shrink-0 border-r border-[#252530] overflow-y-auto bg-[#121212]">
+        {/* 侧边栏 — desktop-cc-gui Sidebar */}
+        <aside className="w-60 shrink-0 border-r border-[#252530] overflow-hidden bg-[#121212]">
           {/* tab 切换 */}
           <div className="flex p-2 gap-1 border-b border-[#252530]">
             {(["kanban", "chat", "knowledge"] as Tab[]).map((t) => (
@@ -104,46 +105,11 @@ export function AppShell() {
             ))}
           </div>
 
-          {tab === "chat" && (
-            <div className="p-1.5">
-              <ThreadList
-                workspaceId="ws_main"
-                workspacePath=""
-                pinnedRows={[]}
-                unpinnedRows={[]}
-                totalThreadRoots={0}
-                visibleThreadRootCount={0}
-                isExpanded={true}
-                nextCursor={null}
-                isPaging={false}
-                nested={false}
-                activeWorkspaceId="ws_main"
-                activeThreadId={null}
-                threadStatusById={{}}
-                getThreadTime={() => ""}
-                isThreadPinned={() => false}
-                isThreadAutoNaming={() => false}
-                onToggleThreadPin={() => {}}
-                onToggleExpanded={() => {}}
-                onLoadOlderThreads={() => {}}
-                onSelectThread={() => {}}
-                onShowThreadMenu={() => null}
-              />
-            </div>
-          )}
-
-          {tab === "kanban" && <div className="p-2 text-[10px] text-[#808080] text-center mt-4">拖拽卡片切换阶段</div>}
-
-          {tab === "knowledge" && (
-            <div className="p-2">
-              {knowledgeEntries.map((e) => (
-                <div key={e.id} className="p-1.5 mb-1 rounded bg-[#1f1f25] border border-[#252530] cursor-pointer text-xs hover:border-[#353540]" onClick={() => setEditing(e)}>
-                  <div className="font-medium truncate">{e.title || "Untitled"}</div>
-                </div>
-              ))}
-              {knowledgeEntries.length === 0 && <p className="text-[10px] text-[#808080] text-center mt-4">暂无条目</p>}
-            </div>
-          )}
+          <div className="h-full overflow-y-auto">
+            <ErrorBoundary>
+              <Sidebar {...({} as any)} />
+            </ErrorBoundary>
+          </div>
         </aside>
 
         {/* 主区域 */}
