@@ -26,6 +26,13 @@ export function isTauri(): boolean {
   return false;
 }
 
+// ═══════════════ @tauri-apps/api/event ═══════════════
+
+export function listen(event: string, handler: (payload: any) => void): Promise<() => void> {
+  bridge.on(event, handler);
+  return Promise.resolve(() => bridge.off(event, handler));
+}
+
 // ═══════════════ @tauri-apps/api/window ═══════════════
 
 export function getCurrentWindow() {
@@ -53,4 +60,10 @@ export async function openUrl(url: string): Promise<void> {
 
 export async function revealItemInDir(path: string): Promise<void> {
   await bridge.invoke('__revealInDir', { path });
+}
+
+// ═══════════════ @tauri-apps/plugin-dialog ═══════════════
+
+export async function ask(message: string, options?: Record<string, unknown>): Promise<boolean> {
+  return window.confirm(message);
 }

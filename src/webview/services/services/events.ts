@@ -1,4 +1,4 @@
-import { listen } from "@tauri-apps/api/event";
+import { listen } from "../../services/vscodeBridge";
 import type {
   AppServerEvent,
   DictationEvent,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Event, EventCallback, UnlistenFn } from "@tauri-apps/api/event";
-import { listen } from "@tauri-apps/api/event";
+import type { Event, EventCallback, UnlistenFn } from "../../services/vscodeBridge";
+import { listen } from "../../services/vscodeBridge";
 import type { AppServerEvent } from "../types";
 import {
   subscribeAppServerEvents,

@@ -1,5 +1,5 @@
-import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { listen } from "../../services/vscodeBridge";
+import { getCurrentWindow } from "../../services/vscodeBridge";
 
 export type DragDropPayload = {
   type: "enter" | "over" | "leave" | "drop";

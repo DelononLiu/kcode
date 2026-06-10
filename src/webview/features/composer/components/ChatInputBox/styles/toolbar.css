@@ -1,0 +1,195 @@
+/* ============================================================
+   Bottom Toolbar
+   ============================================================ */
+.button-area {
+  --composer-toolbar-icon-gap: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 0;
+  min-height: var(--composer-control-band-height, 44px);
+  padding: 2px 8px;
+  background: color-mix(in srgb, var(--input-bg) 78%, transparent);
+  font-family: inherit;
+  /* Enable container queries for responsive button behavior */
+  container-type: inline-size;
+  container-name: button-area;
+  position: relative;
+  z-index: 30;
+  /* Bottom border-radius since ButtonArea is now the last element inside the box */
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+}
+
+.button-area-primary-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--composer-toolbar-icon-gap);
+  width: 100%;
+  min-height: 34px;
+  min-width: 0;
+}
+
+.button-area-left {
+  display: flex;
+  align-items: center;
+  gap: var(--composer-toolbar-icon-gap);
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: visible;
+}
+
+.button-area-left--primary {
+  gap: var(--composer-toolbar-icon-gap);
+  padding-right: 4px;
+}
+
+.button-area-model-slot {
+  display: flex;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.button-area-main-surface {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  flex: 0 0 auto;
+  min-width: 0;
+  height: 32px;
+}
+
+.button-area-main-token {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  min-width: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.button-area-main-token .token-indicator {
+  font-size: 13px;
+  font-weight: 600;
+  gap: var(--composer-toolbar-icon-gap);
+}
+
+.button-area-main-surface .context-bar--tool-popover {
+  width: auto;
+}
+
+.button-area-main-surface .context-bar--tool-popover .context-tools,
+.button-area-main-surface .context-bar--tool-popover .context-tools-right {
+  flex: 0 0 auto;
+  gap: 0;
+}
+
+.button-area-main-surface .context-bar--tool-popover .context-dual-usage {
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.button-area-status-panel-toggle {
+  flex: 0 0 auto;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 9px;
+}
+
+.button-area-right {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.button-area-inline-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 1px;
+  min-width: 0;
+  animation: button-area-inline-tools-enter 0.14s ease-out;
+}
+
+.button-area-tool-surface {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 32px;
+}
+
+@keyframes button-area-inline-tools-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ============================================================
+   Agent Tag Styles
+   ============================================================ */
+.agent-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--accent-color-alpha);
+  border: 1px solid color-mix(in srgb, var(--accent-color) 40%, transparent);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--accent-color);
+  max-width: 150px;
+  cursor: default;
+}
+
+.agent-tag .codicon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.agent-tag-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-tag-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-left: 2px;
+  background: transparent;
+  border: none;
+  color: var(--accent-color);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.agent-tag-close:hover {
+  opacity: 1;
+}
+
+.agent-tag-close .codicon {
+  font-size: 10px;
+}

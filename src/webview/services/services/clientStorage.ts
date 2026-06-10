@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../services/vscodeBridge";
 import {
   ALL_CLIENT_STORES,
   normalizeClientStoreSnapshot,

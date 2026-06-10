@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../services/vscodeBridge";
 import {
   addWorkspace,
   forkClaudeSession,

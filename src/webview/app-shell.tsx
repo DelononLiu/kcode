@@ -1,7 +1,10 @@
+import { ThreadDeleteConfirmBubble } from "./features/threads/components/ThreadDeleteConfirmBubble";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { KanbanView } from "./features/kanban/KanbanView";
+import { Sidebar } from "./features/app/components/Sidebar";
+import { ComposerInput } from "./features/composer/components/ComposerInput";
 import { bridge } from "./services/bridge";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import type { Thread, KnowledgeEntry } from "./types";
@@ -223,3 +226,5 @@ export function AppShell() {
     </div>
   );
 }
+
+// 强制引用测试编译

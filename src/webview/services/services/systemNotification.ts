@@ -4,8 +4,8 @@ import {
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
-import { isTauri } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isTauri } from "../../services/vscodeBridge";
+import { getCurrentWindow } from "../../services/vscodeBridge";
 
 let permissionCached: boolean | null = null;
 let actionListenerRegistered = false;

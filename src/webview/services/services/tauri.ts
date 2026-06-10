@@ -1,6 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../services/vscodeBridge";
 import type { ClaudeDeferredImageLocator, ClaudeHydratedImage } from "../types";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open } from "../../services/vscodeBridge";
 import type {
   AppSettings,
   EmailSendError,
