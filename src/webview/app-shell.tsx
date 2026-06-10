@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ThreadList } from "./features/app/components/ThreadList";
+import { Sidebar } from "./features/app/components/Sidebar";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TabBar } from "./features/app/components/TabBar";
 import { ComposerInput } from "./features/composer/components/ComposerInput";
 import { bridge } from "./services/bridge";
@@ -103,30 +104,173 @@ export function AppShell() {
               </button>
             ))}
           </div>
-          <div className="flex-1 overflow-y-auto p-1">
-            <ThreadList
-              workspaceId="ws_main"
-              workspacePath=""
-              pinnedRows={[]}
-              unpinnedRows={[]}
-              totalThreadRoots={0}
-              visibleThreadRootCount={0}
-              isExpanded={true}
-              nextCursor={null}
-              isPaging={false}
-              nested={false}
-              activeWorkspaceId="ws_main"
-              activeThreadId={null}
-              threadStatusById={{}}
-              getThreadTime={() => ""}
-              isThreadPinned={() => false}
-              isThreadAutoNaming={() => false}
-              onToggleThreadPin={() => {}}
-              onToggleExpanded={() => {}}
-              onLoadOlderThreads={() => {}}
-              onSelectThread={() => {}}
-              onShowThreadMenu={() => null}
-            />
+          <div className="flex-1 overflow-y-auto" style={{ background: 'var(--surface-sidebar)' }}>
+            <ErrorBoundary>
+              <Sidebar
+                workspaces={[]}
+                threadsByWorkspace={{}}
+                threadStatusById={{}}
+                threadParentById={{}}
+                lastAgentMessageByThread={{}}
+                latestAgentRuns={[]}
+                isLoadingLatestAgents={false}
+                workspaceGroups={[]}
+                groupedWorkspaces={[]}
+                getWorkspaceGroupName={() => ""}
+                sidebarWidth={240}
+                sidebarCollapsed={false}
+                collapseSidebar={() => {}}
+                expandSidebar={() => {}}
+                onSidebarResizeStart={() => {}}
+                appMode={"chat"}
+                handleAppModeChange={() => {}}
+                handleAddWorkspace={() => {}}
+                handleOpenNewWindow={() => {}}
+                handleAddWorkspaceFromPath={() => {}}
+                handleAddAgent={() => {}}
+                handleAddWorktreeAgent={() => {}}
+                handleSelectAgent={() => {}}
+                selectedAgent={null}
+                openSettings={() => {}}
+                isCompact={false}
+                isTablet={false}
+                isPhone={false}
+                activeTab={"codex"}
+                setActiveTab={() => {}}
+                tabletTab={"codex"}
+                hasLoaded={true}
+                refreshWorkspaces={() => {}}
+                connectWorkspace={() => {}}
+                addWorkspace={() => {}}
+                addWorktreeAgent={() => {}}
+                addCloneAgent={() => {}}
+                markWorkspaceConnected={() => {}}
+                updateWorkspaceSettings={() => {}}
+                updateWorkspaceCodexBin={() => {}}
+                createWorkspaceGroup={() => {}}
+                renameWorkspaceGroup={() => {}}
+                moveWorkspaceGroup={() => {}}
+                deleteWorkspaceGroup={() => {}}
+                assignWorkspaceGroup={() => {}}
+                removeWorkspace={() => {}}
+                removeWorktree={() => {}}
+                renameWorktree={() => {}}
+                renameWorktreeUpstream={() => {}}
+                deletingWorktreeIds={[]}
+                branches={[]}
+                checkoutBranch={() => {}}
+                createBranch={() => {}}
+                activeWorkspaceRef={{ current: null }}
+                handleOpenDetachedFileExplorer={() => {}}
+                handleRenameWorktree={() => {}}
+                openWorktreePrompt={() => {}}
+                openClonePrompt={() => {}}
+                worktreePrompt={null}
+                clonePrompt={null}
+                confirmWorktreePrompt={() => {}}
+                cancelWorktreePrompt={() => {}}
+                confirmClonePrompt={() => {}}
+                cancelClonePrompt={() => {}}
+                updateCloneCopyName={() => {}}
+                chooseCloneCopiesFolder={() => {}}
+                useSuggestedCloneCopiesFolder={() => {}}
+                clearCloneCopiesFolder={() => {}}
+                persistProjectCopiesFolder={() => {}}
+                handleOpenClaudeTui={() => {}}
+                handleSelectStatusPanelSubagent={() => {}}
+                navigateToThread={() => {}}
+                handleArchiveActiveThread={() => {}}
+                ensureLaunchTerminal={() => {}}
+                ensureTerminalWithTitle={() => {}}
+                restartTerminalSession={() => {}}
+                launchScriptState={null}
+                launchScriptsState={{}}
+                runtimeRunState={null}
+                handleToggleRuntimeConsole={() => {}}
+                handleToggleTerminalPanel={() => {}}
+                worktreeSetupScriptState={{}}
+                handleWorktreeCreated={() => {}}
+                resolveCloneProjectContext={() => null}
+                handleSelectOpenAppId={() => {}}
+                openAppIconById={{}}
+                handleSetGitRoot={() => {}}
+                handlePickGitRoot={() => {}}
+                activeGitRoot={null}
+                gitRootCandidates={[]}
+                gitRootScanLoading={false}
+                gitRootScanError={null}
+                gitRootScanDepth={0}
+                gitRootScanHasScanned={false}
+                scanGitRoots={() => {}}
+                setGitRootScanDepth={() => {}}
+                clearGitRootCandidates={() => {}}
+                activeEngine={"claude"}
+                setActiveEngine={() => {}}
+                availableEngines={[]}
+                installedEngines={[]}
+                engineStatuses={{}}
+                engineModelsAsOptions={[]}
+                models={[]}
+                modelsReady={true}
+                selectedModelId={null}
+                setSelectedModelId={() => {}}
+                selectedEffort={null}
+                setSelectedEffort={() => {}}
+                refreshModels={() => {}}
+                globalSelectionReady={true}
+                collaborationModes={[]}
+                collaborationModesEnabled={false}
+                selectedCollaborationMode={null}
+                selectedCollaborationModeId={null}
+                setSelectedCollaborationModeId={() => {}}
+                skills={[]}
+                commands={[]}
+                prompts={[]}
+                files={[]}
+                directories={[]}
+                directoryMetadata={{}}
+                isFilesLoading={false}
+                refreshFiles={() => {}}
+                appSettings={{}}
+                setAppSettings={() => {}}
+                appSettingsLoading={false}
+                doctor={null}
+                claudeDoctor={null}
+                reduceTransparency={false}
+                setReduceTransparency={() => {}}
+                windowTransparencyEnabled={false}
+                setWindowTransparencyEnabled={() => {}}
+                windowOpacity={1}
+                setWindowOpacity={() => {}}
+                scaleShortcutTitle={() => ""}
+                scaleShortcutText={() => ""}
+                queueSaveSettings={() => {}}
+                isSearchPaletteOpen={false}
+                setIsSearchPaletteOpen={() => {}}
+                searchScope={"active-workspace"}
+                setSearchScope={() => {}}
+                searchContentFilters={["all"]}
+                setSearchContentFilters={() => {}}
+                searchPaletteQuery={""}
+                setSearchPaletteQuery={() => {}}
+                searchPaletteSelectedIndex={0}
+                setSearchPaletteSelectedIndex={() => {}}
+                globalSearchFilesByWorkspace={{}}
+                setGlobalSearchFilesByWorkspace={() => {}}
+                searchResults={[]}
+                historySearchItems={[]}
+                activeWorkspaceId={null}
+                activeThreadId={null}
+                accountByWorkspace={{}}
+                activeAccount={null}
+                activeRateLimits={null}
+                pinnedThreadsVersion={0}
+                isThreadPinned={() => false}
+                getPinTimestamp={() => 0}
+                unpinThread={() => {}}
+                pinThread={() => {}}
+              />
+            </ErrorBoundary>
           </div>
         </aside>
 

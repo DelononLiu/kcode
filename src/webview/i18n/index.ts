@@ -1,110 +1,27 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
+import zhPart1 from "./zh.part1";
+import zhPart2 from "./zh.part2";
+import zhPart3 from "./zh.part3";
+import zhPart4 from "./zh.part4";
+import zhPart5 from "./zh.part5";
+import zhPart6 from "./zh.part6";
+
+const zh = {
+  ...zhPart1,
+  ...zhPart2,
+  ...zhPart3,
+  ...zhPart4,
+  ...zhPart5,
+  ...zhPart6,
+};
 
 void i18n.use(initReactI18next).init({
   resources: {
-    zh: {
-      translation: {
-        // tabbar
-        "tabbar.codex": "对话",
-        "tabbar.projects": "项目",
-        "tabbar.spec": "知识库",
-        "tabbar.git": "Git",
-        "tabbar.log": "日志",
-        "tabbar.primaryNavigation": "主导航",
-        // composer
-        "composer.placeholderAsk": "输入消息...",
-        "composer.placeholderAskWithEngine": "输入消息...",
-        "composer.send": "发送",
-        "composer.stop": "停止",
-        "composer.model": "模型",
-        "composer.noModels": "无可用模型",
-        "composer.noAgents": "无可用 Agent",
-        "composer.agent": "Agent",
-        "composer.agentDefault": "默认",
-        "composer.effortDefault": "默认",
-        "composer.variant": "变体",
-        "composer.planModeShort": "计划",
-        "composer.planModeToggle": "计划模式",
-        "composer.fullAccess": "完全访问",
-        "composer.readOnly": "只读",
-        "composer.onRequest": "按需",
-        "composer.thinkingMode": "思考模式",
-        "composer.agentAccess": "访问模式",
-        "composer.addImage": "添加图片",
-        "composer.dragToResize": "拖动调整大小",
-        "composer.manualMemoryPickerTitle": "手动记忆选择器",
-        "composer.manualMemoryPickerInputTitle": "搜索记忆...",
-        "composer.manualMemoryPickerPreviewEmpty": "无预览",
-        "composer.manualMemoryPickerPreviewFallback": "无预览",
-        "composer.manualMemoryPickerSelectedCount": "已选",
-        "composer.manualMemoryPickerShortcutSelect": "选择",
-        "composer.manualMemoryPickerShortcutUnselect": "取消选择",
-        "composer.manualMemoryPreviewCollapse": "收起",
-        "composer.manualMemoryPreviewExpand": "展开",
-        // common
-        "common.default": "默认",
-        "common.dismiss": "关闭",
-        "common.refresh": "刷新",
-        // home
-        "home.usageSnapshot": "使用量",
-        // reasoning
-        "reasoning.claudeDefault": "Claude 默认",
-        // threads
-        "threads.exitedSessionsHidden": "{{count}} 个已隐藏",
-        "threads.autoNaming": "自动命名中...",
-        // workspace
-        "workspace.connected": "已连接",
-        "workspace.disconnected": "未连接",
-        // sidebar
-        "sidebar.searchConversations": "搜索对话...",
-        "sidebar.newChat": "新建对话",
-      },
-    },
-    en: {
-      translation: {
-        "tabbar.codex": "Chat",
-        "tabbar.projects": "Projects",
-        "tabbar.spec": "Knowledge",
-        "tabbar.git": "Git",
-        "tabbar.log": "Log",
-        "tabbar.primaryNavigation": "Main Navigation",
-        "composer.placeholderAsk": "Type a message...",
-        "composer.placeholderAskWithEngine": "Type a message...",
-        "composer.send": "Send",
-        "composer.stop": "Stop",
-        "composer.model": "Model",
-        "composer.noModels": "No models available",
-        "composer.noAgents": "No agents available",
-        "composer.agent": "Agent",
-        "composer.agentDefault": "Default",
-        "composer.effortDefault": "Default",
-        "composer.variant": "Variant",
-        "composer.planModeShort": "Plan",
-        "composer.planModeToggle": "Plan Mode",
-        "composer.fullAccess": "Full Access",
-        "composer.readOnly": "Read Only",
-        "composer.onRequest": "On Request",
-        "composer.thinkingMode": "Thinking Mode",
-        "composer.agentAccess": "Access Mode",
-        "composer.addImage": "Add Image",
-        "composer.dragToResize": "Drag to resize",
-        "common.default": "Default",
-        "common.dismiss": "Dismiss",
-        "common.refresh": "Refresh",
-        "home.usageSnapshot": "Usage",
-        "reasoning.claudeDefault": "Claude Default",
-        "threads.exitedSessionsHidden": "{{count}} hidden",
-        "threads.autoNaming": "Auto naming...",
-        "workspace.connected": "Connected",
-        "workspace.disconnected": "Disconnected",
-        "sidebar.searchConversations": "Search conversations...",
-        "sidebar.newChat": "New Chat",
-      },
-    },
+    zh: { translation: zh },
   },
   lng: "zh",
-  fallbackLng: "en",
+  fallbackLng: "zh",
   interpolation: { escapeValue: false },
 });
 
