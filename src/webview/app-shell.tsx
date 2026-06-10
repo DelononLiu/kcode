@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Sidebar } from "./features/app/components/Sidebar";
-import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TabBar } from "./features/app/components/TabBar";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ComposerInput } from "./features/composer/components/ComposerInput";
+import { KanbanView } from "./features/kanban/KanbanView";
 import { bridge } from "./services/bridge";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
-import type { KnowledgeEntry } from "./types";
 
 type TabKey = "projects" | "codex" | "spec" | "git" | "log";
 
@@ -32,9 +32,7 @@ export function AppShell() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<EngineStatus>({ connected: false });
-  const [editing, setEditing] = useState<KnowledgeEntry | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [knowledgeEntries, setKnowledgeEntries] = useState<KnowledgeEntry[]>([]);
   const msgEnd = useRef<HTMLDivElement>(null);
   const bufRef = useRef("");
   const streamIdRef = useRef<string | null>(null);
@@ -42,7 +40,6 @@ export function AppShell() {
 
   useEffect(() => {
     bridge.invoke<EngineStatus>("engine/status").then(setStatus).catch(() => {});
-    bridge.invoke<KnowledgeEntry[]>("knowledge/list").then(setKnowledgeEntries).catch(() => {});
     bridge.on("stream:chunk", (d: any) => {
       if (!d?.text) return;
       const id = streamIdRef.current || (streamIdRef.current = msgId());
@@ -56,7 +53,6 @@ export function AppShell() {
     bridge.on("stream:done", () => { setProcessing(false); bufRef.current = ""; streamIdRef.current = null; });
     bridge.on("stream:error", () => { setProcessing(false); bufRef.current = ""; streamIdRef.current = null; });
     bridge.on("engine:status", (d: any) => { if (d) setStatus(d); });
-    bridge.on("knowledge:updated", (d: any) => { if (d?.entries) setKnowledgeEntries(d.entries); });
   }, []);
 
   useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -70,16 +66,11 @@ export function AppShell() {
     catch { setMessages((p) => [...p, { id: msgId(), role: "system", content: "发送失败", timestamp: Date.now() }]); setProcessing(false); }
   }, [input, processing]);
 
-  const saveKnowledge = useCallback(async () => {
-    if (!editing) return;
-    const saved = await bridge.invoke<KnowledgeEntry>("knowledge/save", editing);
-    setKnowledgeEntries((prev) => {
-      const i = prev.findIndex((e) => e.id === saved.id);
-      if (i >= 0) { const n = [...prev]; n[i] = saved; return n; }
-      return [...prev, saved];
-    });
-    setEditing(null);
-  }, [editing]);
+  const handleNewChat = useCallback(() => {
+    setMessages([]);
+    bufRef.current = "";
+    streamIdRef.current = null;
+  }, []);
 
   return (
     <div className="h-full w-full flex flex-col bg-[#0d0f14] text-[#e6e7ea]">
@@ -94,17 +85,13 @@ export function AppShell() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* 侧边栏 — ThreadList */}
-        <aside className="w-60 shrink-0 border-r border-[#252530] bg-[#121212] flex flex-col">
-          <div className="flex p-1.5 gap-1 border-b border-[#252530]">
-            {(["codex", "projects", "spec"] as TabKey[]).map((t) => (
-              <button key={t} onClick={() => setTab(t)}
-                className={`flex-1 text-[10px] font-medium py-1 rounded ${tab === t ? "bg-[#04d361] text-black" : "text-[#808080] hover:text-[#e6e7ea]"}`}>
-                {t === "codex" ? "💬 对话" : t === "projects" ? "📋 项目" : "📚 知识"}
-              </button>
-            ))}
-          </div>
-          <div className="flex-1 overflow-y-auto" style={{ background: 'var(--surface-sidebar)' }}>
+        {/* 侧边栏 */}
+        <aside className="w-60 shrink-0 border-r border-[#252530] flex flex-col" style={{ background: 'var(--surface-sidebar)' }}>
+          {/* TabBar 在侧边栏顶部 */}
+          <TabBar activeTab={tab} onSelect={(t) => setTab(t)} />
+
+          {/* 工作区 + 线程列表 */}
+          <div className="flex-1 overflow-y-auto">
             <ErrorBoundary>
               <Sidebar
                 workspaces={[]}
@@ -155,55 +142,9 @@ export function AppShell() {
                 removeWorkspace={() => {}}
                 removeWorktree={() => {}}
                 renameWorktree={() => {}}
-                renameWorktreeUpstream={() => {}}
-                deletingWorktreeIds={[]}
-                branches={[]}
-                checkoutBranch={() => {}}
-                createBranch={() => {}}
                 activeWorkspaceRef={{ current: null }}
                 handleOpenDetachedFileExplorer={() => {}}
                 handleRenameWorktree={() => {}}
-                openWorktreePrompt={() => {}}
-                openClonePrompt={() => {}}
-                worktreePrompt={null}
-                clonePrompt={null}
-                confirmWorktreePrompt={() => {}}
-                cancelWorktreePrompt={() => {}}
-                confirmClonePrompt={() => {}}
-                cancelClonePrompt={() => {}}
-                updateCloneCopyName={() => {}}
-                chooseCloneCopiesFolder={() => {}}
-                useSuggestedCloneCopiesFolder={() => {}}
-                clearCloneCopiesFolder={() => {}}
-                persistProjectCopiesFolder={() => {}}
-                handleOpenClaudeTui={() => {}}
-                handleSelectStatusPanelSubagent={() => {}}
-                navigateToThread={() => {}}
-                handleArchiveActiveThread={() => {}}
-                ensureLaunchTerminal={() => {}}
-                ensureTerminalWithTitle={() => {}}
-                restartTerminalSession={() => {}}
-                launchScriptState={null}
-                launchScriptsState={{}}
-                runtimeRunState={null}
-                handleToggleRuntimeConsole={() => {}}
-                handleToggleTerminalPanel={() => {}}
-                worktreeSetupScriptState={{}}
-                handleWorktreeCreated={() => {}}
-                resolveCloneProjectContext={() => null}
-                handleSelectOpenAppId={() => {}}
-                openAppIconById={{}}
-                handleSetGitRoot={() => {}}
-                handlePickGitRoot={() => {}}
-                activeGitRoot={null}
-                gitRootCandidates={[]}
-                gitRootScanLoading={false}
-                gitRootScanError={null}
-                gitRootScanDepth={0}
-                gitRootScanHasScanned={false}
-                scanGitRoots={() => {}}
-                setGitRootScanDepth={() => {}}
-                clearGitRootCandidates={() => {}}
                 activeEngine={"claude"}
                 setActiveEngine={() => {}}
                 availableEngines={[]}
@@ -217,58 +158,23 @@ export function AppShell() {
                 selectedEffort={null}
                 setSelectedEffort={() => {}}
                 refreshModels={() => {}}
-                globalSelectionReady={true}
-                collaborationModes={[]}
-                collaborationModesEnabled={false}
-                selectedCollaborationMode={null}
-                selectedCollaborationModeId={null}
-                setSelectedCollaborationModeId={() => {}}
-                skills={[]}
-                commands={[]}
-                prompts={[]}
-                files={[]}
-                directories={[]}
-                directoryMetadata={{}}
-                isFilesLoading={false}
-                refreshFiles={() => {}}
                 appSettings={{}}
                 setAppSettings={() => {}}
                 appSettingsLoading={false}
-                doctor={null}
-                claudeDoctor={null}
                 reduceTransparency={false}
                 setReduceTransparency={() => {}}
-                windowTransparencyEnabled={false}
-                setWindowTransparencyEnabled={() => {}}
-                windowOpacity={1}
-                setWindowOpacity={() => {}}
-                scaleShortcutTitle={() => ""}
-                scaleShortcutText={() => ""}
                 queueSaveSettings={() => {}}
-                isSearchPaletteOpen={false}
-                setIsSearchPaletteOpen={() => {}}
-                searchScope={"active-workspace"}
-                setSearchScope={() => {}}
-                searchContentFilters={["all"]}
-                setSearchContentFilters={() => {}}
-                searchPaletteQuery={""}
-                setSearchPaletteQuery={() => {}}
-                searchPaletteSelectedIndex={0}
-                setSearchPaletteSelectedIndex={() => {}}
-                globalSearchFilesByWorkspace={{}}
-                setGlobalSearchFilesByWorkspace={() => {}}
-                searchResults={[]}
-                historySearchItems={[]}
-                activeWorkspaceId={null}
-                activeThreadId={null}
-                accountByWorkspace={{}}
-                activeAccount={null}
-                activeRateLimits={null}
-                pinnedThreadsVersion={0}
                 isThreadPinned={() => false}
                 getPinTimestamp={() => 0}
                 unpinThread={() => {}}
                 pinThread={() => {}}
+                activeWorkspaceId={null}
+                activeThreadId={null}
+                accountByWorkspace={{}}
+                activeAccount={null}
+                searchPaletteQuery={""}
+                setSearchPaletteQuery={() => {}}
+                searchResults={[]}
               />
             </ErrorBoundary>
           </div>
@@ -276,16 +182,12 @@ export function AppShell() {
 
         {/* 主区域 */}
         <main className="flex-1 flex flex-col min-w-0">
-          <TabBar activeTab={tab} onSelect={(t) => setTab(t)} />
-
-          {tab === "projects" && (
-            <div className="flex-1 flex items-center justify-center text-xs text-[#808080]">
-              项目视图（开发中）
-            </div>
-          )}
-
           {tab === "codex" && (
             <>
+              <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#252530]">
+                <span className="text-xs font-semibold" style={{ color: '#04d361' }}>AI 对话</span>
+                <button onClick={handleNewChat} className="text-[10px] text-[#808080] hover:text-[#e6e7ea] px-2 py-0.5 rounded border border-[#30303a]">+ 新对话</button>
+              </div>
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center">
@@ -327,18 +229,11 @@ export function AppShell() {
             </>
           )}
 
-          {tab === "spec" && editing && (
-            <div className="p-3 space-y-2">
-              <input className="w-full px-2 py-1.5 rounded border border-[#30303a] bg-[#1f1f25] text-sm outline-none" placeholder="标题" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
-              <textarea className="w-full min-h-[120px] px-2 py-1.5 rounded border border-[#30303a] bg-[#1f1f25] text-sm outline-none resize-y" placeholder="内容" value={editing.content} onChange={(e) => setEditing({ ...editing, content: e.target.value })} />
-              <div className="flex gap-2 justify-end">
-                <button className="px-3 py-1 rounded text-xs bg-[#1f1f25] border border-[#30303a] text-[#e6e7ea]" onClick={() => setEditing(null)}>取消</button>
-                <button className="px-3 py-1 rounded text-xs bg-[#04d361] text-black" onClick={saveKnowledge}>保存</button>
-              </div>
+          {tab === "projects" && <KanbanView />}
+          {tab === "spec" && (
+            <div className="flex-1 flex items-center justify-center text-xs text-[#808080]">
+              搜索（开发中）
             </div>
-          )}
-          {tab === "spec" && !editing && (
-            <div className="p-3"><h2 className="text-sm font-semibold mb-1">知识库</h2><p className="text-xs text-[#808080]">从侧栏选择条目查看</p></div>
           )}
           {(tab === "git" || tab === "log") && (
             <div className="flex-1 flex items-center justify-center text-xs text-[#808080]">
