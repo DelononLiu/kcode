@@ -9,6 +9,7 @@ import { ConfigService } from './core/ConfigService';
 import { SettingsProvider } from './view/SettingsProvider';
 import { MyTasksProvider } from './view/MyTasksProvider';
 import { KnowledgePanel } from './view/KnowledgePanel';
+import { ReactPanel } from './view/ReactPanel';
 
 let panel: Panel | undefined;
 let store: TaskStore | undefined;
@@ -171,7 +172,11 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(openCmd, newTaskCmd, selectTaskCmd, importGitHubCmd, settingsCmd, myTasksCmd, knowledgeCmd, refreshKnowledgeCmd);
+    const openReactViewCmd = vscode.commands.registerCommand('kcode.openReactView', () => {
+        ReactPanel.createOrShow(context);
+    });
+
+    context.subscriptions.push(openCmd, newTaskCmd, selectTaskCmd, importGitHubCmd, settingsCmd, myTasksCmd, knowledgeCmd, refreshKnowledgeCmd, openReactViewCmd);
 }
 
 export function deactivate() {
