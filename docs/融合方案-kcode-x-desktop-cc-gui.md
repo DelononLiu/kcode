@@ -4,7 +4,64 @@
 >
 > **原则**：Webview 只负责 AI 工作台，VS Code 负责编辑器（文件、Git、终端、设置等原生功能各司其职）
 >
-> **目标**：将 desktop-cc-gui 的 React AI 功能 UI 作为 VS Code Webview 基座，融合 kcode 的 5 阶段管线、ACP Agent 接入、小助手、知识库，构建专业级的 VS Code AI 工程工作台。
+> **策略**：**复制跑起来，而非移植重写** — 将 desktop-cc-gui 的 React 前端源码直接复制到 kcode webview 目录，替换 Tauri IPC 层为 VS Code Bridge，对接 kcode 现有后端服务（AgentService、TaskFlow、KnowledgeStore）。
+>
+> **目标**：让 desktop-cc-gui 的 AI 功能 UI 作为 VS Code Webview 运行，融合 kcode 的 5 阶段管线、ACP Agent 接入、小助手、知识库，构建专业级的 VS Code AI 工程工作台。
+
+---
+
+## 1. 融合策略：复制跑起来（vs 移植重写）
+
+```
+方案 A: 移植重写（原计划）              方案 B: 复制跑起来（当前选择）
+desktop-cc-gui → 理解代码 → 重写组件     desktop-cc-gui → cp 源码 → 换 IPC 层
+                 └─ 等价于"看着照片画一幅画"               └─ 等价于"直接把照片装进相框"
+```
+
+### 为什么选方案 B
+
+| 维度 | 方案 A: 移植重写 | 方案 B: 复制跑起来 |
+|------|:---:|:---:|
+| 要写的代码量 | 全部重写（几千行） | 只换 IPC 层（~50 行适配器） |
+| UI 一致性 | 容易走样 | **跟 desktop-cc-gui 完全一致** |
+| AI 适配度 | AI 写新组件可能跑偏 | AI 只需改 import 路径 |
+| 风险 | 重写引入新 bug | 已有的 UI 代码已经跑通了 |
+| 改动量 | 大 | **小（只动数据层）** |
+
+### 核心适配模式
+
+```typescript
+// 改前 (Tauri 调用)
+import { invoke } from '@tauri-apps/api/core'
+const agents = await invoke('get_agents')
+
+// 改后 (vscodeBridge — 同一接口签名)
+import { invoke } from '../services/vscodeBridge'
+//         ↑ 实现: postMessage + onDidReceiveMessage，接口不变
+const agents = await invoke('get_agents')
+```
+
+**Tauri 的 invoke(cmd, args) → Promise 和 VS Code 的 postMessage request/response 接口天然一致。** 写一个 `vscodeBridge.ts` 封装层（~50 行），所有 `@tauri-apps/api` 调用原地替换，不需要改业务组件。
+
+### 执行路径
+
+```
+1. 建 vscodeBridge.ts  (桥接层, 1 个文件, ~50 行)
+2. cp desktop-cc-gui/src/* → kcode_v5/src/webview/
+   只复制 Phase 38 需要的:
+   ├── features/composer/   (输入框)
+   ├── features/threads/    (对话管理)
+   ├── features/messages/   (消息渲染)
+   ├── features/project-memory/ (知识库)
+   ├── features/layout/     (布局)
+   ├── components/ui/       (shadcn 组件)
+   ├── services/  (除 tauri/ 以外)
+   ├── styles/   (相关 CSS)
+   └── types.ts, utils/, lib/
+3. 全局替换 @tauri-apps/api → vscodeBridge
+4. ReactPanel.ts (扩展侧) 处理 bridge invoke → 接 AgentService/KnowledgeStore
+5. 构建、运行、验证
+```
 
 ---
 
@@ -55,18 +112,19 @@ VS Code 原生提供                           kcode Webview 提供
 │  ┌─────────────────────────────────────────────────────────────────────┐ │
 │  │  WebviewBridge.ts              ← 扩展端消息路由                      │ │
 │  │                                                                     │ │
-│  │  commands:                    handlers:                              │ │
-│  │  engine/connect              → AgentService.connectByLabel()         │ │
-│  │  engine/sendMessage          → AgentService.sendMessage()            │ │
-│  │  engine/interrupt            → AgentService.disconnect()             │ │
-│  │  taskflow/processChunk       → TaskFlow.processChunk()               │ │
-│  │  taskflow/updatePhase        → TaskFlow → onPhaseChanged             │ │
-│  │  knowledge/read              → KnowledgeStore.getAllEntries()        │ │
-│  │  knowledge/write             → KnowledgeStore.addEntry()             │ │
-│  │  store/get                   → context.workspaceState.get()          │ │
-│  │  store/set                   → context.workspaceState.update()       │ │
-│  │  editor/getContext           → vscode.window.activeTextEditor        │ │
-│  │  editor/openFile             → vscode.window.showTextDocument()      │ │
+│  │  接收 desktop-cc-gui 的 Tauri IPC 调用，映射到 kcode 后端服务：       │ │
+│  │                                                                     │ │
+│  │  Tauri IPC 命令              → kcode 服务                            │ │
+│  │  ──────────────────────      ─────────────────                      │ │
+│  │  engine/connect              AgentService.connectByLabel()           │ │
+│  │  engine/sendMessage          AgentService.sendMessage()              │ │
+│  │  engine/interrupt            AgentService.disconnect()              │ │
+│  │  knowledge/read              KnowledgeStore.getAllEntries()          │ │
+│  │  knowledge/write             KnowledgeStore.addEntry()              │ │
+│  │  store/get                   context.workspaceState.get()            │ │
+│  │  store/set                   context.workspaceState.update()         │ │
+│  │  editor/getContext           vscode.window.activeTextEditor          │ │
+│  │  editor/openFile             vscode.window.showTextDocument()        │ │
 │  └──────────────────────────┬──────────────────────────────────────────┘ │
 │                             │                                            │
 │                             │ postMessage / onDidReceiveMessage         │
@@ -78,6 +136,7 @@ VS Code 原生提供                           kcode Webview 提供
 │                                                                          │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
 │  │  desktop-cc-gui React 18 + TypeScript + Vite (AI 功能子集)       │   │
+│  │  ★ 直接从 desktop-cc-gui 复制，不改 UI 逻辑，只换 IPC 层          │   │
 │  │                                                                  │   │
 │  │  ┌──────────────────────────────────────────────────────────┐   │   │
 │  │  │  AI 对话系统                                              │   │   │
@@ -122,7 +181,7 @@ VS Code 原生提供                           kcode Webview 提供
 │  │  │                                                          │   │   │
 │  │  │  components/ui/     ← shadcn 组件库                       │   │   │
 │  │  │  styles/            ← CSS 主题系统                       │   │   │
-│  │  │  services/bridge.ts ← VS Code 桥接层                      │   │   │
+│  │  │  services/vscodeBridge.ts ← ★ 替换 tauri.ts：同签名接口   │   │   │
 │  │  │  layout/            ← 布局管理                           │   │   │
 │  │  │  app/               ← 应用壳                             │   │   │
 │  │  │  i18n/              ← 国际化                             │   │   │
@@ -150,7 +209,6 @@ VS Code 原生提供                           kcode Webview 提供
 
 ```typescript
 // 示例：Webview 中打开文件
-// 不需要 fs 命令，不需要 git 命令
 executeCommand('vscode.open', Uri.file(filePath));
 executeCommand('git.commit');
 executeCommand('workbench.view.explorer');
@@ -158,24 +216,24 @@ executeCommand('workbench.view.explorer');
 
 ### 3.2 进 Webview（VS Code 没有的 AI 功能）
 
-| Feature | 来源 | 功能描述 |
-|---|---|---|
-| `threads/ + composer/ + messages/` | desktop-cc-gui | AI 对话系统（富文本输入、流式渲染、工具调用卡片、Mermaid、推理展示） |
-| `kanban/` | desktop-cc-gui | AI 任务看板（todo → inprogress → testing → done） |
-| `tasks/` | desktop-cc-gui | AI 任务运行记录、状态、诊断 |
-| `plan/` | desktop-cc-gui | AI 计划面板 |
-| `engine/` | desktop-cc-gui | AI 引擎选择/状态/能力矩阵 |
-| `project-memory/` | desktop-cc-gui | 知识库（多类型语义记忆） |
-| `agent-orchestration/` | desktop-cc-gui | AI 任务编排 |
-| `context-ledger/` | desktop-cc-gui | AI 上下文来源/成本审计 |
-| `status-panel/` | desktop-cc-gui | AI 运行状态面板 |
-| `session-activity/` | desktop-cc-gui | AI 会话活动记录/导航 |
-| `notifications/` | desktop-cc-gui | AI 操作通知 |
-| `app/ + layout/` | desktop-cc-gui | 应用壳和布局管理 |
-| `home/` | desktop-cc-gui | 首页视图 |
-| 5 阶段管线可视化 | kcode | Goal→Plan→Execute→SelfVerify→Review 流程 |
-| ACP 日志面板 | kcode | ACP 协议通信日志 |
-| Setup Wizard | kcode | 首次使用引导 |
+| Feature | 来源 | 功能描述 | 迁移方式 |
+|---|---|---|---|
+| `threads/ + composer/ + messages/` | desktop-cc-gui | AI 对话系统（富文本输入、流式渲染、工具调用卡片、Mermaid、推理展示） | **cp 源码 → 换 IPC** |
+| `kanban/` | desktop-cc-gui | AI 任务看板（todo → inprogress → testing → done） | **cp 源码 → 换 IPC** |
+| `tasks/` | desktop-cc-gui | AI 任务运行记录、状态、诊断 | **cp 源码 → 换 IPC** |
+| `plan/` | desktop-cc-gui | AI 计划面板 | **cp 源码 → 换 IPC** |
+| `engine/` | desktop-cc-gui | AI 引擎选择/状态/能力矩阵 | **cp 源码 → 换 IPC** |
+| `project-memory/` | desktop-cc-gui | 知识库（多类型语义记忆） | **cp 源码 → 换 IPC** |
+| `agent-orchestration/` | desktop-cc-gui | AI 任务编排 | **cp 源码 → 换 IPC** |
+| `context-ledger/` | desktop-cc-gui | AI 上下文来源/成本审计 | **cp 源码 → 换 IPC** |
+| `status-panel/` | desktop-cc-gui | AI 运行状态面板 | **cp 源码 → 换 IPC** |
+| `session-activity/` | desktop-cc-gui | AI 会话活动记录/导航 | **cp 源码 → 换 IPC** |
+| `notifications/` | desktop-cc-gui | AI 操作通知 | **cp 源码 → 换 IPC** |
+| `app/ + layout/` | desktop-cc-gui | 应用壳和布局管理 | **cp 源码 → 换 IPC** |
+| `home/` | desktop-cc-gui | 首页视图 | **cp 源码 → 换 IPC** |
+| 5 阶段管线可视化 | kcode | Goal→Plan→Execute→SelfVerify→Review 流程 | 新建 |
+| ACP 日志面板 | kcode | ACP 协议通信日志 | 新建 |
+| Setup Wizard | kcode | 首次使用引导 | 新建 |
 
 ### 3.3 弃用（VS Code 有更好替代，或与核心无关）
 
@@ -203,9 +261,51 @@ executeCommand('workbench.view.explorer');
 
 ## 4. 通信架构 (Bridge)
 
-因为文件/Git/终端/对话框等功能全部用 VS Code 原生实现，Webview 和扩展宿主之间的通信**简化到只传递 AI 相关数据**：
+因为文件/Git/终端/对话框等功能全部用 VS Code 原生实现，Webview 和扩展宿主之间的通信**简化到只传递 AI 相关数据**。
 
-### 4.1 消息类型
+### 4.1 Tauri → VS Code Bridge 适配策略
+
+desktop-cc-gui 大量使用 `@tauri-apps/api` 进行 IPC 通信。核心适配思路：
+
+```typescript
+// src/webview/services/vscodeBridge.ts
+// 暴露与 @tauri-apps/api 相同的接口签名
+
+// invoke(cmd, args) — 请求响应
+export async function invoke<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  return bridge.invoke(cmd, args)
+}
+
+// listen(event, handler) — 事件订阅
+export async function listen<T = unknown>(event: string, handler: (payload: T) => void): Promise<() => void> {
+  bridge.on(event, handler)
+  return () => bridge.off(event, handler)
+}
+
+// convertFileSrc — VS Code 不需要，返回空
+export function convertFileSrc(path: string): string { return path }
+
+// 其他 @tauri-apps/api 按需填充...
+```
+
+**Tauri IPC 命令 → kcode 服务映射表：**
+
+```
+Tauri invoke 命令                    → kcode 处理
+───────────────────────────────────── ────────────────────────
+list_agent_bridges                    AgentService.listAvailableAgents()
+get_agent_status                      { isConnected, agentName, modelName }
+prompt_agent (streaming)              AgentService.sendMessage() → stream:chunk
+cancel_agent_prompt                   AgentService.disconnect()
+read_project_memory_entries           KnowledgeStore.getAllEntries()
+write_project_memory_entry            KnowledgeStore.addEntry()
+delete_project_memory_entry           KnowledgeStore.deleteEntry()
+get_setting / set_setting             ConfigService.get() / set()
+read_text_file                        vscode.workspace.fs.readFile()
+write_text_file                       vscode.workspace.fs.writeFile()
+```
+
+### 4.2 消息类型
 
 ```
 Webview → Extension Host（请求式）:
@@ -255,7 +355,7 @@ Extension Host → Webview（推送式）:
   knowledge:updated           → 知识条目变更
 ```
 
-### 4.2 Bridge 实现
+### 4.3 Bridge 实现
 
 ```typescript
 // webview/services/bridge.ts — Webview 侧桥接层
@@ -368,8 +468,8 @@ kcode-vscode-extension/
 ├── tsconfig.json
 ├── vite.config.ts                      ← Vite 构建 Webview
 ├── scripts/
-│   ├── build-webview.js                ← 打包 webview bundle
-│   └── dev.js                          ← 开发脚本
+│   ├── build-webview.js                ← 打包旧版 webview (esbuild)
+│   └── build-webview-vite.js           ← 打包新 React webview (Vite)
 │
 ├── src/
 │   ├── extension.ts                    ← VS Code 扩展入口 (保留 kcode 现有)
@@ -398,9 +498,10 @@ kcode-vscode-extension/
 │   │   ├── StorageAdapter.ts           ←  存储 → context.state
 │   │   └── EditorAdapter.ts            ←  编辑器上下文获取
 │   │
-│   ├── view/                           ← VS Code 扩展视图 (精简)
-│   │   ├── Panel.ts                    ←  主 Webview Panel (重构)
-│   │   ├── SidebarProvider.ts          ←  侧边栏
+│   ├── view/                           ← VS Code 扩展视图
+│   │   ├── Panel.ts                    ←  旧版 Webview Panel (保留)
+│   │   ├── ReactPanel.ts               ←  ★ 新版 React Webview Panel
+│   │   ├── SidebarProvider.ts          ←  侧边栏 (保留)
 │   │   ├── SettingsProvider.ts         ←  设置面板 (如需要)
 │   │   └── templates/
 │   │       └── webviewHtml.ts          ←  Webview HTML 模板
@@ -411,47 +512,50 @@ kcode-vscode-extension/
 │   ├── env/                            ← 环境管理 (保留)
 │   │   └── NodeManager.ts
 │   │
+│   ├── plugins/                        ← kcode 插件系统 (保留)
+│   │
 │   └── webview/                        ← ★ desktop-cc-gui AI 功能前端
-│       ├── index.html
-│       ├── main.tsx                    ← React 入口
+│       ├── index.html                  ←  (直接复制, 仅改 import)
+│       ├── main.tsx                    ←  React 入口
 │       ├── App.tsx
 │       ├── router.tsx
-│       ├── bootstrap.ts                ← 启动 (去 Tauri 化)
+│       ├── bootstrap.ts                ←  启动 (去 Tauri 化)
 │       │
-│       ├── features/                   ← 仅 AI 相关 features
-│       │   ├── threads/                ← 对话管理
-│       │   ├── composer/               ← 输入框
-│       │   ├── messages/               ← 消息渲染
-│       │   ├── kanban/                 ← 看板
-│       │   ├── tasks/                  ← 任务记录
-│       │   ├── plan/                   ← 计划
-│       │   ├── engine/                 ← 引擎选择/状态
-│       │   ├── project-memory/         ← 知识库
-│       │   ├── agent-orchestration/    ← 任务编排
-│       │   ├── context-ledger/         ← 审计
-│       │   ├── status-panel/           ← 状态面板
-│       │   ├── session-activity/       ← 会话活动
-│       │   ├── notifications/          ← 通知
-│       │   ├── home/                   ← 首页
-│       │   ├── app/                    ← 应用壳
-│       │   ├── layout/                 ← 布局
-│       │   ├── shared/                 ← 跨 feature 共享
-│       │   └── about/                  ← 关于
+│       ├── features/                   ←  AI 相关 features (直接复制)
+│       │   ├── threads/                ←  (cp → 换 IPC)
+│       │   ├── composer/               ←  (cp → 换 IPC)
+│       │   ├── messages/               ←  (cp → 换 IPC)
+│       │   ├── kanban/                 ←  (cp → 换 IPC, Phase 39)
+│       │   ├── tasks/                  ←  (cp → 换 IPC, Phase 39)
+│       │   ├── plan/                   ←  (cp → 换 IPC, Phase 39)
+│       │   ├── engine/                 ←  (cp → 换 IPC, Phase 40)
+│       │   ├── project-memory/         ←  (cp → 换 IPC)
+│       │   ├── agent-orchestration/    ←  (cp → 换 IPC, Phase 40)
+│       │   ├── context-ledger/         ←  (cp → 换 IPC, Phase 40)
+│       │   ├── status-panel/           ←  (cp → 换 IPC, Phase 40)
+│       │   ├── session-activity/       ←  (cp → 换 IPC, Phase 40)
+│       │   ├── notifications/          ←  (cp → 换 IPC, Phase 40)
+│       │   ├── home/                   ←  (cp → 换 IPC, Phase 40)
+│       │   ├── app/                    ←  (cp → 换 IPC)
+│       │   ├── layout/                 ←  (cp → 换 IPC)
+│       │   ├── shared/                 ←  (cp → 换 IPC)
+│       │   └── about/                  ←  (cp → 换 IPC)
 │       │
-│       ├── components/                 ← 通用 UI 组件
-│       │   ├── ui/                     ← shadcn/ui 组件
+│       ├── components/                 ← 通用 UI 组件 (直接复制)
+│       │   ├── ui/                     ←  shadcn/ui 组件
 │       │   └── common/
 │       │
 │       ├── services/                   ← ★ 适配服务层
-│       │   ├── bridge.ts               ← VS Code Bridge 核心
-│       │   └── clientStorage.ts        ← 改为 VS Code state
+│       │   ├── bridge.ts               ←  VS Code Bridge 核心
+│       │   ├── vscodeBridge.ts         ←  ★ Tauri API 兼容层
+│       │   └── clientStorage.ts        ←  改为 VS Code state
 │       │
-│       ├── hooks/                      ← 全局 hooks
-│       ├── styles/                     ← CSS 主题 (desktop-cc-gui)
-│       ├── lib/                        ← 工具库
-│       ├── types.ts                    ← 类型定义
-│       ├── i18n/                       ← 国际化
-│       └── utils/                      ← 工具函数
+│       ├── hooks/                      ←  全局 hooks (直接复制)
+│       ├── styles/                     ←  CSS 主题 (直接复制)
+│       ├── lib/                        ←  工具库 (直接复制)
+│       ├── types.ts                    ←  类型定义 (直接复制)
+│       ├── i18n/                       ←  国际化 (直接复制)
+│       └── utils/                      ←  工具函数 (直接复制)
 │
 ├── resources/                          ← 图标等资源
 │
@@ -462,12 +566,31 @@ kcode-vscode-extension/
 
 ## 6. 核心适配细节
 
-### 6.1 Engine → AgentService（AI 引擎选择）
+### 6.1 Tauri → VS Code 桥接层 (vscodeBridge.ts)
 
-desktop-cc-gui 的 `features/engine/` 有引擎选择器、状态指示、能力矩阵。
-kcode 有 `AgentService` 通过 ACP 协议连接 agent。
+desktop-cc-gui 中 `services/tauri/` 下的文件是按功能分类的 Tauri IPC 调用封装。适配策略：
 
-**适配方式**：
+```typescript
+// src/webview/services/tauri/agents.ts (原文件)
+import { invoke } from '@tauri-apps/api/core'
+
+export async function listAgents(): Promise<AgentInfo[]> {
+  return invoke('list_agent_bridges')
+}
+
+// ↓ 改为
+
+// src/webview/services/tauri/agents.ts (改后 — 不动函数签名)
+import { invoke } from '../vscodeBridge'  // ★ 只改 import 路径
+
+export async function listAgents(): Promise<AgentInfo[]> {
+  return invoke('list_agent_bridges')  // → 走 VS Code Bridge
+}
+```
+
+或者更彻底：将所有 `services/tauri/` 下的文件合并为一个 `services/vscodeBridge.ts`，暴露同名函数。
+
+### 6.2 Engine → AgentService（AI 引擎选择）
 
 ```
 desktop-cc-gui engine UI        bridge           kcode AgentService
@@ -482,7 +605,7 @@ desktop-cc-gui engine UI        bridge           kcode AgentService
 └────────────────────┘                          └─────────────────────┘
 ```
 
-### 6.2 Threads/Composer/Messages → 小助手
+### 6.3 Threads/Composer/Messages → 小助手
 
 desktop-cc-gui 的 `threads` + `composer` + `messages` 构成完整的 AI 对话 UI。
 kcode 的 `AssistantHandler` 是后端逻辑。
@@ -509,9 +632,9 @@ Bridge 消息流:
 | `assistant_message` + streaming | `agent` role + stream | stream:chunk → LiveMarkdown |
 | `tool_call` block | `tool` role | tool_call card |
 | `thinking` block | thinking block | 推理过程展示 |
-| `tool_result` | tool 执行结果 | tool 卡片结果展示 |
+| `tool_result` | tool 执行结果 | 工具卡片结果展示 |
 
-### 6.3 Kanban/Plan → 5 阶段管线
+### 6.4 Kanban/Plan → 5 阶段管线
 
 desktop-cc-gui 的 Kanban 有 `todo → inprogress → testing → done`。
 kcode 的 TaskFlow 有 `goal → plan → execute → self_verify → review`。
@@ -543,7 +666,7 @@ kcode 的 TaskFlow 有 `goal → plan → execute → self_verify → review`。
 └────────────┘
 ```
 
-### 6.4 Project Memory → 知识库
+### 6.5 Project Memory → 知识库
 
 desktop-cc-gui 的 `project-memory` 是多类型语义记忆系统。
 kcode 的 `KnowledgeStore` 是知识条目管理。
@@ -556,12 +679,12 @@ project-memory UI          bridge              kcode KnowledgeStore
 │ MemoryPicker     │                         │ updateEntry()         │
 │ MemoryEditor     │                         │ deleteEntry()         │
 └──────────────────┘                         │ getByTask()           │
-                                             └────────────────────────┘
+                                               └────────────────────────┘
 ```
 
 kcode 现有的 `KnowledgePanel`（独立的 WebviewPanel）**废弃**，功能合并到 desktop-cc-gui 的 ProjectMemoryPanel 中。
 
-### 6.5 编辑器上下文集成
+### 6.6 编辑器上下文集成
 
 这是 VS Code 插件独有的优势——Webview 可以直接获取编辑器状态传给 AI。
 
@@ -583,7 +706,6 @@ export class EditorAdapter {
       .then(bytes => new TextDecoder().decode(bytes));
   }
 
-  /** Webview 请求编辑器上下文时调用 */
   async getContext(): Promise<EditorContext> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return { type: 'no_editor' };
@@ -603,13 +725,12 @@ export class EditorAdapter {
 }
 ```
 
-### 6.6 VS Code 原生功能调用
+### 6.7 VS Code 原生功能调用
 
 Webview 内直接调 VS Code 命令打开文件/Git/终端等：
 
 ```typescript
 // 在 webview 的合适位置
-// 打开文件（代替 files/ feature）
 const openFile = (path: string) => {
   acquireVsCodeApi().postMessage({
     type: 'command',
@@ -618,7 +739,6 @@ const openFile = (path: string) => {
   });
 };
 
-// 查看 Git Diff（代替 git/ feature）
 const showGitDiff = (filePath: string) => {
   acquireVsCodeApi().postMessage({
     type: 'command',
@@ -627,7 +747,6 @@ const showGitDiff = (filePath: string) => {
   });
 };
 
-// 打开终端（代替 terminal/ feature）
 const openTerminal = (cwd: string) => {
   acquireVsCodeApi().postMessage({
     type: 'command',
@@ -635,6 +754,40 @@ const openTerminal = (cwd: string) => {
     args: [{ cwd }]
   });
 };
+```
+
+### 6.8 Client Storage 适配
+
+desktop-cc-gui 的 `clientStorage.ts` 使用 Tauri 插件（`tauri-plugin-store`），改为 VS Code `context.workspaceState`：
+
+```typescript
+// src/adapters/StorageAdapter.ts
+export class StorageAdapter {
+  constructor(private state: vscode.Memento) {}
+
+  get<T>(key: string): T | undefined {
+    return this.state.get<T>(key);
+  }
+
+  async set(key: string, value: unknown): Promise<void> {
+    await this.state.update(key, value);
+  }
+}
+```
+
+### 6.9 主题适配
+
+desktop-cc-gui 有完整 CSS 主题系统。在 Webview 中通过 `data-vscode-theme-kind` 适配：
+
+```typescript
+// webview/bootstrap.ts
+const updateTheme = () => {
+  const kind = document.body.getAttribute('data-vscode-theme-kind');
+  document.documentElement.setAttribute('data-theme', kind === 'vscode-dark' ? 'dark' : 'light');
+};
+const observer = new MutationObserver(updateTheme);
+observer.observe(document.body, { attributes: true, attributeFilter: ['data-vscode-theme-kind'] });
+updateTheme();
 ```
 
 ---
@@ -695,146 +848,136 @@ VS Code 窗口
 
 ## 8. 实施步骤
 
-### Phase 1：项目骨架
+### Phase 38：核心骨架 + 对话 + 知识库（当前阶段）
 
 ```
-1. 创建 kcode-vscode-extension 项目目录
-2. 配置 package.json (VS Code 扩展清单)
-3. 配置 Vite (输出 iife 格式供 Webview)
-4. 复制 kcode 现有 extension.ts + 核心服务
-5. 实现最小 Webview：
-   - main.tsx → React 入口
-   - App.tsx + router.tsx
-   - bridge.ts (前端侧) + WebviewBridge.ts (扩展侧)
-6. 验证: "Hello World" React 在 VS Code Webview 中渲染
+P38-01  项目骨架
+  - 安装 Vite + React 18 依赖
+  - 配置 vite.config.ts、tsconfig.webview.json
+  - 创建 ReactPanel.ts（新版 webview panel）
+  - 创建 main.tsx + App.tsx（hello world）
+  - 注册 kcode.openReactView 命令
+  ★ Vite 构建 → Webview 渲染出 React 页面
+
+P38-02  Bridge 通信层
+  - src/webview/services/bridge.ts（webview 侧：invoke + on/off）
+  - src/adapters/WebviewBridge.ts（扩展侧：消息路由）
+  ★ 两端双向通信验证通过
+
+P38-03  CSS + 组件库
+  - cp desktop-cc-gui/src/styles/ → src/webview/styles/
+  - cp desktop-cc-gui/src/components/ui/ → src/webview/components/ui/
+  - cp desktop-cc-gui/src/components/common/ → src/webview/components/common/
+  ★ desktop-cc-gui 主题风格在 Webview 中渲染
+
+P38-04  对话 UI
+  - cp desktop-cc-gui/src/features/threads/ → (对话管理)
+  - cp desktop-cc-gui/src/features/composer/ → (输入框)
+  - cp desktop-cc-gui/src/features/messages/ → (消息渲染)
+  - cp desktop-cc-gui/src/features/layout/ + app/ → (布局)
+  - 创建 vscodeBridge.ts（@tauri-apps/api 兼容层）
+  - 全局替换 @tauri-apps/api → vscodeBridge
+  ★ 能打字发送和显示回复（先走 mock）
+
+P38-05  Agent 连接
+  - 实现 EngineAdapter（bridge ↔ AgentService）
+  - Webview 发消息 → bridge → AgentService → ACP Agent → 流式回 Webview
+  ★ 对话输入真实 Agent，流式回复实时渲染
+
+P38-06  知识库
+  - cp desktop-cc-gui/src/features/project-memory/ →
+  - bridge 对接 kcode KnowledgeStore（CRUD）
+  ★ 知识条目增删改查，数据持久化
+
+P38-07  验证
+  - 端到端跑通：安装插件 → 打开 Webview → AI 对话 → 知识库读写
 ```
 
-### Phase 2：核心 AI 对话
+### Phase 39：任务管线（看板 + Plan + 5 阶段）
 
 ```
-7. 迁移 desktop-cc-gui 的:
-   - styles/ (70+ CSS 文件，精简到 AI 相关)
-   - components/ui/ (shadcn 组件)
-   - features/layout/ + features/app/ (应用壳)
-   - features/threads/ (对话管理)
-   - features/composer/ (输入框)
-   - features/messages/ (消息渲染)
-8. 实现 EngineAdapter (engine ↔ AgentService)
-9. 对接 ACP 通信流程
-10. 验证: 对话功能正常工作 (发送消息→流式渲染→工具调用展示)
+P39-01  cp features/kanban/
+P39-02  cp features/tasks/
+P39-03  cp features/plan/
+P39-04  PlanAdapter — Kanban 状态 ↔ TaskFlow 5 阶段映射
+P39-05  5 阶段管线可视化
+P39-06  cp features/project-memory/ (如果在 P38 还没做全)
+P39-07  KnowledgeStore 对接
+P39-08  废弃 kcode 现有 KnowledgePanel
+P39-09  StorageAdapter — desktop-cc-gui clientStorage → VS Code context.state
+P39-10  验证: 创建任务 → 走完 goal→plan→execute→verify→review
 ```
 
-### Phase 3：任务管线
+### Phase 40：引擎集成 + 编辑器上下文 + 完善
 
 ```
-11. 迁移 features/kanban/、features/tasks/、features/plan/
-12. 实现 kanban 状态 → TaskFlow 阶段映射
-13. 实现 5 阶段管线可视化
-14. 验证: 创建任务 → 走完 goal→plan→execute→verify→review
-```
-
-### Phase 4：知识库
-
-```
-15. 迁移 features/project-memory/
-16. 对接 kcode KnowledgeStore
-17. 废弃 kcode 现有 KnowledgePanel (独立 Webview)
-18. 验证: 知识条目 CRUD + 关联任务 + 对话中引用
-```
-
-### Phase 5：编辑器集成 + AI 编排
-
-```
-19. 实现 EditorAdapter (选中代码、文件上下文)
-20. 迁移 features/engine/ (引擎选择)、features/status-panel/、features/notifications/
-21. 迁移 features/agent-orchestration/ (任务编排)
-22. 迁移 features/context-ledger/ (上下文审计)
-23. 迁移 features/session-activity/ (会话管理)
-24. 迁移 kcode 的 Setup Wizard + ACP 日志
-25. 验证: 完整工作流
+P40-01  cp features/engine/
+P40-02  cp features/status-panel/
+P40-03  cp features/notifications/
+P40-04  cp features/agent-orchestration/
+P40-05  cp features/context-ledger/
+P40-06  cp features/session-activity/
+P40-07  cp features/home/
+P40-08  EditorAdapter — 编辑器上下文获取 + 右键菜单
+P40-09  slash 命令上下文感知
+P40-10  SetupWizard 迁移
+P40-11  ACP 日志面板迁移
+P40-12  验证: 完整交互闭环
 ```
 
 ---
 
 ## 9. 关键技术决策
 
-### 9.1 Webview 格式
-
-VS Code Webview 不支持浏览器原生 ESM，Vite 需要输出 IIFE：
+### 9.1 Webview 构建
 
 ```typescript
-// vite.config.ts
+// vite.config.ts — Vite 构建单文件 bundle
 export default defineConfig({
+  root: 'src/webview',
+  base: '/webview-assets/',
   build: {
-    outDir: 'out/webview',
+    outDir: '../../out/webview',
+    modulePreload: false,
+    cssCodeSplit: false,
     rollupOptions: {
       input: 'src/webview/index.html',
-      output: {
-        format: 'iife',
-        entryFileNames: 'assets/[name].js',
-      },
+      output: { inlineDynamicImports: true },
     },
   },
 });
 ```
 
-### 9.2 主题适配
+### 9.2 两套 Webview 共存
 
-desktop-cc-gui 有完整 CSS 主题系统。在 Webview 中通过 `data-vscode-theme-kind` 适配：
-
-```typescript
-// webview/bootstrap.ts
-const updateTheme = () => {
-  const kind = document.body.getAttribute('data-vscode-theme-kind');
-  document.documentElement.setAttribute('data-theme', kind === 'dark' ? 'dark' : 'light');
-};
-const observer = new MutationObserver(updateTheme);
-observer.observe(document.body, { attributes: true, attributeFilter: ['data-vscode-theme-kind'] });
-updateTheme();
-```
-
-### 9.3 消息流式传输
-
-AI 回复是流式的，使用 bridge event 推送：
+旧版 `Panel.ts` (vanilla JS) 和新版 `ReactPanel.ts` (React 18) 通过不同命令共存：
 
 ```typescript
-// 扩展侧
-acpClient.onChunk((text) => {
-  bridge.emit('stream:chunk', { taskId, text, phase: currentPhase });
-});
-bridge.emit('stream:done', { taskId });
+// 旧版 — 照常运行
+vscode.commands.registerCommand('kcode.open', openOldPanel);
 
-// Webview 侧
-bridge.on('stream:chunk', ({ text }) => {
-  liveMarkdown.append(text); // 实时渲染
-});
+// 新版 — 通过不同命令打开
+vscode.commands.registerCommand('kcode.openReactView', () => ReactPanel.createOrShow(context));
 ```
 
-### 9.4 命令注册
+### 9.3 Tauri 调用的全局替换策略
 
-扩展侧注册 VS Code 命令，供 Webview 调用：
+```bash
+# 找出所有 Tauri 引用
+grep -r "@tauri-apps/api" src/webview/ --include="*.ts" --include="*.tsx"
 
-```typescript
-// commands/index.ts
-export function registerCommands(context: vscode.ExtensionContext, services: ServiceContainer) {
-  context.subscriptions.push(
-    vscode.commands.registerCommand('kcode.openAI', () => { /* 打开 Webview */ }),
-    vscode.commands.registerCommand('kcode.explainCode', () => {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor) return;
-      const selection = editor.document.getText(editor.selection);
-      // 发送到 AI
-    }),
-    vscode.commands.registerCommand('kcode.openFileInEditor', (filePath: string) => {
-      vscode.window.showTextDocument(vscode.Uri.file(filePath));
-    }),
-    vscode.commands.registerCommand('kcode.showGitDiff', (oldUri, newUri, title) => {
-      vscode.commands.executeCommand('vscode.diff', oldUri, newUri, title);
-    }),
-    // ...
-  );
-}
+# 替换为 vscodeBridge（同签名）
+sd "@tauri-apps/api" "../services/vscodeBridge" src/webview/**/*.ts src/webview/**/*.tsx
+
+# 按需补全 vscodeBridge.ts 的导出函数
 ```
+
+### 9.4 desktop-cc-gui 源码管理
+
+复制的代码作为 kcode 仓库的一部分，直接修改（不保持与 desktop-cc-gui 的同步）。原因：
+- 两边的演进方向不同（Tauri 桌面端 vs VS Code 扩展）
+- 修改 IPC 层必然导致代码差异
+- 维护同步成本 > 重写成本
 
 ---
 
@@ -864,7 +1007,7 @@ export function registerCommands(context: vscode.ExtensionContext, services: Ser
 | 风险 | 影响 | 应对 |
 |---|---|---|
 | VS Code Webview 沙箱限制（CSP、localStorage、跨域） | AI 功能受限 | 合理配置 CSP，不需要的 API 禁用；localStorage 改为 VS Code state |
-| desktop-cc-gui 的 CSS 有 70+ 文件，精简工作量大 | 工期长 | 先全量迁移，再逐步裁剪未使用样式 |
-| desktop-cc-gui 的 hooks 直接 import `services/tauri.ts` | 编译报错 | 将 `services/tauri.ts` 替换为同名同签名的 `services/bridge.ts`，不动 hooks |
+| desktop-cc-gui 的 CSS 有 175+ 文件，全部复制过多 | 包体积大 | 先全量复制 Phase 38 需要的样式，后续按需裁剪 |
+| desktop-cc-gui 的 hooks 直接 import `services/tauri.ts` | 编译报错 | 用 `vscodeBridge.ts` 替换 `@tauri-apps/api`，保持同名导出 |
 | 流式渲染 + React 大树导致 Webview 性能问题 | 交互卡顿 | 虚拟列表 + 增量渲染 + React.memo |
 | desktop-cc-gui 某些 feature 深度依赖 Tauri（如 detached window） | 功能不可用 | 在 VS Code 中简化为非浮窗版本 |
