@@ -61,6 +61,53 @@ export class EngineAdapter {
       return id ? this._taskStore.getTask(id) ?? null : null;
     });
 
+    // ── TaskFlow / Kanban ──
+    this._bridge.registerHandler('taskflow/list', () => {
+      return this._taskStore.getTasks().map((t: any) => ({
+        id: t.id,
+        title: t.title || 'Untitled',
+        description: t.description || '',
+        phase: t.phase || 'goal',
+        createdAt: t.createdAt ?? Date.now(),
+      }));
+    });
+
+    this._bridge.registerHandler('taskflow/create', async (params: unknown) => {
+      const { title } = (params || {}) as { title?: string };
+      const task: any = {
+        id: `task_${Date.now()}`,
+        title: title || 'New Task',
+        goal: '',
+        type: 'task',
+        status: 'pending' as const,
+        phase: 'goal' as const,
+        confirmedItems: [],
+        pendingItems: [],
+        planSteps: [],
+        originalRequest: '',
+        createdAt: Date.now(),
+        workspace: '',
+      };
+      this._taskStore.addTask(task);
+      const all = this._taskStore.getTasks().map((t: any) => ({
+        id: t.id, title: t.title || 'Untitled', description: t.description || '',
+        phase: t.phase || 'goal', createdAt: t.createdAt ?? Date.now(),
+      }));
+      this._bridge.emit('taskflow:updated', { tasks: all });
+      return task;
+    });
+
+    this._bridge.registerHandler('taskflow/updatePhase', async (params: unknown) => {
+      const { taskId, phase } = (params || {}) as { taskId?: string; phase?: string };
+      if (!taskId || !phase) return;
+      this._taskStore.updateTaskPhase(taskId, phase as any);
+      const all = this._taskStore.getTasks().map((t: any) => ({
+        id: t.id, title: t.title || 'Untitled', description: t.description || '',
+        phase: (t as any).phase || 'goal', createdAt: t.createdAt ?? Date.now(),
+      }));
+      this._bridge.emit('taskflow:updated', { tasks: all });
+    });
+
     // ── Knowledge ──
     this._bridge.registerHandler('knowledge/list', () => {
       return this._taskStore.getAllKnowledgeEntries().map((e: any) => ({

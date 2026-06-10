@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "./components/ui/button";
-import { Badge } from "./components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
+import { KanbanView } from "./features/kanban/KanbanView";
 import { bridge } from "./services/bridge";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import type { Thread, KnowledgeEntry } from "./types";
+
+type Tab = "chat" | "knowledge" | "kanban";
 
 interface EngineStatus {
   connected: boolean;
@@ -25,8 +26,7 @@ const msgId = () => `m_${Date.now()}_${++msgIdSeq}`;
 
 export function AppShell() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<"chat" | "knowledge">("chat");
-  const [threads] = useState<Thread[]>([]);
+  const [tab, setTab] = useState<Tab>("kanban");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<EngineStatus>({ connected: false });
@@ -37,10 +37,8 @@ export function AppShell() {
   const bufRef = useRef("");
   const streamIdRef = useRef<string | null>(null);
 
-  // Init
   useEffect(() => {
     bridge.invoke<EngineStatus>("engine/status").then(setStatus).catch(() => {});
-    bridge.invoke<Thread[]>("threads/list").then(setThreads).catch(() => {});
     bridge.invoke<KnowledgeEntry[]>("knowledge/list").then(setKnowledge).catch(() => {});
 
     bridge.on("stream:chunk", (d: any) => {
@@ -104,46 +102,56 @@ export function AppShell() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-56 bg-[#121212] border-r border-[#252530] flex flex-col shrink-0">
+        <aside className="w-48 bg-[#121212] border-r border-[#252530] flex flex-col shrink-0">
           <div className="p-2 border-b border-[#252530]">
-            <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
+            <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="w-full">
               <TabsList className="w-full">
-                <TabsTrigger value="chat" className="flex-1 text-[11px]">💬 Chat</TabsTrigger>
-                <TabsTrigger value="knowledge" className="flex-1 text-[11px]">📚 Knowledge</TabsTrigger>
+                <TabsTrigger value="kanban" className="flex-1 text-[11px]">📋</TabsTrigger>
+                <TabsTrigger value="chat" className="flex-1 text-[11px]">💬</TabsTrigger>
+                <TabsTrigger value="knowledge" className="flex-1 text-[11px]">📚</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
 
-          {tab === "chat" && (
-            <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
-              <Button variant="outline" size="sm" className="w-full justify-center text-xs" onClick={handleNew}>+ New Chat</Button>
-              {threads.length === 0 && <p className="text-xs text-[#808080] text-center mt-8">No conversations yet</p>}
-            </div>
-          )}
-
-          {tab === "knowledge" && (
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              <Button variant="outline" size="sm" className="w-full justify-center text-xs" onClick={() => setEditing({ id: "", title: "", content: "" } as any)}>+ New Entry</Button>
-              {knowledge.map((e) => (
-                <div key={e.id} className="p-2 rounded bg-[#1f1f25] border border-[#252530] cursor-pointer hover:border-[#353540] text-xs" onClick={() => setEditing(e)}>
-                  <div className="font-medium mb-0.5">{e.title || "Untitled"}</div>
-                  <div className="text-[#999] line-clamp-2">{e.content}</div>
-                </div>
-              ))}
-              {knowledge.length === 0 && <p className="text-xs text-[#808080] text-center mt-8">No entries yet</p>}
-            </div>
-          )}
+          <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
+            {tab === "chat" && (
+              <>
+                <button className="w-full text-xs text-left px-2 py-1.5 rounded bg-[#1f1f25] border border-[#252530] hover:border-[#353540]" onClick={handleNew}>
+                  + New Chat
+                </button>
+                <p className="text-[10px] text-[#808080] text-center mt-4">No conversations yet</p>
+              </>
+            )}
+            {tab === "knowledge" && (
+              <>
+                <button className="w-full text-xs text-left px-2 py-1.5 rounded bg-[#1f1f25] border border-[#252530] hover:border-[#353540]" onClick={() => setEditing({ id: "", title: "", content: "" } as any)}>
+                  + New Entry
+                </button>
+                {knowledge.map((e) => (
+                  <div key={e.id} className="p-1.5 rounded bg-[#1f1f25] border border-[#252530] cursor-pointer hover:border-[#353540] text-xs mt-1" onClick={() => setEditing(e)}>
+                    <div className="font-medium truncate">{e.title || "Untitled"}</div>
+                  </div>
+                ))}
+                {knowledge.length === 0 && <p className="text-[10px] text-[#808080] text-center mt-4">No entries</p>}
+              </>
+            )}
+            {tab === "kanban" && (
+              <p className="text-[10px] text-[#808080] text-center mt-4">拖拽卡片切换阶段</p>
+            )}
+          </div>
         </aside>
 
         {/* Main */}
         <main className="flex-1 flex flex-col min-w-0">
+          {tab === "kanban" && <KanbanView />}
+
           {tab === "chat" && (
             <>
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center">
-                    <h1 className="text-2xl font-bold mb-2">Welcome to KCode AI</h1>
-                    <p className="text-sm text-[#808080] max-w-sm">AI-powered coding assistant for VS Code</p>
+                    <h1 className="text-lg font-bold mb-1">KCode AI</h1>
+                    <p className="text-xs text-[#808080] max-w-sm">AI-powered coding assistant for VS Code</p>
                   </div>
                 ) : (
                   messages.map((m) => (
@@ -192,27 +200,23 @@ export function AppShell() {
           )}
 
           {tab === "knowledge" && editing && (
-            <div className="p-4 space-y-3">
-              <input className="w-full p-2 rounded border border-[#30303a] bg-[#1f1f25] text-sm outline-none" placeholder="Title" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
-              <textarea className="w-full min-h-[150px] p-2 rounded border border-[#30303a] bg-[#1f1f25] text-sm outline-none resize-y" placeholder="Content" value={editing.content} onChange={(e) => setEditing({ ...editing, content: e.target.value })} />
+            <div className="p-3 space-y-2">
+              <input className="w-full px-2 py-1.5 rounded border border-[#30303a] bg-[#1f1f25] text-sm outline-none" placeholder="Title" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
+              <textarea className="w-full min-h-[120px] px-2 py-1.5 rounded border border-[#30303a] bg-[#1f1f25] text-sm outline-none resize-y" placeholder="Content" value={editing.content} onChange={(e) => setEditing({ ...editing, content: e.target.value })} />
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
-                <Button onClick={saveKnowledge}>Save</Button>
+                <button className="px-3 py-1 rounded text-xs bg-[#1f1f25] border border-[#30303a] text-[#e6e7ea]" onClick={() => setEditing(null)}>Cancel</button>
+                <button className="px-3 py-1 rounded text-xs bg-[#005fb8] text-white" onClick={saveKnowledge}>Save</button>
               </div>
             </div>
           )}
           {tab === "knowledge" && !editing && (
-            <div className="p-4">
-              <h2 className="text-base font-semibold mb-2">Knowledge Base</h2>
-              <p className="text-sm text-[#808080]">Store project knowledge and conventions.</p>
+            <div className="p-3">
+              <h2 className="text-sm font-semibold mb-1">Knowledge Base</h2>
+              <p className="text-xs text-[#808080]">Select an entry from sidebar.</p>
             </div>
           )}
         </main>
       </div>
     </div>
   );
-}
-
-function setThreads(threads: Thread[]) {
-  // placeholder — will be wired to real thread data
 }
