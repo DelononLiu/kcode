@@ -74,20 +74,15 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     // Auto-create the main panel when KCode is activated (shows assistant by default)
-            panel = new Panel(context, store!, configService);
-    panel.onDidDispose(() => { panel = undefined; });
-    panel.setRefreshSidebarCallback(refreshSidebar);
-    panel.loadAssistant(isFirstLaunch);
+    // 废弃：改为由 kcode.openReactView 命令打开 React Panel
+    // panel = new Panel(context, store!, configService);
+    // panel.onDidDispose(() => { panel = undefined; });
+    // panel.setRefreshSidebarCallback(refreshSidebar);
+    // panel.loadAssistant(isFirstLaunch);
 
     // Open/focus the sidebar view and reveal the main panel
     const openCmd = vscode.commands.registerCommand('kcode.open', async () => {
-        await vscode.commands.executeCommand('workbench.view.extension.kcode');
-        if (panel) {
-            panel.reveal();
-        } else {
-        panel = new Panel(context, store!, configService);
-            panel.onDidDispose(() => { panel = undefined; });
-        }
+        vscode.commands.executeCommand('kcode.openReactView');
     });
 
     const newTaskCmd = vscode.commands.registerCommand('kcode.newTask', async () => {
@@ -166,7 +161,10 @@ export async function activate(context: vscode.ExtensionContext) {
     });
 
     const openReactViewCmd = vscode.commands.registerCommand('kcode.openReactView', () => {
-        vscode.commands.executeCommand('workbench.view.extension.kcode');
+        const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || '';
+        const agentService = new AgentService(wsRoot);
+        const rp = new ReactPanel(context, agentService, store!);
+        rp.openPanel();
     });
 
     context.subscriptions.push(openCmd, newTaskCmd, selectTaskCmd, importGitHubCmd, settingsCmd, myTasksCmd, knowledgeCmd, refreshKnowledgeCmd, openReactViewCmd);

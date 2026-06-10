@@ -35,12 +35,17 @@ export class ReactPanel {
     _context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken,
   ) {
-    // 侧边栏内显示一个启动提示，同时打开全屏 Panel
-    webviewView.webview.html = this._loadingHtml();
-    this._openPanel();
+    // 侧边栏只显示启动入口，点击按钮后打开全屏 Panel
+    webviewView.webview.html = this._launcherHtml();
+    webviewView.webview.onDidReceiveMessage((msg) => {
+      if (msg?.command === 'openReactView') {
+        this.openPanel();
+      }
+    });
   }
 
-  private _openPanel() {
+  /** 打开全屏 Webview Panel */
+  openPanel() {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : vscode.ViewColumn.One;
@@ -95,10 +100,12 @@ export class ReactPanel {
 </html>`;
   }
 
-  private _loadingHtml(): string {
+  private _launcherHtml(): string {
     return `<!DOCTYPE html>
-<html><body style="background:#0d0f14;color:#808080;padding:16px;font-family:sans-serif;font-size:13px">
-  <p>KCode AI 面板已打开 →</p>
+<html><body style="background:#0d0f14;color:#e6e7ea;padding:16px;font-family:-apple-system,sans-serif;font-size:13px;text-align:center">
+  <h2 style="color:#04d361;font-size:16px;margin:24px 0 8px">KCode AI</h2>
+  <p style="color:#808080;font-size:12px;margin:0 0 20px">VS Code AI 编码助手</p>
+  <button onclick="acquireVsCodeApi().postMessage({command:'openReactView'})" style="background:#04d361;color:#000;border:none;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">打开 KCode AI</button>
 </body></html>`;
   }
 
