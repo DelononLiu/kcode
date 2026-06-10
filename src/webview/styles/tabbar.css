@@ -55,8 +55,5 @@
   height: 18px;
 }
 
-@media (min-width: 521px) {
-  .tabbar {
-    display: none;
-  }
-}
+/* 注：desktop-cc-gui 在宽屏隐藏了 tabbar（手机布局），
+   VS Code Webview 始终为宽屏，所以注释掉此规则 */
