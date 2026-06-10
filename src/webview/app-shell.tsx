@@ -116,7 +116,9 @@ export function AppShell() {
         {/* 主区域 */}
         <main className="flex-1 flex flex-col min-w-0">
           {/* desktop-cc-gui TabBar */}
-          <TabBar activeTab={tab} onSelect={(t) => setTab(t)} />
+          <div className="bg-[#1a1a1a] border-b border-[#333]">
+            <TabBar activeTab={tab} onSelect={(t) => setTab(t)} />
+          </div>
 
           {tab === "projects" && <KanbanView />}
 
