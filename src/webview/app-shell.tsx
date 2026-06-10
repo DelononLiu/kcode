@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { KanbanView } from "./features/kanban/KanbanView";
-import { Sidebar } from "./features/app/components/Sidebar";
+import { ThreadList } from "./features/app/components/ThreadList";
 import { ComposerInput } from "./features/composer/components/ComposerInput";
 import { bridge } from "./services/bridge";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
@@ -31,16 +31,16 @@ export function AppShell() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<EngineStatus>({ connected: false });
-  const [knowledge, setKnowledge] = useState<KnowledgeEntry[]>([]);
   const [editing, setEditing] = useState<KnowledgeEntry | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [knowledgeEntries, setKnowledgeEntries] = useState<KnowledgeEntry[]>([]);
   const msgEnd = useRef<HTMLDivElement>(null);
   const bufRef = useRef("");
   const streamIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     bridge.invoke<EngineStatus>("engine/status").then(setStatus).catch(() => {});
-    bridge.invoke<KnowledgeEntry[]>("knowledge/list").then(setKnowledge).catch(() => {});
+    bridge.invoke<KnowledgeEntry[]>("knowledge/list").then(setKnowledgeEntries).catch(() => {});
     bridge.on("stream:chunk", (d: any) => {
       if (!d?.text) return;
       const id = streamIdRef.current || (streamIdRef.current = msgId());
@@ -54,7 +54,7 @@ export function AppShell() {
     bridge.on("stream:done", () => { setProcessing(false); bufRef.current = ""; streamIdRef.current = null; });
     bridge.on("stream:error", () => { setProcessing(false); bufRef.current = ""; streamIdRef.current = null; });
     bridge.on("engine:status", (d: any) => { if (d) setStatus(d); });
-    bridge.on("knowledge:updated", (d: any) => { if (d?.entries) setKnowledge(d.entries); });
+    bridge.on("knowledge:updated", (d: any) => { if (d?.entries) setKnowledgeEntries(d.entries); });
   }, []);
 
   useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -65,11 +65,23 @@ export function AppShell() {
     setInput(""); setProcessing(true);
     setMessages((p) => [...p, { id: msgId(), role: "user", content: text, timestamp: Date.now() }]);
     try { await bridge.invoke("engine/sendMessage", { text }); }
-    catch { setMessages((p) => [...p, { id: msgId(), role: "system", content: "Error", timestamp: Date.now() }]); setProcessing(false); }
+    catch { setMessages((p) => [...p, { id: msgId(), role: "system", content: "发送失败", timestamp: Date.now() }]); setProcessing(false); }
   }, [input, processing]);
+
+  const saveKnowledge = useCallback(async () => {
+    if (!editing) return;
+    const saved = await bridge.invoke<KnowledgeEntry>("knowledge/save", editing);
+    setKnowledgeEntries((prev) => {
+      const i = prev.findIndex((e) => e.id === saved.id);
+      if (i >= 0) { const n = [...prev]; n[i] = saved; return n; }
+      return [...prev, saved];
+    });
+    setEditing(null);
+  }, [editing]);
 
   return (
     <div className="h-full w-full flex flex-col bg-[#0d0f14] text-[#e6e7ea]">
+      {/* 顶栏 */}
       <header className="h-9 flex items-center px-3 border-b border-[#252530] shrink-0 gap-3">
         <span className="font-semibold text-sm" style={{ color: "#04d361" }}>KCode AI</span>
         <span className="text-[10px] text-[#04d361] px-1.5 py-0.5 rounded" style={{ border: "1px solid rgba(4,211,97,0.2)", background: "rgba(4,211,97,0.1)" }}>v0.2</span>
@@ -80,25 +92,67 @@ export function AppShell() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* sidebar — desktop-cc-gui Sidebar 组件 */}
-        <div className="w-60 shrink-0 border-r border-[#252530] overflow-hidden">
-          <Sidebar {...({} as any)} />
-        </div>
-
-        <main className="flex-1 flex flex-col min-w-0">
-          <div className="flex gap-4 px-4 py-1.5 border-b border-[#252530] bg-[#121212]">
+        {/* 侧边栏 — ThreadList */}
+        <aside className="w-60 shrink-0 border-r border-[#252530] overflow-y-auto bg-[#121212]">
+          {/* tab 切换 */}
+          <div className="flex p-2 gap-1 border-b border-[#252530]">
             {(["kanban", "chat", "knowledge"] as Tab[]).map((t) => (
               <button key={t} onClick={() => setTab(t)}
-                className={`text-xs font-medium px-2 py-1 rounded ${tab === t ? "bg-[#04d361] text-black" : "text-[#808080] hover:text-[#e6e7ea]"}`}>
-                {t === "kanban" ? "📋 管线" : t === "chat" ? "💬 对话" : "📚 知识"}
+                className={`flex-1 text-[11px] font-medium py-1 rounded ${tab === t ? "bg-[#04d361] text-black" : "text-[#808080] hover:text-[#e6e7ea]"}`}>
+                {t === "kanban" ? "📋" : t === "chat" ? "💬" : "📚"}
               </button>
             ))}
           </div>
 
+          {tab === "chat" && (
+            <div className="p-1.5">
+              <ThreadList
+                workspaceId="ws_main"
+                workspacePath=""
+                pinnedRows={[]}
+                unpinnedRows={[]}
+                totalThreadRoots={0}
+                visibleThreadRootCount={0}
+                isExpanded={true}
+                nextCursor={null}
+                isPaging={false}
+                nested={false}
+                activeWorkspaceId="ws_main"
+                activeThreadId={null}
+                threadStatusById={{}}
+                getThreadTime={() => ""}
+                isThreadPinned={() => false}
+                isThreadAutoNaming={() => false}
+                onToggleThreadPin={() => {}}
+                onToggleExpanded={() => {}}
+                onLoadOlderThreads={() => {}}
+                onSelectThread={() => {}}
+                onShowThreadMenu={() => null}
+              />
+            </div>
+          )}
+
+          {tab === "kanban" && <div className="p-2 text-[10px] text-[#808080] text-center mt-4">拖拽卡片切换阶段</div>}
+
+          {tab === "knowledge" && (
+            <div className="p-2">
+              {knowledgeEntries.map((e) => (
+                <div key={e.id} className="p-1.5 mb-1 rounded bg-[#1f1f25] border border-[#252530] cursor-pointer text-xs hover:border-[#353540]" onClick={() => setEditing(e)}>
+                  <div className="font-medium truncate">{e.title || "Untitled"}</div>
+                </div>
+              ))}
+              {knowledgeEntries.length === 0 && <p className="text-[10px] text-[#808080] text-center mt-4">暂无条目</p>}
+            </div>
+          )}
+        </aside>
+
+        {/* 主区域 */}
+        <main className="flex-1 flex flex-col min-w-0">
           {tab === "kanban" && <KanbanView />}
 
           {tab === "chat" && (
             <>
+              {/* 消息列表 */}
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center">
@@ -119,15 +173,23 @@ export function AppShell() {
                 <div ref={msgEnd} />
               </div>
 
-              {/* composer — desktop-cc-gui ComposerInput */}
-              <div className="border-t border-[#252530] bg-[#0f1118]">
-                <ComposerInput {...({} as any)} />
-              </div>
+              {/* ComposerInput */}
+              <ComposerInput {...({} as any)} />
             </>
           )}
 
-          {tab === "knowledge" && (
-            <div className="p-3"><h2 className="text-sm font-semibold mb-1">Knowledge Base</h2><p className="text-xs text-[#808080]">知识库功能开发中...</p></div>
+          {tab === "knowledge" && editing && (
+            <div className="p-3 space-y-2">
+              <input className="w-full px-2 py-1.5 rounded border border-[#30303a] bg-[#1f1f25] text-sm outline-none" placeholder="标题" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
+              <textarea className="w-full min-h-[120px] px-2 py-1.5 rounded border border-[#30303a] bg-[#1f1f25] text-sm outline-none resize-y" placeholder="内容" value={editing.content} onChange={(e) => setEditing({ ...editing, content: e.target.value })} />
+              <div className="flex gap-2 justify-end">
+                <button className="px-3 py-1 rounded text-xs bg-[#1f1f25] border border-[#30303a] text-[#e6e7ea]" onClick={() => setEditing(null)}>取消</button>
+                <button className="px-3 py-1 rounded text-xs bg-[#04d361] text-black" onClick={saveKnowledge}>保存</button>
+              </div>
+            </div>
+          )}
+          {tab === "knowledge" && !editing && (
+            <div className="p-3"><h2 className="text-sm font-semibold mb-1">知识库</h2><p className="text-xs text-[#808080]">从侧栏选择条目查看</p></div>
           )}
         </main>
       </div>
