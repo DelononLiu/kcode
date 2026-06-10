@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { KanbanView } from "./features/kanban/KanbanView";
 import { Sidebar } from "./features/app/components/Sidebar";
+import { TabBar } from "./features/app/components/TabBar";
 import { ComposerInput } from "./features/composer/components/ComposerInput";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { bridge } from "./services/bridge";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import type { KnowledgeEntry } from "./types";
 
-type Tab = "chat" | "knowledge" | "kanban";
+type TabKey = "projects" | "codex" | "spec" | "git" | "log";
 
 interface EngineStatus {
   connected: boolean;
@@ -28,7 +29,7 @@ const msgId = () => `m_${Date.now()}_${++msgIdSeq}`;
 
 export function AppShell() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>("chat");
+  const [tab, setTab] = useState<TabKey>("codex");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<EngineStatus>({ connected: false });
@@ -95,15 +96,16 @@ export function AppShell() {
       <div className="flex flex-1 overflow-hidden">
         {/* 侧边栏 — desktop-cc-gui Sidebar */}
         <aside className="w-60 shrink-0 border-r border-[#252530] overflow-hidden bg-[#121212]">
-          {/* tab 切换 */}
-          <div className="flex p-2 gap-1 border-b border-[#252530]">
-            {(["kanban", "chat", "knowledge"] as Tab[]).map((t) => (
-              <button key={t} onClick={() => setTab(t)}
-                className={`flex-1 text-[11px] font-medium py-1 rounded ${tab === t ? "bg-[#04d361] text-black" : "text-[#808080] hover:text-[#e6e7ea]"}`}>
-                {t === "kanban" ? "📋" : t === "chat" ? "💬" : "📚"}
-              </button>
-            ))}
-          </div>
+          {tab === "codex" && (
+            <div className="p-1.5 border-b border-[#252530]">
+              <p className="text-[10px] text-[#808080] text-center">AI 对话</p>
+            </div>
+          )}
+          {tab === "projects" && (
+            <div className="p-1.5 border-b border-[#252530]">
+              <p className="text-[10px] text-[#808080] text-center">任务看板</p>
+            </div>
+          )}
 
           <div className="h-full overflow-y-auto">
             <ErrorBoundary>
@@ -114,9 +116,12 @@ export function AppShell() {
 
         {/* 主区域 */}
         <main className="flex-1 flex flex-col min-w-0">
-          {tab === "kanban" && <KanbanView />}
+          {/* desktop-cc-gui TabBar */}
+          <TabBar activeTab={tab} onSelect={(t) => setTab(t)} />
 
-          {tab === "chat" && (
+          {tab === "projects" && <KanbanView />}
+
+          {tab === "codex" && (
             <>
               {/* 消息列表 */}
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
@@ -161,7 +166,7 @@ export function AppShell() {
             </>
           )}
 
-          {tab === "knowledge" && editing && (
+          {tab === "spec" && editing && (
             <div className="p-3 space-y-2">
               <input className="w-full px-2 py-1.5 rounded border border-[#30303a] bg-[#1f1f25] text-sm outline-none" placeholder="标题" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
               <textarea className="w-full min-h-[120px] px-2 py-1.5 rounded border border-[#30303a] bg-[#1f1f25] text-sm outline-none resize-y" placeholder="内容" value={editing.content} onChange={(e) => setEditing({ ...editing, content: e.target.value })} />
@@ -171,8 +176,13 @@ export function AppShell() {
               </div>
             </div>
           )}
-          {tab === "knowledge" && !editing && (
+          {tab === "spec" && !editing && (
             <div className="p-3"><h2 className="text-sm font-semibold mb-1">知识库</h2><p className="text-xs text-[#808080]">从侧栏选择条目查看</p></div>
+          )}
+          {(tab === "git" || tab === "log") && (
+            <div className="flex-1 flex items-center justify-center text-xs text-[#808080]">
+              {tab === "git" ? "Git 面板" : "日志面板"}（开发中）
+            </div>
           )}
         </main>
       </div>
