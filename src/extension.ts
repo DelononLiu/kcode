@@ -10,6 +10,7 @@ import { SettingsProvider } from './view/SettingsProvider';
 import { MyTasksProvider } from './view/MyTasksProvider';
 import { KnowledgePanel } from './view/KnowledgePanel';
 import { ReactPanel } from './view/ReactPanel';
+import { AgentService } from './core/AgentService';
 
 let panel: Panel | undefined;
 let store: TaskStore | undefined;
@@ -173,7 +174,9 @@ export async function activate(context: vscode.ExtensionContext) {
     });
 
     const openReactViewCmd = vscode.commands.registerCommand('kcode.openReactView', () => {
-        ReactPanel.createOrShow(context);
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || '';
+        const agentService = new AgentService(workspaceRoot);
+        ReactPanel.createOrShow(context, agentService, store!);
     });
 
     context.subscriptions.push(openCmd, newTaskCmd, selectTaskCmd, importGitHubCmd, settingsCmd, myTasksCmd, knowledgeCmd, refreshKnowledgeCmd, openReactViewCmd);

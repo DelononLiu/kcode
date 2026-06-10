@@ -1,5 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { WebviewBridge } from '../adapters/WebviewBridge';
+import { EngineAdapter } from '../adapters/EngineAdapter';
+import type { AgentService } from '../core/AgentService';
+import type { TaskStore } from '../store/TaskStore';
 
 /**
  * ReactPanel — 新版 React Webview Panel
@@ -10,14 +14,23 @@ import * as path from 'path';
 export class ReactPanel {
   public static readonly viewType = 'kcode.reactView';
 
+  private _panel: vscode.WebviewPanel | null = null;
+  private _bridge: WebviewBridge;
+  private _engineAdapter: EngineAdapter;
   private _disposables: vscode.Disposable[] = [];
 
   constructor(
     private _context: vscode.ExtensionContext,
-  ) {}
+    agentService: AgentService,
+    taskStore: TaskStore,
+  ) {
+    this._bridge = new WebviewBridge();
+    this._engineAdapter = new EngineAdapter(this._bridge, agentService, taskStore);
+    this._engineAdapter.registerAll();
+  }
 
   /** 创建并显示 Webview Panel */
-  public static createOrShow(context: vscode.ExtensionContext) {
+  public static createOrShow(context: vscode.ExtensionContext, agentService: AgentService, taskStore: TaskStore) {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : vscode.ViewColumn.One;
@@ -35,8 +48,18 @@ export class ReactPanel {
       },
     );
 
-    const instance = new ReactPanel(context);
+    const instance = new ReactPanel(context, agentService, taskStore);
+    instance._panel = panel;
+    instance._bridge.bind(panel);
     instance._setHtml(panel);
+
+    // 通知状态
+    instance._bridge.emit('engine:status', {
+      connected: agentService.isConnected,
+      agentName: agentService.agentName,
+      modelName: agentService.modelName,
+    });
+
     instance._disposables.push(
       panel.onDidDispose(() => instance.dispose()),
     );
