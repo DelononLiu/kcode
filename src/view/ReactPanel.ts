@@ -6,18 +6,18 @@ import type { AgentService } from '../core/AgentService';
 import type { TaskStore } from '../store/TaskStore';
 
 /**
- * ReactPanel — 新版 React Webview Panel
+ * ReactPanel — 新版 React Webview（全屏 WebviewPanel）
  *
- * 读取 Vite 构建产物（out/webview/assets/），注入到 Webview 中。
- * Bridge 通信层通过 WebviewBridge + EngineAdapter 对接 kcode 后端服务。
+ * 点击活动栏图标 → resolveWebviewView 打开全屏 Panel。
+ * 侧边栏 view 本身仅作启动跳板，渲染在 WebviewPanel 中。
+ *
+ * Bridge + EngineAdapter 对接 kcode 后端服务。
  */
 export class ReactPanel {
   public static readonly viewType = 'kcode.reactView';
+  public static readonly viewId = 'kcode.viewsMain';
 
-  private _panel: vscode.WebviewPanel | null = null;
   private _bridge: WebviewBridge;
-  private _engineAdapter: EngineAdapter;
-  private _disposables: vscode.Disposable[] = [];
 
   constructor(
     private _context: vscode.ExtensionContext,
@@ -25,12 +25,22 @@ export class ReactPanel {
     taskStore: TaskStore,
   ) {
     this._bridge = new WebviewBridge();
-    this._engineAdapter = new EngineAdapter(this._bridge, agentService, taskStore);
-    this._engineAdapter.registerAll();
+    const engineAdapter = new EngineAdapter(this._bridge, agentService, taskStore);
+    engineAdapter.registerAll();
   }
 
-  /** 创建并显示 Webview Panel */
-  public static createOrShow(context: vscode.ExtensionContext, agentService: AgentService, taskStore: TaskStore) {
+  /** WebviewViewProvider.resolveWebviewView — 活动栏图标点击时触发 */
+  resolveWebviewView(
+    webviewView: vscode.WebviewView,
+    _context: vscode.WebviewViewResolveContext,
+    _token: vscode.CancellationToken,
+  ) {
+    // 侧边栏内显示一个启动提示，同时打开全屏 Panel
+    webviewView.webview.html = this._loadingHtml();
+    this._openPanel();
+  }
+
+  private _openPanel() {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : vscode.ViewColumn.One;
@@ -43,42 +53,23 @@ export class ReactPanel {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [
-          vscode.Uri.file(path.join(context.extensionPath, 'out', 'webview')),
+          vscode.Uri.file(path.join(this._context.extensionPath, 'out', 'webview')),
         ],
       },
     );
 
-    const instance = new ReactPanel(context, agentService, taskStore);
-    instance._panel = panel;
-    instance._bridge.bind(panel);
-    instance._setHtml(panel);
-
-    // 通知状态
-    instance._bridge.emit('engine:status', {
-      connected: agentService.isConnected,
-      agentName: agentService.agentName,
-      modelName: agentService.modelName,
-    });
-
-    instance._disposables.push(
-      panel.onDidDispose(() => instance.dispose()),
-    );
-    return instance;
+    this._bridge.bindPanel(panel);
+    this._setHtml(panel.webview);
+    this._emitStatus();
   }
 
-  private _setHtml(panel: vscode.WebviewPanel) {
-    const webview = panel.webview;
+  private _setHtml(webview: vscode.Webview) {
     const webviewDir = vscode.Uri.file(
       path.join(this._context.extensionPath, 'out', 'webview'),
     );
-
     const assetsDir = webviewDir.with({ path: path.join(webviewDir.path, 'assets') });
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(assetsDir, 'index.js'),
-    );
-    const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(assetsDir, 'style.css'),
-    );
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsDir, 'index.js'));
+    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(assetsDir, 'style.css'));
 
     const csp = [
       `default-src 'none'`,
@@ -88,7 +79,7 @@ export class ReactPanel {
       `font-src ${webview.cspSource}`,
     ].join('; ');
 
-    panel.webview.html = `<!DOCTYPE html>
+    webview.html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
@@ -104,8 +95,18 @@ export class ReactPanel {
 </html>`;
   }
 
-  dispose() {
-    this._disposables.forEach((d) => d.dispose());
-    this._disposables = [];
+  private _loadingHtml(): string {
+    return `<!DOCTYPE html>
+<html><body style="background:#0d0f14;color:#808080;padding:16px;font-family:sans-serif;font-size:13px">
+  <p>KCode AI 面板已打开 →</p>
+</body></html>`;
+  }
+
+  private _emitStatus() {
+    this._bridge.emit('engine:status', {
+      connected: false,
+      agentName: '',
+      modelName: '',
+    });
   }
 }

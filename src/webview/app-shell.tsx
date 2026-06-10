@@ -94,28 +94,28 @@ export function AppShell() {
   return (
     <div className="h-full w-full flex flex-col bg-[#0d0f14] text-[#e6e7ea]">
       {/* Header */}
-      <header className="h-11 flex items-center px-3 border-b border-[#252530] shrink-0 gap-2">
-        <span className="font-semibold text-sm">KCode AI</span>
-        <div className="ml-auto flex items-center gap-2 text-xs text-[#808080]">
-          <span className={`w-2 h-2 rounded-full ${status.connected ? "bg-[#78ebbe]" : "bg-[#ff6e6e]"}`} />
+      <header className="h-8 flex items-center px-2 border-b border-[#252530] shrink-0 gap-2">
+        <span className="font-semibold text-xs">KCode AI</span>
+        <div className="ml-auto flex items-center gap-1.5 text-[10px] text-[#808080]">
+          <span className={`w-1.5 h-1.5 rounded-full ${status.connected ? "bg-[#78ebbe]" : "bg-[#ff6e6e]"}`} />
           {status.connected ? (status.modelName || "Connected") : "Disconnected"}
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-64 bg-[#121212] border-r border-[#252530] flex flex-col shrink-0">
-          <div className="p-3 border-b border-[#252530]">
+        <aside className="w-56 bg-[#121212] border-r border-[#252530] flex flex-col shrink-0">
+          <div className="p-2 border-b border-[#252530]">
             <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
               <TabsList className="w-full">
-                <TabsTrigger value="chat" className="flex-1 text-xs">💬 Chat</TabsTrigger>
-                <TabsTrigger value="knowledge" className="flex-1 text-xs">📚 Knowledge</TabsTrigger>
+                <TabsTrigger value="chat" className="flex-1 text-[11px]">💬 Chat</TabsTrigger>
+                <TabsTrigger value="knowledge" className="flex-1 text-[11px]">📚 Knowledge</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
 
           {tab === "chat" && (
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
               <Button variant="outline" size="sm" className="w-full justify-center text-xs" onClick={handleNew}>+ New Chat</Button>
               {threads.length === 0 && <p className="text-xs text-[#808080] text-center mt-8">No conversations yet</p>}
             </div>
@@ -139,7 +139,7 @@ export function AppShell() {
         <main className="flex-1 flex flex-col min-w-0">
           {tab === "chat" && (
             <>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center">
                     <h1 className="text-2xl font-bold mb-2">Welcome to KCode AI</h1>
@@ -147,11 +147,11 @@ export function AppShell() {
                   </div>
                 ) : (
                   messages.map((m) => (
-                    <div key={m.id} className={`p-3 rounded-lg border ${m.role === "assistant" ? "bg-[#1f1f25] border-[#252530]" : m.role === "user" ? "bg-[#232329] border-[#30303a]" : "bg-[#281c26] border-[#6b3a56]"}`}>
-                      <div className={`text-xs font-semibold uppercase tracking-wider mb-1 ${m.role === "assistant" ? "text-[#78ebbe]" : m.role === "user" ? "text-[#999]" : "text-[#f2c3e2]"}`}>
+                    <div key={m.id} className={`px-3 py-2 rounded-md border ${m.role === "assistant" ? "bg-[#1f1f25] border-[#252530]" : m.role === "user" ? "bg-[#232329] border-[#30303a]" : "bg-[#281c26] border-[#6b3a56]"}`}>
+                      <div className={`text-[10px] font-semibold uppercase tracking-wider mb-0.5 ${m.role === "assistant" ? "text-[#78ebbe]" : m.role === "user" ? "text-[#999]" : "text-[#f2c3e2]"}`}>
                         {m.role === "user" ? "You" : m.role === "assistant" ? "AI" : "System"}
                       </div>
-                      <div className="text-sm leading-relaxed">
+                      <div className="text-[13px] leading-relaxed">
                         {m.role === "assistant" ? <MarkdownRenderer content={m.content} /> : m.content}
                       </div>
                     </div>
@@ -167,23 +167,25 @@ export function AppShell() {
                 <div ref={msgEnd} />
               </div>
 
-              <div className="border-t border-[#252530] p-3 bg-[#0f1118]">
-                <div className="flex gap-2">
+              <div className="border-t border-[#252530] px-3 py-2 bg-[#0f1118]">
+                <div className="flex gap-1.5 items-end">
                   <textarea
-                    className="flex-1 min-h-[40px] max-h-[200px] p-2.5 rounded-lg border border-[#30303a] bg-[#1f1f25] text-sm text-[#e6e7ea] outline-none resize-none placeholder:text-[#808080]"
+                    className="flex-1 min-h-[28px] max-h-[120px] px-2 py-1.5 rounded-md border border-[#30303a] bg-[#1f1f25] text-[13px] text-[#e6e7ea] outline-none resize-none placeholder:text-[#808080] leading-snug"
                     placeholder="Type a message..."
                     value={input}
                     onChange={(e) => {
                       setInput(e.target.value);
                       e.target.style.height = "auto";
-                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
+                      e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
                     }}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                     rows={1}
                   />
-                  <Button onClick={handleSend} disabled={!input.trim() || processing} className="self-end">
-                    {processing ? "⏳" : "Send"}
-                  </Button>
+                  <button
+                    onClick={handleSend}
+                    disabled={!input.trim() || processing}
+                    className="h-[28px] px-3 rounded-md text-xs font-medium bg-[#005fb8] text-white hover:bg-[#0070d0] disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                  >{processing ? "⏳" : "Send"}</button>
                 </div>
               </div>
             </>

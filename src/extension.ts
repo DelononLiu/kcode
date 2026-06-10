@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import { Panel } from './view/Panel';
-import { SidebarProvider } from './view/SidebarProvider';
 import { TaskStore } from './store/TaskStore';
 import { ProjectFs } from './store/ProjectFs';
 import { Task } from './types';
@@ -14,7 +13,6 @@ import { AgentService } from './core/AgentService';
 
 let panel: Panel | undefined;
 let store: TaskStore | undefined;
-let sidebarProvider: SidebarProvider | undefined;
 let configService: ConfigService | undefined;
 let settingsProvider: SettingsProvider | undefined;
 let myTasksProvider: MyTasksProvider | undefined;
@@ -36,10 +34,9 @@ function openTaskInPanel(context: vscode.ExtensionContext, taskId: string, autoS
     }
 }
 
+/** 旧版侧边栏刷新 — 不再使用（侧边栏已融合进 React Webview） */
 function refreshSidebar() {
-    if (sidebarProvider) {
-        sidebarProvider.refresh(panel?.getCurrentTaskId());
-    }
+    // no-op: sidebar is now inside the React Webview
 }
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -57,20 +54,15 @@ export async function activate(context: vscode.ExtensionContext) {
         // Config change handler — refresh UI elements if needed
     }));
 
-    // Register sidebar view provider
-    sidebarProvider = new SidebarProvider(
-        context,
-        store,
-        (taskId) => openTaskInPanel(context, taskId)
-    );
-    sidebarProvider.setFlashInputCallback(() => panel?.flashInput());
-    sidebarProvider.setToggleRightPanelCallback(() => panel?.toggleRightPanel());
-    sidebarProvider.setSelectAssistantCallback(() => { if (panel) { panel.loadAssistant(); refreshSidebar(); } });
-    sidebarProvider.setShowNewTaskViewCallback(() => { if (panel) { panel.showNewTaskView(); } sidebarProvider?.refresh('__newtask__'); });
+    // 旧版 SidebarProvider (废弃 — 侧边栏已融合进 React Webview)
+    // 保留 kcode.viewsMain 的 WebviewView 注册，指向 ReactPanel
+    const reactPanel = new ReactPanel(context, new AgentService(workspaceRoot || ''), store!);
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
-            SidebarProvider.viewType,
-            sidebarProvider,
+            ReactPanel.viewId,
+            {
+                resolveWebviewView: (wv, ctx, token) => reactPanel.resolveWebviewView(wv, ctx, token),
+            },
             { webviewOptions: { retainContextWhenHidden: true } }
         )
     );
@@ -174,9 +166,7 @@ export async function activate(context: vscode.ExtensionContext) {
     });
 
     const openReactViewCmd = vscode.commands.registerCommand('kcode.openReactView', () => {
-        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || '';
-        const agentService = new AgentService(workspaceRoot);
-        ReactPanel.createOrShow(context, agentService, store!);
+        vscode.commands.executeCommand('workbench.view.extension.kcode');
     });
 
     context.subscriptions.push(openCmd, newTaskCmd, selectTaskCmd, importGitHubCmd, settingsCmd, myTasksCmd, knowledgeCmd, refreshKnowledgeCmd, openReactViewCmd);
