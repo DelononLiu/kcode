@@ -4,7 +4,14 @@
 @import "./base.css";
 @import "./kanban.css";
 @import "./tabbar.css";
-
 @import "./composer.css";
 @import "./sidebar.css";
 @import "./sidebar.chrome.css";
+
+/* ── VS Code Webview 全高适配 ── */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
