@@ -1470,18 +1470,19 @@ KCode:                用户 → /review → 引导填表 → 拼装结构化 pr
 _目标：搭建 Vite + React 18 Webview 骨架，创建 Bridge 通信层。将 desktop-cc-gui 的 AI 对话（threads/composer/messages）和知识库（project-memory）**cp 到 kcode webview 目录，替换 Tauri IPC 层为 VS Code Bridge**，实现可运行的 VS Code 插件。_
 
 **原则**：VS Code 已有的文件/编辑/Git/终端/设置等不进 Webview。Webview 只做 AI 工作台。
+**布局**：kcode 侧边栏（线程列表/导航）不再作为独立的 VS Code webview view，而是融合进 React Webview 主面板内，与 desktop-cc-gui 的布局方式一致。SidebarProvider.ts 废弃。
 **策略**：**复制跑起来，而非移植重写**。desktop-cc-gui 的 UI 代码直接 cp，只改 `@tauri-apps/api` → `vscodeBridge.ts`。
 **范围**：不追求完美，追求端到端跑通。一行代码跑通，胜过十行代码写好。
 
 | 任务 | 说明 | 状态 | 优先级 |
 |------|------|------|--------|
-| P38-01 | 项目骨架 — Vite + React 18，Webview 渲染出 Hello World | 🛠️ 进行中 | P0 |
-| P38-02 | Bridge 通信层 — Webview ↔ Extension Host 双向消息通道 | ⬜ 未开始 | P0 |
-| P38-03 | CSS + 组件库 — cp desktop-cc-gui styles/ + components/ui/ | ⬜ 未开始 | P0 |
-| P38-04 | 对话 UI — cp threads/composer/messages → 换 IPC → 能打字发消息 | ⬜ 未开始 | P0 |
-| P38-05 | Agent 连接 — EngineAdapter 对接 kcode AgentService | ⬜ 未开始 | P0 |
-| P38-06 | 知识库 — cp project-memory → 对接 KnowledgeStore | ⬜ 未开始 | P0 |
-| P38-07 | 验证: 端到端跑通 — AI 对话 + 知识库读写 | ⬜ 未开始 | P0 |
+| P38-01 | 项目骨架 — Vite + React 18，Webview 渲染出 Hello World | ✅ 已完成 | P0 |
+| P38-02 | Bridge 通信层 — Webview ↔ Extension Host 双向消息通道 | ✅ 已完成 | P0 |
+| P38-03 | CSS + 组件库 — cp desktop-cc-gui styles/ + components/ui/ | ✅ 已完成 | P0 |
+| P38-04 | 对话 UI — cp threads/composer/messages → 换 IPC → 能打字发消息 | ✅ 已完成 | P0 |
+| P38-05 | Agent 连接 — EngineAdapter 对接 kcode AgentService | ✅ 已完成 | P0 |
+| P38-06 | 知识库 — cp project-memory → 对接 KnowledgeStore | ✅ 已完成 | P0 |
+| P38-07 | 验证: 端到端跑通 — AI 对话 + 知识库读写 | ✅ 已完成 | P0 |
 
 ### P38-01: 项目骨架 — Vite + React 18（🎯 当前任务）
 

@@ -501,10 +501,13 @@ kcode-vscode-extension/
 │   ├── view/                           ← VS Code 扩展视图
 │   │   ├── Panel.ts                    ←  旧版 Webview Panel (保留)
 │   │   ├── ReactPanel.ts               ←  ★ 新版 React Webview Panel
-│   │   ├── SidebarProvider.ts          ←  侧边栏 (保留)
 │   │   ├── SettingsProvider.ts         ←  设置面板 (如需要)
 │   │   └── templates/
 │   │       └── webviewHtml.ts          ←  Webview HTML 模板
+│   │
+│   │   ★ 侧边栏不再作为独立 VS Code webview view，而是融合进 React
+│   │     Webview 主面板内（threads/left panel），与 desktop-cc-gui
+│   │     的布局方式一致。SidebarProvider.ts 废弃。
 │   │
 │   ├── commands/                       ← VS Code 命令注册 (保留/扩展)
 │   │   └── index.ts
