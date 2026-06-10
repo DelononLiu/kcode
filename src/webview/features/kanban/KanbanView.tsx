@@ -11,15 +11,32 @@ interface TaskItem {
   createdAt: number;
 }
 
-const COLUMNS: Array<{ id: TaskItem["phase"]; title: string; limit: number }> = [
-  { id: "goal", title: "📋 目标", limit: 10 },
-  { id: "plan", title: "📝 计划", limit: 10 },
-  { id: "execute", title: "⚡ 执行", limit: 10 },
-  { id: "self_verify", title: "🔍 自验", limit: 10 },
-  { id: "review", title: "🏁 验收", limit: 10 },
+const PHASE_LABELS: Record<string, string> = {
+  goal: "目标",
+  plan: "计划",
+  execute: "执行",
+  self_verify: "自验",
+  review: "验收",
+};
+
+const PHASE_COLORS: Record<string, string> = {
+  goal: "#58a6ff",
+  plan: "#bc8cff",
+  execute: "#3fb950",
+  self_verify: "#d29922",
+  review: "#f78166",
+};
+
+const COLUMNS: Array<{ id: TaskItem["phase"]; title: string; phases: string }> = [
+  { id: "goal", title: "📋 目标", phases: "goal" },
+  { id: "plan", title: "📝 计划", phases: "plan" },
+  { id: "execute", title: "⚡ 执行", phases: "execute" },
+  { id: "self_verify", title: "🔍 自验", phases: "self_verify" },
+  { id: "review", title: "🏁 验收", phases: "review" },
 ];
 
-const PHASE_ORDER: TaskItem["phase"][] = ["goal", "plan", "execute", "self_verify", "review"];
+const taskPhaseColor = (phase: string) => PHASE_COLORS[phase] || "#808080";
+const taskPhaseLabel = (phase: string) => PHASE_LABELS[phase] || phase;
 
 export function KanbanView() {
   const { t } = useTranslation();
@@ -38,8 +55,9 @@ export function KanbanView() {
   const handleDragEnd = useCallback(async (result: DropResult) => {
     if (!result.destination) return;
     const { draggableId, destination } = result;
-    const newPhase = PHASE_ORDER[destination.droppableIndex];
-    if (!newPhase) return;
+    const colIndex = destination.droppableIndex;
+    if (colIndex < 0 || colIndex >= COLUMNS.length) return;
+    const newPhase = COLUMNS[colIndex].id;
 
     setTasks((prev) => prev.map((t) => (t.id === draggableId ? { ...t, phase: newPhase } : t)));
     await bridge.invoke("taskflow/updatePhase", { taskId: draggableId, phase: newPhase }).catch(() => {});
@@ -48,9 +66,9 @@ export function KanbanView() {
   return (
     <div className="h-full flex flex-col p-3 gap-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">任务看板</h2>
+        <h2 className="text-base font-semibold">5 阶段管线</h2>
         <button
-          className="kanban-mode-btn"
+          className="px-3 py-1 rounded text-xs bg-[#005fb8] text-white hover:bg-[#0070d0]"
           onClick={async () => {
             const newTask = await bridge.invoke<TaskItem>("taskflow/create", { title: "新任务" }).catch(() => null);
             if (newTask) setTasks((prev) => [...prev, newTask]);
@@ -58,6 +76,20 @@ export function KanbanView() {
         >
           + 新建任务
         </button>
+      </div>
+
+      {/* 阶段流程指示器 */}
+      <div className="flex items-center gap-0 px-1">
+        {(["goal", "plan", "execute", "self_verify", "review"] as const).map((phase, i) => (
+          <div key={phase} className="flex items-center">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-medium"
+              style={{ background: `${PHASE_COLORS[phase]}20`, color: PHASE_COLORS[phase] }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: PHASE_COLORS[phase] }} />
+              {PHASE_LABELS[phase]}
+            </div>
+            {i < 4 && <span className="text-[#353540] mx-1">→</span>}
+          </div>
+        ))}
       </div>
 
       <DragDropContext onDragEnd={handleDragEnd}>
@@ -70,16 +102,19 @@ export function KanbanView() {
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className="flex flex-col bg-[#121212] rounded-lg border border-[#252530] min-w-[200px] w-64"
+                    className="flex flex-col bg-[#121212] rounded-lg border border-[#252530] min-w-[220px] w-72"
                     style={{ background: snapshot.isDraggingOver ? "#1a1a20" : undefined }}
                   >
                     <div className="flex items-center justify-between px-3 py-2 border-b border-[#252530]">
-                      <span className="text-xs font-semibold text-[#e6e7ea]">{col.title}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full" style={{ background: taskPhaseColor(col.id) }} />
+                        <span className="text-xs font-semibold text-[#e6e7ea]">{col.title}</span>
+                      </div>
                       <span className="text-[10px] text-[#808080] bg-[#1f1f25] px-1.5 py-0.5 rounded">
-                        {colTasks.length}/{col.limit}
+                        {colTasks.length}
                       </span>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[100px]">
+                    <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[80px]">
                       {colTasks.map((task, index) => (
                         <Draggable key={task.id} draggableId={task.id} index={index}>
                           {(provided, snapshot) => (
@@ -87,16 +122,22 @@ export function KanbanView() {
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
-                              className="bg-[#1f1f25] border border-[#252530] rounded-lg p-3 cursor-grab"
+                              className="bg-[#1f1f25] border border-[#252530] rounded-lg p-3 cursor-grab space-y-1.5"
                               style={{
                                 ...provided.draggableProps.style,
                                 background: snapshot.isDragging ? "#2a2a30" : undefined,
                               }}
                             >
                               <div className="text-xs font-medium text-[#e6e7ea]">{task.title}</div>
-                              {task.description && (
-                                <div className="text-[10px] text-[#808080] mt-1 line-clamp-2">{task.description}</div>
-                              )}
+                              <div className="flex items-center gap-1">
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                                  style={{ background: `${taskPhaseColor(task.phase)}20`, color: taskPhaseColor(task.phase) }}>
+                                  {taskPhaseLabel(task.phase)}
+                                </span>
+                                <span className="text-[9px] text-[#808080]">
+                                  {new Date(task.createdAt).toLocaleDateString()}
+                                </span>
+                              </div>
                             </div>
                           )}
                         </Draggable>
