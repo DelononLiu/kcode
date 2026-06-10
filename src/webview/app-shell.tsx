@@ -91,11 +91,14 @@ export function AppShell() {
 
   return (
     <div className="h-full w-full flex flex-col bg-[#0d0f14] text-[#e6e7ea]">
-      {/* Header */}
-      <header className="h-8 flex items-center px-2 border-b border-[#252530] shrink-0 gap-2">
-        <span className="font-semibold text-xs">KCode AI</span>
+      {/* Header — kcode 品牌色 #04d361 */}
+      <header className="h-9 flex items-center px-3 border-b border-[#252530] shrink-0 gap-3">
+        <span className="font-semibold text-sm" style={{ color: "#04d361" }}>KCode AI</span>
+        <span className="text-[10px] text-[#04d361] bg-[rgba(4,211,97,0.1)] px-1.5 py-0.5 rounded" style={{ border: "1px solid rgba(4,211,97,0.2)" }}>
+          v0.2
+        </span>
         <div className="ml-auto flex items-center gap-1.5 text-[10px] text-[#808080]">
-          <span className={`w-1.5 h-1.5 rounded-full ${status.connected ? "bg-[#78ebbe]" : "bg-[#ff6e6e]"}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${status.connected ? "bg-[#04d361]" : "bg-[#ff6e6e]"}`} />
           {status.connected ? (status.modelName || "Connected") : "Disconnected"}
         </div>
       </header>
@@ -192,7 +195,7 @@ export function AppShell() {
                   <button
                     onClick={handleSend}
                     disabled={!input.trim() || processing}
-                    className="h-[28px] px-3 rounded-md text-xs font-medium bg-[#005fb8] text-white hover:bg-[#0070d0] disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                    className="h-[28px] px-3 rounded-md text-xs font-medium bg-[#04d361] text-black hover:bg-[#00e676] disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                   >{processing ? "⏳" : "Send"}</button>
                 </div>
               </div>
@@ -205,7 +208,7 @@ export function AppShell() {
               <textarea className="w-full min-h-[120px] px-2 py-1.5 rounded border border-[#30303a] bg-[#1f1f25] text-sm outline-none resize-y" placeholder="Content" value={editing.content} onChange={(e) => setEditing({ ...editing, content: e.target.value })} />
               <div className="flex gap-2 justify-end">
                 <button className="px-3 py-1 rounded text-xs bg-[#1f1f25] border border-[#30303a] text-[#e6e7ea]" onClick={() => setEditing(null)}>Cancel</button>
-                <button className="px-3 py-1 rounded text-xs bg-[#005fb8] text-white" onClick={saveKnowledge}>Save</button>
+                <button className="px-3 py-1 rounded text-xs bg-[#04d361] text-black" onClick={saveKnowledge}>Save</button>
               </div>
             </div>
           )}

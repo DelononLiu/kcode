@@ -1,4 +1,10 @@
 :root {
+  /* ── kcode 品牌色覆盖 ── */
+  --kcode-accent: #04d361;
+  --kcode-accent-hover: #00e676;
+  --kcode-accent-muted: rgba(4, 211, 97, 0.15);
+  --accent: var(--kcode-accent);
+
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   color: var(--text-primary);
   background-color: #0d0f14;

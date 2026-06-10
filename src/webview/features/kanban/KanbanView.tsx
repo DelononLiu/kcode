@@ -68,7 +68,7 @@ export function KanbanView() {
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold">5 阶段管线</h2>
         <button
-          className="px-3 py-1 rounded text-xs bg-[#005fb8] text-white hover:bg-[#0070d0]"
+          className="px-3 py-1 rounded text-xs bg-[#04d361] text-black hover:bg-[#00e676]"
           onClick={async () => {
             const newTask = await bridge.invoke<TaskItem>("taskflow/create", { title: "新任务" }).catch(() => null);
             if (newTask) setTasks((prev) => [...prev, newTask]);
