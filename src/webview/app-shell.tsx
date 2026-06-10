@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { KanbanView } from "./features/kanban/KanbanView";
-// import { Sidebar } from "./features/app/components/Sidebar";
+import { ThreadList } from "./features/app/components/ThreadList";
 import { TabBar } from "./features/app/components/TabBar";
 import { ComposerInput } from "./features/composer/components/ComposerInput";
-import { ErrorBoundary } from "./components/ErrorBoundary";
 import { bridge } from "./services/bridge";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import type { KnowledgeEntry } from "./types";
@@ -39,6 +37,7 @@ export function AppShell() {
   const msgEnd = useRef<HTMLDivElement>(null);
   const bufRef = useRef("");
   const streamIdRef = useRef<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     bridge.invoke<EngineStatus>("engine/status").then(setStatus).catch(() => {});
@@ -94,37 +93,50 @@ export function AppShell() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* 侧边栏 — desktop-cc-gui Sidebar */}
-        <aside className="w-60 shrink-0 border-r border-[#252530] overflow-hidden bg-[#121212]">
-          {tab === "codex" && (
-            <div className="p-1.5 border-b border-[#252530]">
-              <p className="text-[10px] text-[#808080] text-center">AI 对话</p>
-            </div>
-          )}
-          {tab === "projects" && (
-            <div className="p-1.5 border-b border-[#252530]">
-              <p className="text-[10px] text-[#808080] text-center">任务看板</p>
-            </div>
-          )}
-
-          <div className="h-full overflow-y-auto">
-            {/* Sidebar temporarily disabled for debugging */}
-            <p className="text-[10px] text-[#808080] text-center mt-4">侧边栏加载中...</p>
+        {/* 侧边栏 — ThreadList */}
+        <aside className="w-60 shrink-0 border-r border-[#252530] bg-[#121212] flex flex-col">
+          <div className="p-1.5 border-b border-[#252530]">
+            <p className="text-[10px] text-[#808080] text-center">AI 对话</p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-1">
+            <ThreadList
+              workspaceId="ws_main"
+              workspacePath=""
+              pinnedRows={[]}
+              unpinnedRows={[]}
+              totalThreadRoots={0}
+              visibleThreadRootCount={0}
+              isExpanded={true}
+              nextCursor={null}
+              isPaging={false}
+              nested={false}
+              activeWorkspaceId="ws_main"
+              activeThreadId={null}
+              threadStatusById={{}}
+              getThreadTime={() => ""}
+              isThreadPinned={() => false}
+              isThreadAutoNaming={() => false}
+              onToggleThreadPin={() => {}}
+              onToggleExpanded={() => {}}
+              onLoadOlderThreads={() => {}}
+              onSelectThread={() => {}}
+              onShowThreadMenu={() => null}
+            />
           </div>
         </aside>
 
         {/* 主区域 */}
         <main className="flex-1 flex flex-col min-w-0">
-          {/* desktop-cc-gui TabBar */}
-          <div className="bg-[#1a1a1a] border-b border-[#333]">
-            <TabBar activeTab={tab} onSelect={(t) => setTab(t)} />
-          </div>
+          <TabBar activeTab={tab} onSelect={(t) => setTab(t)} />
 
-          {tab === "projects" && <KanbanView />}
+          {tab === "projects" && (
+            <div className="flex-1 flex items-center justify-center text-xs text-[#808080]">
+              项目视图（开发中）
+            </div>
+          )}
 
           {tab === "codex" && (
             <>
-              {/* 消息列表 */}
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center">
@@ -145,13 +157,12 @@ export function AppShell() {
                 <div ref={msgEnd} />
               </div>
 
-              {/* ComposerInput */}
               <ComposerInput
                 text={input}
                 onTextChange={(next) => setInput(next)}
                 onSelectionChange={() => {}}
                 onKeyDown={() => {}}
-                textareaRef={useRef<HTMLTextAreaElement>(null)}
+                textareaRef={textareaRef}
                 suggestionsOpen={false}
                 suggestions={[]}
                 highlightIndex={-1}
