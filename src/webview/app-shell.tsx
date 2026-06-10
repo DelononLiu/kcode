@@ -176,15 +176,21 @@ export function AppShell() {
               {/* ComposerInput */}
               <ComposerInput
                 text={input}
-                onTextChange={(e: any) => setInput(e?.target?.value ?? e ?? "")}
+                onTextChange={(next) => setInput(next)}
+                onSelectionChange={() => {}}
+                onKeyDown={() => {}}
+                textareaRef={useRef<HTMLTextAreaElement>(null)}
+                suggestionsOpen={false}
+                suggestions={[]}
+                highlightIndex={-1}
+                onHighlightIndex={() => {}}
+                onSelectSuggestion={() => {}}
                 onSend={handleSend}
                 canSend={input.trim().length > 0 && !processing}
                 isProcessing={processing}
                 onStop={() => bridge.invoke("engine/disconnect")}
                 disabled={false}
                 sendLabel="发送"
-                engineName="claude"
-                attachments={[]}
               />
             </>
           )}
