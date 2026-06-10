@@ -4,7 +4,9 @@
 >
 > **原则**：Webview 只负责 AI 工作台，VS Code 负责编辑器（文件、Git、终端、设置等原生功能各司其职）
 >
-> **策略**：**复制跑起来，而非移植重写** — 将 desktop-cc-gui 的 React 前端源码直接复制到 kcode webview 目录，替换 Tauri IPC 层为 VS Code Bridge，对接 kcode 现有后端服务（AgentService、TaskFlow、KnowledgeStore）。
+> **策略**：**拎组件跑起来，而非全量 cp** — 需要什么 UI 组件，从 desktop-cc-gui 中把该文件 + 直接 import 依赖链逐个拎出来，接上 props 和 bridge 就跑。不 cp 没用到的文件。
+>
+> **为什么不直接全量 cp？** Phase 38-39 实践表明全量 cp（15+ features, ~2500 文件）虽然能做，但 4.6MB JS bundle 包含大量未使用的代码，编译报错修复~10轮，维护负担大。每个 desktop-cc-gui 组件都是独立可用的积木——`TabBar` 43行、`TabBarProps` 仅2个 props——拎出来用远比全量 cp 划算。
 >
 > **目标**：让 desktop-cc-gui 的 AI 功能 UI 作为 VS Code Webview 运行，融合 kcode 的 5 阶段管线、ACP Agent 接入、小助手、知识库，构建专业级的 VS Code AI 工程工作台。
 
@@ -43,24 +45,70 @@ const agents = await invoke('get_agents')
 
 **Tauri 的 invoke(cmd, args) → Promise 和 VS Code 的 postMessage request/response 接口天然一致。** 写一个 `vscodeBridge.ts` 封装层（~50 行），所有 `@tauri-apps/api` 调用原地替换，不需要改业务组件。
 
-### 执行路径
+### 执行路径（v2：拎组件）
 
 ```
 1. 建 vscodeBridge.ts  (桥接层, 1 个文件, ~50 行)
-2. cp desktop-cc-gui/src/* → kcode_v5/src/webview/
-   只复制 Phase 38 需要的:
-   ├── features/composer/   (输入框)
-   ├── features/threads/    (对话管理)
-   ├── features/messages/   (消息渲染)
-   ├── features/project-memory/ (知识库)
-   ├── features/layout/     (布局)
-   ├── components/ui/       (shadcn 组件)
-   ├── services/  (除 tauri/ 以外)
-   ├── styles/   (相关 CSS)
-   └── types.ts, utils/, lib/
-3. 全局替换 @tauri-apps/api → vscodeBridge
-4. ReactPanel.ts (扩展侧) 处理 bridge invoke → 接 AgentService/KnowledgeStore
-5. 构建、运行、验证
+2. 需要什么 UI，从 desktop-cc-gui 找对应组件
+   └─ 只 cp 该组件文件 + 直接 import 的文件（递归直到无缺失）
+   └─ 不复制没用到的 features/styles/services
+3. 看组件 props 接口 → 在 app-shell 里传对应数据
+4. 如果组件调用了后端函数 → 在 services/tauri.ts 加 stub
+5. 如果引用了 npm 包 → npm install
+6. 编译 → 重复 2-6 直到组件渲染正常
+```
+
+**验证：拎了三个组件都能独立编译**
+
+| 组件 | 行数 | import 链深度 | props | 外部依赖 |
+|------|------|-------------|-------|---------|
+| `TabBar` | 43 | 0（自包含） | 2 | lucide-react |
+| `ComposerInput` | ~400 | 2-3 层 | ~10 个必填 | lucide-react |
+| `Sidebar` | ~500 | 3-5 层 | 150+（可 as any 兜底） | 多个子组件 |
+
+---
+
+## 1a. 拎组件的前提条件（Phase 38-39 工程经验总结）
+
+拎组件前必须搭好的基础设施，否则 cp 一个文件会缺五六个依赖：
+
+### 前端基础设施
+
+| 依赖 | 用途 | 安装方式 |
+|------|------|---------|
+| **React 18 + ReactDOM** | 组件渲染 | `npm install react react-dom` |
+| **TypeScript + JSX** | 组件语言 | `tsconfig.webview.json` 配置 `jsx: "react-jsx"` |
+| **Vite** | 构建工具 | `vite.config.ts` + `@vitejs/plugin-react` |
+| **Tailwind CSS v4** | desktop-cc-gui 全量使用 | `@tailwindcss/vite` 插件 + `@import "tailwindcss"` |
+| **tw-animate-css** | shadcn 动画 | `npm install tw-animate-css` |
+| **shadcn/ui 组件** | Button, Badge, Tabs, Input 等 28 个 | 从 desktop-cc-gui cp `components/ui/` |
+| **class-variance-authority** | shadcn 样式变体 |  |
+| **clsx + tailwind-merge** | `cn()` 工具函数 |  |
+| **@/ 路径别名** | shadcn 用 `@/lib/utils` 导入 | `vite.config.ts resolve.alias` + `tsconfig paths` |
+| **lucide-react** | desktop-cc-gui 的图标库 | `npm install lucide-react` |
+| **i18next + react-i18next** | 组件内调 `useTranslation()` | `npm install i18next react-i18next` |
+
+### 桥接层基础设施
+
+| 文件 | 用途 |
+|------|------|
+| `services/bridge.ts` | Webview 侧 postMessage invoke/on/off |
+| `services/vscodeBridge.ts` | Tauri 兼容层（invoke, convertFileSrc, listen, ask 等） |
+| `services/tauri.ts` | 后端命令 stub（~100 个函数，组件 import 不崩） |
+| `adapters/WebviewBridge.ts` | 扩展侧消息路由 |
+| `adapters/EngineAdapter.ts` | Bridge 命令 → kcode 服务 |
+| `components/ErrorBoundary.tsx` | 组件崩溃兜底，防白屏 |
+
+### 拎组件的标准步骤
+
+```
+1. 挑组件 → 找到 desktop-cc-gui 源码中的文件
+2. cp 文件到 src/webview/ 对应目录
+3. 编译 → 看报错（import 链中的缺失文件）
+4. 补缺失文件 + npm install（如有）→ 重复到编译通过
+5. 填 props → 在 app-shell 中传数据
+6. 如果要后端 → services/tauri.ts 补 stub
+7. 验证渲染
 ```
 
 ---

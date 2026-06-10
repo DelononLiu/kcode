@@ -45,6 +45,17 @@ export function getCurrentWindow() {
     isMaximized: async () => false,
     center: async () => {},
     close: async () => {},
+    onDragDropEvent: () => {},
+    onFileDropEvent: () => {},
+    onResized: () => {},
+    onMoved: () => {},
+    onCloseRequested: () => {},
+    onFocus: () => {},
+    onBlur: () => {},
+    innerPosition: () => Promise.resolve({ x: 0, y: 0 }),
+    outerPosition: () => Promise.resolve({ x: 0, y: 0 }),
+    scaleFactor: () => Promise.resolve(1),
+    listen: () => Promise.resolve(() => {}),
   };
 }
 
