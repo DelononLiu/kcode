@@ -174,7 +174,18 @@ export function AppShell() {
               </div>
 
               {/* ComposerInput */}
-              <ComposerInput {...({} as any)} />
+              <ComposerInput
+                text={input}
+                onTextChange={(e: any) => setInput(e?.target?.value ?? e ?? "")}
+                onSend={handleSend}
+                canSend={input.trim().length > 0 && !processing}
+                isProcessing={processing}
+                onStop={() => bridge.invoke("engine/disconnect")}
+                disabled={false}
+                sendLabel="发送"
+                engineName="claude"
+                attachments={[]}
+              />
             </>
           )}
 
