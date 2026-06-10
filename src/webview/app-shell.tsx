@@ -109,7 +109,7 @@ export function AppShell() {
 
           <div className="h-full overflow-y-auto">
             {/* Sidebar temporarily disabled for debugging */}
-            <div className="p-3 text-xs text-[#808080] text-center">侧边栏（调试中）</div>
+            <p className="text-[10px] text-[#808080] text-center mt-4">侧边栏加载中...</p>
           </div>
         </aside>
 
