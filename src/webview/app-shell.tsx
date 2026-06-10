@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { KanbanView } from "./features/kanban/KanbanView";
-import { Sidebar } from "./features/app/components/Sidebar";
+// import { Sidebar } from "./features/app/components/Sidebar";
 import { TabBar } from "./features/app/components/TabBar";
 import { ComposerInput } from "./features/composer/components/ComposerInput";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -108,9 +108,8 @@ export function AppShell() {
           )}
 
           <div className="h-full overflow-y-auto">
-            <ErrorBoundary>
-              <Sidebar {...({} as any)} />
-            </ErrorBoundary>
+            {/* Sidebar temporarily disabled for debugging */}
+            <div className="p-3 text-xs text-[#808080] text-center">侧边栏（调试中）</div>
           </div>
         </aside>
 

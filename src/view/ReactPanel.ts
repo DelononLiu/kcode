@@ -8,8 +8,8 @@ import type { TaskStore } from '../store/TaskStore';
 /**
  * ReactPanel — 新版 React Webview（全屏 WebviewPanel）
  *
- * 点击活动栏图标 → resolveWebviewView 打开全屏 Panel。
- * 侧边栏 view 本身仅作启动跳板，渲染在 WebviewPanel 中。
+ * 点击活动栏图标 → resolveWebviewView 显示启动入口
+ * kcode.openReactView 命令 → 直接打开全屏 Panel
  *
  * Bridge + EngineAdapter 对接 kcode 后端服务。
  */
@@ -35,10 +35,12 @@ export class ReactPanel {
     _context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken,
   ) {
-    // 侧边栏只显示启动入口，点击按钮后打开全屏 Panel
+    console.log('[ReactPanel] resolveWebviewView called');
     webviewView.webview.html = this._launcherHtml();
     webviewView.webview.onDidReceiveMessage((msg) => {
+      console.log('[ReactPanel] received message:', JSON.stringify(msg));
       if (msg?.command === 'openReactView') {
+        console.log('[ReactPanel] opening panel...');
         this.openPanel();
       }
     });
@@ -46,6 +48,7 @@ export class ReactPanel {
 
   /** 打开全屏 Webview Panel */
   openPanel() {
+    console.log('[ReactPanel] openPanel called');
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : vscode.ViewColumn.One;
@@ -66,6 +69,7 @@ export class ReactPanel {
     this._bridge.bindPanel(panel);
     this._setHtml(panel.webview);
     this._emitStatus();
+    console.log('[ReactPanel] panel created');
   }
 
   private _setHtml(webview: vscode.Webview) {
@@ -95,18 +99,25 @@ export class ReactPanel {
 </head>
 <body>
   <div id="root"></div>
-  <script src="${scriptUri}"></script>
+  <script type="module" src="${scriptUri}"></script>
 </body>
 </html>`;
   }
 
   private _launcherHtml(): string {
     return `<!DOCTYPE html>
-<html><body style="background:#0d0f14;color:#e6e7ea;padding:16px;font-family:-apple-system,sans-serif;font-size:13px;text-align:center">
+<html>
+<body style="background:#0d0f14;color:#e6e7ea;padding:16px;font-family:-apple-system,sans-serif;font-size:13px;text-align:center">
   <h2 style="color:#04d361;font-size:16px;margin:24px 0 8px">KCode AI</h2>
   <p style="color:#808080;font-size:12px;margin:0 0 20px">VS Code AI 编码助手</p>
-  <button onclick="acquireVsCodeApi().postMessage({command:'openReactView'})" style="background:#04d361;color:#000;border:none;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">打开 KCode AI</button>
-</body></html>`;
+  <button id="openBtn" style="background:#04d361;color:#000;border:none;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">打开 KCode AI</button>
+  <script nonce="react">
+    document.getElementById('openBtn').addEventListener('click', function() {
+      acquireVsCodeApi().postMessage({command:'openReactView'});
+    });
+  </script>
+</body>
+</html>`;
   }
 
   private _emitStatus() {
