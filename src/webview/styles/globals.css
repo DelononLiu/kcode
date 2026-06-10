@@ -1,4 +1,4 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-
-/* ── desktop-cc-gui 的 theme CSS variables 通过 styles/ 文件 cp 进来 ── */
+@import "./themes.dark.css";
+@import "./base.css";

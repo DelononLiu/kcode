@@ -1,0 +1,11 @@
+@import "./themes.css";
+
+/* 去掉 codicon.css 和 richTextInput.css 引用 — VS Code webview 不需要 */
+
+.app.reduced-transparency {
+  --surface-sidebar: #121212;
+  --surface-sidebar-opaque: #121212;
+  --surface-topbar: #0f1118;
+  --surface-right-panel: #0e1018;
+  --surface-composer: #0f1118;
+}

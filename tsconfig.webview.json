@@ -11,6 +11,10 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/webview/*"]
+    },
     "lib": ["ES2020", "DOM", "DOM.Iterable"]
   },
   "include": ["src/webview/**/*"],
