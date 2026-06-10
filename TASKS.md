@@ -1464,3 +1464,283 @@ KCode:                用户 → /review → 引导填表 → 拼装结构化 pr
 **状态**: ⬜ 未开始
 
 ---
+
+## Phase 38: 核心架构 + 对话 + 知识库 (端到端跑通)
+
+_目标：搭建完整的 VS Code 扩展骨架 + React Webview + Bridge 通信层，将 desktop-cc-gui 的 AI 对话（threads/composer/messages）和知识库（project-memory）迁移进来，实现可运行的 VS Code 插件，基本的 AI 对话和知识库功能可用。_
+
+**原则**：VS Code 已有的文件/编辑/Git/终端/设置等不进 Webview。Webview 只做 AI 工作台。
+**范围**：不追求完美，追求端到端跑通。一行代码跑通，胜过十行代码写好。
+
+| 任务 | 说明 | 状态 | 优先级 |
+|------|------|------|--------|
+| P38-01 | 项目骨架 — Vite + React 18 + VS Code 扩展清单，Webview 渲染出 Hello World | ⬜ 未开始 | P0 |
+| P38-02 | Bridge 通信层 — Webview ↔ Extension Host 双向消息通道 | ⬜ 未开始 | P0 |
+| P38-03 | CSS + 组件库 — desktop-cc-gui 的 styles + components/ui 搬进 Webview | ⬜ 未开始 | P0 |
+| P38-04 | 对话 UI — threads/composer/messages 三件套迁移，能打字发送和显示回复 | ⬜ 未开始 | P0 |
+| P38-05 | Agent 连接 — EngineAdapter 对接 kcode AgentService，Webview 发消息→Agent→流式回 Webview | ⬜ 未开始 | P0 |
+| P38-06 | 知识库 — project-memory UI 迁移 + 对接 kcode KnowledgeStore，CRUD 可用 | ⬜ 未开始 | P0 |
+| P38-07 | 验证: 端到端跑通 — 安装插件 → 打开 Webview → AI 对话 → 知识库读写 | ⬜ 未开始 | P0 |
+
+### P38-01: 项目骨架 — VS Code 扩展 + Vite + React 18
+
+**涉及文件**:
+- `package.json` — VS Code 扩展清单（activationEvents, viewsContainers, commands, contributes）
+- `vite.config.ts` — Vite 配置（输出 IIFE 格式供 VS Code Webview 加载）
+- `tsconfig.json` — 双编译目标（扩展宿主 Node + Webview 浏览器）
+- `scripts/build-webview.js` — Vite 构建 webview bundle 脚本
+- `src/extension.ts` — 扩展入口（激活、注册 Webview Panel、加载 Webview HTML）
+- `src/view/Panel.ts` — Webview Panel 管理（创建、通信、销毁）
+- `src/view/templates/webviewHtml.ts` — 动态生成 Webview HTML（注入 CSP、非衍生化 URI）
+- `src/webview/index.html` — Webview 入口 HTML
+- `src/webview/main.tsx` — React 入口
+- `src/webview/App.tsx` — 根组件
+
+**产出**: `npm run compile && code --install-extension kcode.vsix` → VS Code  activity bar 出现 kcode 图标 → 点击打开 Webview → 渲染出 React "Hello KCode"
+
+### P38-02: Bridge 通信层
+
+**涉及文件**:
+- `src/webview/services/bridge.ts` — Webview 侧：`invoke(method, params)` 请求响应 + `on(event, handler)` 推送订阅
+- `src/adapters/WebviewBridge.ts` — 扩展侧：`registerHandler(method, fn)` 注册命令处理 + `emit(event, data)` 推送
+
+**通信协议**:
+```typescript
+// 请求-响应 (Webview → Extension)
+{ type: 'bridge:invoke', id: 'br_1', method: 'engine/sendMessage', params: ['hello'] }
+{ type: 'bridge:result', id: 'br_1', result: { ... } }
+
+// 推送 (Extension → Webview)
+{ type: 'bridge:event', event: 'stream:chunk', data: { text: '...' } }
+```
+
+**产出**: 两端双向通信验证通过（Webview 发 invoke，Extension 返回结果；Extension 发 event，Webview 收到）
+
+### P38-03: CSS + 组件库迁移
+
+**涉及文件**:
+- `src/webview/styles/` — desktop-cc-gui 的 CSS 主题文件（精简到对话/AI 相关 ~30 个，去掉 files/git/terminal/settings 相关）
+- `src/webview/components/ui/` — shadcn 组件（button, input, dialog, badge, tabs 等）
+- `src/webview/components/common/` — 通用组件（ErrorBoundary, AgentIcon 等）
+
+**产出**: Webview 渲染带 desktop-cc-gui 主题风格的 UI，组件可用
+
+### P38-04: 对话 UI 迁移 (threads/composer/messages)
+
+**涉及文件**:
+- `src/webview/features/threads/` — 对话管理（状态、reducer、useThreads hook）
+- `src/webview/features/composer/` — 输入框（ChatInputBox、slash commands、附件）
+- `src/webview/features/messages/` — 消息渲染（LiveMarkdown、工具调用卡片、推理展示）
+- `src/webview/features/layout/` + `app/` — 应用壳布局
+
+**调研步骤**:
+1. 定位 threads/composer/messages 中所有 `import ... from 'services/tauri'` 的调用点
+2. 确认每个调用的签名（函数名、参数、返回值），编写等价的 bridge 方法
+3. 替换为 `import { bridge } from 'services/bridge'` + `bridge.invoke(...)`
+
+**产出**: Webview 中可看到对话界面，输入文字、发送、显示消息气泡（数据先走 mock，P38-05 接真实 Agent）
+
+### P38-05: Agent 连接 (EngineAdapter + AgentService)
+
+**涉及文件**:
+- `src/adapters/EngineAdapter.ts` — 桥接命令 ↔ AgentService 方法映射
+- `src/core/AgentService.ts` — kcode 现有 ACP agent 连接服务（保留不动）
+- `src/acp/AcpClient.ts` — ACP 协议客户端（保留不动）
+
+**实现说明**:
+```typescript
+// Webview 发送消息 → bridge → EngineAdapter → AgentService → ACP → Agent
+// Agent 流式回复 → onChunk → EngineAdapter → bridge.emit('stream:chunk') → LiveMarkdown 渲染
+
+// 映射的命令:
+engine/connect        → AgentService.connectByLabel(label)
+engine/sendMessage    → AgentService.sendMessage(text)  → 流式回复
+engine/interrupt      → AgentService.disconnect()
+engine/getStatus      → { isConnected, agentName, modelName }
+```
+
+**产出**: Webview 的对话输入框 → 真实 ACP Agent → 流式回复渲染在 Webview 中
+
+### P38-06: 知识库 (project-memory + KnowledgeStore)
+
+**涉及文件**:
+- `src/webview/features/project-memory/` — ProjectMemoryPanel、MemoryPicker、MemoryEditor（全部 UI 迁移）
+- `src/webview/features/project-memory/services/` — 知识库服务（改为 bridge.invoke）
+- `src/store/TaskStore.ts` — 增强/knowledge 相关 CRUD 方法
+- `src/adapters/StorageAdapter.ts` — knowledge CRUD bridge 的处理端
+
+**Bridge 命令**:
+```
+knowledge/list      → KnowledgeStore.getAllEntries()
+knowledge/add       → KnowledgeStore.addEntry(entry)
+knowledge/update    → KnowledgeStore.updateEntry(id, entry)
+knowledge/delete    → KnowledgeStore.deleteEntry(id)
+```
+
+**产出**: Webview 中可查看、创建、编辑、删除知识条目，数据持久化到 kcode 存储
+
+### P38-07: 端到端验证
+
+验证场景：
+1. `npm run compile` → 生成 VS Code 扩展 vsix
+2. `code --install-extension kcode.vsix` → 安装到 VS Code
+3. 点击 activity bar kcode 图标 → 打开 Webview
+4. 在对话框输入"你好" → 发送 → Agent 流式回复 → 实时渲染
+5. 切换到知识库面板 → 新建条目 → 保存 → 重新打开存在
+6. 回到对话 → 引用知识库条目 → Agent 感知上下文
+
+**产出**: 一个**可用的 VS Code 插件**，具备 AI 对话和知识库能力
+
+## Phase 39: 任务管线 — 5 阶段 + Kanban + Plan
+
+_目标：将 desktop-cc-gui 的看板/任务/计划 UI 迁移到 Webview，与 kcode 的 5 阶段管线（TaskFlow）对接。知识库已在 P38 完成，此阶段不涉及。_
+
+| 任务 | 说明 | 状态 | 优先级 |
+|------|------|------|--------|
+| P39-01 | features/kanban/ 迁移（看板 + 状态映射） | ⬜ 未开始 | P0 |
+| P39-02 | features/tasks/ 迁移（任务运行记录） | ⬜ 未开始 | P0 |
+| P39-03 | features/plan/ 迁移（计划面板） | ⬜ 未开始 | P0 |
+| P39-04 | PlanAdapter — Kanban 状态 ↔ TaskFlow 5 阶段映射 | ⬜ 未开始 | P0 |
+| P39-05 | 5 阶段管线可视化 — Goal/Plan/Execute/SelfVerify/Review 流程 UI | ⬜ 未开始 | P0 |
+| P39-06 | features/project-memory/ 迁移（知识库 UI） | ⬜ 未开始 | P0 |
+| P39-07 | KnowledgeStore 对接 — project-memory ↔ kcode 知识库存储 | ⬜ 未开始 | P0 |
+| P39-08 | 废弃 kcode 现有 KnowledgePanel — 替换为 project-memory UI | ⬜ 未开始 | P1 |
+| P39-09 | StorageAdapter — desktop-cc-gui clientStorage → VS Code context.state | ⬜ 未开始 | P0 |
+| P39-10 | 验证: 创建任务 → 走完 goal→plan→execute→verify→review 全流程 | ⬜ 未开始 | P0 |
+
+### P39-01~03: Kanban/Tasks/Plan 迁移
+
+**涉及文件**:
+- `src/webview/features/kanban/` — KanbanBoard、KanbanCard、KanbanColumn、KanbanView
+- `src/webview/features/tasks/` — TaskCenterView、TaskRun types
+- `src/webview/features/plan/` — PlanPanel
+
+**调研步骤**:
+1. 确认 kanban/tasks/plan 中所有 `services/tauri.ts` 的调用点，替换为 bridge.invoke
+2. 确认 kanban 状态（todo/inprogress/testing/done）与 TaskFlow 阶段（goal/plan/execute/self_verify/review）的映射关系
+
+### P39-04: PlanAdapter — 状态映射
+
+**状态映射表**:
+
+| Kanban 状态 | TaskFlow 阶段 | 说明 |
+|---|---|---|
+| `todo` | `goal` + `plan` | 目标确认 + 计划制定 |
+| `inprogress` | `execute` | 执行中 |
+| `testing` | `self_verify` | AI 自验 |
+| `done` | `review` | 人工验收 |
+
+**涉及文件**:
+- `src/adapters/PlanAdapter.ts` — 新文件：Kanban 操作 ↔ TaskFlow 方法
+
+### P39-05: 5 阶段管线可视化
+
+**设计要点**:
+- TaskFlow 的 5 阶段不需要额外 UI 组件，直接映射到 kanban 卡片状态 + messages 中的阶段提示
+- 每个阶段的关键操作点：目标确认对话框、计划提案/确认、执行状态指示、自验结果展示、变更审批按钮
+- 利用 desktop-cc-gui 的 kanban 拖拽能力：拖卡片切换阶段 = 触发 TaskFlow 阶段变更
+
+**涉及文件**:
+- `src/webview/features/kanban/` — 增强 KanbanCard 显示阶段信息
+- `src/webview/features/messages/` — 增加阶段变更消息类型
+
+### P39-06~07: Project Memory → 知识库
+
+**涉及文件**:
+- `src/webview/features/project-memory/` — ProjectMemoryPanel、MemoryPicker、MemoryEditor（全部 UI 迁移）
+- `src/adapters/StorageAdapter.ts` — knowledge CRUD → kcode KnowledgeStore
+- `src/store/TaskStore.ts` — 增强 KnowledgeEntry 接口兼容 project-memory 的多类型语义记忆
+
+**实现说明**:
+```typescript
+// Bridge 命令
+bridge.on('knowledge/list',    ()            => knowledgeStore.getAllEntries());
+bridge.on('knowledge/add',     ({ entry })   => knowledgeStore.addEntry(entry));
+bridge.on('knowledge/update',  ({ entry })   => knowledgeStore.updateEntry(entry));
+bridge.on('knowledge/delete',  ({ id })      => knowledgeStore.deleteEntry(id));
+bridge.on('knowledge/getByTask',({ taskId }) => knowledgeStore.getByTaskId(taskId));
+```
+
+### P39-09: StorageAdapter
+
+desktop-cc-gui 的 `clientStorage.ts` 使用 `invoke("client_store_read/write")`，需要改为 VS Code `context.workspaceState`：
+
+```typescript
+// src/adapters/StorageAdapter.ts
+export class StorageAdapter {
+  constructor(private state: vscode.Memento) {}
+
+  get<T>(key: string): T | undefined {
+    return this.state.get<T>(key);
+  }
+
+  set(key: string, value: unknown): void {
+    this.state.update(key, value);
+  }
+}
+```
+
+Bridge 映射：
+```
+store/get → StorageAdapter.get()
+store/set → StorageAdapter.set()
+```
+
+---
+
+## Phase 40: 引擎集成 + 编辑器上下文 + 完善
+
+_目标：迁移 engine 选择器/状态面板/通知/编排等 AI 基础设施 UI 到 Webview，实现编辑器上下文感知的 AI 交互。迁移 kcode 现有 SetupWizard + AcpLogManager。_
+
+| 任务 | 说明 | 状态 | 优先级 |
+|------|------|------|--------|
+| P40-01 | features/engine/ 迁移（引擎选择器 + 状态指示 + 能力矩阵） | ⬜ 未开始 | P0 |
+| P40-02 | features/status-panel/ 迁移（AI 运行状态面板） | ⬜ 未开始 | P0 |
+| P40-03 | features/notifications/ 迁移（AI 通知 → VS Code 通知或 Webview 内通知） | ⬜ 未开始 | P1 |
+| P40-04 | features/agent-orchestration/ 迁移（任务编排 UI + providers） | ⬜ 未开始 | P1 |
+| P40-05 | features/context-ledger/ 迁移（上下文审计面板） | ⬜ 未开始 | P1 |
+| P40-06 | features/session-activity/ 迁移（会话活动记录/导航） | ⬜ 未开始 | P1 |
+| P40-07 | features/home/ 迁移（首页视图） | ⬜ 未开始 | P1 |
+| P40-08 | EditorAdapter — 编辑器上下文获取 + 右键菜单命令 | ⬜ 未开始 | P0 |
+| P40-09 | 上下文感知 slash 命令 — `/review` `/debug` `/logic` 自动附加上下文 | ⬜ 未开始 | P0 |
+| P40-10 | SetupWizard 迁移 — 引导面板从 kcode 旧版迁移到 Webview | ⬜ 未开始 | P1 |
+| P40-11 | ACP 日志面板迁移 — kcode 现有 AcpLogManager UI | ⬜ 未开始 | P1 |
+| P40-12 | 验证: 引擎切换 + 编辑器上下文 + 完整交互闭环 | ⬜ 未开始 | P0 |
+
+### P40-08: EditorAdapter
+
+**涉及文件**:
+- `src/adapters/EditorAdapter.ts` — 获取编辑器选中文本、活动文件、诊断信息
+- `src/webview/services/bridge.ts` — 增加 `editor/getContext` 命令
+
+**实现说明**:
+```typescript
+// src/adapters/EditorAdapter.ts
+export class EditorAdapter {
+  getContext(): EditorContext {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return { type: 'no_editor' };
+    return {
+      type: 'editor',
+      filePath: editor.document.uri.fsPath,
+      language: editor.document.languageId,
+      selection: editor.document.getText(editor.selection),
+      contextBefore: editor.document.getText(/* 前 20 行 */),
+      contextAfter: editor.document.getText(/* 后 20 行 */),
+    };
+  }
+}
+```
+
+### P40-09: 上下文感知 slash 命令
+
+**设计**:
+- Webview composer 中输入 `/review` → bridge 请求 `editor/getContext` → 自动填入文件路径和选中代码
+- 用户无需手动描述"要分析什么"，VS Code 已经知道
+- 如果无上下文，弹出 QuickPick 让用户选择文件
+
+### P40-11: ACP 日志面板迁移
+
+kcode 现有 `AcpLogManager`（src/view/AcpLogManager.ts）负责记录 ACP 通信日志，Webview 侧已有渲染逻辑。迁移到新 Webview 的 layout 中作为可选面板。
+
+---
