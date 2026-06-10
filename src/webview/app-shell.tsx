@@ -95,8 +95,13 @@ export function AppShell() {
       <div className="flex flex-1 overflow-hidden">
         {/* 侧边栏 — ThreadList */}
         <aside className="w-60 shrink-0 border-r border-[#252530] bg-[#121212] flex flex-col">
-          <div className="p-1.5 border-b border-[#252530]">
-            <p className="text-[10px] text-[#808080] text-center">AI 对话</p>
+          <div className="flex p-1.5 gap-1 border-b border-[#252530]">
+            {(["codex", "projects", "spec"] as TabKey[]).map((t) => (
+              <button key={t} onClick={() => setTab(t)}
+                className={`flex-1 text-[10px] font-medium py-1 rounded ${tab === t ? "bg-[#04d361] text-black" : "text-[#808080] hover:text-[#e6e7ea]"}`}>
+                {t === "codex" ? "💬 对话" : t === "projects" ? "📋 项目" : "📚 知识"}
+              </button>
+            ))}
           </div>
           <div className="flex-1 overflow-y-auto p-1">
             <ThreadList
