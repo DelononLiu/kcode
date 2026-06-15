@@ -125,6 +125,20 @@ export function addAssistantMessage(msg: Message) {
     _asstSm.patch({ messages: msgs, msgVersion: ++_lastMsgVersion });
 }
 
+/** 添加系统消息（走 V3 状态，不丢失） */
+export function addAssistantSystemMessage(content: string) {
+    if (!_asstSm) return;
+    const msgs = [..._asstSm.state.messages];
+    msgs.push({
+        id: 'sys_' + Date.now(),
+        taskId: '',
+        role: 'agent' as const,
+        content,
+        timestamp: Date.now(),
+    });
+    _asstSm.patch({ messages: msgs, msgVersion: ++_lastMsgVersion });
+}
+
 export function setAssistantMessages(messages: Message[]) {
     if (!_asstSm) return;
     // 全量替换消息时，清除旧 DOM 避免重复

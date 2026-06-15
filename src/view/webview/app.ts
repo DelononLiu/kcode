@@ -3,11 +3,11 @@ import { showAssistantView, initAgentSelector, initModelSelector, truncateModel 
 import { showTaskView } from './taskView';
 import { initChat, initNavButtons, handleGenerationState, handlePendingQueueUpdate, sendMessageFromInput, focusChatInput, bindSlashToInput, hideSlashMenu, selectSlashCommand, updateCmdBadge } from './chatInteraction';
 import { initPluginManager, renderPluginList } from './pluginRegistry';
-import { initTlFilterBar, renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, appendToChatMessages, activateTab, handleAgentStreamUpdate, handleAgentStatus, handleToolCallUpdate, addSystemMessage, handleKnowledgeExtract, __resetStream } from './messageRenderer';
+import { renderMarkdown, addMessage, renderMessages, hideWorkingIndicator, escapeHtml, activateTab, handleAgentStatus, addSystemMessage, handleKnowledgeExtract, __resetStream } from './messageRenderer';
 import { handleDemoCardUpdate } from './demoCards';
 import { initTaskV3 } from './taskv3/renderManager';
 import { stateManager } from './taskv3/state';
-import { initAssistantPipeline, addAssistantMessage, setAssistantMessages, streamAssistantMessage, finishAssistantStream, addAssistantToolMessage } from './assistantPipeline';
+import { initAssistantPipeline, addAssistantMessage, setAssistantMessages, streamAssistantMessage, finishAssistantStream, addAssistantToolMessage, addAssistantSystemMessage } from './assistantPipeline';
 
 
 declare function acquireVsCodeApi(): any;
@@ -350,9 +350,7 @@ function initMessageHandler() {
                 }
                 break;
             case 'agentStatus':
-                if (G.activeTaskType !== 'assistant') {
-                    handleAgentStatus(message.status, message.message, message.agentName || '', message.modelName || '');
-                }
+                handleAgentStatus(message.status, message.message, message.agentName || '', message.modelName || '');
                 break;
             case 'focusInput':
                 const focusInputEl = document.getElementById('chat-input') as HTMLTextAreaElement;
@@ -423,7 +421,7 @@ function initMessageHandler() {
                 break;
             case 'addSystemMessage':
                 if (G.activeTaskType === 'assistant') {
-                    addSystemMessage(message.content);
+                    addAssistantSystemMessage(message.content);
                 } else {
                     const st = stateManager.snapshot();
                     const msgs = [...st.messages];
@@ -519,7 +517,12 @@ function initMessageHandler() {
                 {
                     const fileName = message.fileName || '';
                     const filePath = message.filePath || '';
-                    addSystemMessage(`📤 **已导出 Wiki 文档**\n\n文件: \`.kcode/wiki/${fileName}\`\n\n> 可打开文件查看完整内容`);
+                    const msg = `📤 **已导出 Wiki 文档**\n\n文件: \`.kcode/wiki/${fileName}\`\n\n> 可打开文件查看完整内容`;
+                    if (G.activeTaskType === 'assistant') {
+                        addAssistantSystemMessage(msg);
+                    } else {
+                        addSystemMessage(msg);
+                    }
                     const btnExport = document.getElementById('op-export-btn');
                     if (btnExport) btnExport.classList.add('hidden');
                 }
