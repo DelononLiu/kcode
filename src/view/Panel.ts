@@ -248,7 +248,20 @@ export class Panel {
 
     private setupMessageHandler() {
         this.router.on('sendMessage', async (msg) => this.sessionHandler.handleSendMessage(msg.text, msg.taskId, msg.category));
-        this.router.on('confirmGoal', async (msg) => this.flowHandler.handleConfirmGoal(msg.taskId, msg.originalRequest));
+        this.router.on('confirmGoal', async (msg) => {
+            const tid = msg.taskId;
+            console.log('[KCode] confirmGoal received', JSON.stringify({ tid, hasOriginalRequest: !!msg.originalRequest }));
+            if (!tid) { console.log('[KCode] confirmGoal: no taskId, bail'); return; }
+            const originalRequest = msg.originalRequest
+                || this.store.getMessages(tid).find(m => m.role === 'user')?.content
+                || '';
+            try {
+                await this.flowHandler.handleConfirmGoal(tid, originalRequest);
+                console.log('[KCode] confirmGoal: done');
+            } catch (e) {
+                console.error('[KCode] confirmGoal error', e);
+            }
+        });
         this.router.on('reviseGoal', (msg) => this.flowHandler.handleReviseGoal(msg.taskId));
         this.router.on('cancelTask', (msg) => this.flowHandler.handleCancelTask(msg.taskId));
         this.router.on('approveReview', (msg) => this.flowHandler.handleApproveReview(msg.taskId));

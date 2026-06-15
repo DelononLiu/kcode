@@ -20,8 +20,8 @@ export function initAssistantPipeline() {
     if (_asstSm) return;
     _asstSm = new StateManager();
 
-    // postAction 桩（助理无 cardMeta 操作，留空）
-    setMsgPostAction(() => {});
+    // postAction 沿用 msgRenderer.ts 的默认值（全局空函数桩），
+    // 注意：不要在此调用 setMsgPostAction，否则会覆盖 renderManager.ts 中 initTaskV3 设置的真实 postAction
 
     _asstSm.subscribe((state) => {
         if (state.msgVersion !== _lastMsgVersion) {

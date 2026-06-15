@@ -20,20 +20,28 @@ const CONFIRM_LABELS: Record<string, string> = {
 };
 
 export function postAction(action: UserAction): void {
+    console.log('[KCode] postAction', JSON.stringify(action));
     const label = CONFIRM_LABELS[action.type];
     if (label) {
-        const state = stateManager.snapshot();
-        const msgs = [...state.messages];
-        msgs.push({
-            id: 'action_' + Date.now(),
-            taskId: action.taskId || state.activeTaskId || '',
-            role: 'user',
-            content: label,
-            timestamp: Date.now(),
-        });
-        stateManager.patch({ messages: msgs });
+        try {
+            const state = stateManager.snapshot();
+            const msgs = [...state.messages];
+            msgs.push({
+                id: 'action_' + Date.now(),
+                taskId: action.taskId || state.activeTaskId || '',
+                role: 'user',
+                content: label,
+                timestamp: Date.now(),
+            });
+            stateManager.patch({ messages: msgs });
+            console.log('[KCode] postAction: state patched, msgCount=' + msgs.length);
+        } catch (e) {
+            console.error('[KCode] postAction patch error', e);
+        }
     }
-    getVscode().postMessage(action);
+    const vscode = getVscode();
+    console.log('[KCode] postAction: sending to extension', vscode ? 'vscode ok' : 'NO VSCODE API');
+    vscode.postMessage(action);
 }
 
 function scrollToBottom() {

@@ -14,9 +14,16 @@ export class TaskFlowHandler {
 
     async handleConfirmGoal(tid: string, originalRequest: string) {
         const { ctx } = this;
+        console.log('[KCode] handleConfirmGoal', JSON.stringify({ tid, originalRequestLen: originalRequest?.length }));
         ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认目标', timestamp: Date.now() });
         ctx.taskFlow.confirmGoal(tid);
-        await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, originalRequest), false, originalRequest);
+        console.log('[KCode] confirmGoal: phase changed to plan, calling sendAgentPrompt');
+        try {
+            await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, originalRequest), false, originalRequest);
+            console.log('[KCode] confirmGoal: sendAgentPrompt returned');
+        } catch (e) {
+            console.error('[KCode] confirmGoal: sendAgentPrompt error', e);
+        }
     }
 
     handleReviseGoal(tid: string) {

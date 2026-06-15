@@ -58,6 +58,7 @@ export class TaskViewBridgeV2 {
     }
 
     sendStreamChunk(taskId: string, text: string) {
+        _dbg.info(`[KCode] sendStreamChunk tid=${taskId} len=${text.length}`);
         this.ctx.router.PostMessage({ type: 'stream-chunk', taskId, text });
     }
 
@@ -210,6 +211,7 @@ export class TaskViewBridgeV2 {
 
                 const cleanedText = this._ctx.taskFlow.getCleanText(this.tid);
                 const task = this._ctx.store.getTask(this.tid);
+                _dbg.info(`[KCode] onDone tid=${this.tid} stopReason=${stopReason} phase=${task?.phase} cleanedLen=${cleanedText?.length}`);
 
                 if (stopReason === 'cancelled') {
                     this.activeToolCalls.clear();
@@ -320,7 +322,15 @@ export class TaskViewBridgeV2 {
     }
 
     async sendAgentPrompt(taskId: string, promptText: string, isGoalFormatting: boolean, originalText: string) {
+        _dbg.info(`[KCode] sendAgentPrompt tid=${taskId} isGoalFormatting=${isGoalFormatting} promptLen=${promptText?.length} originalTextLen=${originalText?.length}`);
         const handler = this.createStreamHandler(taskId, isGoalFormatting, originalText);
-        await this.ctx.agentService.sendPrompt(taskId, promptText, handler);
+        const connected = this.ctx.agentService.isConnected;
+        _dbg.info(`[KCode] sendAgentPrompt: connected=${connected} hasSession=${this.ctx.agentService.hasSession(taskId)}`);
+        try {
+            await this.ctx.agentService.sendPrompt(taskId, promptText, handler);
+            _dbg.info(`[KCode] sendAgentPrompt: done`);
+        } catch (e: any) {
+            _dbg.info(`[KCode] sendAgentPrompt: error ${e?.message || e}`);
+        }
     }
 }

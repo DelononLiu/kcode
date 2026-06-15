@@ -4,9 +4,8 @@ import { stateManager } from './state';
 import { basePipeline } from './basePipeline';
 import { taskStrategy } from './taskStrategy';
 import { postAction } from './cardRenderer';
-import { createMsgElement, updateMsgElement, buildSummaryHtml, setMsgPostAction, isNonCollapsible } from './msgRenderer';
+import { createMsgElement, updateMsgElement, setMsgPostAction, isNonCollapsible } from './msgRenderer';
 import { showTaskView } from '../taskView';
-import { appendToChatMessages } from '../chatStream';
 import { G } from '../state';
 
 let _strategy: ViewStrategy = taskStrategy;
@@ -305,6 +304,9 @@ function handleToolChunk(msg: { toolCallId: string; title: string; kind: string;
 }
 
 function handleFinalizeGoalMessage(msg: { taskId: string; goal: string }) {
+    if (msg.taskId) {
+        _ensurePhaseActionCard('goal', msg.taskId);
+    }
 }
 
 function handleStreamDone(result: StreamResult) {
@@ -483,20 +485,8 @@ function _syncMessages() {
             continue;
         }
 
-        // 回退：后面没有已渲染的锚点消息，按原有规则追加
-        if (msg.role === 'user') {
-            appendToChatMessages(msgEl);
-        } else if (msg.role === 'agent' && !msg.streaming && !msg.cardMeta) {
-            // Completed agent: append to existing round (don't create new), else direct
-            const round = basePipeline.getRoundContainer();
-            if (round) round.appendChild(msgEl);
-            else appendToChatMessages(msgEl);
-        } else {
-            // Streaming agent, thinking, tool → round container
-            const round = basePipeline.getOrCreateRoundContainer();
-            if (round) round.appendChild(msgEl);
-            else appendToChatMessages(msgEl);
-        }
+        // 回退：直接追加到 container（避免用 V2 的 appendToChatMessages，它从 getActiveView 取容器可能错误）
+        container.appendChild(msgEl);
     }
 }
 
