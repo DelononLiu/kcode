@@ -127,6 +127,10 @@ export function addAssistantMessage(msg: Message) {
 
 export function setAssistantMessages(messages: Message[]) {
     if (!_asstSm) return;
+    // 全量替换消息时，清除旧 DOM 避免重复
+    const container = getChatMessages();
+    if (container) container.innerHTML = '';
+    _renderedMsgIds.clear();
     _asstSm.patch({ messages, msgVersion: ++_lastMsgVersion });
 }
 
@@ -218,6 +222,9 @@ function _renderAll(messages: Message[]) {
     if (!container) return;
     container.innerHTML = '';
     _renderedMsgIds.clear();
+    // 移除 chat-empty 类让容器可见
+    const scrollEl = getChatScroll();
+    if (scrollEl) scrollEl.classList.remove('chat-empty');
     for (const msg of messages) {
         const el = createMsgElement(msg, _asstSm!);
         if (el) {
@@ -233,6 +240,12 @@ function _syncMessages() {
     const msgs = _asstSm.state.messages;
     const container = getChatMessages();
     if (!container) return;
+
+    // 有消息时移除 chat-empty 类让容器可见
+    if (msgs.length > 0) {
+        const scrollEl = getChatScroll();
+        if (scrollEl) scrollEl.classList.remove('chat-empty');
+    }
 
     for (let i = 0; i < msgs.length; i++) {
         const msg = msgs[i];
