@@ -585,9 +585,9 @@ export class TaskFlow {
 
     confirmPlan(taskId: string): void {
         const msgs = this.store.getMessages(taskId);
-        const lastPlan = msgs.filter(m => m.type === 'plan_proposal').pop();
+        const lastPlan = msgs.filter(m => (m as any).type === 'plan_proposal').pop();
         if (lastPlan) {
-            this.store.updateMessageType(taskId, lastPlan.id, 'plan_confirmed');
+            this.store.updateMessageType(taskId, lastPlan.id, 'plan_confirmed' as any);
         }
 
         const task = this.store.getTask(taskId);
@@ -627,9 +627,9 @@ export class TaskFlow {
 
     finishReview(taskId: string): void {
         const msgs = this.store.getMessages(taskId);
-        const lastReview = msgs.filter(m => m.type === 'review_request').pop();
+        const lastReview = msgs.filter(m => (m as any).type === 'review_request').pop();
         if (lastReview) {
-            this.store.updateMessageType(taskId, lastReview.id, 'review_approved');
+            this.store.updateMessageType(taskId, lastReview.id, 'review_approved' as any);
         }
 
         this.store.updateTaskStatus(taskId, 'completed');
@@ -639,9 +639,9 @@ export class TaskFlow {
 
     rejectReview(taskId: string): void {
         const msgs = this.store.getMessages(taskId);
-        const lastReview = msgs.filter(m => m.type === 'review_request').pop();
+        const lastReview = msgs.filter(m => (m as any).type === 'review_request').pop();
         if (lastReview) {
-            this.store.updateMessageType(taskId, lastReview.id, 'review_rejected');
+            this.store.updateMessageType(taskId, lastReview.id, 'review_rejected' as any);
         }
 
         this.store.updateTaskPhase(taskId, 'execute');

@@ -195,7 +195,7 @@ export class AssistantHandler {
 
         const content = this._formatEnvMessage(env);
         const msgId = this.store.nextAssistantMessageId();
-        this.store.addAssistantMessage({ id: msgId, role: 'agent', content, timestamp: Date.now() });
+        this.store.addAssistantMessage({ id: msgId, taskId: '', type: 'text', role: 'agent', content, timestamp: Date.now() });
         this.loadMessages();
         this.router.PostMessage({ type: 'setInputPlaceholder', text: '按回车开始自动安装与配置' });
         this.router.PostMessage({ type: 'setInputPreset', text: '好的，开始安装配置' });
@@ -253,7 +253,7 @@ export class AssistantHandler {
             if (setupContent) {
                 const timestamp = Date.now();
                 const msgId = this.store.nextAssistantMessageId();
-                this._guideMessages.push({ id: msgId, role: 'agent', content: setupContent, timestamp });
+                this._guideMessages.push({ id: msgId, taskId: '', type: 'text', role: 'agent', content: setupContent, timestamp });
             }
             this._guideStep = 0;
             this._sendGuideStep();
@@ -280,7 +280,7 @@ export class AssistantHandler {
         const step = GUIDE_STEPS[this._guideStep];
         if (!step) return;
         const msgId = this.store.nextAssistantMessageId();
-        this._guideMessages.push({ id: msgId, role: 'agent', content: step.agent, timestamp: Date.now() });
+        this._guideMessages.push({ id: msgId, taskId: '', type: 'text', role: 'agent', content: step.agent, timestamp: Date.now() });
         this._renderGuideMessages();
         this.router.PostMessage({ type: 'setInputPlaceholder', text: `按回车发送: "${step.preset}"` });
         this.router.PostMessage({ type: 'setInputPreset', text: step.preset });
@@ -291,7 +291,7 @@ export class AssistantHandler {
         if (!step) return;
 
         const msgId = this.store.nextAssistantMessageId();
-        this._guideMessages.push({ id: msgId, role: 'user', content: text, timestamp: Date.now() });
+        this._guideMessages.push({ id: msgId, taskId: '', type: 'text', role: 'user', content: text, timestamp: Date.now() });
         this.router.PostMessage({ type: 'addUserMessage', content: text });
 
         this._guideStep++;
@@ -329,7 +329,7 @@ export class AssistantHandler {
             this.router.PostMessage({ type: 'setInputPlaceholder', text: '' });
             this.router.PostMessage({ type: 'setInputPreset', text: '' });
             const msgId = this.store.nextAssistantMessageId();
-            this.store.addAssistantMessage({ id: msgId, role: 'user', content: text, timestamp: Date.now() });
+            this.store.addAssistantMessage({ id: msgId, taskId: '', type: 'text', role: 'user', content: text, timestamp: Date.now() });
             this.router.PostMessage({ type: 'addUserMessage', content: text });
             await this._onEnvSetupComplete?.();
             return;
@@ -343,7 +343,7 @@ export class AssistantHandler {
         }
 
         const msgId = this.store.nextAssistantMessageId();
-        this.store.addAssistantMessage({ id: msgId, role: 'user', content: text, timestamp: Date.now() });
+        this.store.addAssistantMessage({ id: msgId, taskId: '', type: 'text', role: 'user', content: text, timestamp: Date.now() });
         this.router.PostMessage({ type: 'addUserMessage', content: text });
 
         if (!this.agentService.isConnected) {
@@ -388,7 +388,7 @@ export class AssistantHandler {
     private _addAssistantMessage(content: string) {
         const msgId = this.store.nextAssistantMessageId();
         this.store.addAssistantMessage({
-            id: msgId, role: 'agent', content, timestamp: Date.now(),
+            id: msgId, taskId: '', type: 'text', role: 'agent', content, timestamp: Date.now(),
         });
         this.loadMessages();
     }

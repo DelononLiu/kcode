@@ -343,8 +343,12 @@ function initMessageHandler() {
                         id: 'msg_' + Date.now(),
                         taskId: st.activeTaskId || '',
                         role: 'agent' as const,
+                        type: 'text',
                         content: message.text,
                         timestamp: Date.now(),
+                        streaming: false,
+                        collapsed: false,
+                        roundGroup: null,
                     });
                     stateManager.patch({ messages: msgs });
                 }
@@ -365,9 +369,13 @@ function initMessageHandler() {
                             id: 'user_' + Date.now(),
                             taskId: '',
                             role: 'user',
+                            type: 'text',
                             content: message.content,
                             timestamp: Date.now(),
-                        });
+                            streaming: false,
+                            collapsed: false,
+                            roundGroup: null,
+                        } as import('./taskv3/types').Message);
                     } else {
                         const st = stateManager.snapshot();
                         const lastMsg = st.messages[st.messages.length - 1];
@@ -377,8 +385,12 @@ function initMessageHandler() {
                             id: 'user_' + Date.now(),
                             taskId: st.activeTaskId || '',
                             role: 'user' as const,
+                            type: 'text',
                             content: message.content,
                             timestamp: Date.now(),
+                            streaming: false,
+                            collapsed: false,
+                            roundGroup: null,
                         });
                         stateManager.patch({ messages: msgs });
                     }
@@ -429,8 +441,12 @@ function initMessageHandler() {
                         id: 'sys_' + Date.now(),
                         taskId: st.activeTaskId || '',
                         role: 'agent' as const,
+                        type: 'text',
                         content: message.content,
                         timestamp: Date.now(),
+                        streaming: false,
+                        collapsed: false,
+                        roundGroup: null,
                     });
                     stateManager.patch({ messages: msgs });
                 }

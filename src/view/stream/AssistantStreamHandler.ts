@@ -37,7 +37,7 @@ export class AssistantStreamHandler extends StreamHandlerBase {
         for (const [toolCallId, tc] of this.activeToolCalls) {
             const msgId = this.store.nextAssistantMessageId();
             this.store.addAssistantMessage({
-                id: msgId, role: 'tool', type: 'tool_call',
+                id: msgId, taskId: '', role: 'tool', type: 'tool_call',
                 content: JSON.stringify({ toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output || '' }),
                 timestamp: Date.now(),
             });
@@ -45,7 +45,7 @@ export class AssistantStreamHandler extends StreamHandlerBase {
 
         if (this.buffer.trim()) {
             const id = this.store.nextAssistantMessageId();
-            this.store.addAssistantMessage({ id, role: 'agent', content: this.buffer, timestamp: Date.now() });
+            this.store.addAssistantMessage({ id, taskId: '', role: 'agent', type: 'text', content: this.buffer, timestamp: Date.now() });
         }
 
         this.loadMessagesFn();

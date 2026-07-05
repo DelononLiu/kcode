@@ -107,6 +107,7 @@ class MockTaskStore implements ITaskStore {
 
     incrementPlanVersion(taskId: string): void {
         const t = this.tasks.get(taskId);
+        // @ts-ignore 过渡字段，Iteration 2 清理
         if (t) t.planVersion = (t.planVersion || 1) + 1;
     }
 
@@ -152,6 +153,7 @@ function makeFlow(overrides: Partial<Task> = {}) {
     const task: Task = {
         id: 'task_1', title: 'Test', goal: '', type: 'task', status: 'pending',
         phase: 'goal', confirmedItems: [], pendingItems: [], planSteps: [],
+        // @ts-ignore 过渡字段，Iteration 2 清理
         planVersion: 1, riskItems: [], boundaryItems: [], createdAt: Date.now(),
         ...overrides,
     };
@@ -363,6 +365,7 @@ describe('迭代循环 (execute ↔ self_verify)', () => {
             status: phase === 'self_verify' ? 'active' : 'active',
             phase, confirmedItems: ['性能优化'], pendingItems: [],
             planSteps: [{ content: '优化', status: 'active' }],
+            // @ts-ignore 过渡字段，Iteration 2 清理
             planVersion: 1, riskItems: [], boundaryItems: [], createdAt: Date.now(),
             flowIteration: {
                 enabled: true,

@@ -175,6 +175,7 @@ function _collapseRound(msgs: _Message[], startIdx: number, endIdx: number): { m
         timestamp: Date.now(),
         roundGroup: rg,
         collapsed: true,
+        streaming: false,
     };
     return { msgs: result, summary };
 }
@@ -224,9 +225,12 @@ function _updateStreamMsg(text: string) {
             id: 'msg_' + Date.now(),
             taskId: state.activeTaskId || '',
             role: 'agent',
+            type: 'text',
             content: '',
             timestamp: Date.now(),
             streaming: true,
+            collapsed: false,
+            roundGroup: null,
         };
         msgs.push(newMsg);
         streamIdx = msgs.length - 1;
@@ -259,6 +263,8 @@ function handleThinkingChunk(msg: { text: string; status: string }) {
             content: msg.text,
             timestamp: now,
             streaming: msg.status !== 'completed',
+            collapsed: false,
+            roundGroup: null,
         });
     }
     stateManager.patch({ messages: msgs });
@@ -298,6 +304,9 @@ function handleToolChunk(msg: { toolCallId: string; title: string; kind: string;
             type: 'tool_call',
             content: toolContent,
             timestamp: Date.now(),
+            streaming: false,
+            collapsed: false,
+            roundGroup: null,
         });
     }
     stateManager.patch({ messages: msgs });
@@ -333,6 +342,9 @@ function handleStreamDone(result: StreamResult) {
             type: 'tool_call',
             content: JSON.stringify({ toolCallId: tc.toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output || '' }),
             timestamp: Date.now(),
+            streaming: false,
+            collapsed: false,
+            roundGroup: null,
         });
     }
 
@@ -440,10 +452,13 @@ function _ensurePhaseActionCard(phase: string, taskId: string) {
         id: 'phase_' + phase + '_' + Date.now(),
         taskId,
         role: 'agent',
-        type: phaseTypeMap[phase] || undefined,
+        type: phaseTypeMap[phase] || 'text',
         content: '',
         phase,
         timestamp: Date.now(),
+        streaming: false,
+        collapsed: false,
+        roundGroup: null,
         cardMeta: {
             type: phase as 'goal' | 'plan' | 'execute' | 'self_verify' | 'review',
             status: 'pending',

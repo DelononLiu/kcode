@@ -33,6 +33,7 @@ export class TaskStore {
             confirmedItems: t.confirmedItems || [],
             pendingItems: t.pendingItems || [],
             planSteps: t.planSteps || [],
+            // @ts-ignore 过渡字段，Iteration 2 清理
             planVersion: t.planVersion || 1,
             riskItems: t.riskItems || [],
             boundaryItems: t.boundaryItems || [],
@@ -70,12 +71,15 @@ export class TaskStore {
     }
 
     updateTaskPlanVersion(taskId: string, version: number): void {
+        // @ts-ignore 过渡字段，Iteration 2 清理
         this.fs.updateTask(taskId, { planVersion: version });
     }
 
     incrementPlanVersion(taskId: string): void {
         const task = this.fs.getTask(taskId);
+        // @ts-ignore 过渡字段，Iteration 2 清理
         if (task) {
+            // @ts-ignore 过渡字段，Iteration 2 清理
             this.fs.updateTask(taskId, { planVersion: (task.planVersion || 1) + 1 });
         }
     }
@@ -127,9 +131,12 @@ export class TaskStore {
     }
 
     addMessage(msg: ChatMessage): void {
+        // @ts-ignore 过渡字段，Iteration 2 清理 — phase 不在 Message 类型上
         if (!msg.phase) {
             const task = this.fs.getTask(msg.taskId);
+            // @ts-ignore 过渡字段，Iteration 2 清理
             if (task?.phase) {
+                // @ts-ignore 过渡字段，Iteration 2 清理
                 msg.phase = task.phase;
             }
         }

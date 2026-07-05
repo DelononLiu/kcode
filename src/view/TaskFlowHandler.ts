@@ -15,7 +15,7 @@ export class TaskFlowHandler {
     async handleConfirmGoal(tid: string, originalRequest: string) {
         const { ctx } = this;
         console.log('[KCode] handleConfirmGoal', JSON.stringify({ tid, originalRequestLen: originalRequest?.length }));
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认目标', timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', type: 'text', content: '✅ 确认目标', timestamp: Date.now() });
         ctx.taskFlow.confirmGoal(tid);
         console.log('[KCode] confirmGoal: phase changed to plan, calling sendAgentPrompt');
         try {
@@ -28,7 +28,7 @@ export class TaskFlowHandler {
 
     handleReviseGoal(tid: string) {
         const { ctx } = this;
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '↩️ 修改需求', timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', type: 'text', content: '↩️ 修改需求', timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'addUserMessage', content: '↩️ 修改需求' });
         ctx.store.updateTaskStatus(tid, 'pending');
         ctx.store.updateTaskGoal(tid, '');
@@ -38,7 +38,7 @@ export class TaskFlowHandler {
 
     handleCancelTask(tid: string) {
         const { ctx } = this;
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✕ 取消任务', timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', type: 'text', content: '✕ 取消任务', timestamp: Date.now() });
         ctx.store.updateTaskStatus(tid, 'cancelled');
         ctx.store.clearReviewChanges(tid);
         ctx.store.addTimelineEntry(tid, { timestamp: Date.now(), type: 'phase_change', summary: '任务取消', detail: '用户主动取消任务' });
@@ -56,7 +56,7 @@ export class TaskFlowHandler {
 
     async handleConfirmPlan(tid: string) {
         const { ctx } = this;
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认计划', timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', type: 'text', content: '✅ 确认计划', timestamp: Date.now() });
         ctx.taskFlow.confirmPlan(tid);
         await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, '计划已确认，请开始执行。'), false, '计划已确认，请开始执行。');
     }
@@ -69,7 +69,7 @@ export class TaskFlowHandler {
             ? `用户已修改目标和计划，请按修改后的内容执行。\n\n🎯 目标\n${goal}\n\n📋 计划\n${steps.map(s => `- ${s.content}`).join('\n')}`
             : `用户已修改计划，请按修改后的计划执行。\n\n📋 计划\n${steps.map(s => `- ${s.content}`).join('\n')}`;
         ctx.store.addMessage({
-            id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: userText, timestamp: Date.now()
+            id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', type: 'text', content: userText, timestamp: Date.now()
         });
         ctx.router.PostMessage({ type: 'addUserMessage', content: userText });
         ctx.taskFlow.confirmPlan(tid);
@@ -78,7 +78,7 @@ export class TaskFlowHandler {
 
     async handleConfirmExecuteDone(tid: string) {
         const { ctx } = this;
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认执行完成，进入自验', timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', type: 'text', content: '✅ 确认执行完成，进入自验', timestamp: Date.now() });
         ctx.taskFlow.confirmExecuteDone(tid);
         ctx.sendTaskInfo(tid);
         ctx.sendNodePanelUpdate(tid);
@@ -87,7 +87,7 @@ export class TaskFlowHandler {
 
     async handleConfirmSelfVerifyDone(tid: string) {
         const { ctx } = this;
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认自验完成，进入验收', timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', type: 'text', content: '✅ 确认自验完成，进入验收', timestamp: Date.now() });
         const cleanedText = ctx.taskFlow.confirmSelfVerifyDone(tid);
         ctx.sendTaskInfo(tid);
         ctx.sendNodePanelUpdate(tid);
@@ -102,14 +102,14 @@ export class TaskFlowHandler {
 
     handleRejectPlan(tid: string) {
         const { ctx } = this;
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '↩️ 驳回计划', timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', type: 'text', content: '↩️ 驳回计划', timestamp: Date.now() });
         ctx.taskFlow.rejectPlan(tid);
     }
 
     async handleConfirmGoalWithEdit(tid: string, newGoal: string, originalRequest: string) {
         const { ctx } = this;
         ctx.store.updateTaskGoal(tid, newGoal);
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 确认目标', timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', type: 'text', content: '✅ 确认目标', timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'addUserMessage', content: '✅ 确认目标' });
         ctx.taskFlow.confirmGoalWithEdit(tid, newGoal);
         await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, originalRequest), false, originalRequest);
@@ -121,11 +121,11 @@ export class TaskFlowHandler {
         if (!tid) return;
         ctx.setGenerationState(false);
         ctx.agentService.cancel(tid);
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', type: 'stop_message', content: '⏹️ 用户已停止生成', timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', type: 'stop_message' as any, content: '⏹️ 用户已停止生成', timestamp: Date.now() });
         const partialText = ctx.taskFlow.getCleanText(tid);
         if (partialText) {
             const id = ctx.store.nextMessageId(tid);
-            ctx.store.addMessage({ id, taskId: tid, role: 'agent', content: partialText, timestamp: Date.now() });
+            ctx.store.addMessage({ id, taskId: tid, role: 'agent', type: 'text', content: partialText, timestamp: Date.now() });
         }
         ctx.taskFlow.resetGeneration(tid);
         ctx.sendMessagesSync?.(tid);
@@ -174,7 +174,7 @@ export class TaskFlowHandler {
             },
             confirmedItems: task?.confirmedItems || [],
             planSteps: task?.planSteps || [],
-            planVersion: task?.planVersion || 1,
+            planVersion: (task as any)?.planVersion || 1,
             hooks: task?.hooks || {},
             workspaceHooks: ctx.taskFlow['workspaceHooks'] || {},
         });
@@ -203,14 +203,14 @@ export class TaskFlowHandler {
 
     handleApproveReview(tid: string) {
         const { ctx } = this;
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '✅ 验收通过', timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', type: 'text', content: '✅ 验收通过', timestamp: Date.now() });
         ctx.taskFlow.finishReview(tid);
         const task = ctx.store.getTask(tid);
         const changes = ctx.store.getReviewChanges(tid);
         ctx.store.addTimelineEntry(tid, { timestamp: Date.now(), type: 'message', summary: '用户验收通过', detail: '' });
         let report = `🎉 任务已完成，《任务完成报告》如下：\n\n📋 **任务**：${task?.title || ''}\n`;
         if (changes.length > 0) report += `📄 **变更文件**：${changes.length} 个\n${changes.map(c => `  - \`${c.filePath}\``).join('\n')}`;
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', content: report, timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', type: 'text', content: report, timestamp: Date.now() });
         ctx.store.clearReviewChanges(tid);
         ctx.router.PostMessage({
             type: 'state-delta',
@@ -232,7 +232,7 @@ export class TaskFlowHandler {
             },
             confirmedItems: task?.confirmedItems || [],
             planSteps: task?.planSteps || [],
-            planVersion: task?.planVersion || 1,
+            planVersion: (task as any)?.planVersion || 1,
         });
         ctx.sendMessagesSync?.(tid);
         this.sendTaskInfo(tid);
@@ -241,9 +241,9 @@ export class TaskFlowHandler {
     async handlePartialApproveReview(tid: string, passed: string[], failed: string[]) {
         const { ctx } = this;
         const approveMsg = `📋 逐条验收结果：${passed.length}/${passed.length + failed.length} 项通过`;
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: approveMsg, timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', type: 'text', content: approveMsg, timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'addUserMessage', content: approveMsg });
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', content: `✅ 部分验收通过（${passed.length}/${passed.length + failed.length}）`, timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', type: 'text', content: `✅ 部分验收通过（${passed.length}/${passed.length + failed.length}）`, timestamp: Date.now() });
         ctx.store.clearReviewChanges(tid);
 
         if (failed.length === 0) {
@@ -268,7 +268,7 @@ export class TaskFlowHandler {
                 },
                 confirmedItems: t?.confirmedItems || [],
                 planSteps: t?.planSteps || [],
-                planVersion: t?.planVersion || 1,
+                planVersion: (t as any)?.planVersion || 1,
             });
             ctx.sendMessagesSync?.(tid);
             this.sendTaskInfo(tid);
@@ -284,7 +284,7 @@ export class TaskFlowHandler {
     async handleRejectReview(tid: string, reason?: string) {
         const { ctx } = this;
         const promptMsg = reason ? `↩️ 驳回: ${reason}` : '↩️ 驳回，请继续修改';
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', content: '↩️ 驳回', timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'user', type: 'text', content: '↩️ 驳回', timestamp: Date.now() });
         ctx.taskFlow.rejectReview(tid);
         ctx.store.clearReviewChanges(tid);
         await ctx.sendAgentPrompt(tid, ctx.taskFlow.buildPhaseTransitionPrompt(tid, promptMsg), false, promptMsg);
@@ -293,7 +293,7 @@ export class TaskFlowHandler {
     showAgentError(tid: string, errorMsg: string) {
         const { ctx } = this;
         const id = ctx.store.nextMessageId(tid);
-        ctx.store.addMessage({ id, taskId: tid, role: 'agent', content: `错误: ${errorMsg}`, timestamp: Date.now() });
+        ctx.store.addMessage({ id, taskId: tid, role: 'agent', type: 'text', content: `错误: ${errorMsg}`, timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n---\n⚠️ **${errorMsg}**\n\n\`👉 在 KCode 侧边栏底部齿轮图标 → 设置 → Agent 配置 中填写 agentName\`\n---` });
         ctx.sendMessagesSync?.(tid);
     }
@@ -322,7 +322,7 @@ export class TaskFlowHandler {
             status: task.status, phase: task.phase,             phaseLabel: phaseLabels[task.phase] || task.phase,
             taskType: task.type, category: task.category, categoryLabel: catLabel(task.category), createdAt: task.createdAt, originalRequest: task.originalRequest || '', pendingReviewFiles: 0,
             confirmedItems: task.confirmedItems, pendingItems: task.pendingItems, planSteps: task.planSteps,
-            planVersion: task.planVersion || 1,
+            planVersion: (task as any).planVersion || 1,
             riskItems: task.riskItems || [],
             boundaryItems: task.boundaryItems || [],
             filePathsFromTools: filePathsFromTools,
@@ -350,7 +350,7 @@ export class TaskFlowHandler {
         }
 
         for (const msg of messages) {
-            if (msg.type === 'todo') {
+            if ((msg as any).type === 'todo') {
                 try { todos.push(...JSON.parse(msg.content || '[]')); } catch {}
             } else if (msg.type === 'tool_call') {
                 try {
@@ -403,7 +403,7 @@ export class TaskFlowHandler {
             },
             confirmedItems: task?.confirmedItems || [],
             planSteps: task?.planSteps || [],
-            planVersion: task?.planVersion || 1,
+            planVersion: (task as any)?.planVersion || 1,
         });
         ctx.sendMessagesSync?.(taskId);
     }
@@ -416,8 +416,8 @@ export class TaskFlowHandler {
         const phase = task.phase;
         const s = task.status;
         const hasGoal = !!task.goal;
-        const hasConfirmedGoal = msgs.some(m => m.type === 'goal_confirmed') || ['plan', 'execute', 'self_verify', 'review'].includes(phase);
-        const hasReviewRequest = msgs.some(m => m.type === 'review_request');
+        const hasConfirmedGoal = msgs.some(m => (m as any).type === 'goal_confirmed') || ['plan', 'execute', 'self_verify', 'review'].includes(phase);
+        const hasReviewRequest = msgs.some(m => (m as any).type === 'review_request');
         const hasPlan = this.ctx.taskFlow.getPlanEntries(taskId).length > 0 || ['execute', 'self_verify', 'review'].includes(phase);
         const hasSelfVerify = ['review', 'self_verify'].includes(phase);
 
@@ -459,7 +459,7 @@ export class TaskFlowHandler {
         const itemsMap = new Map<string, { id: string; content: string; status: string }>();
 
         for (const msg of messages) {
-            if (msg.type === 'todo') {
+            if ((msg as any).type === 'todo') {
                 try {
                     const items: { id: string; content: string; status: string }[] = JSON.parse(msg.content || '[]');
                     for (const item of items) {
@@ -496,11 +496,11 @@ export class TaskFlowHandler {
     handleTodoUpdate(taskId: string, items: { id: string; content: string; status: string }[], action: string) {
         const { ctx } = this;
         const messages = ctx.store.getMessages(taskId);
-        const existingTodoMsgs = messages.filter(m => m.type === 'todo');
+        const existingTodoMsgs = messages.filter(m => m.type === 'todo' as any);
 
         if (action === 'replace') {
             const msgId = ctx.store.nextMessageId(taskId);
-            ctx.store.addMessage({ id: msgId, taskId, role: 'agent', type: 'todo', content: JSON.stringify(items), timestamp: Date.now() });
+            ctx.store.addMessage({ id: msgId, taskId, role: 'agent', type: 'todo' as any, content: JSON.stringify(items), timestamp: Date.now() });
         } else if (action === 'add' && existingTodoMsgs.length > 0) {
             const last = existingTodoMsgs[existingTodoMsgs.length - 1];
             const existing: { id: string; content: string; status: string }[] = JSON.parse(last.content || '[]');
@@ -521,7 +521,7 @@ export class TaskFlowHandler {
             ctx.store.updateMessageContent(taskId, last.id, JSON.stringify(existing));
         } else {
             const msgId = ctx.store.nextMessageId(taskId);
-            ctx.store.addMessage({ id: msgId, taskId, role: 'agent', type: 'todo', content: JSON.stringify(items), timestamp: Date.now() });
+            ctx.store.addMessage({ id: msgId, taskId, role: 'agent', type: 'todo' as any, content: JSON.stringify(items), timestamp: Date.now() });
         }
 
         this._syncTodosToPlanSteps(taskId);
@@ -553,7 +553,7 @@ export class TaskFlowHandler {
             workspace: vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,
         };
         ctx.store.addTask(newTask);
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(parentTaskId), taskId: parentTaskId, role: 'agent', type: 'stop_message', content: `📤 已委派新任务「${payload.title}」`, timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(parentTaskId), taskId: parentTaskId, role: 'agent', type: 'stop_message' as any, content: `📤 已委派新任务「${payload.title}」`, timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'addSystemMessage', content: `📤 已委派新任务「${payload.title}」`, taskId: parentTaskId });
         ctx.refreshSidebarCallback?.();
     }

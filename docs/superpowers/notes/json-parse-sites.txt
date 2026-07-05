@@ -1,0 +1,30 @@
+/home/long2015/Code/kcode/src/store/__tests__/TaskLogStore.test.ts:181:        const parsed = JSON.parse(content.trim());
+/home/long2015/Code/kcode/src/store/FileStorage.ts:32:                const parsed = JSON.parse(content);
+/home/long2015/Code/kcode/src/view/webview/messageRenderer.ts:146:                const info = JSON.parse(m.content);
+/home/long2015/Code/kcode/src/view/webview/messageRenderer.ts:158:        try { return JSON.parse(msg.content).kind || ''; }
+/home/long2015/Code/kcode/src/view/webview/messageRenderer.ts:220:            const info = JSON.parse(msg.content);
+/home/long2015/Code/kcode/src/view/webview/messageRenderer.ts:277:                try { info = JSON.parse(msg.content); } catch { continue; }
+/home/long2015/Code/kcode/src/view/webview/messageRenderer.ts:725:            toolInfo = JSON.parse(content);
+/home/long2015/Code/kcode/src/plugins/todo/TodoPlugin.ts:25:                const existing: TodoItem[] = JSON.parse(last.content || '[]');
+/home/long2015/Code/kcode/src/plugins/todo/TodoPlugin.ts:50:                    try { const info = JSON.parse(m.content); return info.toolCallId === toolCallId; } catch { return false; }
+/home/long2015/Code/kcode/src/plugins/todo/TodoPlugin.ts:56:                    const items: TodoItem[] = JSON.parse(targetMsg.content || '[]');
+/home/long2015/Code/kcode/src/plugins/todo/TodoPlugin.ts:63:                    const info = JSON.parse(targetMsg.content);
+/home/long2015/Code/kcode/src/plugins/todo/TodoPlugin.ts:112:                const items: TodoItem[] = JSON.parse(msg.content || '[]');
+/home/long2015/Code/kcode/src/plugins/todo/TodoPlugin.ts:119:                const info = JSON.parse(msg.content);
+/home/long2015/Code/kcode/src/view/webview/taskv3/renderManager.ts:150:            try { const info = JSON.parse(result[i].content); if (info.kind === 'thinking') { thinking++; } else { const k = info.kind || 'other'; tools[k] = (tools[k] || 0) + 1; } } catch {}
+/home/long2015/Code/kcode/src/view/webview/taskv3/renderManager.ts:333:        msgs.filter(m => m.type === 'tool_call').map(m => { try { return JSON.parse(m.content).toolCallId; } catch { return null; } }).filter(Boolean)
+/home/long2015/Code/kcode/src/view/webview/taskv3/msgRenderer.ts:63:        try { counts = JSON.parse(msg.content); } catch { return null; }
+/home/long2015/Code/kcode/src/view/webview/taskv3/msgRenderer.ts:147:        try { info = JSON.parse(msg.content); } catch { return null; }
+/home/long2015/Code/kcode/src/view/webview/taskv3/msgRenderer.ts:233:            try { const info = JSON.parse(msg.content); if (info.output) pre.textContent = info.output; } catch {}
+/home/long2015/Code/kcode/src/view/TaskFlowHandler.ts:194:                const info = JSON.parse(msg.content);
+/home/long2015/Code/kcode/src/view/TaskFlowHandler.ts:311:                    const info = JSON.parse(msg.content);
+/home/long2015/Code/kcode/src/view/TaskFlowHandler.ts:354:                try { todos.push(...JSON.parse(msg.content || '[]')); } catch {}
+/home/long2015/Code/kcode/src/view/TaskFlowHandler.ts:357:                    const info = JSON.parse(msg.content);
+/home/long2015/Code/kcode/src/view/TaskFlowHandler.ts:464:                    const items: { id: string; content: string; status: string }[] = JSON.parse(msg.content || '[]');
+/home/long2015/Code/kcode/src/view/TaskFlowHandler.ts:471:                    const info = JSON.parse(msg.content);
+/home/long2015/Code/kcode/src/view/TaskFlowHandler.ts:506:            const existing: { id: string; content: string; status: string }[] = JSON.parse(last.content || '[]');
+/home/long2015/Code/kcode/src/view/TaskFlowHandler.ts:516:            const existing: { id: string; content: string; status: string }[] = JSON.parse(last.content || '[]');
+/home/long2015/Code/kcode/src/store/ProjectFs.ts:343:			return JSON.parse(fs.readFileSync(contentPath, 'utf-8'));
+/home/long2015/Code/kcode/src/view/webview/todoRenderer.ts:40:        items = JSON.parse(msg.content || '[]');
+/home/long2015/Code/kcode/src/view/webview/taskv3/basePipeline.ts:178:    try { counts = JSON.parse(msg.content); } catch { return; }
+/home/long2015/Code/kcode/src/view/webview/taskv3/basePipeline.ts:337:    try { info = JSON.parse(msg.content); } catch { return; }

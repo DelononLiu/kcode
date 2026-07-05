@@ -141,13 +141,14 @@ export class WikiExporter {
                 if (msg.role === 'user') {
                     lines.push(`### 👤 用户 — ${time}`);
                 } else if (msg.role === 'agent') {
-                    if (msg.type === 'goal_confirmation') {
+                    const msgType = (msg as any).type;
+                    if (msgType === 'goal_confirmation') {
                         lines.push(`### 🤖 AI (目标确认) — ${time}`);
-                    } else if (msg.type === 'plan_proposal') {
+                    } else if (msgType === 'plan_proposal') {
                         lines.push(`### 🤖 AI (计划方案) — ${time}`);
-                    } else if (msg.type === 'review_request') {
+                    } else if (msgType === 'review_request') {
                         lines.push(`### 🤖 AI (验收请求) — ${time}`);
-                    } else if (msg.type === 'todo') {
+                    } else if (msgType === 'todo') {
                         lines.push(`### 🤖 AI (待办清单) — ${time}`);
                     } else {
                         lines.push(`### 🤖 AI — ${time}`);

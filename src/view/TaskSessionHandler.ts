@@ -107,16 +107,16 @@ export class TaskSessionHandler {
         if (category) {
             ctx.store.updateTaskCategory(tid, category as any);
             const cat = getCategory(category as any);
-            if (cat?.flowIteration) {
+            if ((cat as any)?.flowIteration) {
                 const task = ctx.store.getTask(tid);
                 if (task && !task.flowIteration) {
                     ctx.store.updateTaskFlowIteration(tid, {
                         enabled: true,
-                        loopPhases: cat.flowIteration.loopPhases,
+                        loopPhases: (cat as any).flowIteration.loopPhases,
                         config: {
-                            correctnessTests: cat.flowIteration.defaultCorrectnessTests || [],
-                            targets: Object.fromEntries(cat.flowIteration.defaultTargets.map(t => [t.key, 0])),
-                            iterationLimit: cat.flowIteration.defaultIterationLimit,
+                            correctnessTests: (cat as any).flowIteration.defaultCorrectnessTests || [],
+                            targets: Object.fromEntries(((cat as any).flowIteration.defaultTargets as { key: string }[]).map(t => [t.key, 0])),
+                            iterationLimit: (cat as any).flowIteration.defaultIterationLimit,
                         },
                         state: {
                             currentIteration: 0,
@@ -150,7 +150,7 @@ export class TaskSessionHandler {
 
         const userMsgId = ctx.store.nextMessageId(tid);
         ctx.store.addMessage({
-            id: userMsgId, taskId: tid, role: 'user', content: text, timestamp: Date.now()
+            id: userMsgId, taskId: tid, role: 'user', type: 'text', content: text, timestamp: Date.now()
         });
 
         if (isFirstMessage) {
@@ -220,7 +220,7 @@ export class TaskSessionHandler {
 
         const sysMsgId = ctx.store.nextMessageId(tid);
         ctx.store.addMessage({
-            id: sysMsgId, taskId: tid, role: 'agent', type: 'stop_message',
+            id: sysMsgId, taskId: tid, role: 'agent', type: 'stop_message' as any,
             content: '🔍 AI 开始自验执行结果...', timestamp: Date.now()
         });
         ctx.store.updateTaskNodeMessageId(tid, 'self_verify', sysMsgId);

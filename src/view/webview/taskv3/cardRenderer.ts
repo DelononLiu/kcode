@@ -30,9 +30,13 @@ export function postAction(action: UserAction): void {
                 id: 'action_' + Date.now(),
                 taskId: action.taskId || state.activeTaskId || '',
                 role: 'user',
+                type: 'text',
                 content: label,
                 timestamp: Date.now(),
-            });
+                streaming: false,
+                collapsed: false,
+                roundGroup: null,
+            } as import('./types').Message);
             stateManager.patch({ messages: msgs });
             console.log('[KCode] postAction: state patched, msgCount=' + msgs.length);
         } catch (e) {

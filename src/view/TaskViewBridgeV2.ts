@@ -37,7 +37,7 @@ export class TaskViewBridgeV2 {
                 goal: task.goal,
                 category: task.category || '',
                 categoryLabel: catLabel(task.category),
-                phase: task.phase,
+                phase: (task as any)?.phase,
                 phaseLabel: phaseLabels[task.phase] || task.phase,
                 status: task.status,
                 taskType: task.type,
@@ -46,7 +46,7 @@ export class TaskViewBridgeV2 {
             },
             confirmedItems: task.confirmedItems || [],
             planSteps: task.planSteps || [],
-            planVersion: task.planVersion || 1,
+            planVersion: (task as any).planVersion || 1,
             hooks: task.hooks || {},
             workspaceHooks: this.ctx.taskFlow['workspaceHooks'] || {},
         });
@@ -244,7 +244,7 @@ export class TaskViewBridgeV2 {
                             content: JSON.stringify({ toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output || '' }),
                             phase: task?.phase,
                             timestamp: tc.eventTime || Date.now(),
-                        });
+                        } as any);
                     }
                 }
 
@@ -264,7 +264,7 @@ export class TaskViewBridgeV2 {
                             content: cleanedText,
                             phase: task?.phase,
                             timestamp: this._agentStartTime || Date.now(),
-                        });
+                        } as any);
                     }
 
                     if (task?.type === 'task' && task?.phase === 'review' && task?.status !== 'completed' && task?.status !== 'cancelled') {
@@ -295,7 +295,7 @@ export class TaskViewBridgeV2 {
                         type: _PHASE_TYPE[task?.phase || ''] as any,
                         content: '', phase: task?.phase,
                         timestamp: Date.now(),
-                    });
+                    } as any);
                 }
 
                 const toolCalls = Array.from(this.activeToolCalls.entries()).map(([id, tc]) => ({

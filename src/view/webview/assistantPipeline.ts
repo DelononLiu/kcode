@@ -78,11 +78,13 @@ export function streamAssistantMessage(text: string) {
             id: 'msg_' + Date.now(),
             taskId: '',
             role: 'agent',
+            type: 'text',
             content: '',
             timestamp: Date.now(),
             streaming: true,
+            collapsed: false,
+            roundGroup: null,
         });
-        streamIdx = st.messages.length - 1;
     }
     st.messages[streamIdx] = { ...st.messages[streamIdx], content: text };
     _asstSm.patch({ messages: st.messages, msgVersion: ++_lastMsgVersion });
@@ -113,6 +115,9 @@ export function addAssistantToolMessage(kind: string, toolCallId: string, title:
             type: 'tool_call',
             content: toolContent,
             timestamp: Date.now(),
+            streaming: false,
+            collapsed: false,
+            roundGroup: null,
         });
     }
     _asstSm.patch({ messages: msgs, msgVersion: ++_lastMsgVersion });
@@ -133,8 +138,12 @@ export function addAssistantSystemMessage(content: string) {
         id: 'sys_' + Date.now(),
         taskId: '',
         role: 'agent' as const,
+        type: 'text',
         content,
         timestamp: Date.now(),
+        streaming: false,
+        collapsed: false,
+        roundGroup: null,
     });
     _asstSm.patch({ messages: msgs, msgVersion: ++_lastMsgVersion });
 }
@@ -164,9 +173,12 @@ function _handleStreamChunk(text: string) {
             id: 'msg_' + Date.now(),
             taskId: '',
             role: 'agent',
+            type: 'text',
             content: '',
             timestamp: Date.now(),
             streaming: true,
+            collapsed: false,
+            roundGroup: null,
         };
         msgs.push(newMsg);
         streamIdx = msgs.length - 1;
@@ -199,6 +211,8 @@ function _handleThinkingChunk(msg: { text: string; status: string }) {
             content: msg.text,
             timestamp: now,
             streaming: msg.status !== 'completed',
+            collapsed: false,
+            roundGroup: null,
         });
     }
     _asstSm.patch({ messages: msgs });
@@ -225,6 +239,9 @@ function _handleToolChunk(msg: { toolCallId: string; title: string; kind: string
             type: 'tool_call',
             content: toolContent,
             timestamp: Date.now(),
+            streaming: false,
+            collapsed: false,
+            roundGroup: null,
         });
     }
     _asstSm.patch({ messages: msgs });

@@ -42,6 +42,7 @@ const CATEGORIES: Record<TaskCategory, CategoryDef> = {
         analysisFramework: '请遵循代码评审框架：从正确性、性能、安全、可维护性、可测试性五个维度逐项检查；关注边界条件和异常处理；指出具体问题所在行和修改建议，优先阻断性问题。',
         executionHints: ['评审前先理解代码的整体功能和上下文', '区分阻断性问题和非阻断性建议', '每条评审意见附带具体代码位置和修改建议'],
         acceptanceCriteria: ['所有阻断性问题已定位', '性能/安全风险已评估', '改进建议具体可行'],
+        // @ts-ignore 过渡字段，Iteration 2 清理
         flowOverride: ['goal', 'review'],
     },
     log_analysis: {
