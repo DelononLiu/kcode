@@ -131,15 +131,6 @@ export class TaskStore {
     }
 
     addMessage(msg: ChatMessage): void {
-        // @ts-ignore 过渡字段，Iteration 2 清理 — phase 不在 Message 类型上
-        if (!msg.phase) {
-            const task = this.fs.getTask(msg.taskId);
-            // @ts-ignore 过渡字段，Iteration 2 清理
-            if (task?.phase) {
-                // @ts-ignore 过渡字段，Iteration 2 清理
-                msg.phase = task.phase;
-            }
-        }
         this.fs.addMessage(msg);
     }
 

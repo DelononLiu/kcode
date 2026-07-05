@@ -191,8 +191,6 @@ function _renderRoundSummary(msg: Message) {
     appendToChatMessages(div);
 }
 
-// ── cardMeta 消息渲染 ──
-
 function _appendCardMetaMessage(msg: Message, _container: HTMLElement) {
     const phase = msg.phaseAction?.phase || '';
     const isPending = msg.phaseAction?.status === 'pending';

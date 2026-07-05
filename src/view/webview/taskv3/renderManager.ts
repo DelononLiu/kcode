@@ -44,7 +44,7 @@ export function initTaskV3() {
         if (state.msgVersion !== _lastMsgVersion) {
             _renderedMsgIds.clear();
             basePipeline.renderMessageList(state.messages);
-            // 将所有消息标记为已渲染（包括 cardMeta），
+            // 将所有消息标记为已渲染，
             // 确保 _syncMessages 增量同步时能找到正确的 DOM 插入锚点
             for (const msg of state.messages) {
                 _renderedMsgIds.add(msg.id);
@@ -147,7 +147,7 @@ function _collapseRound(msgs: _Message[], startIdx: number, endIdx: number): { m
         }
         if (result[i].type === 'thinking') { thinking++; }
         if (result[i].type === 'tool_call') {
-            try { const info = JSON.parse(result[i].content); if (info.kind === 'thinking') { thinking++; } else { const k = info.kind || 'other'; tools[k] = (tools[k] || 0) + 1; } } catch {}
+            const tc = result[i].toolCall; if (tc) { if (tc.kind === 'thinking') { thinking++; } else { const k = tc.kind || 'other'; tools[k] = (tools[k] || 0) + 1; } }
         }
     }
 
@@ -171,7 +171,6 @@ function _collapseRound(msgs: _Message[], startIdx: number, endIdx: number): { m
         role: 'agent',
         type: 'round_summary',
         content: JSON.stringify({ thinking, tools }),
-        phase: result[startIdx]?.phase,
         timestamp: Date.now(),
         roundGroup: rg,
         collapsed: true,
@@ -330,7 +329,7 @@ function handleStreamDone(result: StreamResult) {
 
     // 补充未在流式中出现的 tool call
     const seenToolIds = new Set(
-        msgs.filter(m => m.type === 'tool_call').map(m => { try { return JSON.parse(m.content).toolCallId; } catch { return null; } }).filter(Boolean)
+        msgs.filter(m => m.type === 'tool_call').map(m => m.toolCall?.toolCallId).filter(Boolean)
     );
     for (const tc of result.toolCalls) {
         if (tc.kind === 'thinking') continue;
@@ -373,7 +372,7 @@ function handleStreamDone(result: StreamResult) {
 
 let _renderedMsgIds = new Set<string>();
 
-/** 为 cardMeta 阶段卡片添加操作按钮 */
+/** 在正确位置插入消息 DOM 元素 */
 function _insertAtCorrectPosition(
     container: Element,
     el: Element,
@@ -427,7 +426,7 @@ function _ensurePhaseActionCard(phase: string, taskId: string) {
 
     // 避免重复：同阶段已有 pending 卡片则跳过
     const alreadyPending = msgs.some(m =>
-        m.cardMeta?.type === phase && m.cardMeta?.status === 'pending'
+        m.phaseAction?.phase === phase && m.phaseAction?.status === 'pending'
     );
     if (alreadyPending) return;
 
@@ -454,13 +453,12 @@ function _ensurePhaseActionCard(phase: string, taskId: string) {
         role: 'agent',
         type: phaseTypeMap[phase] || 'text',
         content: '',
-        phase,
         timestamp: Date.now(),
         streaming: false,
         collapsed: false,
         roundGroup: null,
-        cardMeta: {
-            type: phase as 'goal' | 'plan' | 'execute' | 'self_verify' | 'review',
+        phaseAction: {
+            phase: phase as 'goal' | 'plan' | 'execute' | 'self_verify' | 'review',
             status: 'pending',
         },
     });
@@ -484,7 +482,6 @@ function _syncMessages() {
         }
         const el = createMsgElement(msg, stateManager);
         if (!el) {
-            // cardMeta 等无法创建独立 DOM 元素的消息：
             // 如果 DOM 中已存在对应元素（由 renderMessageList 全量渲染），标记为已渲染
             if (container.querySelector(`[data-msg-id="${msg.id}"]`)) {
                 _renderedMsgIds.add(msg.id);

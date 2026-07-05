@@ -14,14 +14,6 @@ import type { MessageUIState, AppUIState } from '../../../types/ui';
 // ── 扩展：渲染层消息 = Domain Message + UI 状态 ──
 export interface Message extends Omit<DomainMessage, 'type'>, MessageUIState {
     type: string;  // 覆盖为宽松类型，兼容 WebView 动态 type 赋值
-    /** @deprecated 过渡字段，Iteration 2 清理 — 改用 phaseAction */
-    phase?: string;
-    /** @deprecated 过渡字段，Iteration 2 清理 — 改用 type:'phase_action' + phaseAction */
-    cardMeta?: {
-        type?: string;
-        confirmed?: boolean;
-        status?: string;
-    };
 }
 
 // ── 扩展：渲染层 AppState ──

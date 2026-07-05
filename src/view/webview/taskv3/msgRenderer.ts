@@ -176,7 +176,7 @@ export function createMsgElement(msg: Message, sm: MsgStateAccess): HTMLElement 
     }
 
     // ── agent ──
-    if (msg.role === 'agent' && !msg.cardMeta) {
+    if (msg.role === 'agent') {
         const div = document.createElement('div');
         div.className = 'chat-msg agent';
         div.dataset.msgId = msg.id;

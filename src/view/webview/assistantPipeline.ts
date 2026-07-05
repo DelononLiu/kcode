@@ -1,7 +1,7 @@
 /**
  * 助理视图渲染管线（共用 msgRenderer 内核，独立 StateManager 实例）
  *
- * 与任务管线（renderManager/basePipeline）平行，不含 phase/round/cardMeta 逻辑。
+ * 与任务管线（renderManager/basePipeline）平行，不含 phase/round 逻辑。
  */
 
 import { StateManager } from './taskv3/state';
