@@ -1,5 +1,5 @@
 import type { Message } from '../taskv3/types';
-import type { MsgStateAccess } from '../taskv3/msgRenderer';
+import type { MsgStateAccess } from '../taskv3/rendererShared';
 
 export interface MessageRenderer {
     type: string;

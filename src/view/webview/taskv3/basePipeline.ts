@@ -6,7 +6,7 @@ import { renderCardActions, renderCardStatus, postAction } from './cardRenderer'
 import { stateManager } from './state';
 import { createTimelineEntry } from '../timelineRenderer';
 import { getChatScroll } from '../domContainers';
-import { buildSummaryHtml } from './msgRenderer';
+import { buildSummaryHtml } from './rendererShared';
 
 function getContainer(): HTMLElement | null {
     return document.querySelector('#task-view #chat-messages') || null;
