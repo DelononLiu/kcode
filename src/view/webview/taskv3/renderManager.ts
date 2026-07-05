@@ -127,7 +127,7 @@ export function initTaskV3() {
     }
 }
 
-type _Message = import('./types').Message;
+export type _Message = import('./types').Message;
 
 /** 折叠一个 round（user 消息之后、下一条 user 消息之前的所有消息） */
 function _collapseRound(msgs: _Message[], startIdx: number, endIdx: number, expandedRounds: Record<string, boolean> = {}): { msgs: _Message[]; summary: _Message | null } {
@@ -183,7 +183,7 @@ function _collapseRound(msgs: _Message[], startIdx: number, endIdx: number, expa
     return { msgs: result, summary };
 }
 
-function _collapseAllRounds(msgs: _Message[], expandedRounds: Record<string, boolean> = {}): _Message[] {
+export function _collapseAllRounds(msgs: _Message[], expandedRounds: Record<string, boolean> = {}): _Message[] {
     // 剥离已有的 round_summary（上次 collapse 的产物），重新计算
     const cleaned = msgs.filter(m => m.type !== 'round_summary');
 

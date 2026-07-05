@@ -11,6 +11,7 @@ import { getChatMessages, getChatScroll } from './domContainers';
 import { G } from './state';
 import { handleStreamChunk, handleStreamDone, handleThinkingChunk, handleToolChunk } from './streamHandler';
 import type { StreamStateAccess } from './streamHandler';
+import { _collapseAllRounds } from './taskv3/renderManager';
 
 // ── 助理专用 StateManager ──
 let _asstSm: StateManager | null = null;
@@ -71,6 +72,9 @@ export function initAssistantPipeline() {
                     patch: (d) => mgr.patch({ ...d, msgVersion: ++_lastMsgVersion }),
                 };
                 handleStreamDone(sm);
+                // 助理消息折叠：只折叠助理管线的消息，不影响任务管线
+                const collapsedMsgs = _collapseAllRounds(mgr.state.messages, (mgr.state as any).expandedRounds || {});
+                mgr.patch({ messages: collapsedMsgs, msgVersion: ++_lastMsgVersion });
                 break;
             }
             case 'thinking-chunk': {
@@ -105,7 +109,7 @@ export function streamAssistantMessage(text: string) {
     handleStreamChunk(text, sm);
 }
 
-/** 流式结束，取消 streaming 标记 */
+/** 流式结束，取消 streaming 标记并折叠助理消息 */
 export function finishAssistantStream() {
     if (!_asstSm) return;
     const mgr = _asstSm;
@@ -114,6 +118,9 @@ export function finishAssistantStream() {
         patch: (d) => mgr.patch({ ...d, msgVersion: ++_lastMsgVersion }),
     };
     handleStreamDone(sm);
+    // 助理消息折叠
+    const collapsedMsgs = _collapseAllRounds(mgr.state.messages, (mgr.state as any).expandedRounds || {});
+    mgr.patch({ messages: collapsedMsgs, msgVersion: ++_lastMsgVersion });
 }
 
 /** 添加工具调用/思考消息 */
