@@ -1,43 +1,35 @@
-export interface AppState {
-    viewMode: 'task' | 'assistant';
-    activeTaskId: string | null;
+/**
+ * WebView 渲染层类型
+ *
+ * 此文件原为独立类型定义（与 types/index.ts 不同步），
+ * 现在改为引用 Domain Model 类型 + 扩展 WebView 特有字段。
+ *
+ * 遵循原则 1：Domain Model 是唯一的 Task/Message 定义
+ * 遵循原则 2：UI 状态不混入 Domain Model
+ */
+
+import type { Message as DomainMessage } from '../../../types';
+import type { MessageUIState, AppUIState } from '../../../types/ui';
+
+// ── 扩展：渲染层消息 = Domain Message + UI 状态 ──
+export interface Message extends Omit<DomainMessage, 'type'>, MessageUIState {
+    type: string;  // 覆盖为宽松类型，兼容 WebView 动态 type 赋值
+}
+
+// ── 扩展：渲染层 AppState ──
+export interface AppState extends AppUIState {
     activeTaskPhase: string;
     activeTaskStatus: string;
     taskInfo: TaskInfo;
-    /** 所有消息（含正在流式的），消息一旦创建永不销毁 */
     messages: Message[];
-    /** 消息版本号，subscriber 据此判断是否需要重渲染消息 */
     msgVersion: number;
     reviewState: ReviewState;
-    isGenerating: boolean;
     pendingMessages: PendingMessage[];
     agentName: string;
     modelName: string;
 }
 
-export interface Message {
-    id: string;
-    taskId: string;
-    role: 'user' | 'agent' | 'tool';
-    type?: string;
-    content: string;
-    phase?: string;
-    timestamp: number;
-
-    // 流式状态 — 此消息正在流式构建中
-    streaming?: boolean;
-
-    // 折叠/分组 — 同 roundGroup 的消息在一轮交互中
-    collapsed?: boolean;
-    roundGroup?: string;
-
-    // 卡片元数据（goal/plan/execute 等交互卡片）
-    cardMeta?: {
-        type?: 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
-        confirmed?: boolean;
-        status?: 'pending' | 'confirmed' | 'rejected';
-    };
-}
+// ── 以下为 WebView 特有类型（不涉及 Domain Model）──
 
 export interface TaskInfo {
     title: string;
