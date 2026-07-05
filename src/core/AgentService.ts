@@ -8,6 +8,7 @@ import { AgentConfigManager } from './AgentConfigManager';
 import { getNodeBinDir } from '../env/NodeManager';
 import type { AcpMessageHandler, FileChange } from '../types';
 import type { IAgentService } from './interfaces';
+import { LocalAgentProvider } from './LocalAgentProvider';
 
 export class AgentService implements IAgentService {
     private acpClient: AcpClient | null = null;
@@ -15,10 +16,11 @@ export class AgentService implements IAgentService {
     private _lastError: string = '';
     private _agentName: string = '';
     private _modelName: string = '';
-    private agentType: 'acp' | null = null;
+    private agentType: 'acp' | 'langgraph' | null = null;
     private workspaceRoot: string;
     private logCallback: ((direction: 'send' | 'recv', text: string) => void) | null = null;
     private connectPromise: Promise<boolean> | null = null;
+    private langGraphProvider: LocalAgentProvider | null = null;
 
     get isConnected(): boolean { return this._isConnected; }
     get lastError(): string { return this._lastError; }
@@ -47,6 +49,7 @@ export class AgentService implements IAgentService {
             case 'kilo': return await this.connectKilo(execPath);
             case 'opencode': return await this.connectOpenCode(execPath);
             case 'claude': return await this.connectClaude(execPath === 'claude' ? 'claude-agent-acp' : execPath);
+            case 'langgraph': return await this.connectLangGraph();
             default: return false;
         }
     }
@@ -333,7 +336,35 @@ export class AgentService implements IAgentService {
         return false;
     }
 
+    async connectLangGraph(): Promise<boolean> {
+        try {
+            const apiKey = this._cfg().get<string>('provider.anthropic.apiKey', '')
+                || process.env.ANTHROPIC_API_KEY || '';
+            const baseUrl = this._cfg().get<string>('provider.anthropic.baseUrl', '')
+                || process.env.ANTHROPIC_BASE_URL || 'https://api.deepseek.com/anthropic';
+            const model = this._cfg().get<string>('provider.anthropic.model', '')
+                || process.env.CLAUDE_MODEL || 'deepseek-v4-flash';
+
+            const provider = new LocalAgentProvider({ model, apiKey, baseUrl });
+            await provider.compile();
+            this.langGraphProvider = provider;
+            this._isConnected = true;
+            this._agentName = 'langgraph';
+            this._modelName = model;
+            this.agentType = 'langgraph';
+            this._lastError = '';
+            return true;
+        } catch (err: any) {
+            this._lastError = err?.message || 'LangGraph 连接失败';
+            return false;
+        }
+    }
+
     async disconnect(): Promise<void> {
+        if (this.langGraphProvider) {
+            await this.langGraphProvider.disconnect();
+            this.langGraphProvider = null;
+        }
         if (this.acpClient) {
             await this.acpClient.dispose();
             this.acpClient = null;
@@ -362,6 +393,12 @@ export class AgentService implements IAgentService {
     }
 
     async sendPrompt(taskId: string, text: string, handler: AcpMessageHandler): Promise<void> {
+        if (this.agentType === 'langgraph' && this.langGraphProvider) {
+            await this.langGraphProvider.invoke(taskId, [
+                { role: 'user', content: text },
+            ], handler);
+            return;
+        }
         if (!this.acpClient || !this.isConnected) {
             const errMsg = this.acpClient ? this.acpClient.lastError : '';
             handler.onError(errMsg || 'ACP 会话未就绪');
