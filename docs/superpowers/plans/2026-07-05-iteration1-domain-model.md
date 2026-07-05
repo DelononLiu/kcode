@@ -93,6 +93,21 @@ export interface Task {
     source?: TaskSource;
     sessionId?: string;  // ACP session (Agent 层字段, 过渡期保留)
     nodeMessageIds?: Partial<Record<Phase, string>>;  // 过渡期保留
+    flowIteration?: {    // 过渡期保留, Iteration 2 清理
+        enabled: boolean;
+        loopPhases: [string, string];
+        config: {
+            correctnessTests: string[];
+            targets: Record<string, number>;
+            iterationLimit: number;
+        };
+        state: {
+            currentIteration: number;
+            stagnatedCount: number;
+            baselines: Record<string, number>;
+            history: IterationRecord[];
+        };
+    };
 }
 ```
 
