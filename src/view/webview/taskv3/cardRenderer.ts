@@ -77,7 +77,7 @@ export function renderCardStatus(container: HTMLElement, text: string) {
 }
 
 export function renderGoalCard(msg: Message, phase: string) {
-    const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
+    const msgDiv = createCardMessageElement(msg.taskId, msg.phaseAction?.phase || '');
     const bubble = msgDiv.querySelector('.msg-bubble')!;
     const bodyText = msg.content.replace(/^📋 任务目标确认\n\n/, '');
     const needsAction = phase === 'goal' && msg.type !== 'goal_confirmed';
@@ -108,7 +108,7 @@ export function renderGoalCard(msg: Message, phase: string) {
 }
 
 export function renderPlanCard(msg: Message, phase: string) {
-    const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
+    const msgDiv = createCardMessageElement(msg.taskId, msg.phaseAction?.phase || '');
     const bubble = msgDiv.querySelector('.msg-bubble')!;
     const bodyText = msg.content.replace(/^📋 计划方案\n\n/, '');
     const needsAction = phase === 'plan' && msg.type === 'plan_proposal';
@@ -139,7 +139,7 @@ export function renderPlanCard(msg: Message, phase: string) {
 }
 
 export function renderExecuteCard(msg: Message, phase: string) {
-    const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
+    const msgDiv = createCardMessageElement(msg.taskId, msg.phaseAction?.phase || '');
     const bubble = msgDiv.querySelector('.msg-bubble')!;
     const needsAction = phase === 'execute';
 
@@ -167,7 +167,7 @@ export function renderExecuteCard(msg: Message, phase: string) {
 }
 
 export function renderSelfVerifyCard(msg: Message, phase: string) {
-    const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
+    const msgDiv = createCardMessageElement(msg.taskId, msg.phaseAction?.phase || '');
     const bubble = msgDiv.querySelector('.msg-bubble')!;
     const needsAction = phase === 'self_verify';
 
@@ -195,7 +195,7 @@ export function renderSelfVerifyCard(msg: Message, phase: string) {
 }
 
 export function renderReviewCard(msg: Message, phase: string, changes?: Array<{ filePath: string; original: string; modified: string }>) {
-    const msgDiv = createCardMessageElement(msg.taskId, msg.phase);
+    const msgDiv = createCardMessageElement(msg.taskId, msg.phaseAction?.phase || '');
     const bubble = msgDiv.querySelector('.msg-bubble')!;
 
     const card = createCard({
