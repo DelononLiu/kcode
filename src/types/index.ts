@@ -33,13 +33,6 @@ export interface TargetDef {
     unit: string;
 }
 
-export interface FlowIterationTemplate {
-    loopPhases: [string, string];
-    defaultTargets: TargetDef[];
-    defaultIterationLimit: number;
-    defaultCorrectnessTests?: string[];
-}
-
 export interface CategoryDef {
     key: TaskCategory;
     label: string;
@@ -49,8 +42,6 @@ export interface CategoryDef {
     analysisFramework: string;
     executionHints: string[];
     acceptanceCriteria: string[];
-    flowOverride?: Array<'goal' | 'plan' | 'execute' | 'self_verify' | 'review'>;
-    flowIteration?: FlowIterationTemplate;
 }
 
 export interface TodoItem {
@@ -60,13 +51,10 @@ export interface TodoItem {
     priority?: 'low' | 'medium' | 'high';
 }
 
-export interface AssistantMessage {
-    id: string;
-    role: 'user' | 'agent' | 'tool';
-    type?: string;
-    content: string;
-    timestamp: number;
-}
+// ===== New Domain Model Types =====
+
+export type Phase = 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
+export type TaskStatus = 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
 
 export interface PlanStep {
     content: string;
@@ -76,30 +64,34 @@ export interface PlanStep {
 export interface Task {
     id: string;
     title: string;
+    type: 'task' | 'chat';
+
+    originalRequest?: string;
     goal: string;
-    type: 'task';
-    category?: TaskCategory;
-    subType?: string;
-    status: 'pending' | 'active' | 'in_review' | 'completed' | 'cancelled';
-    phase: 'goal' | 'plan' | 'execute' | 'self_verify' | 'review';
+
+    phase: Phase;
+    status: TaskStatus;
+
     confirmedItems: string[];
     pendingItems: string[];
     planSteps: PlanStep[];
-    planVersion?: number;
     riskItems?: string[];
     boundaryItems?: string[];
-    originalRequest?: string;
+
+    category?: TaskCategory;
+    subType?: string;
     createdAt: number;
     workspace?: string;
     pinned?: boolean;
-    archived?: boolean;
     group?: string;
+    archived?: boolean;
     containerId?: string;
+    hooks?: Partial<Record<Phase, string[]>>;
+
     source?: TaskSource;
-    nodeMessageIds?: Partial<Record<'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string>>;
-    hooks?: Partial<Record<'goal' | 'plan' | 'execute' | 'self_verify' | 'review', string[]>>;
-    sessionId?: string;  // ACP session ID for agent context persistence
-    flowIteration?: {
+    sessionId?: string;  // ACP session (Agent 层字段, 过渡期保留)
+    nodeMessageIds?: Partial<Record<Phase, string>>;  // 过渡期保留
+    flowIteration?: {    // 过渡期保留, Iteration 2 清理
         enabled: boolean;
         loopPhases: [string, string];
         config: {
@@ -116,14 +108,43 @@ export interface Task {
     };
 }
 
-export interface ChatMessage {
+export interface Message {
     id: string;
     taskId: string;
     role: 'user' | 'agent' | 'tool';
-    type?: 'text' | 'goal_confirmation' | 'goal_confirmed' | 'goal_updated' | 'plan_proposal' | 'plan_confirmed' | 'execute_confirmation' | 'self_verify_confirmation' | 'review_request' | 'review_approved' | 'review_rejected' | 'tool_call' | 'stop_message' | 'todo' | 'card_comment';
+    type: 'text' | 'tool_call' | 'tool_result' | 'thinking' | 'phase_action';
     content: string;
-    phase?: string;
+    toolCall?: ToolCallInfo;
+    toolResult?: ToolResultInfo;
+    phaseAction?: PhaseActionInfo;
     timestamp: number;
+}
+
+export interface ToolCallInfo {
+    toolCallId: string;
+    title: string;
+    kind: string;
+    status: 'running' | 'completed' | 'failed';
+}
+
+export interface ToolResultInfo {
+    toolCallId: string;
+    output: string;
+}
+
+export interface PhaseActionInfo {
+    phase: Phase;
+    status: 'pending' | 'confirmed' | 'rejected';
+}
+
+/** @deprecated 使用 Message 替代。ChatMessage 保留为别名以保证编译通过 */
+export interface ChatMessage extends Message {
+    // 兼容旧代码中直接访问 ChatMessage.type 等字段
+}
+
+/** @deprecated 使用 Message 替代。AssistantMessage 保留为别名以保证编译通过 */
+export interface AssistantMessage extends Message {
+    // 兼容旧代码中直接访问 AssistantMessage 字段
 }
 
 export interface TaskSource {
