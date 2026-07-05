@@ -32,8 +32,8 @@ const NON_COLLAPSIBLE = new Set([
     'todo',
 ]);
 
-function _isNonCollapsible(m: { type?: string; cardMeta?: any }): boolean {
-    return !!(m.cardMeta || (m.type && NON_COLLAPSIBLE.has(m.type)));
+function _isNonCollapsible(m: { type?: string; phaseAction?: any }): boolean {
+    return !!((m.type === 'phase_action' && m.phaseAction) || (m.type && NON_COLLAPSIBLE.has(m.type)));
 }
 export { _isNonCollapsible as isNonCollapsible };
 
@@ -52,7 +52,7 @@ export function buildSummaryHtml(counts: { thinking: number; tools: Record<strin
 
 // ── DOM 创建 ──
 
-/** postAction 接口：cardMeta 操作回调 */
+/** postAction 接口：phase_action 操作回调 */
 let _postAction: (action: any) => void = () => {};
 export function setMsgPostAction(fn: (action: any) => void) { _postAction = fn; }
 
@@ -64,7 +64,7 @@ export function createMsgElement(msg: Message, sm: MsgStateAccess): HTMLElement 
         const div = document.createElement('div');
         div.className = 'chat-msg agent round-summary';
         div.dataset.msgId = msg.id;
-        if (msg.phase) div.dataset.phase = msg.phase;
+        if (msg.phaseAction?.phase) div.dataset.phase = msg.phaseAction.phase;
         div.innerHTML = `<span class="round-summary-chip">${buildSummaryHtml(counts)}</span>`;
         div.addEventListener('click', () => {
             const st = sm.snapshot();
@@ -82,10 +82,10 @@ export function createMsgElement(msg: Message, sm: MsgStateAccess): HTMLElement 
         return div;
     }
 
-    // ── cardMeta ──
-    if (msg.cardMeta) {
-        const type = msg.cardMeta.type || '';
-        const isPending = msg.cardMeta.status === 'pending';
+    // ── phase_action ──
+    if (msg.type === 'phase_action' && msg.phaseAction) {
+        const type = msg.phaseAction.phase || '';
+        const isPending = msg.phaseAction.status === 'pending';
         const headerMap: Record<string, string> = {
             goal: '🎯 任务目标', plan: '📋 计划方案', execute: '⚡ 执行完成',
             self_verify: '🔍 自验完成', review: '✅ 验收',
@@ -118,8 +118,8 @@ export function createMsgElement(msg: Message, sm: MsgStateAccess): HTMLElement 
         } else {
             const statusEl = document.createElement('div');
             statusEl.className = 'msg-card-status';
-            statusEl.textContent = msg.cardMeta?.status === 'confirmed' ? '✅ 已确认'
-                : msg.cardMeta?.status === 'rejected' ? '↩️ 已驳回' : '⏳ 已完成';
+            statusEl.textContent = msg.phaseAction.status === 'confirmed' ? '✅ 已确认'
+                : msg.phaseAction.status === 'rejected' ? '↩️ 已驳回' : '⏳ 已完成';
             card.appendChild(statusEl);
         }
         bubble.appendChild(card);
@@ -135,7 +135,7 @@ export function createMsgElement(msg: Message, sm: MsgStateAccess): HTMLElement 
         const div = document.createElement('div');
         div.className = 'chat-msg tool';
         div.dataset.msgId = msg.id;
-        if (msg.phase) div.dataset.phase = msg.phase;
+        if (msg.phaseAction?.phase) div.dataset.phase = msg.phaseAction.phase;
         div.appendChild(entry);
         if (msg.collapsed) div.style.display = 'none';
         return div;
@@ -143,15 +143,15 @@ export function createMsgElement(msg: Message, sm: MsgStateAccess): HTMLElement 
 
     // ── tool_call ──
     if (msg.type === 'tool_call') {
-        let info: any;
-        try { info = JSON.parse(msg.content); } catch { return null; }
+        if (!msg.toolCall) return null;
+        const info = msg.toolCall;
         const entry = createTimelineEntry(info);
         const body = entry.querySelector('.tl-entry-body');
         if (body && !msg.collapsed) body.classList.add('open');
         const div = document.createElement('div');
         div.className = 'chat-msg tool';
         div.dataset.msgId = msg.id;
-        if (msg.phase) div.dataset.phase = msg.phase;
+        if (msg.phaseAction?.phase) div.dataset.phase = msg.phaseAction.phase;
         div.appendChild(entry);
         if (msg.collapsed) div.style.display = 'none';
         return div;
@@ -162,7 +162,7 @@ export function createMsgElement(msg: Message, sm: MsgStateAccess): HTMLElement 
         const div = document.createElement('div');
         div.className = 'chat-msg user';
         div.dataset.msgId = msg.id;
-        if (msg.phase) div.dataset.phase = msg.phase;
+        if (msg.phaseAction?.phase) div.dataset.phase = msg.phaseAction.phase;
         const sender = document.createElement('div');
         sender.className = 'msg-sender';
         const ts = msg.timestamp ? formatTimestamp(msg.timestamp) : '';
@@ -180,7 +180,7 @@ export function createMsgElement(msg: Message, sm: MsgStateAccess): HTMLElement 
         const div = document.createElement('div');
         div.className = 'chat-msg agent';
         div.dataset.msgId = msg.id;
-        if (msg.phase) div.dataset.phase = msg.phase;
+        if (msg.phaseAction?.phase) div.dataset.phase = msg.phaseAction.phase;
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble';
         if (msg.streaming) {
@@ -230,7 +230,7 @@ export function updateMsgElement(el: HTMLElement, msg: Message, sm: MsgStateAcce
     if (msg.type === 'tool_call') {
         const pre = el.querySelector('.tl-entry-body pre') as HTMLElement;
         if (pre) {
-            try { const info = JSON.parse(msg.content); if (info.output) pre.textContent = info.output; } catch {}
+            if (msg.toolResult?.output) pre.textContent = msg.toolResult.output;
         }
         const body = el.querySelector('.tl-entry-body');
         if (body) body.classList.toggle('open', !msg.collapsed);
@@ -243,11 +243,11 @@ export function updateMsgElement(el: HTMLElement, msg: Message, sm: MsgStateAcce
 
 let _streamRafPending = false;
 
-// ── cardMeta 操作按钮 ──
+// ── phase_action 操作按钮 ──
 
 function _appendPhaseActionsToCard(card: HTMLElement, msg: Message) {
     const tid = msg.taskId;
-    const type = msg.cardMeta?.type;
+    const type = msg.phaseAction?.phase;
     const actions: { text: string; className: string; onClick: () => void }[] = [];
     switch (type) {
         case 'goal':
