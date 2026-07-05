@@ -585,7 +585,7 @@ export class TaskFlow {
 
     confirmPlan(taskId: string): void {
         const msgs = this.store.getMessages(taskId);
-        const lastPlan = msgs.filter(m => (m as any).type === 'plan_proposal').pop();
+        const lastPlan = msgs.filter(m => (m.type as string) === 'plan_proposal').pop();
         if (lastPlan) {
             this.store.updateMessageType(taskId, lastPlan.id, 'plan_confirmed' as any);
         }
@@ -627,7 +627,7 @@ export class TaskFlow {
 
     finishReview(taskId: string): void {
         const msgs = this.store.getMessages(taskId);
-        const lastReview = msgs.filter(m => (m as any).type === 'review_request').pop();
+        const lastReview = msgs.filter(m => (m.type as string) === 'review_request').pop();
         if (lastReview) {
             this.store.updateMessageType(taskId, lastReview.id, 'review_approved' as any);
         }
@@ -639,7 +639,7 @@ export class TaskFlow {
 
     rejectReview(taskId: string): void {
         const msgs = this.store.getMessages(taskId);
-        const lastReview = msgs.filter(m => (m as any).type === 'review_request').pop();
+        const lastReview = msgs.filter(m => (m.type as string) === 'review_request').pop();
         if (lastReview) {
             this.store.updateMessageType(taskId, lastReview.id, 'review_rejected' as any);
         }

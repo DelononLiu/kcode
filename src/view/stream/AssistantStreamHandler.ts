@@ -39,6 +39,7 @@ export class AssistantStreamHandler extends StreamHandlerBase {
             this.store.addAssistantMessage({
                 id: msgId, taskId: '', role: 'tool', type: 'tool_call',
                 content: JSON.stringify({ toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output || '' }),
+                toolCall: { toolCallId, title: tc.title, kind: tc.kind, status: tc.status as 'running' | 'completed' | 'failed' },
                 timestamp: Date.now(),
             });
         }

@@ -17,7 +17,7 @@ const plugin: KCodePlugin = {
                 if (!task) return;
                 const changes: FileChange[] = store.getReviewChanges(taskId);
                 const reviewMsgId = store.nextMessageId(taskId);
-                store.addMessage({ id: reviewMsgId, taskId, role: 'agent', type: 'review_request', content: '验收阶段', timestamp: Date.now() });
+                store.addMessage({ id: reviewMsgId, taskId, role: 'agent', type: 'review_request' as any, content: '验收阶段', timestamp: Date.now() });
                 store.updateTaskNodeMessageId(taskId, 'review', reviewMsgId);
                 store.updateTaskStatus(taskId, 'in_review');
 

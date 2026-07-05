@@ -141,13 +141,10 @@ export function collectChangedFiles(messages: any[], startIdx: number): string[]
     for (let i = startIdx; i < messages.length; i++) {
         const m = messages[i];
         if (m.role !== 'tool') continue;
-        if (m.type === 'tool_call') {
-            try {
-                const info = JSON.parse(m.content);
-                if (info.kind === 'write' || info.kind === 'edit') {
-                    files.push(info.title);
-                }
-            } catch {}
+        if (m.type === 'tool_call' && m.toolCall) {
+            if (m.toolCall.kind === 'write' || m.toolCall.kind === 'edit') {
+                files.push(m.toolCall.title);
+            }
         }
     }
     return files;
@@ -155,8 +152,7 @@ export function collectChangedFiles(messages: any[], startIdx: number): string[]
 
 export function _getToolKindFromMsg(msg: any): string {
     if (msg.role === 'tool' && msg.type === 'tool_call') {
-        try { return JSON.parse(msg.content).kind || ''; }
-        catch { return ''; }
+        return msg.toolCall?.kind || '';
     }
     return '';
 }
@@ -216,10 +212,7 @@ export function renderMessages(messages: any[]) {
     function _isToolTodo(msg: any): boolean {
         const kind = _getToolKindFromMsg(msg);
         if (kind === 'todowrite') return true;
-        try {
-            const info = JSON.parse(msg.content);
-            return _isTodoArray(info.output || '');
-        } catch { return false; }
+        return _isTodoArray(msg.toolResult?.output || '');
     }
     for (let mi = 0; mi < messages.length; mi++) {
         if (messages[mi].role === 'tool' && messages[mi].type === 'tool_call') {
@@ -273,8 +266,8 @@ export function renderMessages(messages: any[]) {
             let lastMsgTimestamp: number | undefined;
             for (const msg of group.msgs) {
                 lastMsgTimestamp = msg.timestamp;
-                let info: any;
-                try { info = JSON.parse(msg.content); } catch { continue; }
+                const info = msg.toolCall;
+                if (!info) continue;
                 if (info.kind === 'todowrite' || _isToolTodo(msg)) {
                     addMessageElement(msg, changedFilesMap.get(msg.id));
                     continue;
@@ -293,14 +286,14 @@ export function renderMessages(messages: any[]) {
                         appendToChatMessages(msgDiv);
                         hasTlEntries = true;
                     }
-                    pendingThinking = info;
+                    pendingThinking = { ...info, output: msg.toolResult?.output || '', content: msg.toolResult?.output || '' };
                     mergedTools = [];
                     continue;
                 }
                 if (pendingThinking) {
-                    mergedTools.push({ toolCallId: info.toolCallId || '', kind: info.kind || '', title: info.title || '', status: info.status || 'completed', content: info.output || info.content || '', taskId: msg.taskId });
+                    mergedTools.push({ toolCallId: info.toolCallId || '', kind: info.kind || '', title: info.title || '', status: info.status || 'completed', content: msg.toolResult?.output || '', taskId: msg.taskId });
                 } else {
-                    const entry = createTimelineEntry({ toolCallId: info.toolCallId || '', kind: info.kind || '', title: info.title || '', status: info.status || 'completed', content: info.output || info.content || '', taskId: msg.taskId });
+                    const entry = createTimelineEntry({ toolCallId: info.toolCallId || '', kind: info.kind || '', title: info.title || '', status: info.status || 'completed', content: msg.toolResult?.output || '', taskId: msg.taskId });
                     const msgDiv = document.createElement('div');
                     msgDiv.className = 'chat-msg tool';
                     if (groupPhase) msgDiv.dataset.phase = groupPhase;
@@ -720,12 +713,7 @@ export function addMessageElement(msg: any, changedFiles?: string[]) {
     }
 
     if (role === 'tool') {
-        let toolInfo: any;
-        try {
-            toolInfo = JSON.parse(content);
-        } catch {
-            toolInfo = { title: content, kind: '', status: '', output: '' };
-        }
+        const toolInfo = Object.assign({}, msg.toolResult, msg.toolCall);
         const msgDiv = document.createElement('div');
         msgDiv.className = 'chat-msg tool';
         msgDiv.dataset.msgId = msg.id;

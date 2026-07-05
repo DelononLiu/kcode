@@ -24,7 +24,7 @@ const plugin: KCodePlugin = {
             store.addTask(newTask);
             const newId = newTask.id;
             for (const msg2 of messages) {
-                store.addMessage({ id: store.nextMessageId(newId), taskId: newId, role: msg2.role, content: msg2.content, type: msg2.type, timestamp: msg2.timestamp });
+                store.addMessage({ id: store.nextMessageId(newId), taskId: newId, role: msg2.role, content: msg2.content, type: msg2.type as any, timestamp: msg2.timestamp });
             }
             vscode.commands.executeCommand('kcode.selectTask', newId);
         });

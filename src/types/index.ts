@@ -87,6 +87,7 @@ export interface Task {
     archived?: boolean;
     containerId?: string;
     hooks?: Partial<Record<Phase, string[]>>;
+    planVersion?: number;
 
     source?: TaskSource;
     sessionId?: string;  // ACP session (Agent 层字段, 过渡期保留)

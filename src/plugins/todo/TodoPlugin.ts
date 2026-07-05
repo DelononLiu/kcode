@@ -14,7 +14,7 @@ const plugin: KCodePlugin = {
             const raw = parseTodosFromOutput(info.output);
             if (raw.length === 0) return;
             const messages = store.getMessages(taskId);
-            const existingTodoMsgs = messages.filter((m: any) => m.type === 'todo');
+            const existingTodoMsgs = messages.filter((m: any) => m.type === 'todo' as any);
             const items: TodoItem[] = raw.map((r: any, idx: number) => ({
                 id: String(r.id ?? idx),
                 content: String(r.content || ''),
@@ -22,7 +22,7 @@ const plugin: KCodePlugin = {
             }));
             if (existingTodoMsgs.length > 0) {
                 const last = existingTodoMsgs[existingTodoMsgs.length - 1];
-                const existing: TodoItem[] = JSON.parse(last.content || '[]');
+                const existing: TodoItem[] = JSON.parse(last.toolResult?.output || last.content || '[]');
                 const merged = [...existing];
                 for (const item of items) {
                     const idx2 = merged.findIndex((i: TodoItem) => i.id === item.id);
@@ -32,7 +32,7 @@ const plugin: KCodePlugin = {
                 store.updateMessageContent(taskId, last.id, JSON.stringify(merged));
             } else {
                 const msgId = store.nextMessageId(taskId);
-                store.addMessage({ id: msgId, taskId, role: 'agent', type: 'todo', content: JSON.stringify(items), timestamp: Date.now() });
+                store.addMessage({ id: msgId, taskId, role: 'agent', type: 'todo' as any, content: JSON.stringify(items), toolResult: { toolCallId: msgId, output: JSON.stringify(items) }, timestamp: Date.now() });
             }
             syncTodosToPlanSteps(store, taskId);
             api.getRouter().PostMessage({ type: 'loadMessages', messages: store.getMessages(taskId), taskId, taskPhase: store.getTask(taskId)?.phase, taskStatus: store.getTask(taskId)?.status });
@@ -47,20 +47,20 @@ const plugin: KCodePlugin = {
                 const toolCallId = msgId.slice(5);
                 targetMsg = messages.find((m: any) => {
                     if (m.type !== 'tool_call') return false;
-                    try { const info = JSON.parse(m.content); return info.toolCallId === toolCallId; } catch { return false; }
+                    try { const info = m.toolCall || JSON.parse(m.content); return info.toolCallId === toolCallId; } catch { return false; }
                 });
             }
             if (!targetMsg) return;
             try {
-                if (targetMsg.type === 'todo') {
-                    const items: TodoItem[] = JSON.parse(targetMsg.content || '[]');
+                if (targetMsg.type === 'todo' as any) {
+                    const items: TodoItem[] = JSON.parse(targetMsg.toolResult?.output || targetMsg.content || '[]');
                     const item = items.find((i: TodoItem) => i.id === itemId);
                     if (item) {
                         item.status = checked ? 'completed' : 'pending';
                         store.updateMessageContent(taskId, targetMsg.id, JSON.stringify(items));
                     }
                 } else if (targetMsg.type === 'tool_call') {
-                    const info = JSON.parse(targetMsg.content);
+                    const info = targetMsg.toolCall ? { ...targetMsg.toolCall, output: targetMsg.toolResult?.output || '' } : JSON.parse(targetMsg.content);
                     const rawOutput = info.output || '';
                     const todos = parseTodosFromOutput(rawOutput);
                     const idx = parseInt(itemId, 10);
@@ -107,16 +107,16 @@ function syncTodosToPlanSteps(store: any, taskId: string): void {
     const messages = store.getMessages(taskId);
     const itemsMap = new Map<string, TodoItem>();
     for (const msg of messages) {
-        if (msg.type === 'todo') {
+        if (msg.type === 'todo' as any) {
             try {
-                const items: TodoItem[] = JSON.parse(msg.content || '[]');
+                const items: TodoItem[] = JSON.parse(msg.toolResult?.output || msg.content || '[]');
                 for (const item of items) {
                     itemsMap.set(item.id, item);
                 }
             } catch {}
         } else if (msg.type === 'tool_call') {
             try {
-                const info = JSON.parse(msg.content);
+                const info = msg.toolCall ? { ...msg.toolCall, output: msg.toolResult?.output || '' } : JSON.parse(msg.content);
                 if (info.kind === 'todowrite' && info.output) {
                     const raw = parseTodosFromOutput(info.output);
                     for (let idx = 0; idx < raw.length; idx++) {

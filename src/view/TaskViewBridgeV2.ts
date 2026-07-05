@@ -3,10 +3,11 @@ import type { KCodePanelContext } from './PanelContext';
 import { StreamHandlerBase } from './stream/StreamHandlerBase';
 import type { AcpMessageHandler } from '../types';
 import { getCategory } from '../taskflow/templates';
+import type { TaskCategory, Phase } from '../types';
 
 function catLabel(category?: string): string {
     if (!category) return '';
-    return getCategory(category as any)?.label || category;
+    return getCategory(category as TaskCategory)?.label || category;
 }
 
 const _dbg = vscode.window.createOutputChannel('KCode Debug', { log: true });
@@ -37,7 +38,7 @@ export class TaskViewBridgeV2 {
                 goal: task.goal,
                 category: task.category || '',
                 categoryLabel: catLabel(task.category),
-                phase: (task as any)?.phase,
+                phase: task.phase,
                 phaseLabel: phaseLabels[task.phase] || task.phase,
                 status: task.status,
                 taskType: task.type,
@@ -46,7 +47,7 @@ export class TaskViewBridgeV2 {
             },
             confirmedItems: task.confirmedItems || [],
             planSteps: task.planSteps || [],
-            planVersion: (task as any).planVersion || 1,
+            planVersion: task.planVersion || 1,
             hooks: task.hooks || {},
             workspaceHooks: this.ctx.taskFlow['workspaceHooks'] || {},
         });
@@ -242,7 +243,7 @@ export class TaskViewBridgeV2 {
                             role: 'tool',
                             type: 'tool_call',
                             content: JSON.stringify({ toolCallId, title: tc.title, kind: tc.kind, status: tc.status, output: tc.output || '' }),
-                            phase: task?.phase,
+                            toolCall: { toolCallId, title: tc.title, kind: tc.kind, status: tc.status as 'running' | 'completed' | 'failed' },
                             timestamp: tc.eventTime || Date.now(),
                         } as any);
                     }
@@ -261,8 +262,8 @@ export class TaskViewBridgeV2 {
                             id: this._ctx.store.nextMessageId(this.tid),
                             taskId: this.tid,
                             role: 'agent',
+                            type: 'text',
                             content: cleanedText,
-                            phase: task?.phase,
                             timestamp: this._agentStartTime || Date.now(),
                         } as any);
                     }
@@ -277,10 +278,6 @@ export class TaskViewBridgeV2 {
                 const genResult = this._ctx.taskFlow.getGenResult(this.tid);
 
                 // 4. 存阶段确认卡片到 store（webview 不持久化，扩展端需要存储）
-                const _PHASE_TYPE: Record<string, string> = {
-                    goal: 'goal_confirmation', plan: 'plan_proposal', execute: 'execute_confirmation',
-                    self_verify: 'self_verify_confirmation', review: 'review_request',
-                };
                 const _shouldCard = (p: string) => {
                     if (task?.phase !== p) return false;
                     if (p === 'plan') return genResult.planProposed;
@@ -288,12 +285,13 @@ export class TaskViewBridgeV2 {
                     if (p === 'self_verify') return genResult.selfVerifyFinished;
                     return true; // goal, review
                 };
-                if (_shouldCard(task?.phase || '') && _PHASE_TYPE[task?.phase || '']) {
+                if (_shouldCard(task?.phase || '')) {
                     const cid = this._ctx.store.nextMessageId(this.tid);
                     this._ctx.store.addMessage({
                         id: cid, taskId: this.tid, role: 'agent',
-                        type: _PHASE_TYPE[task?.phase || ''] as any,
-                        content: '', phase: task?.phase,
+                        type: 'phase_action',
+                        content: '',
+                        phaseAction: { phase: task?.phase as Phase, status: 'pending' },
                         timestamp: Date.now(),
                     } as any);
                 }

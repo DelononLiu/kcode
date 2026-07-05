@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 import type { KCodePanelContext } from './PanelContext';
-import type { Task, FileChange, ProgressNode, PlanStep } from '../types';
+import type { Task, FileChange, ProgressNode, PlanStep, TaskCategory, KnowledgeEntry } from '../types';
 import { getCategory } from '../taskflow/templates';
 import { taskLogStore } from '../store/TaskLogStore';
 
 function catLabel(category?: string): string {
     if (!category) return '';
-    return getCategory(category as any)?.label || category;
+    return getCategory(category as TaskCategory)?.label || category;
 }
 
 export class TaskFlowHandler {
@@ -121,7 +121,7 @@ export class TaskFlowHandler {
         if (!tid) return;
         ctx.setGenerationState(false);
         ctx.agentService.cancel(tid);
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', type: 'stop_message' as any, content: '⏹️ 用户已停止生成', timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(tid), taskId: tid, role: 'agent', type: 'text', content: '⏹️ 用户已停止生成', timestamp: Date.now() });
         const partialText = ctx.taskFlow.getCleanText(tid);
         if (partialText) {
             const id = ctx.store.nextMessageId(tid);
@@ -174,7 +174,7 @@ export class TaskFlowHandler {
             },
             confirmedItems: task?.confirmedItems || [],
             planSteps: task?.planSteps || [],
-            planVersion: (task as any)?.planVersion || 1,
+            planVersion: task?.planVersion || 1,
             hooks: task?.hooks || {},
             workspaceHooks: ctx.taskFlow['workspaceHooks'] || {},
         });
@@ -190,13 +190,11 @@ export class TaskFlowHandler {
         const results: FileChange[] = [];
         for (const msg of msgs) {
             if (msg.role !== 'tool' || msg.type !== 'tool_call') continue;
-            try {
-                const info = JSON.parse(msg.content);
-                if (info.kind === 'write' || info.kind === 'edit') {
-                    const path2 = info.title || '';
-                    if (path2 && !touched.has(path2)) { touched.set(path2, ''); results.push({ filePath: path2, original: '', modified: info.output || '' }); }
-                }
-            } catch {}
+            const info = getToolCallInfo(msg);
+            if (info.kind === 'write' || info.kind === 'edit') {
+                const path2 = info.title || '';
+                if (path2 && !touched.has(path2)) { touched.set(path2, ''); results.push({ filePath: path2, original: '', modified: info.output || '' }); }
+            }
         }
         return results;
     }
@@ -232,7 +230,7 @@ export class TaskFlowHandler {
             },
             confirmedItems: task?.confirmedItems || [],
             planSteps: task?.planSteps || [],
-            planVersion: (task as any)?.planVersion || 1,
+            planVersion: task?.planVersion || 1,
         });
         ctx.sendMessagesSync?.(tid);
         this.sendTaskInfo(tid);
@@ -268,7 +266,7 @@ export class TaskFlowHandler {
                 },
                 confirmedItems: t?.confirmedItems || [],
                 planSteps: t?.planSteps || [],
-                planVersion: (t as any)?.planVersion || 1,
+                planVersion: t?.planVersion || 1,
             });
             ctx.sendMessagesSync?.(tid);
             this.sendTaskInfo(tid);
@@ -307,13 +305,11 @@ export class TaskFlowHandler {
         const filePathsFromTools: string[] = [];
         for (const msg of messages) {
             if (msg.type === 'tool_call') {
-                try {
-                    const info = JSON.parse(msg.content);
-                    if ((info.kind === 'write' || info.kind === 'edit') && info.title) {
-                        const fp = info.title.replace(/^(write|edit)\s+/i, '').trim();
-                        if (fp && !filePathsFromTools.includes(fp)) filePathsFromTools.push(fp);
-                    }
-                } catch {}
+                const info = getToolCallInfo(msg);
+                if ((info.kind === 'write' || info.kind === 'edit') && info.title) {
+                    const fp = info.title.replace(/^(write|edit)\s+/i, '').trim();
+                    if (fp && !filePathsFromTools.includes(fp)) filePathsFromTools.push(fp);
+                }
             }
         }
 
@@ -322,7 +318,7 @@ export class TaskFlowHandler {
             status: task.status, phase: task.phase,             phaseLabel: phaseLabels[task.phase] || task.phase,
             taskType: task.type, category: task.category, categoryLabel: catLabel(task.category), createdAt: task.createdAt, originalRequest: task.originalRequest || '', pendingReviewFiles: 0,
             confirmedItems: task.confirmedItems, pendingItems: task.pendingItems, planSteps: task.planSteps,
-            planVersion: (task as any).planVersion || 1,
+            planVersion: task.planVersion || 1,
             riskItems: task.riskItems || [],
             boundaryItems: task.boundaryItems || [],
             filePathsFromTools: filePathsFromTools,
@@ -350,21 +346,19 @@ export class TaskFlowHandler {
         }
 
         for (const msg of messages) {
-            if ((msg as any).type === 'todo') {
+            if ((msg.type as string) === 'todo') {
                 try { todos.push(...JSON.parse(msg.content || '[]')); } catch {}
             } else if (msg.type === 'tool_call') {
-                try {
-                    const info = JSON.parse(msg.content);
-                    if (info.kind === 'todowrite' && info.output) {
-                        const raw = parseTodosFromOutput(info.output);
-                        for (let idx = 0; idx < raw.length; idx++) {
-                            todos.push({ id: String(idx), content: String(raw[idx].content || ''), status: raw[idx].status === 'completed' ? 'completed' : 'pending' });
-                        }
-                    } else if (info.toolCallId && !seenToolCalls.has(info.toolCallId)) {
-                        seenToolCalls.add(info.toolCallId);
-                        toolCalls.push({ toolCallId: info.toolCallId, title: info.title || '', kind: info.kind || '', status: info.status || '', output: info.output || '' });
+                const info = getToolCallInfo(msg);
+                if (info.kind === 'todowrite' && info.output) {
+                    const raw = parseTodosFromOutput(info.output);
+                    for (let idx = 0; idx < raw.length; idx++) {
+                        todos.push({ id: String(idx), content: String(raw[idx].content || ''), status: raw[idx].status === 'completed' ? 'completed' : 'pending' });
                     }
-                } catch {}
+                } else if (info.toolCallId && !seenToolCalls.has(info.toolCallId)) {
+                    seenToolCalls.add(info.toolCallId);
+                    toolCalls.push({ toolCallId: info.toolCallId, title: info.title || '', kind: info.kind || '', status: info.status || '', output: info.output || '' });
+                }
             }
         }
         const task = ctx.store.getTask(taskId);
@@ -403,7 +397,7 @@ export class TaskFlowHandler {
             },
             confirmedItems: task?.confirmedItems || [],
             planSteps: task?.planSteps || [],
-            planVersion: (task as any)?.planVersion || 1,
+            planVersion: task?.planVersion || 1,
         });
         ctx.sendMessagesSync?.(taskId);
     }
@@ -416,8 +410,8 @@ export class TaskFlowHandler {
         const phase = task.phase;
         const s = task.status;
         const hasGoal = !!task.goal;
-        const hasConfirmedGoal = msgs.some(m => (m as any).type === 'goal_confirmed') || ['plan', 'execute', 'self_verify', 'review'].includes(phase);
-        const hasReviewRequest = msgs.some(m => (m as any).type === 'review_request');
+        const hasConfirmedGoal = msgs.some(m => (m.type as string) === 'goal_confirmed') || ['plan', 'execute', 'self_verify', 'review'].includes(phase);
+        const hasReviewRequest = msgs.some(m => (m.type as string) === 'review_request');
         const hasPlan = this.ctx.taskFlow.getPlanEntries(taskId).length > 0 || ['execute', 'self_verify', 'review'].includes(phase);
         const hasSelfVerify = ['review', 'self_verify'].includes(phase);
 
@@ -459,7 +453,7 @@ export class TaskFlowHandler {
         const itemsMap = new Map<string, { id: string; content: string; status: string }>();
 
         for (const msg of messages) {
-            if ((msg as any).type === 'todo') {
+            if ((msg.type as string) === 'todo') {
                 try {
                     const items: { id: string; content: string; status: string }[] = JSON.parse(msg.content || '[]');
                     for (const item of items) {
@@ -467,20 +461,18 @@ export class TaskFlowHandler {
                     }
                 } catch {}
             } else if (msg.type === 'tool_call') {
-                try {
-                    const info = JSON.parse(msg.content);
-                    if (info.kind === 'todowrite' && info.output) {
-                        const raw = parseTodosFromOutput(info.output);
-                        for (let idx = 0; idx < raw.length; idx++) {
-                            const id = String(raw[idx].id ?? idx);
-                            itemsMap.set(id, {
-                                id,
-                                content: String(raw[idx].content || ''),
-                                status: raw[idx].status === 'completed' ? 'completed' : 'pending',
-                            });
-                        }
+                const info = getToolCallInfo(msg);
+                if (info.kind === 'todowrite' && info.output) {
+                    const raw = parseTodosFromOutput(info.output);
+                    for (let idx = 0; idx < raw.length; idx++) {
+                        const id = String(raw[idx].id ?? idx);
+                        itemsMap.set(id, {
+                            id,
+                            content: String(raw[idx].content || ''),
+                            status: raw[idx].status === 'completed' ? 'completed' : 'pending',
+                        });
                     }
-                } catch {}
+                }
             }
         }
 
@@ -496,7 +488,7 @@ export class TaskFlowHandler {
     handleTodoUpdate(taskId: string, items: { id: string; content: string; status: string }[], action: string) {
         const { ctx } = this;
         const messages = ctx.store.getMessages(taskId);
-        const existingTodoMsgs = messages.filter(m => m.type === 'todo' as any);
+        const existingTodoMsgs = messages.filter(m => (m.type as string) === 'todo');
 
         if (action === 'replace') {
             const msgId = ctx.store.nextMessageId(taskId);
@@ -532,7 +524,7 @@ export class TaskFlowHandler {
     handleKnowledgeEntry(taskId: string, entries: { id: string; type: string; title: string; content: string; tags: string[]; createdAt: number }[]) {
         const { ctx } = this;
         for (const entry of entries) {
-            ctx.store.addKnowledgeEntry(taskId, { ...entry, taskId } as any);
+            ctx.store.addKnowledgeEntry(taskId, { ...entry, taskId } as KnowledgeEntry);
         }
         const titles = entries.map(e => e.title).join('、');
         ctx.store.addTimelineEntry(taskId, { timestamp: Date.now(), type: 'knowledge_extract', summary: `萃取知识: ${titles.substring(0, 80)}`, detail: `共 ${entries.length} 条知识条目` });
@@ -553,10 +545,21 @@ export class TaskFlowHandler {
             workspace: vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath,
         };
         ctx.store.addTask(newTask);
-        ctx.store.addMessage({ id: ctx.store.nextMessageId(parentTaskId), taskId: parentTaskId, role: 'agent', type: 'stop_message' as any, content: `📤 已委派新任务「${payload.title}」`, timestamp: Date.now() });
+        ctx.store.addMessage({ id: ctx.store.nextMessageId(parentTaskId), taskId: parentTaskId, role: 'agent', type: 'text', content: `📤 已委派新任务「${payload.title}」`, timestamp: Date.now() });
         ctx.router.PostMessage({ type: 'addSystemMessage', content: `📤 已委派新任务「${payload.title}」`, taskId: parentTaskId });
         ctx.refreshSidebarCallback?.();
     }
+}
+
+/**
+ * Get tool call info from a message, supporting both the new structured field
+ * (msg.toolCall) and the legacy JSON-string content fallback.
+ */
+function getToolCallInfo(msg: { toolCall?: { toolCallId: string; title: string; kind: string; status: string }; toolResult?: { output: string }; content: string }): { toolCallId?: string; title?: string; kind?: string; status?: string; output?: string } {
+    if (msg.toolCall) {
+        return { ...msg.toolCall, output: msg.toolResult?.output || '' };
+    }
+    try { return JSON.parse(msg.content); } catch { return {}; }
 }
 
 function parseTodosFromOutput(output: string): any[] {
