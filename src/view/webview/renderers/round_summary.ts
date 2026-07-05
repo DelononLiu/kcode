@@ -15,14 +15,22 @@ export function renderRoundSummary(msg: Message, sm: MsgStateAccess): HTMLElemen
         const st = sm.snapshot();
         const cur = st.messages.find(m => m.id === msg.id);
         const targetCollapsed = !(cur?.collapsed);
+        const roundGroup = (msg as any).roundGroup;
         const toggled = st.messages.map(m => {
             if (m.id === msg.id) return { ...m, collapsed: targetCollapsed };
-            if (m.roundGroup === (msg as any).roundGroup && m.type !== 'round_summary' && !isNonCollapsible(m) && 'collapsed' in (m as any)) {
+            if (m.roundGroup === roundGroup && m.type !== 'round_summary' && !isNonCollapsible(m) && 'collapsed' in (m as any)) {
                 return { ...m, collapsed: targetCollapsed };
             }
             return m;
         });
-        sm.patch({ messages: toggled });
+        // 更新 expandedRounds 以持久化展开/折叠状态，供 _collapseAllRounds 后续使用
+        const expandedRounds = { ...(st.expandedRounds || {}) };
+        if (targetCollapsed) {
+            delete expandedRounds[roundGroup];
+        } else {
+            expandedRounds[roundGroup] = true;
+        }
+        sm.patch({ messages: toggled, expandedRounds });
     });
     return div;
 }

@@ -8,8 +8,8 @@ import type { Message } from './types';
 
 // ── 轻量状态接口（避免依赖具体 StateManager 实现）──
 export interface MsgStateAccess {
-    snapshot(): { messages: Message[]; activeTaskId?: string | null };
-    patch(delta: { messages: Message[] }): void;
+    snapshot(): { messages: Message[]; activeTaskId?: string | null; expandedRounds?: Record<string, boolean> };
+    patch(delta: { messages: Message[]; expandedRounds?: Record<string, boolean> }): void;
 }
 
 // ── 不可折叠消息类型 ──
