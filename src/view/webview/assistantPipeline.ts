@@ -9,6 +9,8 @@ import { createMsgElement, updateMsgElement, setMsgPostAction } from './taskv3/m
 import type { Message } from './taskv3/types';
 import { getChatMessages, getChatScroll } from './domContainers';
 import { G } from './state';
+import { handleStreamChunk, handleStreamDone, handleThinkingChunk, handleToolChunk } from './streamHandler';
+import type { StreamStateAccess } from './streamHandler';
 
 // ── 助理专用 StateManager ──
 let _asstSm: StateManager | null = null;
@@ -44,25 +46,49 @@ export function initAssistantPipeline() {
     window.addEventListener('message', (event) => {
         const msg = event.data;
         if (!msg || !msg.type) return;
+        if (!_asstSm) return;
         const v3Types = ['stream-chunk', 'stream-done', 'thinking-chunk', 'tool-chunk'];
         if (!v3Types.includes(msg.type)) return;
 
         // 过滤任务消息（有 taskId 的由 renderManager 处理）
         if (msg.taskId) return;
 
+        const mgr = _asstSm; // local const for type narrowing in closures
+
         switch (msg.type) {
-            case 'stream-chunk':
-                streamAssistantMessage(msg.text);
+            case 'stream-chunk': {
+                G._userScrolledUp = false;
+                const sm: StreamStateAccess = {
+                    state: mgr.state,
+                    patch: (d) => mgr.patch({ ...d, msgVersion: ++_lastMsgVersion }),
+                };
+                handleStreamChunk(msg.text, sm);
                 break;
-            case 'stream-done':
-                finishAssistantStream();
+            }
+            case 'stream-done': {
+                const sm: StreamStateAccess = {
+                    state: mgr.state,
+                    patch: (d) => mgr.patch({ ...d, msgVersion: ++_lastMsgVersion }),
+                };
+                handleStreamDone(sm);
                 break;
-            case 'thinking-chunk':
-                _handleThinkingChunk(msg);
+            }
+            case 'thinking-chunk': {
+                const sm: StreamStateAccess = {
+                    state: mgr.state,
+                    patch: (d) => mgr.patch({ ...d, msgVersion: ++_lastMsgVersion }),
+                };
+                handleThinkingChunk(msg, sm);
                 break;
-            case 'tool-chunk':
-                _handleToolChunk(msg);
+            }
+            case 'tool-chunk': {
+                const sm: StreamStateAccess = {
+                    state: mgr.state,
+                    patch: (d) => mgr.patch({ ...d, msgVersion: ++_lastMsgVersion }),
+                };
+                handleToolChunk(msg, sm);
                 break;
+            }
         }
     });
 }
@@ -70,33 +96,24 @@ export function initAssistantPipeline() {
 /** 流式更新当前 agent 消息（累积追加文本） */
 export function streamAssistantMessage(text: string) {
     if (!_asstSm) return;
-    const st = _asstSm.snapshot();
-    let streamIdx = st.messages.findIndex(m => m.role === 'agent' && m.streaming);
-    if (streamIdx < 0) {
-        G._userScrolledUp = false;
-        st.messages.push({
-            id: 'msg_' + Date.now(),
-            taskId: '',
-            role: 'agent',
-            type: 'text',
-            content: '',
-            timestamp: Date.now(),
-            streaming: true,
-            collapsed: false,
-            roundGroup: null,
-        });
-    }
-    st.messages[streamIdx] = { ...st.messages[streamIdx], content: text };
-    _asstSm.patch({ messages: st.messages, msgVersion: ++_lastMsgVersion });
+    const mgr = _asstSm;
+    G._userScrolledUp = false;
+    const sm: StreamStateAccess = {
+        state: mgr.state,
+        patch: (d) => mgr.patch({ ...d, msgVersion: ++_lastMsgVersion }),
+    };
+    handleStreamChunk(text, sm);
 }
 
 /** 流式结束，取消 streaming 标记 */
 export function finishAssistantStream() {
     if (!_asstSm) return;
-    const msgs = _asstSm.state.messages.map(m =>
-        m.streaming ? { ...m, streaming: false } : m
-    );
-    _asstSm.patch({ messages: msgs, msgVersion: ++_lastMsgVersion });
+    const mgr = _asstSm;
+    const sm: StreamStateAccess = {
+        state: mgr.state,
+        patch: (d) => mgr.patch({ ...d, msgVersion: ++_lastMsgVersion }),
+    };
+    handleStreamDone(sm);
 }
 
 /** 添加工具调用/思考消息 */
@@ -162,90 +179,6 @@ export function getAssistantStateManager(): StateManager | null {
 }
 
 // ── 内部实现 ──
-
-function _handleStreamChunk(text: string) {
-    if (!_asstSm) return;
-    const msgs = [..._asstSm.state.messages];
-    let streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
-    if (streamIdx < 0) {
-        G._userScrolledUp = false;
-        const newMsg: Message = {
-            id: 'msg_' + Date.now(),
-            taskId: '',
-            role: 'agent',
-            type: 'text',
-            content: '',
-            timestamp: Date.now(),
-            streaming: true,
-            collapsed: false,
-            roundGroup: null,
-        };
-        msgs.push(newMsg);
-        streamIdx = msgs.length - 1;
-    }
-    msgs[streamIdx] = { ...msgs[streamIdx], content: text };
-    _asstSm.patch({ messages: msgs });
-}
-
-function _handleStreamDone() {
-    if (!_asstSm) return;
-    const msgs = _asstSm.state.messages.map(m =>
-        m.streaming ? { ...m, streaming: false } : m
-    );
-    _asstSm.patch({ messages: msgs });
-}
-
-function _handleThinkingChunk(msg: { text: string; status: string }) {
-    if (!_asstSm) return;
-    const msgs = [..._asstSm.state.messages];
-    const now = Date.now();
-    const existingIdx = msgs.findIndex(m => m.type === 'thinking' && m.streaming);
-    if (existingIdx >= 0) {
-        msgs[existingIdx] = { ...msgs[existingIdx], content: msg.text, streaming: msg.status !== 'completed' };
-    } else {
-        msgs.push({
-            id: 'thinking_' + now,
-            taskId: '',
-            role: 'agent',
-            type: 'thinking',
-            content: msg.text,
-            timestamp: now,
-            streaming: msg.status !== 'completed',
-            collapsed: false,
-            roundGroup: null,
-        });
-    }
-    _asstSm.patch({ messages: msgs });
-}
-
-function _handleToolChunk(msg: { toolCallId: string; title: string; kind: string; status: string; content: string }) {
-    if (!_asstSm) return;
-    const msgs = [..._asstSm.state.messages];
-    const toolContent = JSON.stringify({
-        toolCallId: msg.toolCallId,
-        title: msg.title,
-        kind: msg.kind,
-        status: msg.status,
-        output: msg.content,
-    });
-    const existingIdx = msgs.findIndex(m => m.type === 'tool_call' && m.content && m.content.includes(msg.toolCallId));
-    if (existingIdx >= 0) {
-        msgs[existingIdx] = { ...msgs[existingIdx], content: toolContent };
-    } else {
-        msgs.push({
-            id: 'tool_' + msg.toolCallId,
-            taskId: '',
-            role: 'tool',
-            type: 'tool_call',
-            content: toolContent,
-            timestamp: Date.now(),
-            streaming: false,
-            collapsed: false,
-            roundGroup: null,
-        });
-    }
-    _asstSm.patch({ messages: msgs });
-}
 
 /** 渲染所有消息到 DOM */
 function _renderAll(messages: Message[]) {
