@@ -1,12 +1,12 @@
-import type { Message, ToolCallState } from './types';
+import type { Message } from './types';
 import { renderMarkdown } from '../markdownRenderer';
 import { createCard } from '../cardBuilder';
 import { appendToChatMessages } from '../chatStream';
-import { renderCardForMessage, renderCardActions, renderCardStatus, postAction } from './cardRenderer';
+import { renderCardActions, renderCardStatus, postAction } from './cardRenderer';
 import { stateManager } from './state';
 import { createTimelineEntry } from '../timelineRenderer';
 import { getChatScroll } from '../domContainers';
-import { buildSummaryHtml, isNonCollapsible } from './msgRenderer';
+import { buildSummaryHtml } from './msgRenderer';
 
 function getContainer(): HTMLElement | null {
     return document.querySelector('#task-view #chat-messages') || null;
@@ -122,16 +122,9 @@ function renderMessageList(messages: Message[]) {
 }
 
 function _appendMessage(msg: Message, _container: HTMLElement) {
-    // cardMeta 优先（新结构）
-    if (msg.cardMeta) {
+    // phase_action 消息（新结构）
+    if (msg.type === 'phase_action' && msg.phaseAction) {
         _appendCardMetaMessage(msg, _container);
-        return;
-    }
-    // 老路径（type 字段判断，兼容 messages-sync 来的旧消息）
-    if (msg.type && ['goal_confirmation', 'goal_confirmed', 'plan_proposal', 'plan_confirmed',
-        'execute_confirmation', 'self_verify_confirmation',
-        'review_request', 'review_approved', 'review_rejected'].includes(msg.type)) {
-        renderCardForMessage(msg, msg.phase || '');
         return;
     }
     // round summary：可点击的折叠摘要条
@@ -166,7 +159,7 @@ function _renderThinkingMessage(msg: Message) {
     const div = document.createElement('div');
     div.className = 'chat-msg tool';
     div.dataset.msgId = msg.id;
-    if (msg.phase) div.dataset.phase = msg.phase;
+    if (msg.phaseAction?.phase) div.dataset.phase = msg.phaseAction.phase;
     div.appendChild(entry);
     if (msg.collapsed) div.style.display = 'none';
     appendToChatMessages(div);
@@ -175,11 +168,12 @@ function _renderThinkingMessage(msg: Message) {
 /** 渲染 round summary 为可点击折叠条 */
 function _renderRoundSummary(msg: Message) {
     let counts: { thinking: number; tools: Record<string, number> };
+    // JSON.parse 保留：round_summary 的 content 本就是 JSON.stringify({thinking, tools}) 的结果
     try { counts = JSON.parse(msg.content); } catch { return; }
     const div = document.createElement('div');
     div.className = 'chat-msg agent round-summary';
     div.dataset.msgId = msg.id;
-    if (msg.phase) div.dataset.phase = msg.phase;
+    if (msg.phaseAction?.phase) div.dataset.phase = msg.phaseAction.phase;
     div.innerHTML = `<span class="round-summary-chip">${buildSummaryHtml(counts)}</span>`;
     div.addEventListener('click', () => {
         const st = stateManager.snapshot();
@@ -187,7 +181,7 @@ function _renderRoundSummary(msg: Message) {
         const targetCollapsed = !(cur?.collapsed);
         const toggled = st.messages.map(m => {
             if (m.id === msg.id) return { ...m, collapsed: targetCollapsed };
-            if (m.roundGroup === msg.roundGroup && m.type !== 'round_summary' && !m.cardMeta && 'collapsed' in (m as any)) {
+            if (m.roundGroup === msg.roundGroup && m.type !== 'round_summary' && m.type !== 'phase_action' && 'collapsed' in (m as any)) {
                 return { ...m, collapsed: targetCollapsed };
             }
             return m;
@@ -200,9 +194,9 @@ function _renderRoundSummary(msg: Message) {
 // ── cardMeta 消息渲染 ──
 
 function _appendCardMetaMessage(msg: Message, _container: HTMLElement) {
-    const phase = msg.phase || msg.cardMeta?.type || '';
-    const isPending = msg.cardMeta?.status === 'pending';
-    const type = msg.cardMeta?.type;
+    const phase = msg.phaseAction?.phase || '';
+    const isPending = msg.phaseAction?.status === 'pending';
+    const type = msg.phaseAction?.phase;
 
     const headerMap: Record<string, string> = {
         goal: '🎯 任务目标', plan: '📋 计划方案', execute: '⚡ 执行完成',
@@ -238,7 +232,7 @@ function _appendCardMetaMessage(msg: Message, _container: HTMLElement) {
 
 function _appendCardActions(card: HTMLElement, msg: Message) {
     const tid = msg.taskId;
-    const type = msg.cardMeta?.type;
+    const type = msg.phaseAction?.phase;
     const actions: { text: string; className: string; onClick: () => void }[] = [];
 
     switch (type) {
@@ -276,8 +270,8 @@ function _appendCardActions(card: HTMLElement, msg: Message) {
 }
 
 function _cardStatusText(msg: Message): string {
-    const type = msg.cardMeta?.type;
-    const status = msg.cardMeta?.status;
+    const type = msg.phaseAction?.phase;
+    const status = msg.phaseAction?.status;
     if (status === 'confirmed') return '✅ 已确认';
     if (status === 'rejected') return '↩️ 已驳回';
     return '⏳ 已完成';
@@ -300,7 +294,7 @@ function _renderUserMessage(msg: Message) {
     const div = document.createElement('div');
     div.className = 'chat-msg user';
     div.dataset.msgId = msg.id;
-    if (msg.phase) div.dataset.phase = msg.phase;
+    if (msg.phaseAction?.phase) div.dataset.phase = msg.phaseAction.phase;
 
     const sender = document.createElement('div');
     sender.className = 'msg-sender';
@@ -319,7 +313,7 @@ function _renderAgentMessage(msg: Message, _streaming?: boolean) {
     const div = document.createElement('div');
     div.className = 'chat-msg agent';
     div.dataset.msgId = msg.id;
-    if (msg.phase) div.dataset.phase = msg.phase;
+    if (msg.phaseAction?.phase) div.dataset.phase = msg.phaseAction.phase;
 
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
@@ -333,8 +327,8 @@ function _renderAgentMessage(msg: Message, _streaming?: boolean) {
 function _renderToolMessage(msg: Message) {
     if (msg.type !== 'tool_call') return;
 
-    let info: any;
-    try { info = JSON.parse(msg.content); } catch { return; }
+    const info = msg.toolCall;
+    if (!info) return;
 
     const entry = createTimelineEntry(info);
     const body = entry.querySelector('.tl-entry-body');
@@ -342,7 +336,7 @@ function _renderToolMessage(msg: Message) {
     const div = document.createElement('div');
     div.className = 'chat-msg tool';
     div.dataset.msgId = msg.id;
-    if (msg.phase) div.dataset.phase = msg.phase;
+    if (msg.phaseAction?.phase) div.dataset.phase = msg.phaseAction.phase;
     div.appendChild(entry);
     if (msg.collapsed) div.style.display = 'none';
     appendToChatMessages(div);
