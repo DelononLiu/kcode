@@ -114,7 +114,7 @@ export function createMsgElement(msg: Message, sm: MsgStateAccess): HTMLElement 
             headerColor: '#e0e0e0',
         });
         if (isPending) {
-            _appendPhaseActionsToCard(card, msg);
+            appendPhaseActionsToCard(card, msg);
         } else {
             const statusEl = document.createElement('div');
             statusEl.className = 'msg-card-status';
@@ -245,7 +245,7 @@ let _streamRafPending = false;
 
 // ── phase_action 操作按钮 ──
 
-function _appendPhaseActionsToCard(card: HTMLElement, msg: Message) {
+export function appendPhaseActionsToCard(card: HTMLElement, msg: Message) {
     const tid = msg.taskId;
     const type = msg.phaseAction?.phase;
     const actions: { text: string; className: string; onClick: () => void }[] = [];
