@@ -341,7 +341,7 @@ function initMessageHandler() {
                 } else if (!message.taskId || message.taskId === G.activeTaskId) {
                     const st = stateManager.snapshot();
                     const msgs = [...st.messages];
-                    msgs.push({
+                    const newMsg = {
                         id: 'msg_' + Date.now(),
                         taskId: st.activeTaskId || '',
                         role: 'agent' as const,
@@ -351,7 +351,10 @@ function initMessageHandler() {
                         streaming: false,
                         collapsed: false,
                         roundGroup: null,
-                    });
+                    };
+                    const streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
+                    if (streamIdx >= 0) msgs.splice(streamIdx, 0, newMsg);
+                    else msgs.push(newMsg);
                     stateManager.patch({ messages: msgs });
                 }
                 break;
@@ -383,7 +386,7 @@ function initMessageHandler() {
                         const lastMsg = st.messages[st.messages.length - 1];
                         if (lastMsg?.role === 'user' && lastMsg.content === message.content) break;
                         const msgs = [...st.messages];
-                        msgs.push({
+                        const newMsg = {
                             id: 'user_' + Date.now(),
                             taskId: st.activeTaskId || '',
                             role: 'user' as const,
@@ -393,7 +396,11 @@ function initMessageHandler() {
                             streaming: false,
                             collapsed: false,
                             roundGroup: null,
-                        });
+                        };
+                        // 插入到流式消息之前，避免用户消息被推到末尾
+                        const streamIdx = msgs.findIndex(m => m.role === 'agent' && m.streaming);
+                        if (streamIdx >= 0) msgs.splice(streamIdx, 0, newMsg);
+                        else msgs.push(newMsg);
                         stateManager.patch({ messages: msgs });
                     }
                 }
