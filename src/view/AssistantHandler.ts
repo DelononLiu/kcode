@@ -353,6 +353,7 @@ export class AssistantHandler {
                     ? `\n\n**错误详情**: ${this.agentService.lastError}`
                     : '';
                 this.router.PostMessage({ type: 'agentStreamUpdate', text: `\n\n---\n⚠️ **Agent 未连接**${errDetail}\n\n\`👉 在 KCode 侧边栏底部齿轮图标 → 设置 → Agent 配置 中检查 agentName\`\n---` });
+                this.router.PostMessage({ type: 'stream-done' });
                 return;
             }
         }
