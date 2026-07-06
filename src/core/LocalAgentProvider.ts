@@ -1,15 +1,5 @@
-import { StateGraph, Annotation, MessagesAnnotation } from '@langchain/langgraph';
-import { ChatOpenAI } from '@langchain/openai';
 import { StreamAdapter } from './StreamAdapter';
 import type { AcpMessageHandler } from '../types';
-
-const GraphState = Annotation.Root({
-    messages: MessagesAnnotation.spec.messages,
-    phase: Annotation<string>({
-        reducer: (a: string, b: string) => b,
-        default: () => 'goal',
-    }),
-});
 
 export class LocalAgentProvider {
     private app: any;
@@ -21,6 +11,18 @@ export class LocalAgentProvider {
     }
 
     async compile() {
+        // 动态加载 LangGraph（非 ACP 用户不需要安装 @langchain/langgraph）
+        const { StateGraph, Annotation, MessagesAnnotation } = await import('@langchain/langgraph');
+        const { ChatOpenAI } = await import('@langchain/openai');
+
+        const GraphState = Annotation.Root({
+            messages: MessagesAnnotation.spec.messages,
+            phase: Annotation<string>({
+                reducer: (a: string, b: string) => b,
+                default: () => 'goal',
+            }),
+        });
+
         const llm = new ChatOpenAI({
             model: this.config.model,
             apiKey: this.config.apiKey,
