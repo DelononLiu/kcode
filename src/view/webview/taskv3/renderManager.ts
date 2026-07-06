@@ -80,6 +80,8 @@ export function initTaskV3() {
         if (message.taskId && message.taskId !== stateManager.state.activeTaskId) {
             const streamingTypes = ['stream-chunk', 'stream-done', 'thinking-chunk', 'tool-chunk'];
             if (streamingTypes.includes(message.type)) return;
+            // messages-sync 也按 taskId 过滤，避免旧任务消息覆盖当前任务
+            if (message.type === 'messages-sync') return;
         }
 
         switch (message.type) {

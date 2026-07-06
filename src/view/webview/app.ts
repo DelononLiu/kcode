@@ -326,6 +326,8 @@ function initMessageHandler() {
                 G.activeTaskId = message.taskId;
                 G.activeTaskStatus = message.taskStatus || '';
                 G.activeTaskType = message.taskType || '';
+                // 同步更新 V3 state 的 activeTaskId，确保 messages-sync 过滤正确
+                stateManager.update({ activeTaskId: message.taskId } as any);
                 break;
             case 'showDiff':
                 if ((window as any).showDiff) {
