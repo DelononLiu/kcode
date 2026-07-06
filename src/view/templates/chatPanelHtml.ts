@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { getInlineStyles } from './chatPanelCss';
 
 function escapeAttr(str: string): string {
@@ -299,4 +301,26 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 <script src="${scriptUri('device.bundle')}"></script>
 </body>
 </html>`;
+}
+
+/**
+ * 加载 React WebView（Vite 构建产物）
+ * 替换资源路径为 webview URI，适配 VS Code CSP
+ */
+export function getReactWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
+  const htmlPath = path.join(extensionUri.fsPath, 'out', 'view', 'webview-ui', 'index.html');
+  let html = fs.readFileSync(htmlPath, 'utf-8');
+
+  // 替换 assets/ 路径为 webview URI
+  html = html.replace(
+    /(src|href)=(["'])(\.\/assets\/)/g,
+    (_, attr, quote) => {
+      const uri = webview.asWebviewUri(
+        vscode.Uri.joinPath(extensionUri, 'out', 'view', 'webview-ui', 'assets/')
+      ).toString();
+      return `${attr}=${quote}${uri}`;
+    }
+  );
+
+  return html;
 }

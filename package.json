@@ -61,6 +61,7 @@
     "test": "tsc --noEmit && vitest run",
     "test:watch": "vitest",
     "lint": "eslint src --ext .ts",
+    "build:webview-ui": "cd src/webview-ui && npx vite build",
     "package": "npx @vscode/vsce package --allow-missing-repository",
     "build:install": "npm run package && code --install-extension kcode-0.2.0.vsix"
   },
