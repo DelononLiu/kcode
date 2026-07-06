@@ -88,7 +88,10 @@ export function initTaskV3() {
             case 'state-delta': {
                 const delta = message as unknown as StateDelta & { type: string };
                 stateManager.update(delta);
-                if (delta.activeTaskPhase) foldPhases(delta.activeTaskPhase);
+                if (delta.activeTaskPhase) {
+                    foldPhases(delta.activeTaskPhase);
+                    _ensurePhaseActionCard(delta.activeTaskPhase, stateManager.state.activeTaskId || '');
+                }
                 break;
             }
             case 'stream-chunk':
@@ -520,4 +523,10 @@ function handleMessagesSync(msg: { messages: import('../../../types').ChatMessag
     const collapsed = _collapseAllRounds(msg.messages as any[], stateManager.state.expandedRounds);
 
     stateManager.update({ messages: collapsed, msgVersion: version });
+
+    // 确保当前阶段的阶段卡片显示出来
+    const phase = stateManager.state.activeTaskPhase;
+    if (phase && ['goal', 'plan', 'execute', 'self_verify', 'review'].includes(phase)) {
+        _ensurePhaseActionCard(phase, stateManager.state.activeTaskId || '');
+    }
 }
