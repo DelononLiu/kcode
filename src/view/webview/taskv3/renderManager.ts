@@ -452,15 +452,11 @@ function _ensurePhaseActionCard(phase: string, taskId: string) {
         if (alreadyConfirmed) return;
     }
 
-    const phaseTypeMap: Record<string, string> = {
-        goal: 'goal_confirmation', plan: 'plan_proposal', execute: 'execute_confirmation',
-        self_verify: 'self_verify_confirmation', review: 'review_request',
-    };
     msgs.push({
         id: 'phase_' + phase + '_' + Date.now(),
         taskId,
         role: 'agent',
-        type: phaseTypeMap[phase] || 'text',
+        type: 'phase_action',
         content: '',
         timestamp: Date.now(),
         streaming: false,
